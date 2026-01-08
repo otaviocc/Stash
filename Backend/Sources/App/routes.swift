@@ -17,4 +17,7 @@ func routes(_ app: Application) throws {
         User.guardMiddleware(throwing: APIError.tokenInvalid)
     )
     try protected.register(collection: UserController())
+    try protected.register(collection: BookmarkController())
+    try protected.register(collection: TagController())
+    try protected.register(collection: MetadataController())
 }

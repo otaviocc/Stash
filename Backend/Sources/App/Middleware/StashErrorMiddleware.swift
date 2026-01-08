@@ -7,6 +7,14 @@ struct ErrorResponse: Content {
     let message: String
 }
 
+/// The duplicate-URL envelope, which additionally carries the existing bookmark's ID (PRD §17.4).
+struct DuplicateURLErrorResponse: Content {
+    let error: Bool
+    let code: String
+    let message: String
+    let existingID: UUID
+}
+
 /// Replaces Vapor's default error middleware so *all* errors — including 404s from
 /// unmatched routes and validation failures — serialise to the standard envelope.
 struct StashErrorMiddleware: AsyncMiddleware {
@@ -22,12 +30,16 @@ struct StashErrorMiddleware: AsyncMiddleware {
         let status: HTTPResponseStatus
         let code: String
         let message: String
+        var duplicateExistingID: UUID?
 
         switch error {
         case let apiError as APIError:
             status = apiError.status
             code = apiError.code
             message = apiError.reason
+            if case let .duplicateURL(existingID) = apiError {
+                duplicateExistingID = existingID
+            }
         case let validation as ValidationsError:
             status = .unprocessableEntity
             code = "validation_failed"
@@ -49,9 +61,15 @@ struct StashErrorMiddleware: AsyncMiddleware {
         let response = Response(status: status)
         response.headers.replaceOrAdd(name: .contentType, value: "application/json; charset=utf-8")
         do {
-            response.body = try .init(
-                data: JSONEncoder().encode(ErrorResponse(error: true, code: code, message: message))
-            )
+            if let existingID = duplicateExistingID {
+                response.body = try .init(data: JSONEncoder().encode(
+                    DuplicateURLErrorResponse(error: true, code: code, message: message, existingID: existingID)
+                ))
+            } else {
+                response.body = try .init(data: JSONEncoder().encode(
+                    ErrorResponse(error: true, code: code, message: message)
+                ))
+            }
         } catch {
             response.body = .init(string: #"{"error":true,"code":"internal_error","message":"An unexpected error occurred."}"#)
         }

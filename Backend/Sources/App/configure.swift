@@ -41,6 +41,10 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateUser())
     app.migrations.add(CreateRefreshToken())
     app.migrations.add(CreateRecoveryCode())
+    app.migrations.add(CreateBookmark())
+
+    // MARK: Outbound HTTP — metadata fetching uses a 5s timeout, no retry (PRD §10).
+    app.http.client.configuration.timeout = .init(connect: .seconds(5), read: .seconds(5))
 
     // MARK: Views (admin dashboard, from M5).
     app.views.use(.leaf)

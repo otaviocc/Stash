@@ -1,8 +1,12 @@
 # Stash Backend (Vapor 4)
 
-REST API for Stash. This milestone (**M1**) implements the authentication foundation:
-User model, bcrypt passwords, JWT access tokens + rotating refresh tokens, TOTP 2FA
-enrolment/login, and single-use recovery codes.
+REST API for Stash.
+
+- **M1** — auth foundation: User model, bcrypt passwords, JWT access tokens + rotating
+  refresh tokens, TOTP 2FA enrolment/login, single-use recovery codes.
+- **M2** — bookmarks: CRUD scoped to the user, duplicate-URL detection (409 with `existingID`),
+  tag aggregation, full-text search, hierarchical tag prefix filtering, pagination, and
+  metadata fetching.
 
 ## Running locally
 
@@ -37,6 +41,25 @@ swift-testing. Use the local `withTestApp { app in ... }` helper rather than Vap
 | `PUT`  | `/me/password` | access token | `{currentPassword, newPassword}` |
 | `GET`  | `/auth/totp/setup` | access token | Begin 2FA enrolment |
 | `POST` | `/auth/totp/verify-setup` | access token | Confirm; returns 8 recovery codes once |
+| `GET`  | `/bookmarks` | access token | List; `?q=&tag=&archived=&page=&per=` |
+| `POST` | `/bookmarks` | access token | Create; 409 `duplicate_url` (+`existingID`) on dupe |
+| `GET`  | `/bookmarks/:id` | access token | Single bookmark (404 if not yours) |
+| `PUT`  | `/bookmarks/:id` | access token | Update (all fields optional) |
+| `DELETE` | `/bookmarks/:id` | access token | Delete (204) |
+| `GET`  | `/tags` | access token | Distinct tags with counts |
+| `POST` | `/metadata` | access token | Fetch title/description/favicon for a URL |
+
+### M2 notes
+
+- **Tags** are normalised (trimmed, lowercased, de-duplicated). A derived `tags_search` column
+  (`|swift|swift/vapor|`) makes the hierarchical prefix filter (`tag=swift` matches `swift` and
+  `swift/*`) a portable `LIKE` query across both SQLite and Postgres.
+- **Metadata fetching** uses Vapor's built-in HTTP client (5s timeout, no retry) and a
+  dependency-free regex HTML parser (`MetadataFetcher`). It never blocks a save: on any failure the
+  bookmark is saved with whatever the client supplied. Client-supplied title/description take
+  precedence over fetched values.
+- **Full-text search** (`q`) uses SQL `LIKE` (`~~`); matching is case-insensitive on SQLite and
+  case-sensitive on Postgres.
 
 ## Deviation from PRD §17.2
 

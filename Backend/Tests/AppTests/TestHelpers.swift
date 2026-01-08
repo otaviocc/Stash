@@ -50,6 +50,35 @@ extension Application {
 }
 
 extension Application {
+    /// Insert a bookmark directly (bypassing metadata fetch / the create endpoint).
+    @discardableResult
+    func makeBookmark(
+        for user: User,
+        url: String,
+        title: String = "Title",
+        description: String? = nil,
+        tags: [String] = [],
+        isArchived: Bool = false
+    ) async throws -> Bookmark {
+        let bookmark = try Bookmark(
+            userID: user.requireID(),
+            url: url,
+            title: title,
+            description: description,
+            tags: tags,
+            isArchived: isArchived
+        )
+        try await bookmark.save(on: self.db)
+        return bookmark
+    }
+}
+
+/// Authorization header for a bearer access token.
+func bearer(_ token: String) -> HTTPHeaders {
+    ["Authorization": "Bearer \(token)"]
+}
+
+extension Application {
     /// Perform a full password login and return the issued token pair (2FA must be disabled).
     func login(username: String, password: String) async throws -> TokenPair {
         var pair: TokenPair?
@@ -92,4 +121,12 @@ struct TestError: Content {
     let error: Bool
     let code: String
     let message: String
+}
+
+/// Decode the duplicate-URL error envelope (includes `existingID`).
+struct TestDuplicateError: Content {
+    let error: Bool
+    let code: String
+    let message: String
+    let existingID: UUID
 }

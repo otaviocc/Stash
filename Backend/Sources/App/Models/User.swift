@@ -47,6 +47,9 @@ final class User: Model, Content, @unchecked Sendable {
     @Children(for: \.$user)
     var recoveryCodes: [RecoveryCode]
 
+    @Children(for: \.$user)
+    var bookmarks: [Bookmark]
+
     init() {}
 
     init(

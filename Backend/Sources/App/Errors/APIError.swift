@@ -10,6 +10,7 @@ enum APIError: AbortError {
     case totpInvalid
     case forbidden
     case notFound
+    case duplicateURL(existingID: UUID)
     case validationFailed(String)
     case internalError
     case custom(status: HTTPResponseStatus, code: String, message: String)
@@ -23,6 +24,8 @@ enum APIError: AbortError {
             return .forbidden
         case .notFound:
             return .notFound
+        case .duplicateURL:
+            return .conflict
         case .validationFailed:
             return .unprocessableEntity
         case .internalError:
@@ -43,6 +46,7 @@ enum APIError: AbortError {
         case .totpInvalid: return "totp_invalid"
         case .forbidden: return "forbidden"
         case .notFound: return "not_found"
+        case .duplicateURL: return "duplicate_url"
         case .validationFailed: return "validation_failed"
         case .internalError: return "internal_error"
         case let .custom(_, code, _): return code
@@ -59,6 +63,7 @@ enum APIError: AbortError {
         case .totpInvalid: return "The TOTP or recovery code is invalid."
         case .forbidden: return "You do not have permission to perform this action."
         case .notFound: return "The requested resource does not exist."
+        case .duplicateURL: return "This URL has already been saved."
         case let .validationFailed(message): return message
         case .internalError: return "An unexpected error occurred."
         case let .custom(_, _, message): return message
