@@ -7,6 +7,9 @@ REST API for Stash.
 - **M2** — bookmarks: CRUD scoped to the user, duplicate-URL detection (409 with `existingID`),
   tag aggregation, full-text search, hierarchical tag prefix filtering, pagination, and
   metadata fetching.
+- **M3** — admin API: user management (`/admin/users`), suspend/unsuspend, password reset,
+  hard delete (cascading all owned data), and aggregate stats — all gated by an admin-role
+  middleware (non-admins get 403).
 
 ## Running locally
 
@@ -48,6 +51,24 @@ swift-testing. Use the local `withTestApp { app in ... }` helper rather than Vap
 | `DELETE` | `/bookmarks/:id` | access token | Delete (204) |
 | `GET`  | `/tags` | access token | Distinct tags with counts |
 | `POST` | `/metadata` | access token | Fetch title/description/favicon for a URL |
+| `GET`  | `/admin/users` | admin | List all users with stats |
+| `POST` | `/admin/users` | admin | Create account; 409 `username_taken` on dupe |
+| `GET`  | `/admin/users/:id` | admin | Single user (404 if unknown) |
+| `PUT`  | `/admin/users/:id` | admin | Suspend/unsuspend (`isActive`) and/or reset `password` |
+| `DELETE` | `/admin/users/:id` | admin | Hard delete + cascade all owned data (204) |
+| `GET`  | `/admin/stats` | admin | Totals + per-user bookmark counts |
+
+### M3 notes
+
+- **Admin role** is enforced by `AdminMiddleware`, layered after the access-token authenticator;
+  non-admins get 403 `forbidden` in the standard envelope.
+- **Suspension** (`PUT {isActive: false}`) immediately deletes all of the user's refresh tokens
+  (PRD §8.6); in-flight access tokens lapse within their 15-minute window.
+- **Hard delete** explicitly removes the user's bookmarks, refresh tokens, and recovery codes
+  before the user row — so it behaves identically on SQLite (tests) and Postgres regardless of
+  FK-cascade enforcement.
+- **Per-user bookmark counts** use the denormalised `User.bookmarkCount` field (PRD §7.1), the
+  same source as `/me`; the test helper maintains it so stats reflect reality.
 
 ### M2 notes
 
