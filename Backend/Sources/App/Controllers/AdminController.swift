@@ -36,10 +36,11 @@ struct AdminController: RouteCollection {
             throw APIError.usernameTaken
         }
 
+        // Always created as a regular user; admins only exist via first-boot seeding (PRD §4).
         let user = User(
             username: username,
             passwordHash: try await req.password.async.hash(input.password),
-            role: input.role ?? .user
+            role: .user
         )
 
         do {
@@ -67,28 +68,41 @@ struct AdminController: RouteCollection {
         let user = try await self.requireUser(req)
         let input = try req.content.decode(UpdateUserInput.self)
 
+        var invalidateRefreshTokens = false
+
         if let password = input.password {
             guard password.count >= 12 else {
                 throw APIError.validationFailed("Password must be at least 12 characters.")
             }
             user.passwordHash = try await req.password.async.hash(password)
+            // A password reset forces re-authentication everywhere (same as suspension).
+            invalidateRefreshTokens = true
         }
 
         if let isActive = input.isActive {
             user.isActive = isActive
             if !isActive {
                 // Suspension: immediately invalidate all refresh tokens (PRD §8.6).
-                try await user.$refreshTokens.query(on: req.db).delete()
+                invalidateRefreshTokens = true
             }
         }
 
         try await user.save(on: req.db)
+        if invalidateRefreshTokens {
+            try await user.$refreshTokens.query(on: req.db).delete()
+        }
         return try user.asResponse()
     }
 
     // DELETE /admin/users/:id — hard delete, cascading all owned data (PRD §8.6).
     func deleteUser(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
         let user = try await self.requireUser(req)
+
+        // An admin cannot delete their own account.
+        if try user.requireID() == admin.requireID() {
+            throw APIError.cannotDeleteSelf
+        }
 
         // Explicit cascade so the behaviour holds on SQLite (tests) as well as Postgres,
         // regardless of FK enforcement.

@@ -62,8 +62,13 @@ swift-testing. Use the local `withTestApp { app in ... }` helper rather than Vap
 
 - **Admin role** is enforced by `AdminMiddleware`, layered after the access-token authenticator;
   non-admins get 403 `forbidden` in the standard envelope.
-- **Suspension** (`PUT {isActive: false}`) immediately deletes all of the user's refresh tokens
-  (PRD §8.6); in-flight access tokens lapse within their 15-minute window.
+- **Account creation is always `user` role** — any `role` field in the `POST /admin/users` body is
+  silently ignored. Admin accounts exist only via first-boot seeding (PRD §4).
+- **Suspension** (`PUT {isActive: false}`) and **password reset** (`PUT {password: …}`) both
+  immediately delete all of the user's refresh tokens, forcing re-authentication (PRD §8.6);
+  in-flight access tokens lapse within their 15-minute window.
+- **Self-deletion is blocked** — `DELETE /admin/users/:id` targeting the caller's own ID returns
+  400 `cannot_delete_self`.
 - **Hard delete** explicitly removes the user's bookmarks, refresh tokens, and recovery codes
   before the user row — so it behaves identically on SQLite (tests) and Postgres regardless of
   FK-cascade enforcement.
