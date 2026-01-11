@@ -56,8 +56,24 @@ public func configure(_ app: Application) async throws {
     // MARK: Routes
     try routes(app)
 
-    // Auto-migrate the throwaway test database.
-    if app.environment == .testing {
-        try await app.autoMigrate()
-    }
+    // MARK: Migrations
+    // Auto-migrate on boot so a fresh `docker compose up` works with zero manual steps (PRD §16).
+    // Fluent records applied migrations, so this is idempotent across restarts.
+    try await app.autoMigrate()
+
+    // MARK: First-boot admin seeding (PRD §16)
+    try await seedAdminIfNeeded(app)
+}
+
+/// Creates the admin account on first boot from `ADMIN_USERNAME` / `ADMIN_PASSWORD` (PRD §16).
+/// Tests manage their own accounts, so seeding never runs against the in-memory test database.
+private func seedAdminIfNeeded(_ app: Application) async throws {
+    guard app.environment != .testing else { return }
+    try await AdminSeeder.seed(
+        username: Environment.get("ADMIN_USERNAME"),
+        password: Environment.get("ADMIN_PASSWORD"),
+        on: app.db,
+        logger: app.logger,
+        hash: { try await app.password.async.hash($0) }
+    )
 }

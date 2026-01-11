@@ -10,14 +10,40 @@ REST API for Stash.
 - **M3** — admin API: user management (`/admin/users`), suspend/unsuspend, password reset,
   hard delete (cascading all owned data), and aggregate stats — all gated by an admin-role
   middleware (non-admins get 403).
+- **M4** — Docker packaging: multi-stage `Dockerfile` (`swift:5.10` build → `ubuntu:22.04`
+  runtime, `linux/amd64` + `linux/arm64`), canonical `docker-compose.yml`, first-boot admin
+  seeding, and a `Makefile`.
 
-## Running locally
+## Deployment (Docker)
+
+The intended way to run Stash (PRD §16). Requires only Docker + the compose file:
 
 ```sh
-cp .env.example .env            # then edit values
-export $(grep -v '^#' .env | xargs)
-swift run App migrate --yes     # run migrations against DATABASE_URL (Postgres)
-swift run App serve             # serves on http://127.0.0.1:8080
+cp .env.example .env            # then fill in real secrets (never commit .env)
+make up                         # docker compose up -d  → http://<host>:8080
+make logs                       # tail the app logs
+make down                       # stop the stack
+```
+
+On first boot, if the database has no users, the app creates the admin account from
+`ADMIN_USERNAME` / `ADMIN_PASSWORD`. If those are missing it logs an error and exits rather than
+starting a login-less instance. Once an admin exists, the variables are ignored. Database
+migrations run automatically on boot; `make migrate` runs them explicitly inside the container if
+ever needed.
+
+The published image is `ghcr.io/otaviocc/stash:latest` (built/pushed by CI in M4.1). To build it
+locally for testing: `docker build -t stash:dev .`
+
+## Local development
+
+`make build` / `make test` need no database. To run the server directly against a local
+Postgres, export the variables the app reads at runtime:
+
+```sh
+export DATABASE_URL=postgres://stash:password@localhost:5432/stash
+export JWT_SECRET=$(openssl rand -base64 48)
+export ADMIN_USERNAME=admin ADMIN_PASSWORD=change-me-min-12
+swift run App serve             # migrations + admin seeding run on boot
 ```
 
 ## Tests
@@ -57,6 +83,19 @@ swift-testing. Use the local `withTestApp { app in ... }` helper rather than Vap
 | `PUT`  | `/admin/users/:id` | admin | Suspend/unsuspend (`isActive`) and/or reset `password` |
 | `DELETE` | `/admin/users/:id` | admin | Hard delete + cascade all owned data (204) |
 | `GET`  | `/admin/stats` | admin | Totals + per-user bookmark counts |
+
+### M4 notes
+
+- **Image** is a two-stage build: `swift:5.10-jammy` compiles a release binary with a statically
+  linked Swift stdlib; the runtime stage is a minimal `ubuntu:22.04` with only the binary and the
+  required system libraries. The jammy build base matches the 22.04 runtime for ABI compatibility,
+  and the Dockerfile is arch-agnostic so `buildx` produces `linux/amd64` and `linux/arm64`.
+- **First-boot seeding** (`AdminSeeder`, invoked from `configure.swift` after migrations) creates
+  the admin from `ADMIN_USERNAME` / `ADMIN_PASSWORD` only when the database has no users; it
+  throws (exits) on missing/invalid credentials and is a no-op once any user exists. It never runs
+  against the test database.
+- **Migrations auto-run on boot** so the canonical `docker compose up -d` works with zero manual
+  steps; Fluent tracks applied migrations, so this is idempotent.
 
 ### M3 notes
 

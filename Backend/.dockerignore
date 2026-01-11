@@ -1,0 +1,20 @@
+# Build artifacts (must be rebuilt inside the image)
+.build/
+.swiftpm/
+DerivedData/
+
+# Git & local tooling
+.git/
+.gitignore
+
+# Secrets — never copy into the image
+.env
+
+# Deploy/meta files not needed for the build
+docker-compose.yml
+Makefile
+README.md
+.dockerignore
+
+# macOS
+.DS_Store
