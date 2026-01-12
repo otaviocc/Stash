@@ -5,7 +5,7 @@
 # with the ubuntu:22.04 runtime stage. Works for both linux/amd64 and linux/arm64
 # (buildx selects the matching base per target platform).
 # ==============================================================================
-FROM swift:5.10-jammy AS build
+FROM swift:6.1-jammy AS build
 
 # Install build-time system dependencies.
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
