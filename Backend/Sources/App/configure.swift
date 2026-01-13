@@ -46,8 +46,14 @@ public func configure(_ app: Application) async throws {
     // MARK: Outbound HTTP — metadata fetching uses a 5s timeout, no retry (PRD §10).
     app.http.client.configuration.timeout = .init(connect: .seconds(5), read: .seconds(5))
 
-    // MARK: Views (admin dashboard, from M5).
+    // MARK: Views (admin dashboard — Leaf templates, PRD §11).
     app.views.use(.leaf)
+
+    // MARK: Sessions — cookie-based auth for the web admin dashboard, separate from the JWT
+    // API flow (PRD §11). In-memory is fine for a single self-hosted instance; sessions simply
+    // don't survive a restart, so the admin re-logs in.
+    app.sessions.use(.memory)
+    app.sessions.configuration.cookieName = "stash_admin_session"
 
     // MARK: Error handling — replace the default middleware with our envelope (PRD §17.4).
     app.middleware = Middlewares()

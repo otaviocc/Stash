@@ -1,0 +1,21 @@
+#extend("layout"):
+#export("content"):
+    <h1>New user</h1>
+    <p class="muted"><a href="/admin/users">← Back to users</a></p>
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+    <div class="card">
+        <form method="post" action="/admin/users/new">
+            <label>Username
+                <input name="username" value="#(username)" autocapitalize="none" required>
+            </label>
+            <label>Password <span class="muted">(min 12 characters)</span>
+                <input type="password" name="password" minlength="12" required>
+            </label>
+            <button type="submit">Create user</button>
+        </form>
+        <p class="muted">New accounts are always created with the <strong>user</strong> role.</p>
+    </div>
+#endexport
+#endextend

@@ -32,6 +32,8 @@ RUN swift build -c release \
 WORKDIR /staging
 RUN cp "$(swift build --package-path /build -c release --show-bin-path)/App" ./
 RUN find -L "$(swift build --package-path /build -c release --show-bin-path)/" -regex '.*\.resources$' -exec cp -Ra {} ./ \; || true
+# Leaf templates for the web admin dashboard (PRD §11).
+RUN [ -d /build/Resources ] && cp -Ra /build/Resources ./Resources || true
 
 # ==============================================================================
 # Stage 2 — Runtime (PRD §16)

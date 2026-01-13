@@ -1,0 +1,22 @@
+#extend("layout"):
+#export("content"):
+    <h1>Stash Admin</h1>
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+    <div class="card">
+        <form method="post" action="/admin/login">
+            <label>Username
+                <input name="username" autocomplete="username" autofocus required>
+            </label>
+            <label>Password
+                <input type="password" name="password" autocomplete="current-password" required>
+            </label>
+            <label>2FA code <span class="muted">(if enabled)</span>
+                <input name="totpCode" inputmode="numeric" autocomplete="one-time-code">
+            </label>
+            <button type="submit">Sign in</button>
+        </form>
+    </div>
+#endexport
+#endextend
