@@ -25,7 +25,9 @@
                 <textarea name="description" rows="3">#(description)</textarea>
             </label>
             <label>Tags <span class="muted">(comma or space separated; use / for hierarchy, e.g. swift/vapor)</span>
-                <input name="tags" value="#(tags)">
+                <span class="tag-field">
+                    <input name="tags" value="#(tags)" data-known-tags='#(knownTagsJSON)' autocomplete="off">
+                </span>
             </label>
             <div class="row-actions">
                 <button type="submit" name="action" value="preview" class="secondary">Fetch metadata</button>

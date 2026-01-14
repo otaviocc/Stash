@@ -101,7 +101,7 @@ Unversioned, mounted at `/admin`, separate from the API above.
 | `GET`  | `/admin/users` | User list |
 | `GET`/`POST` | `/admin/users/new` | Create user (always `user` role) |
 | `GET`  | `/admin/users/:id` | User detail |
-| `POST` | `/admin/users/:id/suspend` · `/unsuspend` · `/reset-password` · `/delete` | Actions |
+| `POST` | `/admin/users/:id/suspend` · `/unsuspend` · `/reset-password` · `/reset-totp` · `/delete` | Actions |
 
 ### M5 notes
 
@@ -132,7 +132,7 @@ Unversioned, mounted at `/app`, separate from the API and the admin dashboard.
 | `GET`  | `/app/tags` | Tag browser (counts, links to `/app?tag=…`) |
 | `GET`  | `/app/settings` | Settings |
 | `POST` | `/app/settings/password` | Change own password |
-| `GET`  | `/app/settings/totp` · `POST /verify` | 2FA enrolment + recovery codes (shown once) |
+| `GET`  | `/app/settings/totp` · `POST /verify` · `POST /disable` | 2FA enrolment (recovery codes shown once) / disable (requires a current code) |
 
 ### M11 notes
 
@@ -151,6 +151,15 @@ Unversioned, mounted at `/app`, separate from the API and the admin dashboard.
 - **Reuses `layout.leaf`** — same base template and inline CSS as the admin dashboard, with a
   user nav. Nine `app-*.leaf` templates. 2FA setup shows the otpauth URI + setup key for manual
   entry (a scannable QR image would need a QR-encoding dependency, omitted for the minimal build).
+- **Self-service 2FA disable** (`POST /app/settings/totp/disable`) requires a *current TOTP code*
+  (not just a password) to confirm authenticator access, then clears the secret/flag and recovery
+  codes. **Admins** can reset a user's 2FA from the user detail page
+  (`POST /admin/users/:id/reset-totp`); that also revokes the user's refresh tokens, forcing
+  re-login (self-reset allowed).
+- **Tag autocomplete** on the create/edit forms: the user's existing tags are embedded as a JSON
+  array in a `data-known-tags` attribute (no extra request), and a ~50-line dependency-free vanilla
+  JS block in `layout.leaf` filters the comma-segment under the cursor and offers prefix matches
+  (full hierarchical strings like `swift/vapor` included).
 
 ### M4 notes
 

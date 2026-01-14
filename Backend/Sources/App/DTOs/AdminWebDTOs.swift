@@ -30,6 +30,7 @@ struct UserRowContext: Content {
     let role: String
     let isActive: Bool
     let bookmarkCount: Int
+    let isTOTPEnabled: Bool
 }
 
 struct LoginPageContext: Content {

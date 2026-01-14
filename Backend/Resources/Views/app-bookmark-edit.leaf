@@ -17,7 +17,9 @@
                 <textarea name="description" rows="3">#(description)</textarea>
             </label>
             <label>Tags <span class="muted">(comma or space separated; use / for hierarchy)</span>
-                <input name="tags" value="#(tags)">
+                <span class="tag-field">
+                    <input name="tags" value="#(tags)" data-known-tags='#(knownTagsJSON)' autocomplete="off">
+                </span>
             </label>
             <label style="font-weight:400;">
                 <input type="checkbox" name="archived" value="on" style="display:inline; width:auto;"#if(isArchived): checked#endif>

@@ -32,6 +32,12 @@ struct AppVerifyTOTPForm: Content {
     let totpCode: String
 }
 
+/// `POST /app/settings/totp/disable` form. Requires the current TOTP code to confirm the user
+/// still has access to their authenticator before turning 2FA off.
+struct AppDisableTOTPForm: Content {
+    let totpCode: String
+}
+
 // MARK: - Leaf view contexts
 
 /// A tag rendered both as it is stored (`swift/vapor`) and for display (`swift › vapor`).
@@ -76,6 +82,8 @@ struct AppNewBookmarkContext: Content {
     let description: String
     let tags: String
     let previewed: Bool
+    /// JSON array of the user's existing tag names, for client-side autocomplete.
+    let knownTagsJSON: String
 }
 
 struct AppEditBookmarkContext: Content {
@@ -88,6 +96,8 @@ struct AppEditBookmarkContext: Content {
     let description: String
     let tags: String
     let isArchived: Bool
+    /// JSON array of the user's existing tag names, for client-side autocomplete.
+    let knownTagsJSON: String
 }
 
 struct AppBookmarkDetailContext: Content {

@@ -32,6 +32,12 @@
         #if(isTOTPEnabled):
         <p><span class="pill active">Enabled</span></p>
         <p class="muted">2FA is active on your account.</p>
+        <form method="post" action="/app/settings/totp/disable">
+            <label>Disable 2FA <span class="muted">(enter a current code from your authenticator to confirm)</span>
+                <input name="totpCode" inputmode="numeric" autocomplete="one-time-code" required>
+            </label>
+            <button type="submit" class="danger">Disable two-factor authentication</button>
+        </form>
         #else:
         <p><span class="pill suspended">Not enabled</span></p>
         <p><a href="/app/settings/totp"><button type="button">Enable 2FA</button></a></p>
