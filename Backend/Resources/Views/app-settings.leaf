@@ -1,0 +1,41 @@
+#extend("layout"):
+#export("content"):
+    <h1>Settings</h1>
+
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
+    <div class="card">
+        <h2>Account</h2>
+        <p><strong>Username:</strong> #(appUsername)</p>
+    </div>
+
+    <div class="card">
+        <h2>Change password</h2>
+        <form method="post" action="/app/settings/password">
+            <label>Current password
+                <input type="password" name="currentPassword" autocomplete="current-password" required>
+            </label>
+            <label>New password <span class="muted">(min 12 characters)</span>
+                <input type="password" name="newPassword" autocomplete="new-password" minlength="12" required>
+            </label>
+            <button type="submit">Change password</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h2>Two-factor authentication</h2>
+        #if(isTOTPEnabled):
+        <p><span class="pill active">Enabled</span></p>
+        <p class="muted">2FA is active on your account.</p>
+        #else:
+        <p><span class="pill suspended">Not enabled</span></p>
+        <p><a href="/app/settings/totp"><button type="button">Enable 2FA</button></a></p>
+        #endif
+    </div>
+#endexport
+#endextend

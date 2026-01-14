@@ -29,4 +29,25 @@ func routes(_ app: Application) throws {
     // session auth — entirely separate from the JWT API above. Unversioned (PRD §17.3).
     let dashboard = app.grouped("admin").grouped(app.sessions.middleware)
     try dashboard.register(collection: AdminWebController())
+
+    // User-facing web frontend (PRD §5, P2). Server-rendered Leaf pages at /app, with its own
+    // session cookie (`stash_session`) distinct from the admin dashboard's, sharing the same
+    // in-memory session store. Separate from the JWT API and admin pages.
+    let appSessions = SessionsMiddleware(
+        session: app.sessions.driver,
+        configuration: SessionsConfiguration(cookieName: "stash_session") { sessionID in
+            HTTPCookies.Value(
+                string: sessionID.string,
+                expires: Date(timeIntervalSinceNow: 60 * 60 * 24 * 7),
+                maxAge: nil,
+                domain: nil,
+                path: "/app",
+                isSecure: false,
+                isHTTPOnly: true,
+                sameSite: .lax
+            )
+        }
+    )
+    let frontend = app.grouped("app").grouped(appSessions)
+    try frontend.register(collection: AppWebController())
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Stash Admin — #(title)</title>
+    <title>#if(adminUsername):Stash Admin#else:Stash#endif — #(title)</title>
     <style>
         :root { color-scheme: light dark; }
         * { box-sizing: border-box; }
@@ -47,6 +47,22 @@
         .banner.ok { background: #dcfce7; color: #166534; }
         .muted { color: #71717a; }
         .actions { display: flex; flex-direction: column; gap: 1rem; max-width: 420px; }
+        textarea { width: 100%; padding: 0.5rem; margin-top: 0.25rem; border: 1px solid #d4d4d8; border-radius: 6px; font: inherit; }
+        .list-item { background: #fff; border: 1px solid #e4e4e7; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
+        .list-item h3 { margin: 0 0 0.2rem; font-size: 1.05rem; }
+        .list-item h3 a { color: #1a1a1a; text-decoration: none; }
+        .list-item .url { color: #16a34a; font-size: 0.85rem; word-break: break-all; }
+        .list-item .desc { margin: 0.4rem 0 0; color: #3f3f46; }
+        .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+        .tag { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; background: #e4e4e7; color: #3f3f46; font-size: 0.8rem; text-decoration: none; }
+        .tag:hover { background: #d4d4d8; }
+        .row-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+        .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; gap: 1rem; }
+        .toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
+        .toolbar form { display: flex; gap: 0.5rem; align-items: center; margin: 0; }
+        .toolbar input { display: inline-block; width: auto; margin: 0; }
+        .codes { font-family: ui-monospace, monospace; font-size: 1.1rem; line-height: 1.9; }
+        .key { font-family: ui-monospace, monospace; background: #e4e4e7; padding: 0.2rem 0.4rem; border-radius: 4px; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -61,6 +77,22 @@
         <span class="spacer"></span>
         <span class="who">#(adminUsername)</span>
         <form method="post" action="/admin/logout">
+            <button class="secondary" type="submit">Log out</button>
+        </form>
+    </header>
+    #endif
+    #if(appUsername):
+    <header class="nav">
+        <a href="/app" class="brand">Stash</a>
+        <nav>
+            <a href="/app">Bookmarks</a>
+            <a href="/app/bookmarks/new">Add</a>
+            <a href="/app/tags">Tags</a>
+            <a href="/app/settings">Settings</a>
+        </nav>
+        <span class="spacer"></span>
+        <span class="who">#(appUsername)</span>
+        <form method="post" action="/app/logout">
             <button class="secondary" type="submit">Log out</button>
         </form>
     </header>

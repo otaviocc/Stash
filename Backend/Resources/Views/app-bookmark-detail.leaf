@@ -1,0 +1,42 @@
+#extend("layout"):
+#export("content"):
+    <p class="muted"><a href="/app">← Back to bookmarks</a></p>
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+
+    <h1>#(bookmark.title)</h1>
+
+    <div class="card">
+        <p class="url"><a href="#(bookmark.url)" target="_blank" rel="noopener">#(bookmark.url)</a></p>
+        #if(bookmark.description):<p>#(bookmark.description)</p>#endif
+        #if(count(bookmark.tags) > 0):
+        <div class="tags">
+            #for(t in bookmark.tags):<a class="tag" href="/app?tag=#(t.name)">#(t.display)</a>#endfor
+        </div>
+        #endif
+        <p class="muted" style="margin-top:0.75rem;">
+            Saved #(bookmark.createdAt)
+            #if(bookmark.isArchived): · <strong>Archived</strong>#endif
+        </p>
+    </div>
+
+    <div class="row-actions">
+        <a href="#(bookmark.url)" target="_blank" rel="noopener"><button type="button">Open URL</button></a>
+        <a href="/app/bookmarks/#(bookmark.id)/edit"><button type="button" class="secondary">Edit</button></a>
+        #if(bookmark.isArchived):
+        <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/unarchive">
+            <button type="submit" class="secondary">Unarchive</button>
+        </form>
+        #else:
+        <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/archive">
+            <button type="submit" class="secondary">Archive</button>
+        </form>
+        #endif
+        <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/delete"
+              onsubmit="return confirm('Delete this bookmark? This cannot be undone.');">
+            <button type="submit" class="danger">Delete</button>
+        </form>
+    </div>
+#endexport
+#endextend

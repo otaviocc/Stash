@@ -1,0 +1,37 @@
+#extend("layout"):
+#export("content"):
+    <h1>Add bookmark</h1>
+    <p class="muted"><a href="/app">← Back to bookmarks</a></p>
+
+    #if(error):
+    <p class="banner error">
+        #(error)
+        #if(existingID): <a href="/app/bookmarks/#(existingID)">View the existing bookmark →</a>#endif
+    </p>
+    #endif
+    #if(previewed):
+    <p class="banner ok">Metadata fetched. Review and edit below, then save.</p>
+    #endif
+
+    <div class="card">
+        <form method="post" action="/app/bookmarks">
+            <label>URL
+                <input name="url" type="url" value="#(url)" placeholder="https://example.com" required>
+            </label>
+            <label>Title <span class="muted">(optional — auto-fetched if blank)</span>
+                <input name="title" value="#(bookmarkTitle)">
+            </label>
+            <label>Description <span class="muted">(optional)</span>
+                <textarea name="description" rows="3">#(description)</textarea>
+            </label>
+            <label>Tags <span class="muted">(comma or space separated; use / for hierarchy, e.g. swift/vapor)</span>
+                <input name="tags" value="#(tags)">
+            </label>
+            <div class="row-actions">
+                <button type="submit" name="action" value="preview" class="secondary">Fetch metadata</button>
+                <button type="submit" name="action" value="save">Save bookmark</button>
+            </div>
+        </form>
+    </div>
+#endexport
+#endextend

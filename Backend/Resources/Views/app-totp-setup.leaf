@@ -1,0 +1,30 @@
+#extend("layout"):
+#export("content"):
+    <h1>Enable two-factor authentication</h1>
+    <p class="muted"><a href="/app/settings">← Back to settings</a></p>
+
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
+    <div class="card">
+        <p>Add Stash to your authenticator app (Google Authenticator, 1Password, etc.).</p>
+        <p>Open this link on a device with your authenticator, or add an account manually using the
+           setup key below:</p>
+        <p><a href="#(otpauthURI)">#(otpauthURI)</a></p>
+        <p>Setup key: <span class="key">#(secret)</span></p>
+        <p class="muted">Issuer: Stash · Account: #(appUsername)</p>
+    </div>
+
+    <div class="card">
+        <h2>Confirm</h2>
+        <p>Enter the 6-digit code from your authenticator to finish enabling 2FA.</p>
+        <form method="post" action="/app/settings/totp/verify">
+            <label>Verification code
+                <input name="totpCode" inputmode="numeric" autocomplete="one-time-code" required autofocus>
+            </label>
+            <button type="submit">Verify &amp; enable</button>
+        </form>
+    </div>
+#endexport
+#endextend
