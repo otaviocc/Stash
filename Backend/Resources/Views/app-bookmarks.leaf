@@ -1,5 +1,8 @@
 #extend("layout"):
 #export("content"):
+    #if(notice):
+    <p class="banner ok">#(notice)</p>
+    #endif
     <h1>#(title)</h1>
 
     <div class="toolbar">
