@@ -33,6 +33,7 @@ struct AppWebController: RouteCollection {
         app.post("settings", "totp", "verify", use: totpVerify)
         app.post("settings", "totp", "disable", use: totpDisable)
         app.post("settings", "delete-all-bookmarks", use: deleteAllBookmarks)
+        app.post("settings", "theme", use: setTheme)
 
         // Import (multipart upload — raise the body limit above the 16KB default) & export.
         app.on(.POST, "import", body: .collect(maxSize: "16mb"), use: importBookmarks)
@@ -339,6 +340,7 @@ struct AppWebController: RouteCollection {
         }
 
         return try await req.view.render("app-settings", settingsContext(
+            req,
             user,
             message: Self.message(for: req.query[String.self, at: "ok"]),
             importSummary: importSummary
@@ -347,6 +349,7 @@ struct AppWebController: RouteCollection {
 
     /// Build the settings page context, always populating the available import/export formats.
     private func settingsContext(
+        _ req: Request,
         _ user: User,
         error: String? = nil,
         message: String? = nil,
@@ -362,8 +365,18 @@ struct AppWebController: RouteCollection {
             importers: ImportExportRegistry.shared.importerOptions,
             exporters: ImportExportRegistry.shared.exporterOptions,
             importError: importError,
-            importSummary: importSummary
+            importSummary: importSummary,
+            theme: Self.currentTheme(req)
         )
+    }
+
+    /// The theme preference from the `stash_theme` cookie (`auto` when missing/invalid).
+    static func currentTheme(_ req: Request) -> String {
+        switch req.cookies["stash_theme"]?.string {
+        case "light": return "light"
+        case "dark": return "dark"
+        default: return "auto"
+        }
     }
 
     // POST /app/settings/password
@@ -372,7 +385,7 @@ struct AppWebController: RouteCollection {
         let form = try req.content.decode(AppChangePasswordForm.self)
 
         func settingsError(_ message: String) async throws -> Response {
-            try await render(req, "app-settings", settingsContext(user, error: message), status: .badRequest)
+            try await render(req, "app-settings", settingsContext(req, user, error: message), status: .badRequest)
         }
 
         guard try await req.password.async.verify(form.currentPassword, created: user.passwordHash) else {
@@ -447,7 +460,7 @@ struct AppWebController: RouteCollection {
         // Require a valid code so the user proves they still control the authenticator.
         guard TOTP(secret: secretData).validate(form.totpCode) else {
             return try await render(req, "app-settings", settingsContext(
-                user, error: "That code didn't match. Two-factor authentication was not disabled."
+                req, user, error: "That code didn't match. Two-factor authentication was not disabled."
             ), status: .badRequest)
         }
 
@@ -466,7 +479,7 @@ struct AppWebController: RouteCollection {
         let form = try req.content.decode(ImportForm.self)
 
         func importError(_ message: String) async throws -> Response {
-            try await render(req, "app-settings", settingsContext(user, importError: message), status: .badRequest)
+            try await render(req, "app-settings", settingsContext(req, user, importError: message), status: .badRequest)
         }
 
         guard let importer = ImportExportRegistry.shared.importer(for: form.format) else {
@@ -520,7 +533,7 @@ struct AppWebController: RouteCollection {
         // Re-verify the confirmation phrase server-side (not only in the browser).
         guard form.confirm.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "delete all" else {
             return try await render(req, "app-settings", settingsContext(
-                user, error: "Type “delete all” to confirm — no bookmarks were deleted."
+                req, user, error: "Type “delete all” to confirm — no bookmarks were deleted."
             ), status: .badRequest)
         }
 
@@ -529,6 +542,34 @@ struct AppWebController: RouteCollection {
         try await user.save(on: req.db)
 
         return req.redirect(to: "/app?notice=all_bookmarks_deleted")
+    }
+
+    // MARK: - Appearance
+
+    // POST /app/settings/theme — store the theme preference in a long-lived, JS-readable cookie.
+    func setTheme(req: Request) async throws -> Response {
+        _ = try req.auth.require(User.self)
+        let form = try req.content.decode(ThemeForm.self)
+        let theme: String
+        switch form.theme {
+        case "light", "dark", "auto": theme = form.theme
+        default: theme = "auto"
+        }
+
+        let response = req.redirect(to: "/app/settings?ok=theme")
+        // Site-wide (path "/" so it also applies to /admin), 1-year, readable by the flash-prevention
+        // script (HTTPOnly must be false).
+        response.cookies["stash_theme"] = HTTPCookies.Value(
+            string: theme,
+            expires: Date(timeIntervalSinceNow: 60 * 60 * 24 * 365),
+            maxAge: 60 * 60 * 24 * 365,
+            domain: nil,
+            path: "/",
+            isSecure: false,
+            isHTTPOnly: false,
+            sameSite: .lax
+        )
+        return response
     }
 
     // MARK: - Helpers
@@ -642,6 +683,7 @@ struct AppWebController: RouteCollection {
         case "unarchived": return "Bookmark unarchived."
         case "password": return "Password changed."
         case "totp_disabled": return "Two-factor authentication disabled."
+        case "theme": return "Appearance updated."
         default: return nil
         }
     }
