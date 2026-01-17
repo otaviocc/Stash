@@ -171,6 +171,17 @@
         .tag-suggest-item:hover, .tag-suggest-item.active { background: var(--tag-bg); }
         .danger-zone { border-color: var(--dz-border); background: var(--dz-bg); }
         .danger-zone h2 { color: var(--dz-heading); margin-top: 0; }
+        .app-layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+        .app-main { flex: 1; min-width: 0; }
+        .tag-sidebar { flex: 0 0 220px; position: sticky; top: 1.5rem; }
+        .tag-sidebar h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+        .tag-tree { list-style: none; margin: 0; padding: 0; }
+        .tag-tree li { margin: 0; line-height: 1.7; }
+        .tag-tree a { text-decoration: none; color: var(--text); }
+        .tag-tree a:hover { text-decoration: underline; }
+        .tag-tree a.active { font-weight: 700; color: var(--accent); }
+        .tag-tree .count { color: var(--text-muted); font-size: 0.85rem; }
+        @media (max-width: 767px) { .tag-sidebar { display: none; } }
     </style>
 </head>
 <body>

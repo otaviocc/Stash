@@ -115,11 +115,16 @@ struct AppWebController: RouteCollection {
         }
 
         if let rawTag = query.tag?.nonEmpty {
-            let tag = Bookmark.normalizeTagQuery(rawTag)
-            if !tag.isEmpty {
-                builder.group(.or) { group in
-                    group.filter(\.$tagsSearch ~~ "|\(tag)|")
-                    group.filter(\.$tagsSearch ~~ "|\(tag)/")
+            if rawTag == Self.untaggedSentinel {
+                // Special case: bookmarks with no tags (tagsSearch is "" when tags is empty).
+                builder.filter(\.$tagsSearch == "")
+            } else {
+                let tag = Bookmark.normalizeTagQuery(rawTag)
+                if !tag.isEmpty {
+                    builder.group(.or) { group in
+                        group.filter(\.$tagsSearch ~~ "|\(tag)|")
+                        group.filter(\.$tagsSearch ~~ "|\(tag)/")
+                    }
                 }
             }
         }
@@ -132,21 +137,93 @@ struct AppWebController: RouteCollection {
         let total = result.metadata.total
         let pageCount = total == 0 ? 1 : (total + per - 1) / per
 
+        let rawTag = query.tag?.nonEmpty
+        let isUntagged = rawTag == Self.untaggedSentinel
+        let activeTag = isUntagged ? Self.untaggedSentinel : Bookmark.normalizeTagQuery(query.tag ?? "")
+        let sidebar = try await sidebarTags(for: user, activeTag: activeTag, on: req.db)
+
         return try await req.view.render("app-bookmarks", AppBookmarksContext(
             title: archived ? "Archived" : "Bookmarks",
             appUsername: user.username,
             bookmarks: try result.items.map { try Self.row(from: $0) },
             q: query.q?.nonEmpty ?? "",
-            tag: query.tag?.nonEmpty ?? "",
-            tagDisplay: Self.display(query.tag?.nonEmpty ?? ""),
+            tag: rawTag ?? "",
+            // Never surface the internal sentinel; show "Untagged" instead.
+            tagDisplay: isUntagged ? "Untagged" : Self.display(rawTag ?? ""),
             archived: archived,
             total: total,
             page: page,
             pageCount: pageCount,
             prevURL: page > 1 ? Self.listURL(query, page: page - 1) : nil,
             nextURL: page < pageCount ? Self.listURL(query, page: page + 1) : nil,
-            notice: Self.notice(for: req.query[String.self, at: "notice"])
+            notice: Self.notice(for: req.query[String.self, at: "notice"]),
+            sidebarTags: sidebar.tags,
+            untaggedCount: sidebar.untaggedCount,
+            untaggedActive: isUntagged
         ))
+    }
+
+    /// Internal pseudo-tag used by the sidebar's "Untagged" filter. Never shown to the user.
+    static let untaggedSentinel = "__untagged__"
+
+    /// Build the hierarchical tag sidebar for the user: fetch all tags with counts (same source
+    /// as `/app/tags` and the autocomplete), then flatten into a pre-ordered tree with depth.
+    private func sidebarTags(
+        for user: User,
+        activeTag: String,
+        on db: any Database
+    ) async throws -> (tags: [SidebarTag], untaggedCount: Int) {
+        let bookmarks = try await Bookmark.query(on: db)
+            .filter(\.$user.$id == user.requireID())
+            .all()
+        var counts: [String: Int] = [:]
+        var untaggedCount = 0
+        for bookmark in bookmarks {
+            if bookmark.tags.isEmpty { untaggedCount += 1 }
+            for tag in bookmark.tags { counts[tag, default: 0] += 1 }
+        }
+        return (Self.buildSidebar(counts: counts, activeTag: activeTag), untaggedCount)
+    }
+
+    /// Turn an exact-count map into a flattened, pre-ordered (DFS) tag tree. Synthetic ancestors
+    /// (a parent path that isn't itself a tag) are included so children always nest under a parent.
+    static func buildSidebar(counts: [String: Int], activeTag: String) -> [SidebarTag] {
+        // Collect every node, including synthetic ancestors (e.g. `swift` for `swift/vapor`).
+        var slugs = Set<String>()
+        for key in counts.keys {
+            let parts = key.split(separator: "/").map(String.init)
+            guard !parts.isEmpty else { continue }
+            for depth in 1...parts.count {
+                slugs.insert(parts[0..<depth].joined(separator: "/"))
+            }
+        }
+        // Sorting by path components (prefix-first) yields exact pre-order DFS: a parent precedes
+        // its subtree, and siblings are alphabetical at every level.
+        let ordered = slugs.sorted { lhs, rhs in
+            let a = lhs.split(separator: "/").map(String.init)
+            let b = rhs.split(separator: "/").map(String.init)
+            for i in 0..<min(a.count, b.count) where a[i] != b[i] { return a[i] < b[i] }
+            return a.count < b.count
+        }
+        return ordered.map { slug in
+            let comps = slug.split(separator: "/").map(String.init)
+            return SidebarTag(
+                name: slug,
+                label: comps.last ?? slug,
+                href: tagHref(slug),
+                count: counts[slug] ?? 0,
+                depth: comps.count - 1,
+                isActive: slug == activeTag
+            )
+        }
+    }
+
+    /// `/app?tag=…` with the slug percent-encoded (so `/` becomes `%2F`).
+    static func tagHref(_ slug: String) -> String {
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "/?&=#+%")
+        let encoded = slug.addingPercentEncoding(withAllowedCharacters: allowed) ?? slug
+        return "/app?tag=\(encoded)"
     }
 
     // MARK: - Create
