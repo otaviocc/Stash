@@ -171,9 +171,14 @@
         .tag-suggest-item:hover, .tag-suggest-item.active { background: var(--tag-bg); }
         .danger-zone { border-color: var(--dz-border); background: var(--dz-bg); }
         .danger-zone h2 { color: var(--dz-heading); margin-top: 0; }
+        /* Two normal columns side by side; both flow with the page as one unit (no sticky/fixed). */
         .app-layout { display: flex; gap: 1.5rem; align-items: flex-start; }
         .app-main { flex: 1; min-width: 0; }
-        .tag-sidebar { flex: 0 0 220px; position: sticky; top: 1.5rem; }
+        /* Pin the heading box so the sidebar's top offset is exact, not a guessed number.
+           Line box = line-height 1.5 × font-size 1.5rem = 2.25rem; bottom margin 1rem. */
+        .app-main h1 { margin: 0 0 1rem; }
+        /* Drop "Tags" to line up with the search field: clear the h1 (2.25rem + 1rem margin). */
+        .tag-sidebar { flex: 0 0 220px; width: 220px; margin-top: 3.25rem; }
         .tag-sidebar h2 { font-size: 1rem; margin: 0 0 0.5rem; }
         .tag-tree { list-style: none; margin: 0; padding: 0; }
         .tag-tree li { margin: 0; line-height: 1.7; }
