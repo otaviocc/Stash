@@ -330,3 +330,36 @@ code, the deviations from the PRD, and the trade-offs accepted.
   account, password, 2FA, and tag metadata (derived from bookmarks) are untouched. PRG redirect to
   `/app?notice=all_bookmarks_deleted` with a one-shot banner driven by a `notice(for:)` mapping
   (parallel to the existing `?ok=`/`message(for:)` convention).
+
+---
+
+## Linting & formatting (SwiftLint + SwiftFormat)
+
+- **✅ Enabled the opt-in organization rules.** `organizeDeclarations` and `markTypes` are *disabled
+  by default* in SwiftFormat; the `.swiftformat` supplied all their options but never turned the
+  rules on, so no MARK organization was happening. Added `--enable organizeDeclarations` and
+  `--enable markTypes`. Applied across all source + test files: MIT header, a `// MARK: - <Type>`
+  before each type/extension, and in-type sections in **type mode** — `Nested Types → Static
+  Properties → Properties → Computed Properties → Lifecycle → Functions` — with public-before-private
+  *ordering within* each section.
+- **✅ Type mode over visibility mode (user decision).** SwiftFormat emits either type marks *or*
+  visibility marks, not both. Chose type mode (matching the config's `--organization-mode type` and
+  the requested Nested Types/Properties/Lifecycle order); visibility mode was rejected because the
+  codebase is overwhelmingly `internal`-access, so it would mostly produce `Internal`/`Private`
+  headings rather than `Public`/`Private`.
+- **✅ `Package.swift` is safe.** SwiftFormat keeps `// swift-tools-version:` as line 1 and skips the
+  license header there.
+- **✅ Disabled three SwiftLint rules that false-positive on Fluent.** `first_where`,
+  `contains_over_first_not_nil`, and `empty_string` flag the query DSL (`.filter(\.$x == y).first()`,
+  `first(where:) != nil`, `\.$field == ""`) — these are database builders, not `Sequence` ops, and
+  rewriting them would break compilation.
+- **✅ `identifier_name` exclusions** for idiomatic short names (`db`, `q`, `i`, `a`, `b`, `c`, `s`,
+  `v`, `ok`, `ts`, `me`) and the `date_added` Anybox `CodingKey` (which must match the JSON key).
+- **⚠️ Disabled `file_length` / `type_body_length` / `function_body_length`** for consistency with
+  the complexity family already disabled in the config (`line_length`, `nesting`,
+  `cyclomatic_complexity`, `function_parameter_count`, `large_tuple`) — the web controllers and test
+  suites legitimately run long. Easy to switch to soft thresholds instead if a size nudge is wanted.
+- **✅ One inline `for_where` disable** in `AuthController` — the loop's predicate is `try await`,
+  which a `where` clause can't hold.
+- Result: `swiftlint lint` clean (0 violations), `swiftformat --lint` idempotent, build clean, 65
+  tests pass.

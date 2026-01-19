@@ -1,18 +1,33 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Fluent
 import Testing
 import Vapor
 import VaporTesting
-
 @testable import App
 
 @Suite("Admin — user management & stats")
 struct AdminTests {
-    // Convenience: seed an admin and return a bearer header for it.
-    private func adminHeaders(_ app: Application) async throws -> HTTPHeaders {
-        try await app.makeUser(username: "root", password: "admin-password-123", role: .admin)
-        let pair = try await app.login(username: "root", password: "admin-password-123")
-        return bearer(pair.accessToken)
-    }
 
     // MARK: - Access control
 
@@ -25,15 +40,14 @@ struct AdminTests {
             for path in ["api/v1/admin/users", "api/v1/admin/stats"] {
                 try await app.testing().test(
                     .GET, path,
-                    headers: bearer(pair.accessToken),
-                    afterResponse: { res async throws in
-                        #expect(res.status == .forbidden)
-                        let err = try res.content.decode(TestError.self)
-                        #expect(err.error == true)
-                        #expect(err.code == "forbidden")
-                        #expect(!err.message.isEmpty)
-                    }
-                )
+                    headers: bearer(pair.accessToken)
+                ) { res async throws in
+                    #expect(res.status == .forbidden)
+                    let err = try res.content.decode(TestError.self)
+                    #expect(err.error == true)
+                    #expect(err.code == "forbidden")
+                    #expect(!err.message.isEmpty)
+                }
             }
         }
     }
@@ -41,10 +55,10 @@ struct AdminTests {
     @Test("unauthenticated requests to /admin/* are rejected with 401")
     func unauthenticatedRejected() async throws {
         try await withTestApp { app in
-            try await app.testing().test(.GET, "api/v1/admin/users", afterResponse: { res async throws in
+            try await app.testing().test(.GET, "api/v1/admin/users") { res async throws in
                 #expect(res.status == .unauthorized)
                 #expect(try res.content.decode(TestError.self).error == true)
-            })
+            }
         }
     }
 
@@ -57,12 +71,16 @@ struct AdminTests {
             try await app.makeUser(username: "alice", password: "alice-password-123")
             try await app.makeUser(username: "bob", password: "bob-password-1234")
 
-            try await app.testing().test(.GET, "api/v1/admin/users", headers: headers, afterResponse: { res async throws in
+            try await app.testing().test(
+                .GET,
+                "api/v1/admin/users",
+                headers: headers
+            ) { res async throws in
                 #expect(res.status == .ok)
                 let users = try res.content.decode([UserResponse].self)
                 let names = Set(users.map(\.username))
                 #expect(names == ["root", "alice", "bob"])
-            })
+            }
         }
     }
 
@@ -73,22 +91,20 @@ struct AdminTests {
             let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
 
             try await app.testing().test(
-                .GET, "api/v1/admin/users/\(try alice.requireID())",
-                headers: headers,
-                afterResponse: { res async throws in
-                    #expect(res.status == .ok)
-                    #expect(try res.content.decode(UserResponse.self).username == "alice")
-                }
-            )
+                .GET, "api/v1/admin/users/\(alice.requireID())",
+                headers: headers
+            ) { res async throws in
+                #expect(res.status == .ok)
+                #expect(try res.content.decode(UserResponse.self).username == "alice")
+            }
 
             try await app.testing().test(
                 .GET, "api/v1/admin/users/\(UUID())",
-                headers: headers,
-                afterResponse: { res async throws in
-                    #expect(res.status == .notFound)
-                    #expect(try res.content.decode(TestError.self).code == "not_found")
-                }
-            )
+                headers: headers
+            ) { res async throws in
+                #expect(res.status == .notFound)
+                #expect(try res.content.decode(TestError.self).code == "not_found")
+            }
         }
     }
 
@@ -194,7 +210,7 @@ struct AdminTests {
             let aliceTokens = try await app.login(username: "alice", password: "alice-password-123")
 
             try await app.testing().test(
-                .PUT, "api/v1/admin/users/\(try alice.requireID())",
+                .PUT, "api/v1/admin/users/\(alice.requireID())",
                 headers: headers,
                 beforeRequest: { req in
                     try req.content.encode(UpdateUserInput(isActive: false, password: nil))
@@ -208,14 +224,19 @@ struct AdminTests {
             // Their existing refresh token is gone.
             try await app.testing().test(
                 .POST, "api/v1/auth/refresh",
-                beforeRequest: { req in try req.content.encode(RefreshRequest(refreshToken: aliceTokens.refreshToken)) },
+                beforeRequest: { req in
+                    try req.content.encode(RefreshRequest(refreshToken: aliceTokens.refreshToken))
+                },
                 afterResponse: { res async throws in #expect(res.status == .unauthorized) }
             )
 
             // They can no longer log in.
             try await app.testing().test(
                 .POST, "api/v1/auth/login",
-                beforeRequest: { req in try req.content.encode(LoginRequest(username: "alice", password: "alice-password-123")) },
+                beforeRequest: { req in try req.content.encode(LoginRequest(
+                    username: "alice",
+                    password: "alice-password-123"
+                )) },
                 afterResponse: { res async throws in
                     #expect(res.status == .unauthorized)
                     #expect(try res.content.decode(TestError.self).code == "account_suspended")
@@ -254,15 +275,21 @@ struct AdminTests {
             let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
 
             try await app.testing().test(
-                .PUT, "api/v1/admin/users/\(try alice.requireID())",
+                .PUT, "api/v1/admin/users/\(alice.requireID())",
                 headers: headers,
-                beforeRequest: { req in try req.content.encode(UpdateUserInput(isActive: nil, password: "brand-new-password-456")) },
+                beforeRequest: { req in try req.content.encode(UpdateUserInput(
+                    isActive: nil,
+                    password: "brand-new-password-456"
+                )) },
                 afterResponse: { res async throws in #expect(res.status == .ok) }
             )
 
             try await app.testing().test(
                 .POST, "api/v1/auth/login",
-                beforeRequest: { req in try req.content.encode(LoginRequest(username: "alice", password: "alice-password-123")) },
+                beforeRequest: { req in try req.content.encode(LoginRequest(
+                    username: "alice",
+                    password: "alice-password-123"
+                )) },
                 afterResponse: { res async throws in #expect(res.status == .unauthorized) }
             )
 
@@ -279,9 +306,12 @@ struct AdminTests {
 
             // Admin resets the password.
             try await app.testing().test(
-                .PUT, "api/v1/admin/users/\(try alice.requireID())",
+                .PUT, "api/v1/admin/users/\(alice.requireID())",
                 headers: headers,
-                beforeRequest: { req in try req.content.encode(UpdateUserInput(isActive: nil, password: "brand-new-password-456")) },
+                beforeRequest: { req in try req.content.encode(UpdateUserInput(
+                    isActive: nil,
+                    password: "brand-new-password-456"
+                )) },
                 afterResponse: { res async throws in #expect(res.status == .ok) }
             )
 
@@ -291,7 +321,9 @@ struct AdminTests {
 
             try await app.testing().test(
                 .POST, "api/v1/auth/refresh",
-                beforeRequest: { req in try req.content.encode(RefreshRequest(refreshToken: aliceTokens.refreshToken)) },
+                beforeRequest: { req in
+                    try req.content.encode(RefreshRequest(refreshToken: aliceTokens.refreshToken))
+                },
                 afterResponse: { res async throws in #expect(res.status == .unauthorized) }
             )
         }
@@ -303,7 +335,7 @@ struct AdminTests {
             let headers = try await adminHeaders(app)
             let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
             try await app.testing().test(
-                .PUT, "api/v1/admin/users/\(try alice.requireID())",
+                .PUT, "api/v1/admin/users/\(alice.requireID())",
                 headers: headers,
                 beforeRequest: { req in try req.content.encode(UpdateUserInput(isActive: nil, password: "short")) },
                 afterResponse: { res async throws in
@@ -331,9 +363,8 @@ struct AdminTests {
 
             try await app.testing().test(
                 .DELETE, "api/v1/admin/users/\(aliceID)",
-                headers: headers,
-                afterResponse: { res async throws in #expect(res.status == .noContent) }
-            )
+                headers: headers
+            ) { res async throws in #expect(res.status == .noContent) }
 
             // User gone.
             #expect(try await User.find(aliceID, on: app.db) == nil)
@@ -353,9 +384,8 @@ struct AdminTests {
             let headers = try await adminHeaders(app)
             try await app.testing().test(
                 .DELETE, "api/v1/admin/users/\(UUID())",
-                headers: headers,
-                afterResponse: { res async throws in #expect(res.status == .notFound) }
-            )
+                headers: headers
+            ) { res async throws in #expect(res.status == .notFound) }
         }
     }
 
@@ -368,15 +398,14 @@ struct AdminTests {
 
             try await app.testing().test(
                 .DELETE, "api/v1/admin/users/\(adminID)",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    #expect(res.status == .badRequest)
-                    let err = try res.content.decode(TestError.self)
-                    #expect(err.error == true)
-                    #expect(err.code == "cannot_delete_self")
-                    #expect(err.message == "An admin cannot delete their own account.")
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                #expect(res.status == .badRequest)
+                let err = try res.content.decode(TestError.self)
+                #expect(err.error == true)
+                #expect(err.code == "cannot_delete_self")
+                #expect(err.message == "An admin cannot delete their own account.")
+            }
 
             // The admin account still exists.
             #expect(try await User.find(adminID, on: app.db) != nil)
@@ -397,7 +426,11 @@ struct AdminTests {
             try await app.makeBookmark(for: alice, url: "https://a3.com")
             try await app.makeBookmark(for: bob, url: "https://b1.com")
 
-            try await app.testing().test(.GET, "api/v1/admin/stats", headers: headers, afterResponse: { res async throws in
+            try await app.testing().test(
+                .GET,
+                "api/v1/admin/stats",
+                headers: headers
+            ) { res async throws in
                 #expect(res.status == .ok)
                 let stats = try res.content.decode(AdminStatsResponse.self)
                 #expect(stats.totalUsers == 3) // root, alice, bob
@@ -407,7 +440,14 @@ struct AdminTests {
                 #expect(byName["bob"]?.bookmarkCount == 1)
                 #expect(byName["root"]?.bookmarkCount == 0)
                 #expect(byName["alice"]?.isActive == true)
-            })
+            }
         }
+    }
+
+    // Convenience: seed an admin and return a bearer header for it.
+    private func adminHeaders(_ app: Application) async throws -> HTTPHeaders {
+        try await app.makeUser(username: "root", password: "admin-password-123", role: .admin)
+        let pair = try await app.login(username: "root", password: "admin-password-123")
+        return bearer(pair.accessToken)
     }
 }

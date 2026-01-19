@@ -1,3 +1,25 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Foundation
 import Vapor
 
@@ -7,6 +29,7 @@ import Vapor
 /// determine (often just the `/favicon.ico` fallback, or all-nil), so a bookmark save is never
 /// blocked. The 5-second timeout with no retry is configured on `app.http.client` in `configure`.
 enum MetadataFetcher {
+
     static func fetch(url: String, on req: Request) async -> MetadataResponse {
         guard let baseURL = URL(string: url) else {
             return MetadataResponse(title: nil, description: nil, faviconURL: nil)
@@ -34,6 +57,13 @@ enum MetadataFetcher {
         let description = extractDescription(from: html)
         let favicon = extractFavicon(from: html, baseURL: baseURL) ?? defaultFavicon(for: baseURL)
         return MetadataResponse(title: title, description: description, faviconURL: favicon)
+    }
+
+    static func defaultFavicon(for baseURL: URL) -> String? {
+        guard let scheme = baseURL.scheme, let host = baseURL.host else { return nil }
+        var origin = "\(scheme)://\(host)"
+        if let port = baseURL.port { origin += ":\(port)" }
+        return origin + "/favicon.ico"
     }
 
     // MARK: - Extraction
@@ -72,13 +102,6 @@ enum MetadataFetcher {
         return URL(string: resolved, relativeTo: baseURL)?.absoluteString ?? resolved
     }
 
-    static func defaultFavicon(for baseURL: URL) -> String? {
-        guard let scheme = baseURL.scheme, let host = baseURL.host else { return nil }
-        var origin = "\(scheme)://\(host)"
-        if let port = baseURL.port { origin += ":\(port)" }
-        return origin + "/favicon.ico"
-    }
-
     // MARK: - Helpers
 
     private static func firstMatch(_ pattern: String, in html: String, group: Int = 1) -> String? {
@@ -98,7 +121,7 @@ enum MetadataFetcher {
         let replacements = [
             "&amp;": "&", "&lt;": "<", "&gt;": ">",
             "&quot;": "\"", "&#39;": "'", "&#x27;": "'",
-            "&apos;": "'", "&nbsp;": " ",
+            "&apos;": "'", "&nbsp;": " "
         ]
         for (entity, char) in replacements {
             result = result.replacingOccurrences(of: entity, with: char)
