@@ -10,7 +10,7 @@
         <div class="toolbar">
             <form method="get" action="/app">
                 <input type="search" name="q" value="#(q)" placeholder="Search…">
-                #if(tag):<input type="hidden" name="tag" value="#(tag)">#endif
+                #if(tag != ""):<input type="hidden" name="tag" value="#(tag)">#endif
                 #if(archived):<input type="hidden" name="archived" value="true">#endif
                 <button type="submit">Search</button>
             </form>
@@ -21,7 +21,7 @@
             #endif
         </div>
 
-        #if(tag):
+        #if(tag != ""):
         <p>Filtered by tag <span class="tag">#(tagDisplay)</span> · <a href="/app">clear</a></p>
         #endif
 

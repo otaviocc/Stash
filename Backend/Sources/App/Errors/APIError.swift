@@ -89,7 +89,7 @@ enum APIError: AbortError {
         case .invalidCredentials: "Wrong username or password."
         case .accountSuspended: "This account is suspended."
         case .tokenExpired: "The access token has expired."
-        case .tokenInvalid: "The token is malformed or unrecognised."
+        case .tokenInvalid: "The token is malformed or unrecognized."
         case .totpRequired: "Two-factor authentication is required."
         case .totpInvalid: "The TOTP or recovery code is invalid."
         case .forbidden: "You do not have permission to perform this action."
