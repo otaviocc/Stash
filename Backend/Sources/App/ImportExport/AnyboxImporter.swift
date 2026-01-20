@@ -70,7 +70,8 @@ struct AnyboxImporter: BookmarkImporter {
 
         enum CodingKeys: String, CodingKey {
 
-            case url, title, description, tags, dateAdded, date_added
+            case url, title, description, tags, dateAdded
+            case dateAddedUnix = "date_added"
         }
 
         // MARK: Static Properties
@@ -101,7 +102,7 @@ struct AnyboxImporter: BookmarkImporter {
                let date = Record.iso.date(from: iso)
             {
                 createdAt = date
-            } else if let ts = (try? c.decodeIfPresent(Double.self, forKey: .date_added))
+            } else if let ts = (try? c.decodeIfPresent(Double.self, forKey: .dateAddedUnix))
                 ?? (try? c.decodeIfPresent(Double.self, forKey: .dateAdded))
             {
                 createdAt = Date(timeIntervalSince1970: ts)
