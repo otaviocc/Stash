@@ -232,7 +232,8 @@ Unversioned, mounted at `/app`, separate from the API and the admin dashboard.
   dependency-free regex HTML parser (`MetadataFetcher`). It never blocks a save: on any failure the
   bookmark is saved with whatever the client supplied. Client-supplied title/description take
   precedence over fetched values.
-- **Full-text search** (`q`) uses SQL `LIKE` (`~~`); matching is case-insensitive on SQLite and
+- **Full-text search** (`q`) matches across URL, title, description, and tags (via the
+  `tags_search` column) using SQL `LIKE` (`~~`); matching is case-insensitive on SQLite and
   case-sensitive on Postgres.
 
 ## Deviation from PRD §17.2
