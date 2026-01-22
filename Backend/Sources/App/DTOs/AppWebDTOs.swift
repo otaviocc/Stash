@@ -222,6 +222,14 @@ struct AppTagsContext: Content {
     let title: String
     let appUsername: String
     let tags: [AppTagCount]
+    let message: String?
+    let error: String?
+}
+
+/// `POST /app/tags/rename` form — `from` (hidden, the current tag) and `to` (the new name).
+struct TagRenameForm: Content {
+    let from: String
+    let to: String
 }
 
 // MARK: - ImportSummaryContext

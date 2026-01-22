@@ -370,3 +370,23 @@ code, the deviations from the PRD, and the trade-offs accepted.
   which a `where` clause can't hold.
 - Result: `swiftlint lint` clean (0 violations), `swiftformat --lint` idempotent, build clean, 65
   tests pass.
+
+---
+
+## Tag renaming
+
+- **✅ Shared logic in `TagRenamer`.** `POST /api/v1/tags/rename` (JSON) and `POST /app/tags/rename`
+  (web form) both call the same `TagRenamer.rename`, so behaviour can't drift. Both `from`/`to` are
+  normalised with `normalizeTagQuery` (same as every other tag write); empty-after-normalisation →
+  `422 validation_failed`; `from == to` or an unused `from` is an idempotent 200 with
+  `affectedBookmarks: 0`.
+- **✅ Renames children, merges without duplicates.** Candidates are found via the `tags_search`
+  prefix match (`|from|` or `|from/`), then a pure transform renames the exact tag and rewrites
+  `from/x → to/x`, de-duplicating so a merge into an existing `to` never stores a tag twice
+  (order preserved). `applyTags` keeps `tags_search` in sync. Scoped to the user's own bookmarks.
+- **✅ Web UX:** each tag row has an inline rename form revealed by a small vanilla-JS toggle (same
+  pattern as the danger zone); submit does Post/Redirect/Get to `/app/tags?ok=renamed&from=…&to=…&n=…`
+  (values percent-encoded via the shared `queryValue` helper, also now used by `tagHref`), and the
+  browser builds the "Renamed X to Y (N bookmarks updated)" banner from those params.
+- **⚠️ Beyond the PRD** — tag renaming isn't in `PRODUCT.md`; added on request. Lint: `to` is the
+  documented API field name, so it joins the idiomatic short-name exclusions in `.swiftlint.yml`.

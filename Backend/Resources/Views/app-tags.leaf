@@ -1,16 +1,55 @@
 #extend("layout"):
 #export("content"):
     <h1>Tags</h1>
+
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
     #if(count(tags) > 0):
     <div class="card">
-        <div class="tags">
+        <ul class="tag-list">
             #for(t in tags):
-            <a class="tag" href="/app?tag=#(t.name)">#(t.display) · #(t.count)</a>
+            <li class="tag-row">
+                <span class="tag-row-view">
+                    <a href="/app?tag=#(t.name)">#(t.display)</a>
+                    <span class="muted">(#(t.count))</span>
+                    <button type="button" class="secondary rename-toggle">Rename</button>
+                </span>
+                <form class="tag-row-edit" method="post" action="/app/tags/rename" style="display:none">
+                    <input type="hidden" name="from" value="#(t.name)">
+                    <input name="to" value="#(t.name)" autocomplete="off" autocapitalize="none" required>
+                    <button type="submit">Save</button>
+                    <button type="button" class="secondary rename-cancel">Cancel</button>
+                </form>
+            </li>
             #endfor
-        </div>
+        </ul>
     </div>
     #else:
     <div class="card"><p class="muted">No tags yet.</p></div>
     #endif
+
+    <script>
+    // Reveal/hide the inline rename form per tag row (same toggle pattern as the danger zone).
+    document.querySelectorAll('.tag-row').forEach(function (row) {
+        var view = row.querySelector('.tag-row-view');
+        var form = row.querySelector('.tag-row-edit');
+        var input = form.querySelector('input[name="to"]');
+        row.querySelector('.rename-toggle').addEventListener('click', function () {
+            view.style.display = 'none';
+            form.style.display = 'flex';
+            input.focus();
+            input.select();
+        });
+        row.querySelector('.rename-cancel').addEventListener('click', function () {
+            form.style.display = 'none';
+            view.style.display = '';
+        });
+    });
+    </script>
 #endexport
 #endextend
