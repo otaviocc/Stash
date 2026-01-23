@@ -18,12 +18,19 @@
                     <a href="/app?tag=#(t.name)">#(t.display)</a>
                     <span class="muted">(#(t.count))</span>
                     <button type="button" class="secondary rename-toggle">Rename</button>
+                    <button type="button" class="secondary delete-toggle">Delete</button>
                 </span>
                 <form class="tag-row-edit" method="post" action="/app/tags/rename" style="display:none">
                     <input type="hidden" name="from" value="#(t.name)">
                     <input name="to" value="#(t.name)" autocomplete="off" autocapitalize="none" required>
                     <button type="submit">Save</button>
                     <button type="button" class="secondary rename-cancel">Cancel</button>
+                </form>
+                <form class="tag-row-delete" method="post" action="/app/tags/delete" style="display:none">
+                    <input type="hidden" name="tag" value="#(t.name)">
+                    <span>Delete #(t.display) and all its children? This cannot be undone.</span>
+                    <button type="submit" class="danger">Confirm delete</button>
+                    <button type="button" class="secondary delete-cancel">Cancel</button>
                 </form>
             </li>
             #endfor
@@ -34,21 +41,32 @@
     #endif
 
     <script>
-    // Reveal/hide the inline rename form per tag row (same toggle pattern as the danger zone).
+    // Reveal/hide the inline rename and delete forms per tag row (same toggle pattern as the
+    // danger zone). Only one form is open at a time per row.
     document.querySelectorAll('.tag-row').forEach(function (row) {
         var view = row.querySelector('.tag-row-view');
-        var form = row.querySelector('.tag-row-edit');
-        var input = form.querySelector('input[name="to"]');
+        var renameForm = row.querySelector('.tag-row-edit');
+        var deleteForm = row.querySelector('.tag-row-delete');
+        var input = renameForm.querySelector('input[name="to"]');
+        function reset() {
+            renameForm.style.display = 'none';
+            deleteForm.style.display = 'none';
+            view.style.display = '';
+        }
         row.querySelector('.rename-toggle').addEventListener('click', function () {
             view.style.display = 'none';
-            form.style.display = 'flex';
+            deleteForm.style.display = 'none';
+            renameForm.style.display = 'flex';
             input.focus();
             input.select();
         });
-        row.querySelector('.rename-cancel').addEventListener('click', function () {
-            form.style.display = 'none';
-            view.style.display = '';
+        row.querySelector('.delete-toggle').addEventListener('click', function () {
+            view.style.display = 'none';
+            renameForm.style.display = 'none';
+            deleteForm.style.display = 'flex';
         });
+        row.querySelector('.rename-cancel').addEventListener('click', reset);
+        row.querySelector('.delete-cancel').addEventListener('click', reset);
     });
     </script>
 #endexport

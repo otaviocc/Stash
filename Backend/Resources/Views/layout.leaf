@@ -192,8 +192,11 @@
         .tag-row:last-child { border-bottom: 0; }
         .tag-row-view { display: flex; align-items: center; gap: 0.6rem; }
         .tag-row-view .rename-toggle { margin-left: auto; padding: 0.2rem 0.6rem; font-size: 0.85rem; }
+        .tag-row-view .delete-toggle { padding: 0.2rem 0.6rem; font-size: 0.85rem; }
         .tag-row-edit { display: flex; gap: 0.5rem; align-items: center; }
         .tag-row-edit input[name="to"] { display: inline-block; width: auto; flex: 1; margin: 0; }
+        .tag-row-delete { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        .tag-row-delete span { flex: 1; color: var(--muted); }
     </style>
 </head>
 <body>

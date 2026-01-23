@@ -226,10 +226,21 @@ struct AppTagsContext: Content {
     let error: String?
 }
 
+// MARK: - TagRenameForm
+
 /// `POST /app/tags/rename` form — `from` (hidden, the current tag) and `to` (the new name).
 struct TagRenameForm: Content {
+
     let from: String
     let to: String
+}
+
+// MARK: - TagDeleteForm
+
+/// `POST /app/tags/delete` form — `tag` (hidden, the tag to delete with its children).
+struct TagDeleteForm: Content {
+
+    let tag: String
 }
 
 // MARK: - ImportSummaryContext

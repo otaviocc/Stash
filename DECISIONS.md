@@ -390,3 +390,23 @@ code, the deviations from the PRD, and the trade-offs accepted.
   browser builds the "Renamed X to Y (N bookmarks updated)" banner from those params.
 - **⚠️ Beyond the PRD** — tag renaming isn't in `PRODUCT.md`; added on request. Lint: `to` is the
   documented API field name, so it joins the idiomatic short-name exclusions in `.swiftlint.yml`.
+
+## Tag deletion
+
+- **✅ Shared logic in `TagDeleter`** (mirrors `TagRenamer`). `DELETE /api/v1/tags/:tag` (JSON) and
+  `POST /app/tags/delete` (web form — HTML forms can't issue `DELETE`, so a `POST` sub-route is used)
+  both call `TagDeleter.delete`. The `:tag` path parameter is URL-decoded by Vapor, so a hierarchical
+  slug is sent percent-encoded (`foo-bar%2Fswift`). The tag is normalised with `normalizeTagQuery`;
+  empty-after-normalisation → `422 validation_failed`; a tag that isn't used is an idempotent 200 with
+  `affectedBookmarks: 0`.
+- **✅ Deletes children too.** Same `tags_search` prefix candidate query (`|tag|` or `|tag/`) as
+  rename, then a pure transform drops the exact tag and any `tag/x` (order of the rest preserved).
+  A look-alike like `foo-barbaz` is left untouched (no slash boundary). A bookmark whose only tag is
+  deleted survives with an empty `tags` array — bookmarks are never deleted, only their tags.
+  `applyTags` keeps `tags_search` in sync; scoped to the user's own bookmarks.
+- **✅ Web UX:** each tag row gains a "Delete" button alongside "Rename"; it reveals an inline
+  confirmation ("Delete X and all its children? This cannot be undone.") via the same vanilla-JS
+  toggle (only one of rename/delete open per row). Submit does Post/Redirect/Get to
+  `/app/tags?ok=deleted&tag=…&n=…`, and the browser builds the "Deleted X (N bookmarks updated)"
+  banner from those params.
+- **⚠️ Beyond the PRD** — like renaming, tag deletion isn't in `PRODUCT.md`; added on request.

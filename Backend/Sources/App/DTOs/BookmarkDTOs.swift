@@ -91,16 +91,31 @@ struct TagCount: Content {
     let count: Int
 }
 
+// MARK: - TagRenameRequest
+
 /// `POST /tags/rename` body (PRD: tag renaming). Both names are normalised on receipt.
 struct TagRenameRequest: Content {
+
     let from: String
     let to: String
 }
 
+// MARK: - TagRenameResponse
+
 /// `POST /tags/rename` response.
 struct TagRenameResponse: Content {
+
     let from: String
     let to: String
+    let affectedBookmarks: Int
+}
+
+// MARK: - TagDeleteResponse
+
+/// `DELETE /tags/:tag` response. The tag is normalised on receipt.
+struct TagDeleteResponse: Content {
+
+    let tag: String
     let affectedBookmarks: Int
 }
 
