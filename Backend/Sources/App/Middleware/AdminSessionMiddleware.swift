@@ -32,7 +32,6 @@ struct AdminSessionMiddleware: AsyncMiddleware {
 
     // MARK: Static Properties
 
-    /// Session key holding the logged-in admin's user ID.
     static let sessionKey = "adminUserID"
 
     // MARK: Functions

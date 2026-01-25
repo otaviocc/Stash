@@ -29,6 +29,7 @@ enum TagRenamer {
 
     // MARK: Nested Types
 
+    /// Outcome of a tag rename: the normalized source/target names and how many bookmarks changed.
     struct Result {
 
         let from: String
@@ -38,11 +39,6 @@ enum TagRenamer {
 
     // MARK: Static Functions
 
-    /// Normalise, validate, and rename `from` → `to` for the user's bookmarks.
-    ///
-    /// - Both names are normalised the same way as every other tag write (`normalizeTagQuery`).
-    /// - Throws `APIError.validationFailed` if either is empty after normalisation.
-    /// - A no-op (`from == to`, or `from` unused) returns a zero count — it's idempotent, not an error.
     static func rename(
         rawFrom: String,
         rawTo: String,
@@ -59,9 +55,6 @@ enum TagRenamer {
             return Result(from: from, to: to, affectedBookmarks: 0)
         }
 
-        // Candidates: bookmarks whose tag string contains the exact tag (`|from|`) or a child
-        // (`|from/`). Same portable prefix match used for tag filtering; the pure transform below
-        // makes the final decision, so any over-match is simply left unchanged.
         let candidates = try await Bookmark.query(on: db)
             .filter(\.$user.$id == userID)
             .group(.or) { group in
@@ -83,9 +76,6 @@ enum TagRenamer {
         return Result(from: from, to: to, affectedBookmarks: affected)
     }
 
-    /// Pure transform: rename the exact tag `from` → `to` and any child `from/x` → `to/x`,
-    /// de-duplicating (so a merge into an existing `to` never stores a tag twice) while preserving
-    /// order.
     static func renameTags(_ tags: [String], from: String, to: String) -> [String] {
         var seen = Set<String>()
         var result: [String] = []
@@ -93,7 +83,7 @@ enum TagRenamer {
             let renamed: String = if tag == from {
                 to
             } else if tag.hasPrefix(from + "/") {
-                to + String(tag.dropFirst(from.count)) // keeps the "/child" suffix
+                to + String(tag.dropFirst(from.count))
             } else {
                 tag
             }

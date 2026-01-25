@@ -46,7 +46,6 @@ struct AccessTokenPayload: JWTPayload {
 
     var subject: SubjectClaim
     var expiration: ExpirationClaim
-    /// Marks the token kind so a temp/2FA token can never be used as an access token.
     var scope: String
     var role: String
 

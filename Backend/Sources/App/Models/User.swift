@@ -37,16 +37,12 @@ final class User: Model, Content, @unchecked Sendable {
     @ID(key: .id)
     var id: UUID?
 
-    /// Unique, always stored lowercased.
     @Field(key: "username")
     var username: String
 
-    /// Bcrypt hash, cost factor 12.
     @Field(key: "password_hash")
     var passwordHash: String
 
-    /// Base32-encoded TOTP secret. Stored once setup begins, but `isTOTPEnabled`
-    /// stays false until the user verifies the first code.
     @OptionalField(key: "totp_secret")
     var totpSecret: String?
 
@@ -56,11 +52,9 @@ final class User: Model, Content, @unchecked Sendable {
     @Field(key: "role")
     var role: UserRole
 
-    /// False = suspended; the account cannot log in.
     @Field(key: "is_active")
     var isActive: Bool
 
-    /// Denormalised bookmark count; maintained from M2 onward.
     @Field(key: "bookmark_count")
     var bookmarkCount: Int
 
@@ -110,7 +104,6 @@ extension User: Authenticatable {}
 
 extension User {
 
-    /// The public-facing projection of a user (PRD §13 `User`).
     func asResponse() throws -> UserResponse {
         try UserResponse(
             id: requireID(),

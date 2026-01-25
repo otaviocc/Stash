@@ -22,10 +22,10 @@
 
 import Foundation
 
-/// Generation and normalisation of single-use 2FA recovery codes. PRD §8.3 / §7.4.
+/// Generation and normalization of single-use 2FA recovery codes. PRD §8.3 / §7.4.
 ///
 /// Format: 8 uppercase alphanumeric characters, presented in two groups for readability
-/// (`ABCD-EFGH`). Eight codes are generated at enrolment.
+/// (`ABCD-EFGH`). Eight codes are generated at enrollment.
 enum RecoveryCodes {
 
     // MARK: Static Properties
@@ -36,13 +36,10 @@ enum RecoveryCodes {
 
     // MARK: Static Functions
 
-    /// Generate `count` formatted codes (e.g. `ABCD-EFGH`), shown to the user exactly once.
     static func generate() -> [String] {
         (0..<count).map { _ in formatted(rawCode()) }
     }
 
-    /// Strip formatting so display form and stored/compared form always match.
-    /// `ABCD-EFGH` -> `ABCDEFGH`.
     static func normalize(_ code: String) -> String {
         code.uppercased().filter { $0.isLetter || $0.isNumber }
     }

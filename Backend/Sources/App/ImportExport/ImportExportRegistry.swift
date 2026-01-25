@@ -41,14 +41,12 @@ final class ImportExportRegistry: @unchecked Sendable {
 
     // MARK: Computed Properties
 
-    /// Format options for the import selector, sorted by display name.
     var importerOptions: [FormatOption] {
         importers.values
             .map { FormatOption(identifier: type(of: $0).identifier, displayName: type(of: $0).displayName) }
             .sorted { $0.displayName < $1.displayName }
     }
 
-    /// Format options for the export selector, sorted by display name.
     var exporterOptions: [FormatOption] {
         exporters.values
             .map { FormatOption(identifier: type(of: $0).identifier, displayName: type(of: $0).displayName) }

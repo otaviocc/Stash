@@ -26,15 +26,18 @@ import Vapor
 import VaporTesting
 @testable import App
 
+/// Verifies bookmark CRUD, duplicate handling, search, pagination, and per-user isolation.
 @Suite("Bookmarks — CRUD, duplicates, search, isolation")
 struct BookmarkTests {
 
     @Test("create returns 201 and the bookmark, and increments bookmarkCount")
     func create() async throws {
         try await withTestApp { app in
+            // Given
             try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
 
+            // When
             try await app.testing().test(
                 .POST, "api/v1/bookmarks",
                 headers: bearer(pair.accessToken),
@@ -46,12 +49,13 @@ struct BookmarkTests {
                     ))
                 },
                 afterResponse: { res async throws in
-                    #expect(res.status == .created)
+                    // Then
+                    #expect(res.status == .created, "It should return 201 Created")
                     let bookmark = try res.content.decode(BookmarkResponse.self)
-                    #expect(bookmark.url == "https://example.com")
-                    #expect(bookmark.title == "Example")
-                    #expect(bookmark.tags == ["swift", "swift/vapor"]) // normalised + lowercased
-                    #expect(bookmark.isArchived == false)
+                    #expect(bookmark.url == "https://example.com", "It should store the submitted URL")
+                    #expect(bookmark.title == "Example", "It should store the submitted title")
+                    #expect(bookmark.tags == ["swift", "swift/vapor"], "It should normalize and lowercase the tags")
+                    #expect(bookmark.isArchived == false, "It should create the bookmark unarchived")
                 }
             )
 
@@ -60,7 +64,7 @@ struct BookmarkTests {
                 headers: bearer(pair.accessToken)
             ) { res async throws in
                 let me = try res.content.decode(UserResponse.self)
-                #expect(me.bookmarkCount == 1)
+                #expect(me.bookmarkCount == 1, "It should increment the user's bookmark count")
             }
         }
     }
@@ -68,9 +72,11 @@ struct BookmarkTests {
     @Test("create with an invalid URL returns 422")
     func createInvalidURL() async throws {
         try await withTestApp { app in
+            // Given
             try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
 
+            // When
             try await app.testing().test(
                 .POST, "api/v1/bookmarks",
                 headers: bearer(pair.accessToken),
@@ -78,9 +84,10 @@ struct BookmarkTests {
                     try req.content.encode(createBody(url: "not-a-url"))
                 },
                 afterResponse: { res async throws in
-                    #expect(res.status == .unprocessableEntity)
+                    // Then
+                    #expect(res.status == .unprocessableEntity, "It should return 422 Unprocessable Entity")
                     let err = try res.content.decode(TestError.self)
-                    #expect(err.code == "validation_failed")
+                    #expect(err.code == "validation_failed", "It should return the validation_failed error code")
                 }
             )
         }
@@ -89,10 +96,12 @@ struct BookmarkTests {
     @Test("duplicate URL returns 409 with the existing bookmark ID")
     func duplicateURL() async throws {
         try await withTestApp { app in
+            // Given
             let user = try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
             let existing = try await app.makeBookmark(for: user, url: "https://dupe.com")
 
+            // When
             try await app.testing().test(
                 .POST, "api/v1/bookmarks",
                 headers: bearer(pair.accessToken),
@@ -100,10 +109,11 @@ struct BookmarkTests {
                     try req.content.encode(createBody(url: "https://dupe.com"))
                 },
                 afterResponse: { res async throws in
-                    #expect(res.status == .conflict)
+                    // Then
+                    #expect(res.status == .conflict, "It should return 409 Conflict")
                     let err = try res.content.decode(TestDuplicateError.self)
-                    #expect(err.code == "duplicate_url")
-                    #expect(err.existingID == existing.id)
+                    #expect(err.code == "duplicate_url", "It should return the duplicate_url error code")
+                    #expect(err.existingID == existing.id, "It should report the ID of the existing bookmark")
                 }
             )
         }
@@ -112,17 +122,23 @@ struct BookmarkTests {
     @Test("get, update, and delete a bookmark")
     func crud() async throws {
         try await withTestApp { app in
+            // Given
             let user = try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
             let bookmark = try await app.makeBookmark(for: user, url: "https://a.com", title: "A", tags: ["x"])
             let id = try bookmark.requireID()
 
+            // When
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/\(id)",
                 headers: bearer(pair.accessToken)
             ) { res async throws in
-                #expect(res.status == .ok)
-                #expect(try res.content.decode(BookmarkResponse.self).title == "A")
+                // Then
+                #expect(res.status == .ok, "It should return 200 OK when fetching the bookmark")
+                #expect(
+                    try res.content.decode(BookmarkResponse.self).title == "A",
+                    "It should return the bookmark's title"
+                )
             }
 
             try await app.testing().test(
@@ -134,35 +150,40 @@ struct BookmarkTests {
                     ))
                 },
                 afterResponse: { res async throws in
-                    #expect(res.status == .ok)
+                    #expect(res.status == .ok, "It should return 200 OK when updating the bookmark")
                     let updated = try res.content.decode(BookmarkResponse.self)
-                    #expect(updated.title == "A updated")
-                    #expect(updated.description == "desc")
-                    #expect(updated.tags == ["y", "y/z"])
-                    #expect(updated.isArchived == true)
+                    #expect(updated.title == "A updated", "It should update the title")
+                    #expect(updated.description == "desc", "It should update the description")
+                    #expect(updated.tags == ["y", "y/z"], "It should update the tags")
+                    #expect(updated.isArchived == true, "It should update the archived flag")
                 }
             )
 
             try await app.testing().test(
                 .DELETE, "api/v1/bookmarks/\(id)",
                 headers: bearer(pair.accessToken)
-            ) { res async throws in #expect(res.status == .noContent) }
+            ) { res async throws in #expect(
+                res.status == .noContent,
+                "It should return 204 No Content when deleting the bookmark"
+            ) }
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/\(id)",
                 headers: bearer(pair.accessToken)
-            ) { res async throws in #expect(res.status == .notFound) }
+            ) { res async throws in #expect(res.status == .notFound, "It should return 404 for the deleted bookmark") }
         }
     }
 
     @Test("updating to an existing URL returns 409")
     func updateToDuplicate() async throws {
         try await withTestApp { app in
+            // Given
             let user = try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
             _ = try await app.makeBookmark(for: user, url: "https://one.com")
             let second = try await app.makeBookmark(for: user, url: "https://two.com")
 
+            // When
             try await app.testing().test(
                 .PUT, "api/v1/bookmarks/\(second.requireID())",
                 headers: bearer(pair.accessToken),
@@ -172,8 +193,12 @@ struct BookmarkTests {
                     ))
                 },
                 afterResponse: { res async throws in
-                    #expect(res.status == .conflict)
-                    #expect(try res.content.decode(TestDuplicateError.self).code == "duplicate_url")
+                    // Then
+                    #expect(res.status == .conflict, "It should return 409 Conflict")
+                    #expect(
+                        try res.content.decode(TestDuplicateError.self).code == "duplicate_url",
+                        "It should return the duplicate_url error code"
+                    )
                 }
             )
         }
@@ -182,27 +207,31 @@ struct BookmarkTests {
     @Test("a user cannot access another user's bookmark (404) and lists are isolated")
     func userIsolation() async throws {
         try await withTestApp { app in
+            // Given
             let alice = try await app.makeUser(username: "alice", password: "alice-password-1234")
             try await app.makeUser(username: "bob", password: "bob-password-12345")
             let aliceBookmark = try await app.makeBookmark(for: alice, url: "https://alice-only.com")
 
             let bob = try await app.login(username: "bob", password: "bob-password-12345")
 
-            // Bob cannot GET Alice's bookmark.
+            // When
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/\(aliceBookmark.requireID())",
                 headers: bearer(bob.accessToken)
-            ) { res async throws in #expect(res.status == .notFound) }
+            ) { res async throws in #expect(
+                res.status == .notFound,
+                "It should hide another user's bookmark behind a 404"
+            ) }
 
-            // Bob's list is empty.
+            // Then
             try await app.testing().test(
                 .GET, "api/v1/bookmarks",
                 headers: bearer(bob.accessToken)
             ) { res async throws in
-                #expect(res.status == .ok)
+                #expect(res.status == .ok, "It should return 200 OK")
                 let page = try res.content.decode(Page<BookmarkResponse>.self)
-                #expect(page.items.isEmpty)
-                #expect(page.metadata.total == 0)
+                #expect(page.items.isEmpty, "It should not include another user's bookmarks in the list")
+                #expect(page.metadata.total == 0, "It should report a total of zero for the requesting user")
             }
         }
     }
@@ -210,21 +239,24 @@ struct BookmarkTests {
     @Test("list pagination respects page/per and reports total")
     func pagination() async throws {
         try await withTestApp { app in
+            // Given
             let user = try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
             for i in 0..<25 {
                 try await app.makeBookmark(for: user, url: "https://site\(i).com")
             }
 
+            // When
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?page=1&per=10",
                 headers: bearer(pair.accessToken)
             ) { res async throws in
+                // Then
                 let page = try res.content.decode(Page<BookmarkResponse>.self)
-                #expect(page.items.count == 10)
-                #expect(page.metadata.total == 25)
-                #expect(page.metadata.per == 10)
-                #expect(page.metadata.page == 1)
+                #expect(page.items.count == 10, "It should return one page of items")
+                #expect(page.metadata.total == 25, "It should report the total number of bookmarks")
+                #expect(page.metadata.per == 10, "It should echo the requested page size")
+                #expect(page.metadata.page == 1, "It should echo the requested page number")
             }
 
             try await app.testing().test(
@@ -232,7 +264,7 @@ struct BookmarkTests {
                 headers: bearer(pair.accessToken)
             ) { res async throws in
                 let page = try res.content.decode(Page<BookmarkResponse>.self)
-                #expect(page.items.count == 5)
+                #expect(page.items.count == 5, "It should return the remaining items on the last page")
             }
         }
     }
@@ -240,15 +272,21 @@ struct BookmarkTests {
     @Test("per is clamped to a maximum of 100")
     func perClamped() async throws {
         try await withTestApp { app in
+            // Given
             let user = try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
             try await app.makeBookmark(for: user, url: "https://only.com")
 
+            // When
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?per=9999",
                 headers: bearer(pair.accessToken)
             ) { res async throws in
-                #expect(try res.content.decode(Page<BookmarkResponse>.self).metadata.per == 100)
+                // Then
+                #expect(
+                    try res.content.decode(Page<BookmarkResponse>.self).metadata.per == 100,
+                    "It should clamp the page size to a maximum of 100"
+                )
             }
         }
     }
@@ -256,6 +294,7 @@ struct BookmarkTests {
     @Test("full-text search matches url, title, and description")
     func fullTextSearch() async throws {
         try await withTestApp { app in
+            // Given
             let user = try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
             try await app.makeBookmark(for: user, url: "https://vapor.codes", title: "Vapor framework")
@@ -267,13 +306,18 @@ struct BookmarkTests {
             )
             try await app.makeBookmark(for: user, url: "https://example.com", title: "Nothing relevant")
 
+            // When
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?q=vapor",
                 headers: bearer(pair.accessToken)
             ) { res async throws in
+                // Then
                 let page = try res.content.decode(Page<BookmarkResponse>.self)
-                #expect(page.items.count == 1)
-                #expect(page.items.first?.url == "https://vapor.codes")
+                #expect(page.items.count == 1, "It should match a single bookmark by title")
+                #expect(
+                    page.items.first?.url == "https://vapor.codes",
+                    "It should return the bookmark matched on title"
+                )
             }
 
             try await app.testing().test(
@@ -281,8 +325,11 @@ struct BookmarkTests {
                 headers: bearer(pair.accessToken)
             ) { res async throws in
                 let page = try res.content.decode(Page<BookmarkResponse>.self)
-                #expect(page.items.count == 1)
-                #expect(page.items.first?.url == "https://apple.com")
+                #expect(page.items.count == 1, "It should match a single bookmark by description")
+                #expect(
+                    page.items.first?.url == "https://apple.com",
+                    "It should return the bookmark matched on description"
+                )
             }
         }
     }
@@ -290,6 +337,7 @@ struct BookmarkTests {
     @Test("tag filter is a hierarchical prefix match")
     func tagPrefixFilter() async throws {
         try await withTestApp { app in
+            // Given
             let user = try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
             try await app.makeBookmark(for: user, url: "https://1.com", tags: ["swift"])
@@ -297,14 +345,18 @@ struct BookmarkTests {
             try await app.makeBookmark(for: user, url: "https://3.com", tags: ["swiftui"])
             try await app.makeBookmark(for: user, url: "https://4.com", tags: ["music/jazz"])
 
+            // When
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?tag=swift",
                 headers: bearer(pair.accessToken)
             ) { res async throws in
+                // Then
                 let page = try res.content.decode(Page<BookmarkResponse>.self)
                 let urls = Set(page.items.map(\.url))
-                // swift and swift/vapor match; swiftui and music/jazz do NOT.
-                #expect(urls == ["https://1.com", "https://2.com"])
+                #expect(
+                    urls == ["https://1.com", "https://2.com"],
+                    "It should match the exact tag and its descendants but not unrelated tags"
+                )
             }
         }
     }
@@ -312,17 +364,23 @@ struct BookmarkTests {
     @Test("archived filter defaults to false and can be toggled")
     func archivedFilter() async throws {
         try await withTestApp { app in
+            // Given
             let user = try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
             try await app.makeBookmark(for: user, url: "https://active.com", isArchived: false)
             try await app.makeBookmark(for: user, url: "https://archived.com", isArchived: true)
 
+            // When
             try await app.testing().test(
                 .GET, "api/v1/bookmarks",
                 headers: bearer(pair.accessToken)
             ) { res async throws in
+                // Then
                 let page = try res.content.decode(Page<BookmarkResponse>.self)
-                #expect(page.items.map(\.url) == ["https://active.com"])
+                #expect(
+                    page.items.map(\.url) == ["https://active.com"],
+                    "It should return only unarchived bookmarks by default"
+                )
             }
 
             try await app.testing().test(
@@ -330,7 +388,10 @@ struct BookmarkTests {
                 headers: bearer(pair.accessToken)
             ) { res async throws in
                 let page = try res.content.decode(Page<BookmarkResponse>.self)
-                #expect(page.items.map(\.url) == ["https://archived.com"])
+                #expect(
+                    page.items.map(\.url) == ["https://archived.com"],
+                    "It should return only archived bookmarks when archived=true"
+                )
             }
         }
     }
@@ -338,15 +399,20 @@ struct BookmarkTests {
     @Test("creating a bookmark requires authentication")
     func createRequiresAuth() async throws {
         try await withTestApp { app in
+            // Given — no setup required
+
+            // When
             try await app.testing().test(
                 .POST, "api/v1/bookmarks",
                 beforeRequest: { req in try req.content.encode(createBody(url: "https://x.com")) },
-                afterResponse: { res async throws in #expect(res.status == .unauthorized) }
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(res.status == .unauthorized, "It should reject unauthenticated bookmark creation")
+                }
             )
         }
     }
 
-    // Helper: a create body that never triggers a network metadata fetch.
     private func createBody(
         url: String,
         title: String? = "Example",

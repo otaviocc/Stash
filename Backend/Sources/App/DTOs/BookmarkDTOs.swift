@@ -69,6 +69,7 @@ struct MetadataRequest: Content {
 
 // MARK: - BookmarkResponse
 
+/// Public bookmark projection returned by the API.
 struct BookmarkResponse: Content {
 
     let id: UUID
@@ -93,7 +94,7 @@ struct TagCount: Content {
 
 // MARK: - TagRenameRequest
 
-/// `POST /tags/rename` body (PRD: tag renaming). Both names are normalised on receipt.
+/// `POST /tags/rename` body (PRD: tag renaming). Both names are normalized on receipt.
 struct TagRenameRequest: Content {
 
     let from: String
@@ -112,7 +113,7 @@ struct TagRenameResponse: Content {
 
 // MARK: - TagDeleteResponse
 
-/// `DELETE /tags/:tag` response. The tag is normalised on receipt.
+/// `DELETE /tags/:tag` response. The tag is normalized on receipt.
 struct TagDeleteResponse: Content {
 
     let tag: String

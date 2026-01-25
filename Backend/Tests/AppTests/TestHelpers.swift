@@ -26,12 +26,6 @@ import Vapor
 import VaporTesting
 @testable import App
 
-/// Boot a fully-configured app against an in-memory SQLite database, run the test, tear down.
-///
-/// Named distinctly from VaporTesting's `withApp` on purpose: a test body that is a single
-/// expression (e.g. just a `.test(...)` call, which returns a value) would otherwise infer a
-/// non-`Void` return type and silently resolve to VaporTesting's generic `withApp`, skipping
-/// our explicit `asyncBoot()` and leaving the app's responder unbooted (every route 404s).
 func withTestApp(_ test: (Application) async throws -> Void) async throws {
     let app = try await Application.make(.testing)
     do {
@@ -47,7 +41,6 @@ func withTestApp(_ test: (Application) async throws -> Void) async throws {
 
 extension Application {
 
-    /// Insert a user directly (bypassing the admin-create flow, which is a later milestone).
     @discardableResult
     func makeUser(
         username: String = "otavio",
@@ -73,7 +66,6 @@ extension Application {
 
 extension Application {
 
-    /// Insert a bookmark directly (bypassing metadata fetch / the create endpoint).
     @discardableResult
     func makeBookmark(
         for user: User,
@@ -92,21 +84,18 @@ extension Application {
             isArchived: isArchived
         )
         try await bookmark.save(on: db)
-        // Keep the denormalised count in sync, mirroring BookmarkController.create (PRD §7.1).
         user.bookmarkCount += 1
         try await user.save(on: db)
         return bookmark
     }
 }
 
-/// Authorization header for a bearer access token.
 func bearer(_ token: String) -> HTTPHeaders {
     ["Authorization": "Bearer \(token)"]
 }
 
 extension Application {
 
-    /// Perform a full password login and return the issued token pair (2FA must be disabled).
     func login(username: String, password: String) async throws -> TokenPair {
         var pair: TokenPair?
         try await testing().test(
@@ -124,7 +113,6 @@ extension Application {
         return pair
     }
 
-    /// Perform a password login expecting a 2FA challenge; returns the temp token.
     func loginForTempToken(username: String, password: String) async throws -> String {
         var token: String?
         try await testing().test(

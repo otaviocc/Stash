@@ -22,6 +22,7 @@
 
 import Fluent
 
+/// Migration that creates the `bookmarks` table.
 struct CreateBookmark: AsyncMigration {
 
     func prepare(on database: Database) async throws {
@@ -37,7 +38,6 @@ struct CreateBookmark: AsyncMigration {
             .field("is_archived", .bool, .required, .sql(.default(false)))
             .field("created_at", .datetime)
             .field("updated_at", .datetime)
-            // One bookmark per URL per user (PRD §7.2).
             .unique(on: "user_id", "url")
             .create()
     }

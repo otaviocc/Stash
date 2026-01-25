@@ -22,6 +22,7 @@
 
 import Fluent
 
+/// Migration that creates the `recovery_codes` table.
 struct CreateRecoveryCode: AsyncMigration {
 
     func prepare(on database: Database) async throws {

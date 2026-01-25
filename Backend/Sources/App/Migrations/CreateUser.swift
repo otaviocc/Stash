@@ -22,6 +22,7 @@
 
 import Fluent
 
+/// Migration that creates the `users` table.
 struct CreateUser: AsyncMigration {
 
     func prepare(on database: Database) async throws {

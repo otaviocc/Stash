@@ -24,6 +24,7 @@ import Vapor
 
 // MARK: - LoginRequest
 
+/// `POST /auth/login` body.
 struct LoginRequest: Content, Validatable {
 
     // MARK: Properties
@@ -41,6 +42,7 @@ struct LoginRequest: Content, Validatable {
 
 // MARK: - TOTPRequest
 
+/// `POST /auth/totp` body — completes a 2FA login with a TOTP code.
 struct TOTPRequest: Content {
 
     let tempToken: String
@@ -49,6 +51,7 @@ struct TOTPRequest: Content {
 
 // MARK: - RecoveryRequest
 
+/// `POST /auth/recovery` body — completes a 2FA login with a recovery code.
 struct RecoveryRequest: Content {
 
     let tempToken: String
@@ -57,6 +60,7 @@ struct RecoveryRequest: Content {
 
 // MARK: - RefreshRequest
 
+/// `POST /auth/refresh` body.
 struct RefreshRequest: Content {
 
     let refreshToken: String
@@ -64,6 +68,7 @@ struct RefreshRequest: Content {
 
 // MARK: - LogoutRequest
 
+/// `POST /auth/logout` body.
 struct LogoutRequest: Content {
 
     let refreshToken: String
@@ -71,6 +76,7 @@ struct LogoutRequest: Content {
 
 // MARK: - VerifySetupRequest
 
+/// Body for verifying the first TOTP code during 2FA setup.
 struct VerifySetupRequest: Content {
 
     let totpCode: String
@@ -78,6 +84,7 @@ struct VerifySetupRequest: Content {
 
 // MARK: - ChangePasswordRequest
 
+/// `POST /auth/change-password` body.
 struct ChangePasswordRequest: Content, Validatable {
 
     // MARK: Properties
@@ -121,6 +128,7 @@ struct TwoFactorRequired: Content {
 
 // MARK: - TOTPSetupResponse
 
+/// Response when starting 2FA setup — the secret and its `otpauth://` URI.
 struct TOTPSetupResponse: Content {
 
     let secret: String
@@ -129,6 +137,7 @@ struct TOTPSetupResponse: Content {
 
 // MARK: - RecoveryCodesResponse
 
+/// Response containing the freshly generated 2FA recovery codes.
 struct RecoveryCodesResponse: Content {
 
     let recoveryCodes: [String]
@@ -150,6 +159,7 @@ struct UserResponse: Content {
 
 // MARK: - HealthResponse
 
+/// `GET /health` response.
 struct HealthResponse: Content {
 
     let status: String

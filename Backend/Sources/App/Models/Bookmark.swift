@@ -41,11 +41,9 @@ final class Bookmark: Model, Content, @unchecked Sendable {
     @Parent(key: "user_id")
     var user: User
 
-    /// Required, valid http(s) URL. Unique per user (enforced by a unique index).
     @Field(key: "url")
     var url: String
 
-    /// Auto-fetched at save time, overridable. Falls back to the URL if nothing is available.
     @Field(key: "title")
     var title: String
 
@@ -55,11 +53,9 @@ final class Bookmark: Model, Content, @unchecked Sendable {
     @OptionalField(key: "favicon_url")
     var faviconURL: String?
 
-    /// Flat or hierarchical tags (e.g. `swift/vapor`). Source of truth for the API.
     @Field(key: "tags")
     var tags: [String]
 
-    /// Derived, delimiter-wrapped tag string used for portable prefix queries. Not exposed.
     @Field(key: "tags_search")
     var tagsSearch: String
 
@@ -99,15 +95,12 @@ final class Bookmark: Model, Content, @unchecked Sendable {
 
     // MARK: Static Functions
 
-    /// Normalised, pipe-wrapped tag string used for portable prefix queries.
-    /// e.g. `["swift", "swift/vapor"]` -> `"|swift|swift/vapor|"`.
     static func searchString(for tags: [String]) -> String {
         tags.isEmpty ? "" : "|" + tags.joined(separator: "|") + "|"
     }
 
     // MARK: Functions
 
-    /// Set tags and keep the derived search string in sync.
     func applyTags(_ tags: [String]) {
         self.tags = tags
         tagsSearch = Bookmark.searchString(for: tags)
@@ -128,11 +121,10 @@ final class Bookmark: Model, Content, @unchecked Sendable {
     }
 }
 
-// MARK: - Validation & normalisation
+// MARK: - Validation & normalization
 
 extension Bookmark {
 
-    /// Validate and normalise a URL. Throws a 422 `validation_failed` on bad input (PRD §17.4).
     static func validatedURL(_ raw: String) throws -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,
@@ -146,8 +138,6 @@ extension Bookmark {
         return trimmed
     }
 
-    /// Normalise tags: trim, lowercase, drop surrounding slashes, strip the `|` delimiter,
-    /// drop empties, and de-duplicate while preserving order.
     static func normalizeTags(_ tags: [String]) -> [String] {
         var seen = Set<String>()
         var result: [String] = []
@@ -163,7 +153,6 @@ extension Bookmark {
         return result
     }
 
-    /// Normalise a `tag` query value the same way stored tags are normalised.
     static func normalizeTagQuery(_ raw: String) -> String {
         raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
@@ -174,7 +163,6 @@ extension Bookmark {
 
 extension String {
 
-    /// The trimmed string, or nil if it is empty after trimming.
     var nonEmpty: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed

@@ -29,6 +29,7 @@ enum TagDeleter {
 
     // MARK: Nested Types
 
+    /// Outcome of a tag deletion: the normalized tag and how many bookmarks changed.
     struct Result {
 
         let tag: String
@@ -37,11 +38,6 @@ enum TagDeleter {
 
     // MARK: Static Functions
 
-    /// Normalise, validate, and delete `tag` (and any `tag/child`) from the user's bookmarks.
-    ///
-    /// - The tag is normalised the same way as every other tag write (`normalizeTagQuery`).
-    /// - Throws `APIError.validationFailed` if it's empty after normalisation.
-    /// - A no-op (the tag isn't used) returns a zero count — it's idempotent, not an error.
     static func delete(
         rawTag: String,
         for userID: UUID,
@@ -53,9 +49,6 @@ enum TagDeleter {
             throw APIError.validationFailed("Tag must be a non-empty tag name.")
         }
 
-        // Candidates: bookmarks whose tag string contains the exact tag (`|tag|`) or a child
-        // (`|tag/`). Same portable prefix match used for tag filtering; the pure transform below
-        // makes the final decision, so any over-match is simply left unchanged.
         let candidates = try await Bookmark.query(on: db)
             .filter(\.$user.$id == userID)
             .group(.or) { group in
@@ -77,7 +70,6 @@ enum TagDeleter {
         return Result(tag: tag, affectedBookmarks: affected)
     }
 
-    /// Pure transform: drop the exact tag and any child `tag/x`, preserving the order of the rest.
     static func removeTag(_ tags: [String], tag: String) -> [String] {
         tags.filter { $0 != tag && !$0.hasPrefix(tag + "/") }
     }

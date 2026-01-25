@@ -31,7 +31,6 @@ public func configure(_ app: Application) async throws {
     // MARK: Database
 
     if app.environment == .testing {
-        // Real in-memory SQLite for fast, isolated tests (PRD §17.7).
         app.databases.use(.sqlite(.memory), as: .sqlite)
     } else if let databaseURL = Environment.get("DATABASE_URL") {
         try app.databases.use(.postgres(url: databaseURL), as: .psql)
@@ -58,7 +57,7 @@ public func configure(_ app: Application) async throws {
     }
     app.jwt.signers.use(.hs256(key: jwtSecret))
 
-    // MARK: Passwords — bcrypt, cost factor 12 (PRD §8.5). Vapor's default cost is 12.
+    // MARK: Passwords
 
     app.passwords.use(.bcrypt)
 
@@ -69,22 +68,20 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateRecoveryCode())
     app.migrations.add(CreateBookmark())
 
-    // MARK: Outbound HTTP — metadata fetching uses a 5s timeout, no retry (PRD §10).
+    // MARK: Outbound HTTP
 
     app.http.client.configuration.timeout = .init(connect: .seconds(5), read: .seconds(5))
 
-    // MARK: Views (admin dashboard — Leaf templates, PRD §11).
+    // MARK: Views
 
     app.views.use(.leaf)
 
-    // MARK: Sessions — cookie-based auth for the web admin dashboard, separate from the JWT
+    // MARK: Sessions
 
-    // API flow (PRD §11). In-memory is fine for a single self-hosted instance; sessions simply
-    // don't survive a restart, so the admin re-logs in.
     app.sessions.use(.memory)
     app.sessions.configuration.cookieName = "stash_admin_session"
 
-    // MARK: Error handling — replace the default middleware with our envelope (PRD §17.4).
+    // MARK: Error handling
 
     app.middleware = Middlewares()
     app.middleware.use(StashErrorMiddleware())
@@ -95,11 +92,9 @@ public func configure(_ app: Application) async throws {
 
     // MARK: Migrations
 
-    // Auto-migrate on boot so a fresh `docker compose up` works with zero manual steps (PRD §16).
-    // Fluent records applied migrations, so this is idempotent across restarts.
     try await app.autoMigrate()
 
-    // MARK: First-boot admin seeding (PRD §16)
+    // MARK: First-boot admin seeding
 
     try await seedAdminIfNeeded(app)
 }

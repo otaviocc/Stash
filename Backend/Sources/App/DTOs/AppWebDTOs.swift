@@ -112,20 +112,16 @@ struct TagLink: Content {
 /// One row of the flattened, pre-ordered tag tree shown in the bookmark-list sidebar.
 struct SidebarTag: Content {
 
-    /// Just this level's label, e.g. `vapor`.
     let label: String
-    /// Pre-built, percent-encoded link, e.g. `/app?tag=swift%2Fvapor`.
     let href: String
-    /// Exact bookmark count for this tag (0 for synthetic parents that aren't a tag themselves).
     let count: Int
-    /// Nesting depth (0 = top level), for indentation.
     let depth: Int
-    /// Whether this is the currently active `?tag=` filter.
     let isActive: Bool
 }
 
 // MARK: - AppBookmarkRow
 
+/// A bookmark rendered as a row in the web app's bookmark list.
 struct AppBookmarkRow: Content {
 
     let id: String
@@ -140,6 +136,7 @@ struct AppBookmarkRow: Content {
 
 // MARK: - AppBookmarksContext
 
+/// View context for the web app's bookmark list page.
 struct AppBookmarksContext: Content {
 
     let title: String
@@ -156,14 +153,13 @@ struct AppBookmarksContext: Content {
     let nextURL: String?
     let notice: String?
     let sidebarTags: [SidebarTag]
-    /// Number of bookmarks with no tags (for the sidebar's "Untagged" item).
     let untaggedCount: Int
-    /// Whether the current filter is the "Untagged" pseudo-tag.
     let untaggedActive: Bool
 }
 
 // MARK: - AppNewBookmarkContext
 
+/// View context for the web app's new-bookmark form page.
 struct AppNewBookmarkContext: Content {
 
     let title: String
@@ -175,12 +171,12 @@ struct AppNewBookmarkContext: Content {
     let description: String
     let tags: String
     let previewed: Bool
-    /// JSON array of the user's existing tag names, for client-side autocomplete.
     let knownTagsJSON: String
 }
 
 // MARK: - AppEditBookmarkContext
 
+/// View context for the web app's edit-bookmark form page.
 struct AppEditBookmarkContext: Content {
 
     let title: String
@@ -192,12 +188,12 @@ struct AppEditBookmarkContext: Content {
     let description: String
     let tags: String
     let isArchived: Bool
-    /// JSON array of the user's existing tag names, for client-side autocomplete.
     let knownTagsJSON: String
 }
 
 // MARK: - AppBookmarkDetailContext
 
+/// View context for the web app's bookmark detail page.
 struct AppBookmarkDetailContext: Content {
 
     let title: String
@@ -208,6 +204,7 @@ struct AppBookmarkDetailContext: Content {
 
 // MARK: - AppTagCount
 
+/// A tag with its display label and bookmark count, for the web app's tag views.
 struct AppTagCount: Content {
 
     let name: String
@@ -217,6 +214,7 @@ struct AppTagCount: Content {
 
 // MARK: - AppTagsContext
 
+/// View context for the web app's tags management page.
 struct AppTagsContext: Content {
 
     let title: String
@@ -271,6 +269,7 @@ struct ImportSummaryContext: Content {
 
 // MARK: - AppSettingsContext
 
+/// View context for the web app's settings page.
 struct AppSettingsContext: Content {
 
     let title: String
@@ -282,12 +281,12 @@ struct AppSettingsContext: Content {
     let exporters: [FormatOption]
     let importError: String?
     let importSummary: ImportSummaryContext?
-    /// Current theme preference: `light`, `dark`, or `auto`.
     let theme: String
 }
 
 // MARK: - AppTOTPSetupContext
 
+/// View context for the web app's TOTP setup page.
 struct AppTOTPSetupContext: Content {
 
     let title: String
@@ -299,6 +298,7 @@ struct AppTOTPSetupContext: Content {
 
 // MARK: - AppRecoveryCodesContext
 
+/// View context for the web app's recovery codes page.
 struct AppRecoveryCodesContext: Content {
 
     let title: String
