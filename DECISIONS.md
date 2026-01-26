@@ -417,3 +417,8 @@ code, the deviations from the PRD, and the trade-offs accepted.
 - **✅ `///` doc comments on types only.** Every `enum`, `struct`, `class`, `actor`, and `protocol` has a doc comment. Methods, computed properties, and stored properties inside types do not.
 - **✅ American English throughout.** All doc comments, `#expect` descriptions, and test labels use American English spelling (`behavior`, `initialize`, `normalize`, `color`, etc.), never British English.
 - **✅ Tests follow Given/When/Then.** Every test has `// Given`, `// When`, `// Then` structural comments. Every `#expect()` has a string description starting with `"It should ..."` describing the expected behavior.
+
+## Code style — blank lines
+
+- **✅ Blank line after `guard` (automated).** Enforced by SwiftFormat's `blankLinesAfterGuardStatements` rule (`--line-between-guards false`): a blank line follows the last `guard` in a group, and blank lines between consecutive guards are collapsed.
+- **⚠️ Blank line before `if`, `for`/`switch`, and before `return` in multi-statement bodies (manual convention).** SwiftFormat has no rule that inserts blank lines before these statements, and neither does SwiftLint's autocorrect — enforcing it automatically would require a fragile custom tool. These are therefore a hand-applied convention, not machine-enforced: separate a control-flow block (`if`/`for`/`switch`) from the code above it with a blank line, and precede a `return` with a blank line when the function body has more than one statement.

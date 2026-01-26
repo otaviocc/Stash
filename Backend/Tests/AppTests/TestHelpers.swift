@@ -110,6 +110,7 @@ extension Application {
         guard let pair else {
             throw Abort(.internalServerError, reason: "login did not return a token pair")
         }
+
         return pair
     }
 
@@ -127,6 +128,7 @@ extension Application {
         guard let token else {
             throw Abort(.internalServerError, reason: "login did not return a temp token")
         }
+
         return token
     }
 }

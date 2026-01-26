@@ -38,7 +38,6 @@ enum AdminSeeder {
         guard userCount == 0 else {
             return false
         }
-
         guard let username = rawUsername?.trimmingCharacters(in: .whitespacesAndNewlines),
               let password,
               !username.isEmpty, !password.isEmpty
@@ -51,7 +50,6 @@ enum AdminSeeder {
                 reason: "Missing ADMIN_USERNAME / ADMIN_PASSWORD for first-boot admin seeding."
             )
         }
-
         guard password.count >= 12 else {
             logger.critical("ADMIN_PASSWORD must be at least 12 characters. The admin account was not created.")
             throw Abort(.internalServerError, reason: "ADMIN_PASSWORD must be at least 12 characters.")

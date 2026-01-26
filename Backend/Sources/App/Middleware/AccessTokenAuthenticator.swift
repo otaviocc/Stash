@@ -51,6 +51,7 @@ struct AccessTokenAuthenticator: AsyncBearerAuthenticator {
         guard user.isActive else {
             throw APIError.accountSuspended
         }
+
         request.auth.login(user)
     }
 }

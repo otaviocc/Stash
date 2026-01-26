@@ -49,6 +49,7 @@ struct AuthController: RouteCollection {
             throw APIError.tokenInvalid
         }
         guard user.isActive else { throw APIError.accountSuspended }
+
         return user
     }
 
@@ -74,7 +75,6 @@ struct AuthController: RouteCollection {
             _ = try? await req.password.async.verify(input.password, created: Self.dummyHash)
             throw APIError.invalidCredentials
         }
-
         guard try await req.password.async.verify(input.password, created: user.passwordHash) else {
             throw APIError.invalidCredentials
         }
@@ -135,12 +135,10 @@ struct AuthController: RouteCollection {
         else {
             throw APIError.tokenInvalid
         }
-
         guard stored.expiresAt > Date() else {
             try await stored.delete(on: req.db)
             throw APIError.tokenExpired
         }
-
         guard let user = try await User.find(stored.$user.id, on: req.db), user.isActive else {
             try await stored.delete(on: req.db)
             throw APIError.tokenInvalid

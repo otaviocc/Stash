@@ -53,6 +53,7 @@ struct AdminController: RouteCollection {
         guard !username.isEmpty else {
             throw APIError.validationFailed("Username must not be empty.")
         }
+
         if try await userExists(username: username, on: req.db) {
             throw APIError.usernameTaken
         }
@@ -91,6 +92,7 @@ struct AdminController: RouteCollection {
             guard password.count >= 12 else {
                 throw APIError.validationFailed("Password must be at least 12 characters.")
             }
+
             user.passwordHash = try await req.password.async.hash(password)
             invalidateRefreshTokens = true
         }
@@ -151,6 +153,7 @@ struct AdminController: RouteCollection {
         else {
             throw APIError.notFound
         }
+
         return user
     }
 
