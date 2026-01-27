@@ -222,6 +222,87 @@ code, the deviations from the PRD, and the trade-offs accepted.
 
 ---
 
+## M7 — CLI (`stash`)
+
+- **✅ `ArgumentParser` + StashKit, one type per command.** The CLI (`CLI/`, executable target
+  `stash`, Swift tools 6.0, macOS 14+) is built on `swift-argument-parser` (`from: "1.5.0"`) and the
+  local `StashKit` package (§14/§17.2). Every command is its own `AsyncParsableCommand`; related
+  commands are grouped under a parent (`config`, `bookmarks`, `tags`, `admin`) with shared business
+  logic kept in `StashKit`'s request factories — the CLI is purely a presentation/orchestration
+  layer.
+- **✅ Top-level aliases via multi-parenting.** `BookmarksList`/`Add`/`Get`/`Delete`/`Archive` are
+  listed both under the `bookmarks` parent *and* directly under the root command, so `stash list`
+  and `stash bookmarks list` resolve to the same type (ArgumentParser keys commands by their static
+  `commandName`, so a type can appear in two `subcommands` arrays). `stash tags` and
+  `stash bookmarks` use `defaultSubcommand: …List` so the bare group lists.
+- **✅ Config + token store in one file.** `ConfigStore` reads/writes `~/.config/stash/config.json`
+  (`CLIConfig { baseURL, accessToken, refreshToken }`, all optional). A missing file loads as an
+  empty config so first-run commands fail with a clear "not configured / not logged in" message
+  rather than crashing. `CLIConfig` declares an explicit `init(… = nil)` because the shared
+  `.swiftformat` `--nil-init remove` strips property `= nil` defaults, which would otherwise break
+  the no-arg `CLIConfig()`.
+- **✅ Proactive JWT refresh, dependency-free.** Before any authenticated command, `CLIRuntime`
+  decodes the access token's `exp` claim by hand (base64url-decode of the JWT payload — no library,
+  §8.1) and, when it is within 60 s of expiry *and* a refresh token exists, calls
+  `AuthRequestFactory.makeRefreshRequest`, persisting the rotated pair. A failed refresh clears both
+  tokens and surfaces "Session expired — please run stash login". A token that can't be parsed is
+  treated as expiring; with no refresh token present the command proceeds and lets the server reject
+  it (so manually `set-token`'d access tokens still work for scripting).
+- **⚠️ Login builds its own request to cover the 2FA branch.** `POST /api/v1/auth/login` returns
+  *either* a token pair *or* a `{ requires2FA, tempToken }` challenge, both as HTTP 200.
+  StashKit's `makeLoginRequest` is typed to `TokenPairDTO` and can't represent the challenge, so the
+  CLI declares a local `LoginOutcome` decoding both shapes and builds the `NetworkRequest` directly.
+  This is why the CLI depends on **`MicroClient`** explicitly (re-declaring StashKit's transitive
+  dependency) in addition to StashKit and ArgumentParser — the only deviation from the §14 dependency
+  list.
+- **✅ Import/export re-implemented client-side over the public API.** The import endpoint is
+  web-only (§13), so `stash import` parses the file locally (`ImportParser` re-implements the Anybox
+  `[[namespace, value]]`-tag mapping and the Stash-JSON shape, with URL/tag normalization mirrored
+  from `Bookmark` in `BookmarkInput`) and submits each record through
+  `BookmarkRequestFactory.makeCreateRequest`, falling back to `makeUpdateRequest` when the server
+  reports `duplicate_url` (carrying the `existingID`). `stash export` paginates through *both* active
+  and archived bookmarks (the list API splits on `archived`, so both must be fetched), assembles the
+  native `{ version, exportedAt, bookmarks[] }` envelope sorted by `createdAt`, and writes it.
+- **⚠️ Import can't preserve `createdAt` or set archived-on-create.** The public create endpoint has
+  no `createdAt` field and `CreateBookmarkRequest` no `isArchived`, so CLI-imported bookmarks get a
+  fresh `createdAt` and an archived record is created then updated to set the flag. The web importer,
+  which has direct DB access, preserves `createdAt`; this is an accepted limitation of importing over
+  the REST API. (Re-importing a Stash export of existing bookmarks takes the duplicate-update path,
+  where the server preserves `createdAt` — verified idempotent against a 212-bookmark export.)
+- **✅ Output: stdout for results, stderr for everything interactive.** Tables (plain
+  `String(repeating:)` padding — ID 8 / title 40 / URL 50, no table library), `--json`
+  (pretty-printed, `.iso8601`, `.withoutEscapingSlashes`), and success lines go to stdout; prompts,
+  the `Delete …? [y/N]` confirmations, and `Error: <message>` go to stderr, with a non-zero exit on
+  failure (a shared `runCLI` wrapper maps `StashAPIError`/`CLIError` to a single-line message and
+  exits 1). Hidden password entry uses `getpass` (reads `/dev/tty`). `NetworkClientError` is mapped
+  to actionable text too — a bare `MicroClient.NetworkClientError error 0` told a user nothing when
+  they pointed the CLI at `https://` against a plain-HTTP server (a TLS handshake failure), so
+  transport/URL/decoding failures now read as e.g. "Could not reach the server. A TLS error caused
+  the secure connection to fail. (Check the URL and scheme — a plain HTTP server needs http://, not
+  https://.)".
+- **✅ Admin commands resolve usernames to IDs.** The admin API is keyed by UUID but the CLI takes
+  usernames (§14), so `suspend`/`unsuspend`/`reset-password`/`reset-totp`/`delete-user` first list
+  users (`makeUsersRequest`) and match case-insensitively. Suspend/unsuspend and reset-password are
+  `makeUpdateUserRequest` with `isActive`/`password`.
+- **🔁 Fixed a latent StashKit defect: writes sent no `Content-Type`.** `StashClient` configured only
+  a `BearerAuthorizationInterceptor`, so POST/PUT requests carried a JSON body with no
+  `Content-Type` header and Vapor rejected every write with `400 bad_request` ("No value found at
+  path 'url'"). StashKit's mock-based tests never exercised a real header, so the bug was invisible
+  until the CLI made live write calls. Added `ContentTypeInterceptor` and `AcceptHeaderInterceptor`
+  to `StashClient`'s interceptor chain (a one-line config fix that also benefits the future iOS/macOS
+  clients). Verified end-to-end against the running backend: create, duplicate-detection,
+  update-on-import, archive, tag rename/delete, and the full admin user lifecycle.
+- **⚠️ `admin reset-totp` 404s until the JSON API adds the route.** As noted under M6, the
+  `/api/v1/admin/users/:id/reset-totp` endpoint exists only on the web controller so far; the CLI
+  calls the documented path and surfaces the server's `404 not_found`. The command is correct and
+  will work once the backend exposes the route.
+- **✅ No CLI tests (§18.7) — manual integration only.** Build is clean, `swiftformat --lint` is
+  idempotent, and `swiftlint lint` reports 0 violations. The `.swiftformat`/`.swiftlint.yml` are
+  copied from `Backend/`; `CLAUDE.md` documents the tool as a Claude Code skill. All commands were
+  exercised against a live backend instance.
+
+---
+
 ## M11 — User-facing web frontend
 
 - **✅ Second session cookie, shared store.** The frontend uses its own `stash_session` cookie
