@@ -291,7 +291,7 @@ struct BookmarkTests {
         }
     }
 
-    @Test("full-text search matches url, title, and description")
+    @Test("full-text search matches url, title, and description case-insensitively")
     func fullTextSearch() async throws {
         try await withTestApp { app in
             // Given
@@ -329,6 +329,28 @@ struct BookmarkTests {
                 #expect(
                     page.items.first?.url == "https://apple.com",
                     "It should return the bookmark matched on description"
+                )
+            }
+
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks?q=VAPOR",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.first?.url == "https://vapor.codes",
+                    "It should match a mixed-case title from an uppercase query"
+                )
+            }
+
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks?q=iphone",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.first?.url == "https://apple.com",
+                    "It should match a mixed-case description from a lowercase query"
                 )
             }
         }

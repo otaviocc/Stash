@@ -81,11 +81,13 @@ code, the deviations from the PRD, and the trade-offs accepted.
   library. Fetching runs inline server-side (no internal HTTP round-trip). On any failure the save
   proceeds with whatever the client supplied; client-supplied title/description always win over
   fetched values. Title falls back to the URL when otherwise blank.
-- **✅ Full-text `q` uses `LIKE` (`~~`)** across URL, title, description, and tags (the latter via
-  the existing `tags_search` column). Behaviour is **case-insensitive on SQLite, case-sensitive on
-  Postgres** — the PRD doesn't specify, and this is left as a documented nuance rather than adding a
-  normalised search column. (Tags in `q` go beyond the PRD's "URL, title, description" — added on
-  request; same change applied to both the API and web list handlers so they stay consistent.)
+- **🔁 Full-text `q` used `LIKE` (`~~`)** across URL, title, description, and tags (the latter via
+  the existing `tags_search` column). Behaviour was **case-insensitive on SQLite, case-sensitive on
+  Postgres** — originally left as a documented nuance. *Superseded during M8* once a real client
+  exercised it: §9.3 actually mandates case-insensitive search ("ILIKE on PostgreSQL"), so this is now
+  case-insensitive on both drivers — see the M8 search fix below. (Tags in `q` go beyond the PRD's
+  "URL, title, description" — added on request; same change applied to both the API and web list
+  handlers so they stay consistent.)
 - **✅ `bookmarkCount` is a denormalised counter** on `User`, maintained on create/delete (§7.1);
   the `makeBookmark` test helper maintains it too so it reflects reality in tests.
 - **✅ Pagination** uses Vapor's `Page<T>` (§17.5); `per` is clamped to 1–100.
@@ -300,6 +302,111 @@ code, the deviations from the PRD, and the trade-offs accepted.
   idempotent, and `swiftlint lint` reports 0 violations. The `.swiftformat`/`.swiftlint.yml` are
   copied from `Backend/`; `CLAUDE.md` documents the tool as a Claude Code skill. All commands were
   exercised against a live backend instance.
+
+---
+
+## M8 — iOS app (core)
+
+Scope for this milestone is a working app — authentication, bookmark list, add bookmark. The Share
+Extension (M9), full settings, tag rename/delete, and edit/delete screens are deliberately deferred.
+
+- **✅ Project generated with XcodeGen, not a checked-in `.xcodeproj`.** `StashApp/project.yml` is the
+  source of truth; `xcodegen generate` recreates the project, which is `.gitignore`d (mirrors how the
+  package targets avoid committing build artifacts). Single multiplatform SwiftUI target `Stash`,
+  iOS 17 minimum, bundle id `cc.otavio.stash`, App Group `group.cc.otavio.stash`, `TARGETED_DEVICE_FAMILY`
+  `1,2` (iPhone + iPad). `NSAppTransportSecurity.NSAllowsArbitraryLoads` is set via the generated
+  `Info.plist` for plain-HTTP local-network deployments (§16). macOS is added in M10, so the target is
+  iOS-only for now (`UIPasteboard` is used directly in the add sheet; revisit for macOS).
+- **✅ `KeychainStore` vendored from Triton, extended with an access group.** Copied verbatim and
+  adapted: a new optional `accessGroup: String?` init parameter (default `nil`) adds
+  `kSecAttrAccessGroup` to every query so the item can be shared with the Share Extension over the App
+  Group in M9. The two token stores (`cc.otavio.stash.accessToken` / `…refreshToken`) are created with
+  the default (no access group) so M8 works standalone without a `keychain-access-groups` entitlement;
+  M9 will pass `group.cc.otavio.stash`. The Security calls (`SecItemDelete`/`Add`/`CopyMatching`) are
+  injected closures, keeping the store testable; the class is `@unchecked Sendable` (immutable after
+  init, manual safety). Reads via `SecItemCopyMatching`, writes via delete-then-add, `nil` deletes.
+- **⚠️ Both tokens stored in the Keychain, not access-token-in-memory.** §16/§8.1 say the access token
+  lives in memory only. This milestone's task mandates two `KeychainStore` instances (access + refresh),
+  so both are persisted. This is what lets the M9 Share Extension reuse the access token directly, and
+  it means a cold start restores the session without an immediate refresh round-trip. Noted as a
+  deliberate deviation from the PRD's memory-only access token.
+- **✅ `TokenManager` decodes the JWT `exp` by hand — no library.** `isAccessTokenExpiringSoon()`
+  base64url-decodes the access token's payload segment and reads the `exp` claim (`< 60 s` → expiring),
+  the same dependency-free approach as the CLI's `JWTDecoder` (M7). A token that is absent or unparseable
+  is treated as expiring, so the caller refreshes rather than sending a request that would be rejected.
+- **✅ Repository pattern maps StashKit DTOs to local domain models.** `AuthRepository`,
+  `BookmarkRepository`, `TagRepository` are `@MainActor @Observable` classes; views observe them
+  directly. StashKit stops at DTOs (M6 decision), so the repositories own the `BookmarkDTO → Bookmark`,
+  `TagDTO → Tag`, `PageMetadataDTO → PageMetadata` mapping and all session-stateful concerns. The
+  §15 in-memory tag cache (deferred out of StashKit in M6) lives here: `TagRepository` caches the tag
+  list for synchronous, local `autocompleteTags(prefix:)` and exposes `invalidateCache()` after a
+  bookmark write that may change tags.
+- **✅ Silent refresh centralised in `AuthRepository`, behind a narrow protocol.** Per §8.1, an
+  authenticated operation first calls `refreshIfNeeded()`: if the token is expiring and a refresh token
+  exists it rotates the pair via `AuthRequestFactory.makeRefreshRequest` and re-saves; on failure it
+  clears the session (returning the UI to login) and rethrows. The bookmark/tag repositories depend on a
+  one-method `SessionRefreshing` protocol rather than the concrete `AuthRepository`, so they can ensure a
+  fresh token without owning auth state and without a reference cycle.
+- **✅ `StashClientProvider` rebuilds the client only when the server URL changes.** The server URL is
+  read from the same `serverURL` UserDefaults key that `AppSettings` (`@AppStorage`) persists, so the
+  provider always reflects the latest configuration without holding the observable. The client's
+  `tokenProvider` closure reads the access token from `TokenManager` at request time, so a refresh that
+  rewrites the Keychain is picked up without rebuilding the client. `@unchecked Sendable` with an
+  `NSLock` around the cache.
+- **⚠️ App depends on `MicroClient` directly for the 2FA login branch.** `POST /api/v1/auth/login`
+  returns *either* a token pair *or* a `{ requires2FA, tempToken }` challenge, both as HTTP 200, and
+  StashKit's typed `makeLoginRequest` is `TokenPairDTO`-only. As the CLI does (M7), `AuthRepository`
+  declares a local `LoginOutcome` decoding both shapes and builds the `NetworkRequest` directly — hence
+  a direct `MicroClient` dependency in addition to StashKit.
+- **✅ `AppEnvironment` is the DI container.** A single `@MainActor @Observable` `AppEnvironment` builds
+  the token stores, `TokenManager`, `StashClientProvider`, and the three repositories once at launch;
+  it and `AppSettings` are injected via `.environment(_:)`. `RootView` routes on
+  `AppSettings.isConfigured` → `AuthRepository.isAuthenticated`: setup → login → main app.
+- **✅ `NavigationSplitView` on iPad, tab bar on iPhone.** `MainView` switches on
+  `horizontalSizeClass`: regular width shows a `NavigationSplitView` with a tag sidebar driving the
+  filtered `BookmarkListView` in the detail column; compact width shows `TabContainerView` (Bookmarks /
+  Tags / Settings tabs, each in its own `NavigationStack`). `BookmarkListView` takes an optional `tag`
+  filter so the same screen serves both layouts and the Tags tab's drill-in.
+- **✅ `FaviconView` vendored from Triton with a local `roundedFavicon()` modifier.** Copied verbatim,
+  `public` modifiers dropped for the app target; the `RoundFaviconModifier` (16×16, 4 pt corner radius)
+  is implemented locally as instructed.
+- **✅ Bookmark list: `.searchable`, pull-to-refresh, load-more, archived toggle.** Search reloads on
+  submit (and on clear) rather than per keystroke; `loadNextPage()` fires from the last row's
+  `onAppear` when `hasMore`; the toolbar carries a `+` (presents `AddBookmarkSheet`) and an
+  options menu with the archived `Toggle`. `AddBookmarkSheet` has a paste button, a metadata fetch that
+  populates title/description, comma-separated tag input with `TagSuggestionView` autocomplete chips,
+  and surfaces duplicate-URL/validation errors inline via the shared error mapping.
+- **✅ Error mapping for the UI.** A single `Error.stashUserMessage` maps `StashAPIError` (and the
+  app's own `AppError`) to short, user-facing strings shown inline or in an alert.
+- **✅ Code style and verification.** American English, `///` on types only, no inline comments;
+  `.swiftformat`/`.swiftlint.yml` copied from `Backend/`. `swiftformat --lint` is idempotent and
+  `swiftlint lint` reports 0 violations; the app builds clean (no warnings) for the iOS 17 simulator and
+  boots through Setup → Login (routing verified live against the running Docker backend). No app unit
+  tests per §18.7 — the StashKit networking path is already covered by M6's mocked tests and proven
+  end-to-end by the M7 CLI against the same backend.
+
+### M8 follow-ups (first device testing)
+
+- **🔁 `AppSettings.serverURL` is a tracked property, not `@ObservationIgnored @AppStorage`.** The
+  original spec'd `@ObservationIgnored @AppStorage("serverURL")` is excluded from `@Observable`
+  tracking, so setting it from `SetupView` persisted the value but never notified `RootView` — the app
+  appeared stuck on Setup ("Continue does nothing"). It only routed correctly when the value was
+  already present at launch. Replaced with a plain tracked `var serverURL` whose `didSet` writes
+  through to the same `serverURL` UserDefaults key (still read by `StashClientProvider`), so the change
+  is observed and routing is reactive while persistence and the key are unchanged.
+- **✅ Search field disables autocapitalization/autocorrection.** `.searchable` defaults to
+  sentence-case, so typing `casio` became `Casio` and matched nothing (see the search fix below).
+  `BookmarkListView` applies `.textInputAutocapitalization(.never)` + `.autocorrectionDisabled()` to
+  the search field so the query is sent as typed.
+- **✅ Case-insensitive `q` search (backend, supersedes the M2 nuance).** A real client surfaced that
+  Postgres `LIKE` is case-sensitive while §9.3 wants case-insensitive ("ILIKE on PostgreSQL").
+  `LIKE`/`~~` would have needed a Postgres-only `ILIKE`, which isn't portable to the SQLite test DB, so
+  a shared `QueryBuilder<Bookmark>.filterFullText(_:)` (`Sources/App/Extensions/`) compares
+  `lower(column) LIKE lower(term)` over url/title/description/tags_search via a bound `SQLBind`
+  parameter (FluentSQL `.filter(.sql(...))`). Portable across both drivers, genuinely case-insensitive,
+  and the bound term preserves the previous `~~` wildcard semantics. Both the JSON API
+  (`BookmarkController`) and the web list (`AppWebController`) call the one helper so they can't drift.
+  The existing search test gained uppercase-query/mixed-case-content assertions.
 
 ---
 
