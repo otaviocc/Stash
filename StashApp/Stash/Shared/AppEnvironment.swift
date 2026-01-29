@@ -27,6 +27,11 @@ import Foundation
 /// Constructed once at launch and injected into the SwiftUI environment. The token stores use the
 /// default (no access group) so the app works standalone; M9 will supply the `group.cc.otavio.stash`
 /// access group to share the tokens with the Share Extension.
+///
+/// `authRepository` and `tagRepository` are shared singletons (auth state and the tag cache are
+/// global), but bookmark-list state is *not*: each independent list (the Bookmarks tab, a tag drill-in
+/// in the Tags tab, the iPad detail column) gets its own `BookmarkRepository` via
+/// `makeBookmarkRepository()`, so browsing in one does not mutate the others.
 @MainActor
 @Observable
 final class AppEnvironment {
@@ -34,8 +39,9 @@ final class AppEnvironment {
     // MARK: Properties
 
     let authRepository: AuthRepository
-    let bookmarkRepository: BookmarkRepository
     let tagRepository: TagRepository
+
+    private let clientProvider: StashClientProvider
 
     // MARK: Lifecycle
 
@@ -47,6 +53,7 @@ final class AppEnvironment {
             refreshTokenStore: refreshTokenStore
         )
         let clientProvider = StashClientProvider(tokenManager: tokenManager)
+        self.clientProvider = clientProvider
 
         let authRepository = AuthRepository(
             clientProvider: clientProvider,
@@ -54,13 +61,17 @@ final class AppEnvironment {
         )
 
         self.authRepository = authRepository
-        bookmarkRepository = BookmarkRepository(
-            clientProvider: clientProvider,
-            session: authRepository
-        )
         tagRepository = TagRepository(
             clientProvider: clientProvider,
             session: authRepository
         )
+    }
+
+    // MARK: Functions
+
+    /// Builds a fresh `BookmarkRepository` with its own list state, sharing the app's client and
+    /// session. Each bookmark list owns one so their contents stay independent.
+    func makeBookmarkRepository() -> BookmarkRepository {
+        BookmarkRepository(clientProvider: clientProvider, session: authRepository)
     }
 }
