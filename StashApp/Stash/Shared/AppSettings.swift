@@ -28,6 +28,7 @@ import Foundation
 /// an `@ObservationIgnored @AppStorage` property is excluded from observation, so mutating it would
 /// not notify SwiftUI and `RootView` would never re-route after setup. Writing through to the same
 /// `serverURL` key keeps it readable by `StashClientProvider`, which reads UserDefaults directly.
+@MainActor
 @Observable
 final class AppSettings {
 
