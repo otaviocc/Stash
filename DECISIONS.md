@@ -429,6 +429,38 @@ Extension (M9), full settings, tag rename/delete, and edit/delete screens are de
   (`BookmarkController`) and the web list (`AppWebController`) call the one helper so they can't drift.
   The existing search test gained uppercase-query/mixed-case-content assertions.
 
+### M8 follow-ups (SwiftUI review)
+
+Changes from reviewing the app with the SwiftUI-expert skill, against its
+state-management, performance, view-composition, navigation, and list references.
+
+- **✅ Bookmark row tags are a truncating row, not a horizontal `ScrollView`.** Each list row had a
+  nested `ScrollView(.horizontal)` of tag pills, adding a scroll container and gesture recognizer to
+  every cell (heavy in a hot list, and it competes with the list's own scrolling). Replaced with a
+  non-scrolling `HStack` showing the first three tags plus a `+N` overflow count. The detail screen
+  keeps its scrolling tag row, since it should show all tags and isn't in a list.
+- **✅ `AppSettings` is `@MainActor`.** The other `@Observable` types (`AppEnvironment`, the
+  repositories) are already main-actor isolated; `AppSettings` now matches, for thread-safe use from
+  SwiftUI.
+- **✅ Context-aware empty state.** `BookmarkListView` showed "Tap + to save your first bookmark" even
+  when a search or tag filter simply matched nothing, implying the user had zero bookmarks. It now
+  branches: `ContentUnavailableView.search(text:)` for an active query, a tag-specific message when a
+  tag filter is active, an archived-specific message for the archived view, and the original
+  first-run copy only when truly empty.
+- **✅ `PasteButton` instead of `UIPasteboard.general`.** The add-bookmark URL field used a custom
+  button calling `UIPasteboard.general.string`, which trips the system paste-permission banner on
+  every tap. Replaced with `PasteButton(payloadType: String.self)` (icon-only, circular), which the
+  system enables only when the pasteboard holds text and which pastes without a permission prompt.
+  Removes the `import UIKit` from the view.
+- **✅ Typed login route.** `LoginView` drove its stack with `[String]` and
+  `navigationDestination(for: String.self)`, using the raw temp token as the route. Replaced with a
+  `LoginRoute` enum (`.twoFactor(tempToken:)`) for type-safe, self-documenting navigation.
+- **⚠️ Considered but not changed.** Kept the computed `suggestions` in the add sheet (a `@State`
+  cache keyed on the text would miss the async tag-load completing mid-typing, and the data is small).
+  Left `AsyncImage` favicons as-is (URLCache covers downloads; an in-memory decode cache is a larger,
+  optional change). Left the size-class swap between split view and tab bar (the iPhone tab IA differs
+  from the iPad sidebar, so a single adaptive `NavigationSplitView` doesn't fit).
+
 ---
 
 ## M11 — User-facing web frontend
