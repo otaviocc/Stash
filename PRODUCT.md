@@ -67,7 +67,7 @@ There is exactly one admin. The admin account is seeded at first boot via enviro
 | Web admin dashboard | Server-rendered (Leaf) | ✅ Complete |
 | Web frontend (user-facing) | Server-rendered (Leaf) | ✅ Complete |
 | CLI (`stash`) | Swift CLI tool | ✅ Complete |
-| iOS | Native SwiftUI app + Share Extension | ✅ Core complete (M8); Share Extension planned (M9) |
+| iOS | Native SwiftUI app + Share Extension | ✅ Core complete (M8); Share Extension complete (M9) |
 | macOS | Native SwiftUI app + Share Extension | Planned (M10) |
 
 ---
@@ -625,9 +625,17 @@ No storage, no refresh logic, no business logic. `tokenProvider: @escaping @Send
 
 Context-aware empty states: `ContentUnavailableView.search` for active query, tag-specific, archived-specific, first-run.
 
-### Remaining for M9/M10
+### Share Extension (M9)
 
-Share Extension, full Settings (password change, 2FA management), edit/delete bookmark, tag rename/delete, macOS target.
+Save a URL from the system share sheet. App Group `group.cc.otavio.stash` shares the Keychain tokens
+(access group) and the server URL (shared `UserDefaults` suite) with the main app. The extension is
+process-isolated with its own lightweight repositories; it presents the shared `AddBookmarkView`
+(extracted so the app and extension share one form), then a confirmation with undo. No login flow
+inside the extension — the user signs in via the main app first.
+
+### Remaining for M10
+
+Full Settings (password change, 2FA management), edit/delete bookmark, tag rename/delete, macOS target.
 
 ---
 
@@ -868,7 +876,7 @@ SwiftLint + SwiftFormat. `swiftlint lint` 0 violations, `swiftformat --lint` ide
 | M6 | StashKit: DTOs, request factories, thin client | ✅ Complete |
 | M7 | CLI: all commands including import/export, tag rename/delete | ✅ Complete |
 | M8 | iOS app: auth, bookmark list, add bookmark | ✅ Core complete |
-| M9 | iOS Share Extension | Planned |
+| M9 | iOS Share Extension | ✅ Complete |
 | M10 | macOS app + Share Extension | Planned |
 | M4.1 | CI/CD: GitHub Actions, publish to ghcr.io | Planned (after M10) |
 

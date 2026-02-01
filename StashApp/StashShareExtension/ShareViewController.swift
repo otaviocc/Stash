@@ -20,36 +20,31 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import Foundation
+import SwiftUI
+import UIKit
 
-/// Holds app-wide configuration persisted in UserDefaults.
-///
-/// `serverURL` is a tracked `@Observable` property backed by UserDefaults rather than `@AppStorage`:
-/// an `@ObservationIgnored @AppStorage` property is excluded from observation, so mutating it would
-/// not notify SwiftUI and `RootView` would never re-route after setup. It is written through to the
-/// App Group's `UserDefaults` suite so both `StashClientProvider` and the Share Extension (a
-/// separate process) read the server the user configured.
-@MainActor
-@Observable
-final class AppSettings {
+/// The root view controller for the Share Extension, hosting the SwiftUI `ShareExtensionView`.
+final class ShareViewController: UIViewController {
 
-    // MARK: Properties
+    override func viewDidLoad() {
+        super.viewDidLoad()
 
-    var serverURL: String {
-        didSet {
-            AppGroup.sharedDefaults.set(serverURL, forKey: AppGroup.serverURLKey)
+        guard let extensionContext else {
+            return
         }
-    }
 
-    // MARK: Computed Properties
+        let hosting = UIHostingController(rootView: ShareExtensionView(extensionContext: extensionContext))
+        addChild(hosting)
+        hosting.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(hosting.view)
 
-    var isConfigured: Bool {
-        !serverURL.isEmpty
-    }
+        NSLayoutConstraint.activate([
+            hosting.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hosting.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+        ])
 
-    // MARK: Lifecycle
-
-    init() {
-        serverURL = AppGroup.sharedDefaults.string(forKey: AppGroup.serverURLKey) ?? ""
+        hosting.didMove(toParent: self)
     }
 }

@@ -30,7 +30,7 @@ import StashKit
 /// token refresh via the injected session.
 @MainActor
 @Observable
-final class BookmarkRepository {
+final class BookmarkRepository: BookmarkCreating {
 
     // MARK: Static Properties
 

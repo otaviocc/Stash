@@ -25,8 +25,8 @@ import Foundation
 /// Holds all app-wide dependencies.
 ///
 /// Constructed once at launch and injected into the SwiftUI environment. The token stores use the
-/// default (no access group) so the app works standalone; M9 will supply the `group.cc.otavio.stash`
-/// access group to share the tokens with the Share Extension.
+/// `group.cc.otavio.stash` Keychain access group so the Share Extension reads the same tokens the
+/// app writes.
 ///
 /// `authRepository` and `tagRepository` are shared singletons (auth state and the tag cache are
 /// global), but bookmark-list state is *not*: each independent list (the Bookmarks tab, a tag drill-in
@@ -46,8 +46,14 @@ final class AppEnvironment {
     // MARK: Lifecycle
 
     init() {
-        let accessTokenStore = KeychainStore("cc.otavio.stash.accessToken")
-        let refreshTokenStore = KeychainStore("cc.otavio.stash.refreshToken")
+        let accessTokenStore = KeychainStore(
+            AppGroup.accessTokenKey,
+            accessGroup: AppGroup.identifier
+        )
+        let refreshTokenStore = KeychainStore(
+            AppGroup.refreshTokenKey,
+            accessGroup: AppGroup.identifier
+        )
         let tokenManager = TokenManager(
             accessTokenStore: accessTokenStore,
             refreshTokenStore: refreshTokenStore

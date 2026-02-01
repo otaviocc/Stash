@@ -25,11 +25,12 @@ import StashKit
 
 /// Vends a `StashClient` configured for the currently saved server URL.
 ///
-/// The server URL is read from the same UserDefaults key (`serverURL`) that `AppSettings` persists,
-/// so the provider always reflects the latest configuration without holding a reference to the
-/// observable settings. The client is rebuilt only when the URL changes; its `tokenProvider` reads
-/// the access token from the `TokenManager` at request time, so a silent refresh that rewrites the
-/// token is picked up without rebuilding the client.
+/// The server URL is read from the App Group's `UserDefaults` suite (the same key `AppSettings`
+/// persists to), so the provider always reflects the latest configuration without holding a
+/// reference to the observable settings — and so the Share Extension, a separate process, sees the
+/// server the main app configured. The client is rebuilt only when the URL changes; its
+/// `tokenProvider` reads the access token from the `TokenManager` at request time, so a silent
+/// refresh that rewrites the token is picked up without rebuilding the client.
 final class StashClientProvider: @unchecked Sendable {
 
     // MARK: Properties
@@ -49,7 +50,7 @@ final class StashClientProvider: @unchecked Sendable {
 
     /// Returns a client for the current server URL, or `nil` if no valid URL is configured.
     func client() -> StashClient? {
-        let urlString = UserDefaults.standard.string(forKey: "serverURL") ?? ""
+        let urlString = AppGroup.sharedDefaults.string(forKey: AppGroup.serverURLKey) ?? ""
         guard !urlString.isEmpty, let url = URL(string: urlString) else {
             return nil
         }

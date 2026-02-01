@@ -22,34 +22,25 @@
 
 import Foundation
 
-/// Holds app-wide configuration persisted in UserDefaults.
+/// Shared App Group configuration used by both the main app and the Share Extension.
 ///
-/// `serverURL` is a tracked `@Observable` property backed by UserDefaults rather than `@AppStorage`:
-/// an `@ObservationIgnored @AppStorage` property is excluded from observation, so mutating it would
-/// not notify SwiftUI and `RootView` would never re-route after setup. It is written through to the
-/// App Group's `UserDefaults` suite so both `StashClientProvider` and the Share Extension (a
-/// separate process) read the server the user configured.
-@MainActor
-@Observable
-final class AppSettings {
+/// The two processes share the access token, refresh token, and configured server URL through this
+/// group: the tokens via a Keychain access group (`KeychainStore(accessGroup:)`) and the server URL
+/// via the group's `UserDefaults` suite. The main app writes them; the extension reads them.
+enum AppGroup {
 
-    // MARK: Properties
+    // MARK: Static Properties
 
-    var serverURL: String {
-        didSet {
-            AppGroup.sharedDefaults.set(serverURL, forKey: AppGroup.serverURLKey)
-        }
-    }
+    static let identifier = "group.cc.otavio.stash"
+    static let accessTokenKey = "cc.otavio.stash.accessToken"
+    static let refreshTokenKey = "cc.otavio.stash.refreshToken"
+    static let serverURLKey = "serverURL"
 
-    // MARK: Computed Properties
+    // MARK: Static Computed Properties
 
-    var isConfigured: Bool {
-        !serverURL.isEmpty
-    }
-
-    // MARK: Lifecycle
-
-    init() {
-        serverURL = AppGroup.sharedDefaults.string(forKey: AppGroup.serverURLKey) ?? ""
+    /// The `UserDefaults` suite backed by the App Group, so the server URL is visible to both the
+    /// main app and the extension. Falls back to `.standard` if the suite cannot be opened.
+    static var sharedDefaults: UserDefaults {
+        UserDefaults(suiteName: identifier) ?? .standard
     }
 }

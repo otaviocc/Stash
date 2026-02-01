@@ -20,9 +20,11 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: Stash
+      - path: Shared
     dependencies:
       - package: StashKit
       - package: MicroClient
+      - target: StashShareExtension
     entitlements:
       path: Stash/Stash.entitlements
       properties:
@@ -56,5 +58,45 @@ targets:
         ENABLE_USER_SCRIPT_SANDBOXING: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+
+  StashShareExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: StashShareExtension
+      - path: Shared
+    dependencies:
+      - package: StashKit
+      - package: MicroClient
+    entitlements:
+      path: StashShareExtension/StashShareExtension.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.cc.otavio.stash
+    info:
+      path: StashShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Stash
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cc.otavio.stash.ShareExtension
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
         DEVELOPMENT_TEAM: ""
         CODE_SIGN_STYLE: Automatic
