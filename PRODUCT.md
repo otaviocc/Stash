@@ -1,6 +1,6 @@
 # Stash — Product Requirements Document
 
-**Version:** 1.4  
+**Version:** 1.5  
 **Status:** Living Document  
 **Author:** Otávio  
 
@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-Stash is a self-hosted, fully private bookmark manager. It is multi-user: accounts are created by an admin, and each user manages their own private collection of bookmarks. It consists of a Swift/Vapor REST API backend backed by PostgreSQL, deployable via Docker, with native clients for iOS, macOS, and the command line planned. A shared Swift package (`StashKit`) provides models and networking logic across all clients.
+Stash is a self-hosted, fully private bookmark manager. It is multi-user: accounts are created by an admin, and each user manages their own private collection of bookmarks. It consists of a Swift/Vapor REST API backend backed by PostgreSQL, deployable via Docker, with native clients for iOS, macOS, and the command line. A shared Swift package (`StashKit`) provides models and networking logic across all clients.
 
 The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 
@@ -66,9 +66,9 @@ There is exactly one admin. The admin account is seeded at first boot via enviro
 | Backend | Vapor 4 REST API | ✅ Complete |
 | Web admin dashboard | Server-rendered (Leaf) | ✅ Complete |
 | Web frontend (user-facing) | Server-rendered (Leaf) | ✅ Complete |
-| iOS | Native SwiftUI app + Share Extension | Planned (M8, M9) |
-| macOS | Native SwiftUI app + Share Extension | Planned (M10) |
 | CLI (`stash`) | Swift CLI tool | ✅ Complete |
+| iOS | Native SwiftUI app + Share Extension | ✅ Core complete (M8); Share Extension planned (M9) |
+| macOS | Native SwiftUI app + Share Extension | Planned (M10) |
 
 ---
 
@@ -99,7 +99,7 @@ There is exactly one admin. The admin account is seeded at first boot via enviro
 
 StashKit (Swift Package) — ✅ Complete (M6)
   └── Shared by: iOS app, macOS app, CLI
-  └── Contains: Models, APIClient
+  └── DTOs, request factories, thin StashClient
 ```
 
 ---
@@ -180,10 +180,12 @@ Querying `tag=swift` matches bookmarks where `tagsSearch` contains `|swift` — 
 
 | Token | Lifetime | Storage (client) |
 |-------|----------|-----------------|
-| Access token (JWT, HS256) | 15 minutes | Memory only |
+| Access token (JWT, HS256) | 15 minutes | Keychain (iOS/macOS), memory (CLI, web) |
 | Refresh token (opaque 256-bit hex) | 90 days, rotated on use | Keychain (iOS/macOS), file (CLI), session (web) |
 
 Silent refresh within 60 seconds of expiry. The 2FA temp token uses `scope: "2fa"` so it cannot be replayed as an access token.
+
+Note: both tokens are stored in Keychain on iOS/macOS (deviation from the original memory-only access token spec) to enable cold-start session restoration and Share Extension token reuse.
 
 ### 8.2 Login Flow
 
@@ -217,7 +219,7 @@ POST /api/v1/auth/totp/verify-setup  { totpCode }
 
 Recovery codes: 8 × `XXXX-XXXX`, bcrypt-hashed, single-use. Shown exactly once with mandatory "I've saved these" confirmation.
 
-Web UI shows `otpauthURI` + manual setup key — no QR image (CoreImage unavailable on Linux). Native clients display a QR code.
+Web UI shows `otpauthURI` + manual setup key — no QR image (CoreImage unavailable on Linux). Native clients display a QR code from `otpauthURI`.
 
 ### 8.4 2FA Disable / Reset
 
@@ -277,7 +279,7 @@ All API routes prefixed `/api/v1/`. Health check at `/health` (unversioned).
 
 | Parameter | Description |
 |-----------|-------------|
-| `q` | Full-text search (URL, title, description, tags). Case-insensitive (`ILIKE` on PostgreSQL). |
+| `q` | Full-text search (URL, title, description, tags). Case-insensitive on both SQLite and PostgreSQL via `lower(column) LIKE lower(term)`. |
 | `tag` | Prefix filter. `swift` matches `swift` and `swift/*` but not `swiftui`. Special value `__untagged__` returns bookmarks with no tags. |
 | `archived` | Default false. Pass `true` for archived bookmarks. |
 | `page` / `per` | Pagination. `per` clamped 1–100. |
@@ -536,9 +538,9 @@ Inline flash-prevention script at top of `<head>` sets `data-theme` from `stash_
 
 ---
 
-## 14. CLI — `stash` (Planned — M7)
+## 14. CLI — `stash` ✅ Complete (M7)
 
-Swift CLI, `ArgumentParser`, no deps beyond `StashKit`. Config: `~/.config/stash/config.json`.
+Swift CLI, `ArgumentParser` + `MicroClient` (direct, for 2FA login branch), `StashKit`. Config: `~/.config/stash/config.json`.
 
 ```
 stash login / logout
@@ -563,28 +565,79 @@ stash admin delete-user <username>
 stash admin stats [--json]
 ```
 
----
-
-## 15. StashKit — Shared Swift Package (Planned — M6)
-
-No external dependencies. `Foundation` + `URLSession` only.
-
-Tag cache: fetched once per session via `GET /api/v1/tags`, cached in memory. `autocompleteTags(prefix:)` is synchronous, local. Invalidated after any bookmark mutation that modifies tags.
+`CLAUDE.md` at `CLI/CLAUDE.md` documents the tool as a Claude Code skill.
 
 ---
 
-## 16. iOS + macOS App (Planned — M8–M10)
+## 15. StashKit — Shared Swift Package ✅ Complete (M6)
 
-Single multiplatform SwiftUI target. iOS 17.0 / macOS 14.0 minimum.
+Built on `MicroClient` (`from: "0.0.27"`). Swift tools 6.0, iOS 17 / macOS 14.
 
-**Bundle IDs:** `cc.otavio.stash` (app), `cc.otavio.stash.ShareExtension`  
-**App Group:** `group.cc.otavio.stash` (shared Keychain for Share Extension)  
-**ATS:** `NSAllowsArbitraryLoads: true` for local network deployments  
-**Tokens:** refresh token in Keychain; access token in memory only
+Three layers: **DTOs** (Codable/Sendable structs matching API wire shapes), **request factories** (one `enum` per domain, `public static` methods returning typed `NetworkRequest<…>`), **thin `StashClient`** (wraps `NetworkClient`, adds `BearerAuthorizationInterceptor` + `ContentTypeInterceptor` + `AcceptHeaderInterceptor`, maps errors to `StashAPIError`).
+
+No storage, no refresh logic, no business logic. `tokenProvider: @escaping @Sendable () async -> String?` keeps the package storage-agnostic. Tag cache and silent refresh are the app's repository layer responsibility.
 
 ---
 
-## 17. Deployment
+## 16. iOS App ✅ Core complete (M8)
+
+### Project
+
+- Generated with XcodeGen (`StashApp/project.yml` is source of truth; `.xcodeproj` is gitignored)
+- Single SwiftUI target `Stash`, iOS 17.0 minimum
+- Bundle ID: `cc.otavio.stash`
+- App Group: `group.cc.otavio.stash`
+- `NSAllowsArbitraryLoads: true`
+- Direct dependency on `MicroClient` (for 2FA login branch, same as CLI)
+
+### Architecture
+
+**Layers:** `StashKit` (DTOs + factories) → `Repository` (DTO→domain mapping, session state, tag cache) → `ViewModel/View`
+
+**`AppEnvironment`** — `@MainActor @Observable` DI container built once at launch. Exposes `makeBookmarkRepository()` (per-view instances) rather than a shared instance; `AuthRepository` and `TagRepository` remain shared singletons.
+
+**Repository pattern:** `AuthRepository`, `BookmarkRepository`, `TagRepository` are `@MainActor @Observable`. Silent refresh centralised in `AuthRepository.refreshIfNeeded()` behind a `SessionRefreshing` protocol to avoid reference cycles.
+
+**`StashClientProvider`** — rebuilds `StashClient` only when the server URL changes. `tokenProvider` closure reads from `TokenManager` at request time.
+
+### Keychain
+
+`KeychainStore` vendored from Triton, extended with optional `accessGroup: String?` parameter for Share Extension token sharing. Both tokens (access + refresh) stored in Keychain — enables cold-start session restoration and Share Extension reuse (deviation from original memory-only access token spec).
+
+`TokenManager` decodes JWT `exp` by hand (base64url, no library) for `isAccessTokenExpiringSoon()`.
+
+### Navigation
+
+- **iPad:** `NavigationSplitView` — tag sidebar drives filtered `BookmarkListView` in detail column
+- **iPhone:** `TabContainerView` — Bookmarks / Tags / Settings tabs, each in its own `NavigationStack`
+- Bookmark rows use closure-based `NavigationLink` (not `navigationDestination(for:)`) to avoid multi-depth registration conflicts
+- Login uses typed `LoginRoute` enum for 2FA navigation
+
+### Views (core)
+
+`RootView` → `SetupView` / `LoginView` / `TOTPView` / `RecoveryCodeView` / `MainView` → `BookmarkListView` / `BookmarkDetailView` (stub) / `AddBookmarkSheet` / `TagBrowserView` (stub) / `SettingsView` (stub with Sign Out)
+
+`FaviconView` vendored from Triton (Google favicon service, `AsyncImage`, fallback `"link"` SF Symbol, `RoundFaviconModifier` 16×16 4pt corners).
+
+`BookmarkRowView` shows first three tags + `+N` overflow (not a scrolling row — avoids gesture conflict in lists).
+
+`AddBookmarkSheet` — paste button (`PasteButton`, no `UIKit`), metadata fetch, comma-separated tag input with `TagSuggestionView` autocomplete chips.
+
+Context-aware empty states: `ContentUnavailableView.search` for active query, tag-specific, archived-specific, first-run.
+
+### Remaining for M9/M10
+
+Share Extension, full Settings (password change, 2FA management), edit/delete bookmark, tag rename/delete, macOS target.
+
+---
+
+## 17. macOS App (Planned — M10)
+
+Same SwiftUI target as iOS (multiplatform). macOS 14.0 minimum. Share Extension. Full feature parity with iOS app.
+
+---
+
+## 18. Deployment
 
 ### Distribution
 
@@ -658,9 +711,9 @@ GitHub Actions on version tag: build multi-arch image → push to `ghcr.io/otavi
 
 ---
 
-## 18. Technical Specification
+## 19. Technical Specification
 
-### 18.1 Repository Structure
+### 19.1 Repository Structure
 
 ```
 stash/
@@ -670,23 +723,41 @@ stash/
 │   │   ├── Models/
 │   │   ├── Migrations/
 │   │   ├── Middleware/
-│   │   ├── ImportExport/        # Protocols, registry, importers, exporters
-│   │   ├── Tags/                # TagRenamer, TagDeleter
+│   │   ├── ImportExport/
+│   │   ├── Tags/
+│   │   ├── Extensions/          # QueryBuilder+filterFullText, etc.
 │   │   └── configure.swift
 │   ├── Tests/AppTests/
-│   ├── Resources/Views/         # Leaf templates
+│   ├── Resources/Views/
 │   ├── Package.swift
 │   ├── Dockerfile
 │   └── docker-compose.yml
 ├── StashKit/                    # ✅ Complete (M6)
-├── StashApp/                    # Planned
+│   ├── Sources/StashKit/
+│   │   ├── Client/
+│   │   ├── DTOs/
+│   │   └── Factories/
+│   └── Tests/StashKitTests/
+├── StashApp/                    # ✅ Core complete (M8)
+│   ├── project.yml              # XcodeGen source of truth
+│   ├── Stash/
+│   │   ├── App/
+│   │   ├── Keychain/
+│   │   ├── Auth/
+│   │   ├── Repositories/
+│   │   ├── Models/
+│   │   └── Views/
+│   └── StashApp.xcodeproj       # gitignored, generated
 ├── CLI/                         # ✅ Complete (M7)
+│   ├── Sources/stash/
+│   ├── Package.swift
+│   └── CLAUDE.md
 ├── .github/workflows/           # Planned (M4.1)
 ├── PRODUCT.md
 └── DECISIONS.md
 ```
 
-### 18.2 Swift Package Dependencies
+### 19.2 Swift Package Dependencies
 
 #### Backend
 
@@ -698,19 +769,33 @@ stash/
 | `vapor/fluent-sqlite-driver` | SQLite (tests only) |
 | `vapor/jwt` `from: "4.0.0"` | JWT |
 | `vapor/leaf` `from: "4.0.0"` | Server-rendered HTML |
-| `vapor/authentication` `from: "2.0.0"` | Auth helpers (note: TOTP implemented natively via `swift-crypto`) |
+| `vapor/authentication` `from: "2.0.0"` | Auth helpers (TOTP implemented natively via `swift-crypto`) |
 
-#### CLI (planned)
+#### StashKit
 
 | Package | Purpose |
 |---------|---------|
-| `apple/swift-argument-parser` `from: "1.0.0"` | Argument parsing |
+| `otaviocc/MicroClient` `from: "0.0.27"` | Typed HTTP client |
 
-### 18.3 API Versioning
+#### CLI
+
+| Package | Purpose |
+|---------|---------|
+| `apple/swift-argument-parser` `from: "1.5.0"` | Argument parsing |
+| `otaviocc/MicroClient` `from: "0.0.27"` | Direct dep for 2FA login branch |
+
+#### iOS App
+
+| Dependency | Purpose |
+|-----------|---------|
+| `StashKit` (local) | Networking |
+| `otaviocc/MicroClient` `from: "0.0.27"` | Direct dep for 2FA login branch |
+
+### 19.3 API Versioning
 
 API: `/api/v1/`. Admin dashboard: `/admin`. Frontend: `/app`. Health: `/health`.
 
-### 18.4 Error Response Format
+### 19.4 Error Response Format
 
 ```json
 {
@@ -736,43 +821,41 @@ API: `/api/v1/`. Admin dashboard: `/admin`. Frontend: `/app`. Health: `/health`.
 | `validation_failed` | 422 | Validation error |
 | `internal_error` | 500 | Unexpected server error |
 
-### 18.5 Pagination
+### 19.5 Pagination
 
 Vapor's native `Page<T>`:
 ```json
 { "items": [], "metadata": { "page": 1, "per": 20, "total": 142 } }
 ```
 
-### 18.6 Xcode Project (Planned)
+### 19.6 Testing
 
-Single multiplatform SwiftUI target. iOS 17.0 / macOS 14.0. Bundle ID `cc.otavio.stash`. App Group `group.cc.otavio.stash`. Refresh token in shared Keychain group; access token in memory only.
-
-### 18.7 Testing
-
-Backend tests: `VaporTesting` + swift-testing, in-memory SQLite. Leaf templates: not unit-tested (throwaway smoke tests, run then removed). StashKit: mock URLSession. CLI: manual integration only.
+Backend: `VaporTesting` + swift-testing, in-memory SQLite. Leaf templates: throwaway smoke tests (run then removed). StashKit: mock `URLSessionProtocol`. iOS app: no unit tests. CLI: manual integration only.
 
 **Required backend coverage:**
 
 | Layer | Coverage |
 |-------|---------|
 | Auth | Login, TOTP, recovery codes, refresh rotation, logout, 2FA enrol/disable |
-| Bookmarks | CRUD, 409, tag filtering, `__untagged__`, full-text search, pagination, user isolation |
+| Bookmarks | CRUD, 409, tag filtering, `__untagged__`, full-text search (case-insensitive), pagination, user isolation |
 | Admin | Create, suspend, reset password, reset TOTP, delete, stats, self-delete guard |
 | Tags | Rename (with children, merge), delete (with children), user isolation |
 | Middleware | 401 unauthenticated, 403 non-admin |
 | Admin seeding | Seeds, skips, exits on bad creds |
 
-### 18.8 Code Style
+### 19.7 Code Style
 
-SwiftLint + SwiftFormat enforced. `swiftlint lint` clean (0 violations), `swiftformat --lint` idempotent.
+SwiftLint + SwiftFormat. `swiftlint lint` 0 violations, `swiftformat --lint` idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 
-Organisation mode: type (`Nested Types → Static Properties → Properties → Computed Properties → Lifecycle → Functions`), public-before-private within sections.
-
-Disabled rules: `file_length`, `type_body_length`, `function_body_length`, `first_where`, `contains_over_first_not_nil`, `empty_string` (last three false-positive on Fluent query DSL).
+- Organisation: type mode (`Nested Types → Static Properties → Properties → Computed Properties → Lifecycle → Functions`), public-before-private within sections
+- `///` doc comments on types only; no inline comments inside method bodies
+- American English throughout
+- Tests: Given/When/Then structure, `#expect` with `"It should ..."` descriptions
+- Blank line after `guard`; blank line before control flow and `return` in multi-statement bodies (manual convention)
 
 ---
 
-## 19. Development Milestones
+## 20. Development Milestones
 
 | Milestone | Deliverable | Status |
 |-----------|-------------|--------|
@@ -781,28 +864,26 @@ Disabled rules: `file_length`, `type_body_length`, `function_body_length`, `firs
 | M3 | Backend: admin user management API | ✅ Complete |
 | M4 | Backend: Docker image, docker-compose, first-boot seeding | ✅ Complete |
 | M5 | Web admin dashboard (Leaf) | ✅ Complete |
-| M11 | Web frontend: full CRUD, tag sidebar, tag browser (rename/delete), dark mode, import/export, danger zone | ✅ Complete |
-| M6 | StashKit: models + APIClient | ✅ Complete |
+| M11 | Web frontend: full CRUD, tag sidebar, tag browser, dark mode, import/export, danger zone | ✅ Complete |
+| M6 | StashKit: DTOs, request factories, thin client | ✅ Complete |
 | M7 | CLI: all commands including import/export, tag rename/delete | ✅ Complete |
-| M8 | iOS app | Planned |
+| M8 | iOS app: auth, bookmark list, add bookmark | ✅ Core complete |
 | M9 | iOS Share Extension | Planned |
 | M10 | macOS app + Share Extension | Planned |
 | M4.1 | CI/CD: GitHub Actions, publish to ghcr.io | Planned (after M10) |
 
 ---
 
-## 20. Known Leaf Gotchas
-
-Documented here to prevent recurrence in future template work:
+## 21. Known Leaf Gotchas
 
 - `#if(count(x))` does **not** coerce `Int` to `Bool` — `count 0` evaluates truthy. Always use `#if(count(x) > 0)`.
 - Inline conditionals require the colon: `#if(cond): … #endif`.
 - `#if(cond):#else: X #endif` with an empty then-branch misbehaves (else content dropped). Use positive single-branch tests.
-- A non-optional `String` field set to `""` makes `#if(field)` evaluate **true**. For empty-string guards use `#if(field != "")` or `#if(field == "")` explicitly.
+- A non-optional `String` field set to `""` makes `#if(field)` evaluate **true**. Use `#if(field != "")` or `#if(field == "")` explicitly.
 
 ---
 
-## 21. Out of Scope
+## 22. Out of Scope
 
 - Open/public registration
 - Cross-user bookmark visibility or sharing
