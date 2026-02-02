@@ -1,6 +1,6 @@
 # Stash — Product Requirements Document
 
-**Version:** 1.5  
+**Version:** 1.7  
 **Status:** Living Document  
 **Author:** Otávio  
 
@@ -67,7 +67,7 @@ There is exactly one admin. The admin account is seeded at first boot via enviro
 | Web admin dashboard | Server-rendered (Leaf) | ✅ Complete |
 | Web frontend (user-facing) | Server-rendered (Leaf) | ✅ Complete |
 | CLI (`stash`) | Swift CLI tool | ✅ Complete |
-| iOS | Native SwiftUI app + Share Extension | ✅ Core complete (M8); Share Extension complete (M9) |
+| iOS | Native SwiftUI app + Share Extension | ✅ Complete (M8 + M9) |
 | macOS | Native SwiftUI app + Share Extension | Planned (M10) |
 
 ---
@@ -571,7 +571,7 @@ stash admin stats [--json]
 
 ## 15. StashKit — Shared Swift Package ✅ Complete (M6)
 
-Built on `MicroClient` (`from: "0.0.27"`). Swift tools 6.0, iOS 17 / macOS 14.
+Built on `MicroClient` (`from: "0.0.27"`). Swift tools 6.0, iOS 26.0 / macOS 26.0.
 
 Three layers: **DTOs** (Codable/Sendable structs matching API wire shapes), **request factories** (one `enum` per domain, `public static` methods returning typed `NetworkRequest<…>`), **thin `StashClient`** (wraps `NetworkClient`, adds `BearerAuthorizationInterceptor` + `ContentTypeInterceptor` + `AcceptHeaderInterceptor`, maps errors to `StashAPIError`).
 
@@ -579,12 +579,12 @@ No storage, no refresh logic, no business logic. `tokenProvider: @escaping @Send
 
 ---
 
-## 16. iOS App ✅ Core complete (M8)
+## 16. iOS App ✅ Complete (M8 + M9)
 
 ### Project
 
 - Generated with XcodeGen (`StashApp/project.yml` is source of truth; `.xcodeproj` is gitignored)
-- Single SwiftUI target `Stash`, iOS 17.0 minimum
+- Single SwiftUI target `Stash`, iOS 26.0 minimum
 - Bundle ID: `cc.otavio.stash`
 - App Group: `group.cc.otavio.stash`
 - `NSAllowsArbitraryLoads: true`
@@ -609,13 +609,15 @@ No storage, no refresh logic, no business logic. `tokenProvider: @escaping @Send
 ### Navigation
 
 - **iPad:** `NavigationSplitView` — tag sidebar drives filtered `BookmarkListView` in detail column
-- **iPhone:** `TabContainerView` — Bookmarks / Tags / Settings tabs, each in its own `NavigationStack`
+- **iPhone:** `TabContainerView` — Bookmarks / Tags / Settings tabs, each in its own `NavigationStack`. Tab bar uses iOS 26 floating Liquid Glass style; collapses on scroll via `tabBarMinimizeBehavior`
 - Bookmark rows use closure-based `NavigationLink` (not `navigationDestination(for:)`) to avoid multi-depth registration conflicts
 - Login uses typed `LoginRoute` enum for 2FA navigation
 
 ### Views (core)
 
 `RootView` → `SetupView` / `LoginView` / `TOTPView` / `RecoveryCodeView` / `MainView` → `BookmarkListView` / `BookmarkDetailView` (stub) / `AddBookmarkSheet` / `TagBrowserView` (stub) / `SettingsView` (stub with Sign Out)
+
+Liquid Glass design adopted automatically — tab bar floats over content, toolbars and navigation bars gain glass background. No explicit `.liquidGlass` calls needed; compiling against iOS 26 SDK is sufficient.
 
 `FaviconView` vendored from Triton (Google favicon service, `AsyncImage`, fallback `"link"` SF Symbol, `RoundFaviconModifier` 16×16 4pt corners).
 
@@ -625,14 +627,6 @@ No storage, no refresh logic, no business logic. `tokenProvider: @escaping @Send
 
 Context-aware empty states: `ContentUnavailableView.search` for active query, tag-specific, archived-specific, first-run.
 
-### Share Extension (M9)
-
-Save a URL from the system share sheet. App Group `group.cc.otavio.stash` shares the Keychain tokens
-(access group) and the server URL (shared `UserDefaults` suite) with the main app. The extension is
-process-isolated with its own lightweight repositories; it presents the shared `AddBookmarkView`
-(extracted so the app and extension share one form), then a confirmation with undo. No login flow
-inside the extension — the user signs in via the main app first.
-
 ### Remaining for M10
 
 Full Settings (password change, 2FA management), edit/delete bookmark, tag rename/delete, macOS target.
@@ -641,7 +635,9 @@ Full Settings (password change, 2FA management), edit/delete bookmark, tag renam
 
 ## 17. macOS App (Planned — M10)
 
-Same SwiftUI target as iOS (multiplatform). macOS 14.0 minimum. Share Extension. Full feature parity with iOS app.
+Same SwiftUI target as iOS (multiplatform). macOS 26.0 minimum. Share Extension. Full feature parity with iOS app.
+
+Adopts macOS 26 design language automatically — Liquid Glass materials on toolbars and sidebars. `NavigationSplitView` with tag sidebar and bookmark detail column. Toolbar glass effect on navigation bar items. Collapsible `Section` headers in tag browser and bookmark list where appropriate.
 
 ---
 
