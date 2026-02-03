@@ -51,8 +51,7 @@ struct TOTPView: View {
         Form {
             Section {
                 TextField("000000", text: $code)
-                    .keyboardType(.numberPad)
-                    .textContentType(.oneTimeCode)
+                    .oneTimeCodeFieldStyle()
                     .onChange(of: code) { _, newValue in
                         code = String(newValue.filter(\.isNumber).prefix(6))
                     }
@@ -82,7 +81,7 @@ struct TOTPView: View {
             }
         }
         .navigationTitle("Two-Factor")
-        .navigationBarTitleDisplayMode(.inline)
+        .inlineNavigationTitleStyle()
     }
 
     // MARK: Functions

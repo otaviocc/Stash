@@ -131,8 +131,7 @@ struct AddBookmarkView: View {
 
                 Section("Tags") {
                     TextField("comma, separated, tags", text: $tagText)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .lowercasedFieldStyle()
 
                     if !suggestions.isEmpty {
                         TagSuggestionView(suggestions: suggestions) { tag in
@@ -148,7 +147,7 @@ struct AddBookmarkView: View {
                 }
             }
             .navigationTitle("Add Bookmark")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitleStyle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onCancel)
@@ -174,10 +173,7 @@ struct AddBookmarkView: View {
             if isURLEditable {
                 HStack {
                     TextField("https://example.com", text: $urlText)
-                        .textContentType(.URL)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .urlFieldStyle()
                     PasteButton(payloadType: String.self) { strings in
                         guard let pasted = strings.first else {
                             return

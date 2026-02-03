@@ -40,6 +40,24 @@ public struct CreateUserRequest: Encodable, Sendable {
     }
 }
 
+// MARK: - ChangePasswordRequest
+
+/// Request body for changing the current user's own password (`PUT /api/v1/me/password`).
+public struct ChangePasswordRequest: Encodable, Sendable {
+
+    // MARK: Properties
+
+    public let currentPassword: String
+    public let newPassword: String
+
+    // MARK: Lifecycle
+
+    public init(currentPassword: String, newPassword: String) {
+        self.currentPassword = currentPassword
+        self.newPassword = newPassword
+    }
+}
+
 // MARK: - UpdateUserRequest
 
 /// Request body for updating a user (admin only).

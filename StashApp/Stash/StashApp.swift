@@ -22,8 +22,11 @@
 
 import SwiftUI
 
+// MARK: - StashApp
+
 /// The Stash app entry point. Builds the shared settings and dependency container once at launch
-/// and injects them into the SwiftUI environment.
+/// and injects them into the SwiftUI environment. The same `App` serves iOS and macOS; macOS adds a
+/// `Settings` scene (⌘,) and a minimum window size.
 @main
 struct StashApp: App {
 
@@ -37,11 +40,27 @@ struct StashApp: App {
     // MARK: Content
 
     var body: some Scene {
-        WindowGroup {
-            RootView()
-                .environment(appSettings)
-                .environment(appEnvironment)
-        }
+        #if os(macOS)
+            WindowGroup {
+                rootView
+                    .frame(minWidth: 800, minHeight: 500)
+            }
+            .windowResizability(.contentMinSize)
+            .commands {
+                SidebarCommands()
+            }
+
+            Settings {
+                MacSettingsView()
+                    .environment(appSettings)
+                    .environment(appEnvironment)
+                    .preferredColorScheme(appSettings.appearance.colorScheme)
+            }
+        #else
+            WindowGroup {
+                rootView
+            }
+        #endif
     }
 
     // MARK: Lifecycle
@@ -50,5 +69,28 @@ struct StashApp: App {
         let settings = AppSettings()
         _appSettings = State(initialValue: settings)
         _appEnvironment = State(initialValue: AppEnvironment())
+    }
+
+    // MARK: Content Properties
+
+    private var rootView: some View {
+        RootView()
+            .environment(appSettings)
+            .environment(appEnvironment)
+            .preferredColorScheme(appSettings.appearance.colorScheme)
+    }
+}
+
+// MARK: - AppAppearance + ColorScheme
+
+extension AppAppearance {
+
+    /// The SwiftUI color scheme to force, or `nil` to follow the system (Auto).
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
     }
 }

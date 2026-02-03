@@ -20,12 +20,25 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#if os(iOS)
+#if os(macOS)
+    import AppKit
     import SwiftUI
-    import UIKit
 
-    /// The root view controller for the iOS Share Extension, hosting the SwiftUI `ShareExtensionView`.
-    final class ShareViewController: UIViewController {
+    /// The principal view controller for the macOS Share Extension, hosting the same SwiftUI
+    /// `ShareExtensionView` the iOS extension uses inside an `NSHostingController`.
+    final class MacShareViewController: NSViewController {
+
+        // MARK: Overridden Properties
+
+        override var nibName: NSNib.Name? {
+            nil
+        }
+
+        // MARK: Overridden Functions
+
+        override func loadView() {
+            view = NSView(frame: NSRect(x: 0, y: 0, width: 460, height: 600))
+        }
 
         override func viewDidLoad() {
             super.viewDidLoad()
@@ -34,7 +47,7 @@
                 return
             }
 
-            let hosting = UIHostingController(rootView: ShareExtensionView(extensionContext: extensionContext))
+            let hosting = NSHostingController(rootView: ShareExtensionView(extensionContext: extensionContext))
             addChild(hosting)
             hosting.view.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(hosting.view)
@@ -45,8 +58,6 @@
                 hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
                 hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
             ])
-
-            hosting.didMove(toParent: self)
         }
     }
 

@@ -20,40 +20,28 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import SwiftUI
+import Foundation
+import MicroClient
 
-#if os(iOS)
+// MARK: - UserRequestFactory
 
-    /// The iPhone layout: Bookmarks, Tags, and Settings tabs, each in its own navigation stack.
-    struct TabContainerView: View {
+/// Factory for current-user API requests (PRD §9.2).
+public enum UserRequestFactory {
 
-        // MARK: Content
-
-        var body: some View {
-            TabView {
-                NavigationStack {
-                    BookmarkListView(tag: nil)
-                }
-                .tabItem {
-                    Label("Bookmarks", systemImage: "bookmark")
-                }
-
-                NavigationStack {
-                    TagBrowserView()
-                }
-                .tabItem {
-                    Label("Tags", systemImage: "tag")
-                }
-
-                NavigationStack {
-                    SettingsView()
-                }
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape")
-                }
-            }
-            .tabBarMinimizeBehavior(.onScrollDown)
-        }
+    public static func makeMeRequest() -> NetworkRequest<VoidRequest, UserDTO> {
+        .init(
+            path: "/api/v1/me",
+            method: .get
+        )
     }
 
-#endif
+    public static func makeChangePasswordRequest(
+        _ body: ChangePasswordRequest
+    ) -> NetworkRequest<ChangePasswordRequest, VoidResponse> {
+        .init(
+            path: "/api/v1/me/password",
+            method: .put,
+            body: body
+        )
+    }
+}

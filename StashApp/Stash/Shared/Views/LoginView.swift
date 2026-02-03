@@ -55,11 +55,9 @@ struct LoginView: View {
             Form {
                 Section {
                     TextField("Username", text: $username)
-                        .textContentType(.username)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .usernameFieldStyle()
                     SecureField("Password", text: $password)
-                        .textContentType(.password)
+                        .passwordFieldStyle()
                 } footer: {
                     Text(settings.serverURL)
                         .font(.footnote)

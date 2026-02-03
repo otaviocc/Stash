@@ -20,40 +20,34 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import SwiftUI
+import Foundation
+import StashKit
 
-#if os(iOS)
+// MARK: - CurrentUser
 
-    /// The iPhone layout: Bookmarks, Tags, and Settings tabs, each in its own navigation stack.
-    struct TabContainerView: View {
+/// The signed-in user's profile, as needed by the Settings screen.
+struct CurrentUser {
 
-        // MARK: Content
+    let username: String
+    let isTOTPEnabled: Bool
+}
 
-        var body: some View {
-            TabView {
-                NavigationStack {
-                    BookmarkListView(tag: nil)
-                }
-                .tabItem {
-                    Label("Bookmarks", systemImage: "bookmark")
-                }
+// MARK: - CurrentUser + DTO
 
-                NavigationStack {
-                    TagBrowserView()
-                }
-                .tabItem {
-                    Label("Tags", systemImage: "tag")
-                }
+extension CurrentUser {
 
-                NavigationStack {
-                    SettingsView()
-                }
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape")
-                }
-            }
-            .tabBarMinimizeBehavior(.onScrollDown)
-        }
+    init(dto: UserDTO) {
+        username = dto.username
+        isTOTPEnabled = dto.isTOTPEnabled
     }
+}
 
-#endif
+// MARK: - TOTPSetup
+
+/// The data shown while enrolling in two-factor authentication: the shared secret and the
+/// `otpauth://` URI a native client renders as a QR code.
+struct TOTPSetup {
+
+    let secret: String
+    let otpauthURI: String
+}

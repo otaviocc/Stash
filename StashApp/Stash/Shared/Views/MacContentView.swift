@@ -20,42 +20,22 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import SwiftUI
+#if os(macOS)
+    import SwiftUI
 
-#if os(iOS)
+    // MARK: - MacContentView
 
-    // MARK: - MainView
-
-    /// The authenticated app shell: a tag-sidebar split view on iPad, a tab bar on iPhone.
-    struct MainView: View {
-
-        // MARK: SwiftUI Properties
-
-        @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-
-        // MARK: Content Properties
-
-        // MARK: Content
-
-        var body: some View {
-            if horizontalSizeClass == .regular {
-                SidebarSplitView()
-            } else {
-                TabContainerView()
-            }
-        }
-    }
-
-    // MARK: - SidebarSplitView
-
-    /// The iPad layout: a tag list in the sidebar driving a filtered bookmark list in the detail column.
-    private struct SidebarSplitView: View {
+    /// The authenticated macOS shell: a `NavigationSplitView` whose sidebar (All Bookmarks, Untagged,
+    /// and the tag list) filters the bookmark list in the detail column. Selecting a bookmark pushes its
+    /// detail within the detail column's navigation stack, the same shared `BookmarkListView` /
+    /// `BookmarkDetailView` the iPad layout uses.
+    struct MacContentView: View {
 
         // MARK: SwiftUI Properties
 
         @Environment(AppEnvironment.self) private var environment
 
-        @State private var selection: SidebarItem? = .all
+        @State private var selection: MacSidebarItem? = .all
 
         // MARK: Content Properties
 
@@ -65,7 +45,9 @@ import SwiftUI
             NavigationSplitView {
                 List(selection: $selection) {
                     Label("All Bookmarks", systemImage: "bookmark")
-                        .tag(SidebarItem.all)
+                        .tag(MacSidebarItem.all)
+                    Label("Untagged", systemImage: "tag.slash")
+                        .tag(MacSidebarItem.untagged)
 
                     Section("Tags") {
                         ForEach(environment.tagRepository.tags) { tag in
@@ -75,35 +57,40 @@ import SwiftUI
                                 Text("\(tag.count)")
                                     .foregroundStyle(.secondary)
                             }
-                            .tag(SidebarItem.tag(tag.name))
+                            .tag(MacSidebarItem.tag(tag.name))
                         }
                     }
                 }
                 .navigationTitle("Stash")
+                .navigationSplitViewColumnWidth(min: 200, ideal: 240)
                 .task {
                     try? await environment.tagRepository.load()
                 }
             } detail: {
                 NavigationStack {
-                    BookmarkListView(tag: selection?.tagName)
+                    BookmarkListView(tag: selection?.tagFilter)
                 }
             }
         }
     }
 
-    // MARK: - SidebarItem
+    // MARK: - MacSidebarItem
 
-    /// A selectable entry in the iPad sidebar.
-    private enum SidebarItem: Hashable {
+    /// A selectable entry in the macOS sidebar.
+    private enum MacSidebarItem: Hashable {
 
         case all
+        case untagged
         case tag(String)
 
         // MARK: Computed Properties
 
-        var tagName: String? {
+        /// The `tag` filter passed to `BookmarkListView`: `nil` for all, the untagged sentinel, or the
+        /// literal tag.
+        var tagFilter: String? {
             switch self {
             case .all: nil
+            case .untagged: "__untagged__"
             case let .tag(name): name
             }
         }

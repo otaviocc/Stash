@@ -22,12 +22,39 @@
 
 import SwiftUI
 
-/// A read-only bookmark detail. Edit and delete arrive in a later session.
+/// A bookmark detail view with edit, archive, and delete actions.
+///
+/// Shared between the iOS push presentation and the macOS inspector panel. It keeps the displayed
+/// bookmark in local state so an in-place edit or archive is reflected immediately, and reports a
+/// deletion through `onDeleted` so the host can pop (iOS) or clear its selection (macOS).
 struct BookmarkDetailView: View {
+
+    // MARK: SwiftUI Properties
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var bookmark: Bookmark
+    @State private var showingEdit = false
+    @State private var showingDeleteConfirmation = false
+    @State private var isWorking = false
+    @State private var errorMessage: String?
 
     // MARK: Properties
 
-    let bookmark: Bookmark
+    let repository: BookmarkRepository
+    let onDeleted: () -> Void
+
+    // MARK: Lifecycle
+
+    init(
+        bookmark: Bookmark,
+        repository: BookmarkRepository,
+        onDeleted: @escaping () -> Void = {}
+    ) {
+        _bookmark = State(initialValue: bookmark)
+        self.repository = repository
+        self.onDeleted = onDeleted
+    }
 
     // MARK: Content Properties
 
@@ -67,12 +94,103 @@ struct BookmarkDetailView: View {
             }
 
             Section {
-                Link(destination: bookmark.url) {
-                    Label("Open in Safari", systemImage: "safari")
+                LabeledContent("Added", value: bookmark.createdAt, format: .dateTime.day().month().year())
+                if bookmark.isArchived {
+                    LabeledContent("Status", value: "Archived")
                 }
+            }
+
+            Section {
+                Link(destination: bookmark.url) {
+                    Label("Open in Browser", systemImage: "safari")
+                }
+
+                Button(action: toggleArchived) {
+                    Label(
+                        bookmark.isArchived ? "Unarchive" : "Archive",
+                        systemImage: bookmark.isArchived ? "tray.and.arrow.up" : "archivebox"
+                    )
+                }
+                .disabled(isWorking)
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    showingDeleteConfirmation = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .keyboardShortcut(.delete, modifiers: .command)
+                .disabled(isWorking)
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+                    .font(.footnote)
             }
         }
         .navigationTitle("Bookmark")
-        .navigationBarTitleDisplayMode(.inline)
+        .inlineNavigationTitleStyle()
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingEdit = true
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+                .keyboardShortcut("e", modifiers: .command)
+                .disabled(isWorking)
+            }
+        }
+        .sheet(isPresented: $showingEdit) {
+            EditBookmarkView(bookmark: bookmark, repository: repository) { updated in
+                bookmark = updated
+            }
+        }
+        .confirmationDialog(
+            "Delete this bookmark?",
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive, action: delete)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(bookmark.title)
+        }
+    }
+
+    // MARK: Functions
+
+    private func toggleArchived() {
+        errorMessage = nil
+        isWorking = true
+
+        Task {
+            defer { isWorking = false }
+
+            do {
+                bookmark = try await repository.setArchived(id: bookmark.id, archived: !bookmark.isArchived)
+            } catch {
+                errorMessage = error.stashUserMessage
+            }
+        }
+    }
+
+    private func delete() {
+        errorMessage = nil
+        isWorking = true
+
+        Task {
+            defer { isWorking = false }
+
+            do {
+                try await repository.delete(id: bookmark.id)
+                onDeleted()
+                dismiss()
+            } catch {
+                errorMessage = error.stashUserMessage
+            }
+        }
     }
 }
