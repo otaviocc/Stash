@@ -884,3 +884,15 @@ the 26 SDKs).
 
 - **✅ Blank line after `guard` (automated).** Enforced by SwiftFormat's `blankLinesAfterGuardStatements` rule (`--line-between-guards false`): a blank line follows the last `guard` in a group, and blank lines between consecutive guards are collapsed.
 - **⚠️ Blank line before `if`, `for`/`switch`, and before `return` in multi-statement bodies (manual convention).** SwiftFormat has no rule that inserts blank lines before these statements, and neither does SwiftLint's autocorrect — enforcing it automatically would require a fragile custom tool. These are therefore a hand-applied convention, not machine-enforced: separate a control-flow block (`if`/`for`/`switch`) from the code above it with a blank line, and precede a `return` with a blank line when the function body has more than one statement.
+
+## Code style — commit messages
+
+- **✅ Follow the seven rules of a great commit message** ([cbea.ms/git-commit](https://cbea.ms/git-commit/)). A hand-applied convention; no hook enforces it:
+  1. Separate subject from body with a blank line.
+  2. Limit the subject line to 50 characters.
+  3. Capitalize the subject line.
+  4. Do not end the subject line with a period.
+  5. Use the imperative mood in the subject line ("Add", "Fix", "Bump" — not "Added"/"Adds").
+  6. Wrap the body at 72 characters.
+  7. Use the body to explain *what* and *why*, not *how*.
+- **✅ Body style.** Prose paragraphs for a single cohesive change (a feature or milestone); `-` bullets when a commit groups several distinct changes — matching the existing history. The whole repository's history was reworded so every subject fits in 50 characters.
