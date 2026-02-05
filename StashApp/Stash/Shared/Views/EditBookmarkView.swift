@@ -44,31 +44,6 @@ struct EditBookmarkView: View {
     let repository: BookmarkRepository
     let onSaved: (Bookmark) -> Void
 
-    // MARK: Computed Properties
-
-    private var tags: [String] {
-        tagText
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-    }
-
-    private var suggestions: [Tag] {
-        let segment = currentTagSegment
-        guard !segment.isEmpty else {
-            return []
-        }
-
-        return environment.tagRepository
-            .autocompleteTags(prefix: segment)
-            .filter { !tags.dropLast().contains($0.name) }
-    }
-
-    private var currentTagSegment: String {
-        let segment = tagText.split(separator: ",", omittingEmptySubsequences: false).last
-        return segment.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
-    }
-
     // MARK: Lifecycle
 
     init(
@@ -104,16 +79,7 @@ struct EditBookmarkView: View {
                         .lineLimit(2...5)
                 }
 
-                Section("Tags") {
-                    TextField("comma, separated, tags", text: $tagText)
-                        .lowercasedFieldStyle()
-
-                    if !suggestions.isEmpty {
-                        TagSuggestionView(suggestions: suggestions) { tag in
-                            appendSuggestion(tag)
-                        }
-                    }
-                }
+                TagInputSection(tagText: $tagText, tagStore: environment.tagRepository)
 
                 if let errorMessage {
                     Text(errorMessage)
@@ -141,19 +107,6 @@ struct EditBookmarkView: View {
 
     // MARK: Functions
 
-    private func appendSuggestion(_ tag: Tag) {
-        var components = tagText.split(separator: ",", omittingEmptySubsequences: false)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-
-        if components.isEmpty {
-            components = [tag.name]
-        } else {
-            components[components.count - 1] = tag.name
-        }
-
-        tagText = components.joined(separator: ", ") + ", "
-    }
-
     private func save() {
         errorMessage = nil
         isSaving = true
@@ -169,7 +122,7 @@ struct EditBookmarkView: View {
                     id: bookmark.id,
                     title: trimmedTitle.isEmpty ? nil : trimmedTitle,
                     description: trimmedDescription.isEmpty ? nil : trimmedDescription,
-                    tags: tags
+                    tags: TagInputSection.tags(from: tagText)
                 )
                 environment.tagRepository.invalidateCache()
                 onSaved(updated)

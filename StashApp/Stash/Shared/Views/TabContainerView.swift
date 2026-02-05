@@ -31,25 +31,22 @@ import SwiftUI
 
         var body: some View {
             TabView {
-                NavigationStack {
-                    BookmarkListView(tag: nil)
-                }
-                .tabItem {
-                    Label("Bookmarks", systemImage: "bookmark")
-                }
-
-                NavigationStack {
-                    TagBrowserView()
-                }
-                .tabItem {
-                    Label("Tags", systemImage: "tag")
+                Tab("Bookmarks", systemImage: "bookmark") {
+                    NavigationStack {
+                        BookmarkListView(tag: nil)
+                    }
                 }
 
-                NavigationStack {
-                    SettingsView()
+                Tab("Tags", systemImage: "tag") {
+                    NavigationStack {
+                        TagBrowserView()
+                    }
                 }
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape")
+
+                Tab("Settings", systemImage: "gearshape") {
+                    NavigationStack {
+                        SettingsView()
+                    }
                 }
             }
             .tabBarMinimizeBehavior(.onScrollDown)

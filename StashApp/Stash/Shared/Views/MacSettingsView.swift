@@ -32,20 +32,17 @@
 
         var body: some View {
             TabView {
-                GeneralSettingsView()
-                    .tabItem {
-                        Label("General", systemImage: "gearshape")
-                    }
+                Tab("General", systemImage: "gearshape") {
+                    GeneralSettingsView()
+                }
 
-                AccountSettingsView()
-                    .tabItem {
-                        Label("Account", systemImage: "person.crop.circle")
-                    }
+                Tab("Account", systemImage: "person.crop.circle") {
+                    AccountSettingsView()
+                }
 
-                AppearanceSettingsView()
-                    .tabItem {
-                        Label("Appearance", systemImage: "paintbrush")
-                    }
+                Tab("Appearance", systemImage: "paintbrush") {
+                    AppearanceSettingsView()
+                }
             }
             .frame(width: 460, height: 420)
         }

@@ -3,6 +3,7 @@
 
 # SwiftPM / Xcode build artifacts
 .build/
+build/
 .swiftpm/
 DerivedData/
 *.xcodeproj/xcuserdata/

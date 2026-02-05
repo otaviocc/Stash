@@ -69,6 +69,8 @@ private struct BookmarkListContent: View {
 
     @Environment(\.openURL) private var openURL
 
+    @FocusState private var isSearchFocused: Bool
+
     @State private var searchText = ""
     @State private var showArchived = false
     @State private var showingAddSheet = false
@@ -143,6 +145,15 @@ private struct BookmarkListContent: View {
         .navigationTitle(navigationTitle)
         .searchable(text: $searchText, prompt: "Search bookmarks")
         .searchInputStyle()
+        .searchFocused($isSearchFocused)
+        .background {
+            Button("Find") {
+                isSearchFocused = true
+            }
+            .keyboardShortcut("f", modifiers: .command)
+            .opacity(0)
+            .accessibilityHidden(true)
+        }
         .onSubmit(of: .search) {
             reload()
         }
