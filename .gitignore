@@ -6,8 +6,7 @@
 build/
 .swiftpm/
 DerivedData/
-*.xcodeproj/xcuserdata/
-*.xcworkspace/xcuserdata/
+**/xcuserdata/
 
 # macOS
 .DS_Store
