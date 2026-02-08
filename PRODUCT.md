@@ -584,7 +584,7 @@ No storage, no refresh logic, no business logic. `tokenProvider: @escaping @Send
 ### Project
 
 - `StashApp/Stash.xcodeproj` is committed and uses synchronized folder groups (XcodeGen was retired — see `DECISIONS.md`)
-- Single SwiftUI target `Stash`, iOS 26.0 minimum
+- Single multiplatform SwiftUI app target `Stash` (iOS 26.0 + macOS 26.0) and one multiplatform Share Extension target
 - Bundle ID: `cc.otavio.stash`
 - App Group: `group.cc.otavio.stash`
 - `NSAllowsArbitraryLoads: true`
@@ -635,9 +635,9 @@ Full Settings (password change, 2FA management), edit/delete bookmark, tag renam
 
 ## 17. macOS App ✅ Complete (M10)
 
-A native macOS app (`StashMac` target, macOS 26.0 minimum) sharing the iOS source tree — a single
-`@main App` branches per platform with `#if os(macOS)`. Adopts the macOS 26 design language (Liquid
-Glass) automatically by building against the SDK; no explicit modifiers.
+macOS 26.0 is a destination of the **single multiplatform `Stash` target** (not a separate target) —
+the one `@main App` branches per platform with `#if os(macOS)`. Adopts the macOS 26 design language
+(Liquid Glass) automatically by building against the SDK; no explicit modifiers.
 
 - **Navigation:** `NavigationSplitView` with a tag sidebar (All Bookmarks, Untagged, the tag list)
   driving the shared `BookmarkListView` in the detail column; selecting a bookmark pushes the shared
@@ -649,9 +649,10 @@ Glass) automatically by building against the SDK; no explicit modifiers.
 - **Settings scene (⌘,):** General (server URL, sign out), Account (change password, 2FA enrol /
   disable), Appearance (Light / Dark / Auto, stored in `UserDefaults` — no theme cookie on native).
 - **Keyboard shortcuts:** ⌘N new, ⌘E edit, ⌘R refresh, ⌘⌫ delete (with confirmation).
-- **Share Extension:** `StashMacShareExtension` reuses the iOS extension's SwiftUI (same three states
-  and confirmation-with-undo); only the principal `NSViewController` differs from iOS's
-  `UIViewController`.
+- **Share Extension:** the single multiplatform `StashShareExtension` target serves both platforms
+  (same three states and confirmation-with-undo); only the principal controller differs —
+  `MacShareViewController` (`NSViewController`) on macOS vs `ShareViewController` (`UIViewController`)
+  on iOS, both `#if`-guarded.
 
 ---
 
@@ -760,7 +761,7 @@ stash/
 │   ├── Common/                  # compiled into the app + both Share Extensions
 │   ├── Stash/                   # app-only code (iOS + macOS); @main entry
 │   ├── StashShareExtension/     # both Share Extensions (#if-guarded controllers)
-│   ├── StashMac/ · StashMacShareExtension/   # macOS Info.plist + entitlements
+│   ├── Config/                  # non-synced per-platform Info.plist + entitlements
 │   └── Stash.xcodeproj          # committed; synchronized folder groups
 ├── CLI/                         # ✅ Complete (M7)
 │   ├── Sources/stash/

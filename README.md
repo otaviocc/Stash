@@ -62,20 +62,21 @@ All commands accept `--json`. See `CLI/CLAUDE.md` for the full command list.
 
 ## Build and run the apps (iOS / macOS)
 
-Open the committed Xcode project and pick the `Stash` (iOS) or `StashMac` scheme:
+Open the committed Xcode project and pick the `Stash` scheme — it's a single multiplatform target, so
+choose an iOS Simulator or "My Mac" as the run destination:
 
 ```sh
 cd StashApp
 open Stash.xcodeproj
 ```
 
-Or build from the command line:
+Or build from the command line (same scheme, different destination):
 
 ```sh
 # iOS
-xcodebuild -scheme Stash    -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO
+xcodebuild -scheme Stash -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO
 # macOS
-xcodebuild -scheme StashMac -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
+xcodebuild -scheme Stash -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
 ```
 
 On first launch, point the app at your backend URL on the setup screen, then sign in with an account
