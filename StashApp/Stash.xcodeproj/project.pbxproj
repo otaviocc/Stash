@@ -7,25 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0982A0803732D608F65ACDF3 /* MicroClient in Frameworks */ = {isa = PBXBuildFile; productRef = 00692837826171A9B021D888 /* MicroClient */; };
-		0E6665FDC3E123AF01137911 /* MicroClient in Frameworks */ = {isa = PBXBuildFile; productRef = 2A5E64F4BCCAF031F86D1CD1 /* MicroClient */; };
 		365C683A0E55DD701874AB7E /* MicroClient in Frameworks */ = {isa = PBXBuildFile; productRef = B2CD20C8A65AA185FFCC4D8E /* MicroClient */; };
-		42E5666501C266F111959655 /* StashKit in Frameworks */ = {isa = PBXBuildFile; productRef = DE79593A8144A167324B4632 /* StashKit */; };
 		B7F72CC68CB5E9ADB863FDA1 /* MicroClient in Frameworks */ = {isa = PBXBuildFile; productRef = CF2C86B463BBE9CEA182B532 /* MicroClient */; };
 		BE3874FD0795B6E3470327DC /* StashShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AC09DB3F1BE98B141748668D /* StashShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CA0A92D0C0516D6AD0AC01ED /* StashKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0AA7B5161A2056903CC44344 /* StashKit */; };
-		FF316D690520A4502E1857AE /* StashKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5AE40B536E0414C6AE377A1B /* StashKit */; };
 		FF436F5052A87D99037D944C /* StashKit in Frameworks */ = {isa = PBXBuildFile; productRef = C3FA39A6C6E77FD87D2DCBBB /* StashKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		143DC172BE21FB34BA4794F7 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 033F29620E5209F5D0401DB9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EFC52C47C1F0A47F2348A4B3;
-			remoteInfo = StashMacShareExtension;
-		};
 		174F6CA911A93E693EC42763 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 033F29620E5209F5D0401DB9 /* Project object */;
@@ -63,36 +52,19 @@
 		FF2AED5E66FAB2122C8437E2 /* Stash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Stash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		EA04369E2FD9BE5E00CCF5A6 /* Exceptions for "Stash" folder in "Stash" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 9FAC94805FFDB4939741D3EE /* Stash */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		EA04358E2FD9BD7400CCF5A6 /* StashShareExtension */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = StashShareExtension;
 			sourceTree = "<group>";
 		};
 		EA0436012FD9BD9300CCF5A6 /* Common */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = Common;
 			sourceTree = "<group>";
 		};
 		EA0436612FD9BE5D00CCF5A6 /* Stash */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				EA04369E2FD9BE5E00CCF5A6 /* Exceptions for "Stash" folder in "Stash" target */,
-			);
 			path = Stash;
 			sourceTree = "<group>";
 		};
@@ -228,19 +200,9 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					0380D86B31E80D88BE091745 = {
-						DevelopmentTeam = "";
-						ProvisioningStyle = Automatic;
-					};
-					3D752772409BF00615B81397 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					9FAC94805FFDB4939741D3EE = {
-						DevelopmentTeam = "";
-						ProvisioningStyle = Automatic;
-					};
-					EFC52C47C1F0A47F2348A4B3 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -256,7 +218,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				39A46615146F3708FF4508BD /* XCRemoteSwiftPackageReference "MicroClient" */,
-				4C77E996551DEAC46F8B7EC7 /* XCLocalSwiftPackageReference "StashKit" */,
+				4C77E996551DEAC46F8B7EC7 /* XCLocalSwiftPackageReference "../StashKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 22E5CCC3596340D277183E6B /* Products */;
@@ -315,7 +277,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S9X9XY5GF8;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/App-iOS-Info.plist";
@@ -339,85 +301,6 @@
 			};
 			name = Debug;
 		};
-		44B2D05D0F68603F7E0ECEF1 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = StashMac/StashMac.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = StashMac/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash;
-				PRODUCT_NAME = Stash;
-				SDKROOT = macosx;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Debug;
-		};
-		70C1DEE469187EE1B43598F1 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = StashMac/StashMac.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = StashMac/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash;
-				PRODUCT_NAME = Stash;
-				SDKROOT = macosx;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Release;
-		};
-		A4785C312A55514DFEF5A2B7 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = StashMacShareExtension/StashMacShareExtension.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = StashMacShareExtension/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@executable_path/../../../../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash.macShareExtension;
-				SDKROOT = macosx;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Release;
-		};
 		A7232640369F3B29CC31B666 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -428,7 +311,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S9X9XY5GF8;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/App-iOS-Info.plist";
@@ -515,31 +398,6 @@
 			};
 			name = Debug;
 		};
-		E8F2972146CBCB9A28D3B40F /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = StashMacShareExtension/StashMacShareExtension.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = StashMacShareExtension/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@executable_path/../../../../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash.macShareExtension;
-				SDKROOT = macosx;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Debug;
-		};
 		EC8AE3020EBA53BFDE2FA992 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -547,7 +405,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "Config/Ext-macOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S9X9XY5GF8;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/Ext-iOS-Info.plist";
@@ -635,7 +493,7 @@
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "Config/Ext-macOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = S9X9XY5GF8;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Config/Ext-iOS-Info.plist";
@@ -693,7 +551,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		4C77E996551DEAC46F8B7EC7 /* XCLocalSwiftPackageReference "StashKit" */ = {
+		4C77E996551DEAC46F8B7EC7 /* XCLocalSwiftPackageReference "../StashKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../StashKit;
 		};
@@ -711,21 +569,7 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		00692837826171A9B021D888 /* MicroClient */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 39A46615146F3708FF4508BD /* XCRemoteSwiftPackageReference "MicroClient" */;
-			productName = MicroClient;
-		};
 		0AA7B5161A2056903CC44344 /* StashKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = StashKit;
-		};
-		2A5E64F4BCCAF031F86D1CD1 /* MicroClient */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 39A46615146F3708FF4508BD /* XCRemoteSwiftPackageReference "MicroClient" */;
-			productName = MicroClient;
-		};
-		5AE40B536E0414C6AE377A1B /* StashKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = StashKit;
 		};
@@ -742,10 +586,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 39A46615146F3708FF4508BD /* XCRemoteSwiftPackageReference "MicroClient" */;
 			productName = MicroClient;
-		};
-		DE79593A8144A167324B4632 /* StashKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = StashKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
