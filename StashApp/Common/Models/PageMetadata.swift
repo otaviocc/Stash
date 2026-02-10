@@ -37,7 +37,9 @@ struct PageMetadata {
 
 extension PageMetadata {
 
-    init(dto: PageMetadataDTO) {
+    init(
+        dto: PageMetadataDTO
+    ) {
         title = dto.title
         description = dto.description
         faviconURL = dto.faviconURL

@@ -32,8 +32,13 @@ import Foundation
 @MainActor
 protocol BookmarkCreating: AnyObject {
 
-    func create(_ input: CreateBookmarkInput) async throws -> Bookmark
-    func fetchMetadata(for url: URL) async throws -> PageMetadata
+    func create(
+        _ input: CreateBookmarkInput
+    ) async throws -> Bookmark
+
+    func fetchMetadata(
+        for url: URL
+    ) async throws -> PageMetadata
 }
 
 // MARK: - TagAutocompleting
@@ -52,5 +57,8 @@ protocol TagAutocompleting: AnyObject {
     // MARK: Functions
 
     func load() async throws
-    func autocompleteTags(prefix: String) -> [Tag]
+
+    func autocompleteTags(
+        prefix: String
+    ) -> [Tag]
 }

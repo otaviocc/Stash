@@ -36,7 +36,9 @@ struct CurrentUser {
 
 extension CurrentUser {
 
-    init(dto: UserDTO) {
+    init(
+        dto: UserDTO
+    ) {
         username = dto.username
         isTOTPEnabled = dto.isTOTPEnabled
     }

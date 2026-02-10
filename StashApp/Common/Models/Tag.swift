@@ -44,7 +44,9 @@ struct Tag: Identifiable, Hashable {
 
 extension Tag {
 
-    init(dto: TagDTO) {
+    init(
+        dto: TagDTO
+    ) {
         name = dto.name
         count = dto.count
     }
