@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - AddBookmarkView
+
 /// The shared add-bookmark form, used by both the main app's `AddBookmarkSheet` and the Share
 /// Extension's `ShareExtensionView`.
 ///
@@ -228,3 +230,28 @@ struct AddBookmarkView: View {
         }
     }
 }
+
+#if DEBUG
+    #Preview("Add — editable URL") {
+        AddBookmarkView(
+            isURLEditable: true,
+            autoFetchOnAppear: false,
+            bookmarkStore: PreviewBookmarkStore(),
+            tagStore: PreviewTagStore(),
+            onSaved: { _ in },
+            onCancel: {}
+        )
+    }
+
+    #Preview("Add — locked URL (share sheet)") {
+        AddBookmarkView(
+            initialURL: "https://swift.org",
+            isURLEditable: false,
+            autoFetchOnAppear: false,
+            bookmarkStore: PreviewBookmarkStore(),
+            tagStore: PreviewTagStore(),
+            onSaved: { _ in },
+            onCancel: {}
+        )
+    }
+#endif

@@ -316,4 +316,11 @@
         }
     }
 
+    #if DEBUG
+        #Preview {
+            AccountSettingsView()
+                .environment(AppEnvironment.preview)
+        }
+    #endif
+
 #endif

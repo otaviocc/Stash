@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - RecoveryCodeView
+
 /// Collects a single-use recovery code as an alternative to a TOTP code.
 struct RecoveryCodeView: View {
 
@@ -97,3 +99,12 @@ struct RecoveryCodeView: View {
         }
     }
 }
+
+#if DEBUG
+    #Preview {
+        NavigationStack {
+            RecoveryCodeView(tempToken: "preview-temp-token")
+        }
+        .environment(AppEnvironment.preview)
+    }
+#endif

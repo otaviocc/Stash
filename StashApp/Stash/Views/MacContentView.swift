@@ -96,4 +96,12 @@
         }
     }
 
+    #if DEBUG
+        #Preview {
+            MacContentView()
+                .environment(AppEnvironment.preview)
+                .environment(AppSettings())
+        }
+    #endif
+
 #endif

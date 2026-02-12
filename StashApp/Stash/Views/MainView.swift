@@ -109,4 +109,12 @@ import SwiftUI
         }
     }
 
+    #if DEBUG
+        #Preview {
+            MainView()
+                .environment(AppEnvironment.preview)
+                .environment(AppSettings())
+        }
+    #endif
+
 #endif

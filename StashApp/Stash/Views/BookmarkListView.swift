@@ -329,3 +329,12 @@ private struct BookmarkListContent: View {
         }
     }
 }
+
+#if DEBUG
+    #Preview {
+        NavigationStack {
+            BookmarkListView(tag: nil)
+        }
+        .environment(AppEnvironment.preview)
+    }
+#endif

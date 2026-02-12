@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - TagInputSection
+
 /// The shared "Tags" form section: a comma-separated text field plus tap-to-complete suggestion
 /// chips drawn from the user's existing tags. Used by both the add and edit forms so they stay in
 /// sync. `tags(from:)` is the single place tag text is parsed into a normalized list.
@@ -96,3 +98,12 @@ struct TagInputSection: View {
         tagText = components.joined(separator: ", ") + ", "
     }
 }
+
+#if DEBUG
+    #Preview {
+        @Previewable @State var text = "swift, "
+        Form {
+            TagInputSection(tagText: $text, tagStore: PreviewTagStore())
+        }
+    }
+#endif

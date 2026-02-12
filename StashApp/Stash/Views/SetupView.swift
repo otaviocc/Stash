@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - SetupView
+
 /// Collects the server URL on first launch.
 struct SetupView: View {
 
@@ -80,3 +82,10 @@ struct SetupView: View {
         settings.serverURL = trimmed
     }
 }
+
+#if DEBUG
+    #Preview {
+        SetupView()
+            .environment(AppSettings())
+    }
+#endif
