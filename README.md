@@ -58,7 +58,7 @@ stash add https://example.com --tag swift
 stash list
 ```
 
-All commands accept `--json`. See `CLI/CLAUDE.md` for the full command list.
+All commands accept `--json`. See `CLI/README.md` for the full command list.
 
 ## Build and run the apps (iOS / macOS)
 
@@ -80,4 +80,5 @@ xcodebuild -scheme Stash -destination 'platform=macOS' build CODE_SIGNING_ALLOWE
 ```
 
 On first launch, point the app at your backend URL on the setup screen, then sign in with an account
-created by the admin. The Share Extension lets you save URLs from Safari and other apps.
+created by the admin. The Share Extension lets you save URLs from Safari and other apps. See
+`StashApp/README.md` for the project layout.
