@@ -89,6 +89,7 @@ struct EditBookmarkView: View {
                         .font(.footnote)
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("Edit Bookmark")
             .inlineNavigationTitleStyle()
             .toolbar {
@@ -105,6 +106,9 @@ struct EditBookmarkView: View {
                 try? await environment.tagRepository.load()
             }
         }
+        #if os(macOS)
+        .frame(minWidth: 460, minHeight: 520)
+        #endif
     }
 
     // MARK: Functions

@@ -75,6 +75,7 @@ struct RecoveryCodeView: View {
             }
             .disabled(!canSubmit)
         }
+        .formStyle(.grouped)
         .navigationTitle("Recovery Code")
         .inlineNavigationTitleStyle()
     }

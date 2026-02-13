@@ -79,6 +79,7 @@ struct LoginView: View {
                 }
                 .disabled(!canSubmit)
             }
+            .formStyle(.grouped)
             .navigationTitle("Sign In")
             .navigationDestination(for: LoginRoute.self) { route in
                 switch route {

@@ -132,6 +132,7 @@ struct BookmarkDetailView: View {
                     .font(.footnote)
             }
         }
+        .formStyle(.grouped)
         .navigationTitle("Bookmark")
         .inlineNavigationTitleStyle()
         .toolbar {

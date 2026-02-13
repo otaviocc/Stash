@@ -56,6 +56,7 @@ struct SettingsView: View {
                 .disabled(isSigningOut)
             }
         }
+        .formStyle(.grouped)
         .navigationTitle("Settings")
     }
 
