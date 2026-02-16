@@ -25,7 +25,7 @@
 
     // MARK: - MacSettingsView
 
-    /// The macOS `Settings` scene (⌘,): General, Account, and Appearance tabs.
+    /// The macOS `Settings` scene (⌘,): General and Account tabs.
     struct MacSettingsView: View {
 
         // MARK: Content
@@ -38,10 +38,6 @@
 
                 Tab("Account", systemImage: "person.crop.circle") {
                     AccountSettingsView()
-                }
-
-                Tab("Appearance", systemImage: "paintbrush") {
-                    AppearanceSettingsView()
                 }
             }
             .frame(width: 460, height: 420)
@@ -94,35 +90,6 @@
 
                 try? await environment.authRepository.logout()
             }
-        }
-    }
-
-    // MARK: - AppearanceSettingsView
-
-    /// The Appearance tab: Light / Dark / Auto, stored in `UserDefaults` (no theme cookie on native).
-    private struct AppearanceSettingsView: View {
-
-        // MARK: SwiftUI Properties
-
-        @Environment(AppSettings.self) private var settings
-
-        // MARK: Content Properties
-
-        // MARK: Content
-
-        var body: some View {
-            @Bindable var settings = settings
-
-            Form {
-                Picker("Appearance", selection: $settings.appearance) {
-                    ForEach(AppAppearance.allCases) { appearance in
-                        Text(appearance.label).tag(appearance)
-                    }
-                }
-                .pickerStyle(.inline)
-            }
-            .formStyle(.grouped)
-            .padding()
         }
     }
 
