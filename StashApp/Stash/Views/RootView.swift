@@ -55,6 +55,6 @@ struct RootView: View {
     #Preview {
         RootView()
             .environment(AppEnvironment.preview)
-            .environment(AppSettings())
+            .environment(AppSettings.preview)
     }
 #endif

@@ -100,7 +100,7 @@
         #Preview {
             MacContentView()
                 .environment(AppEnvironment.preview)
-                .environment(AppSettings())
+                .environment(AppSettings.preview)
         }
     #endif
 

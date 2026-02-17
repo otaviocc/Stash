@@ -113,7 +113,7 @@ import SwiftUI
         #Preview {
             MainView()
                 .environment(AppEnvironment.preview)
-                .environment(AppSettings())
+                .environment(AppSettings.preview)
         }
     #endif
 

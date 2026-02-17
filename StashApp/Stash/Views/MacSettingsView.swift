@@ -97,7 +97,7 @@
         #Preview {
             MacSettingsView()
                 .environment(AppEnvironment.preview)
-                .environment(AppSettings())
+                .environment(AppSettings.preview)
         }
     #endif
 

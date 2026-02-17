@@ -79,6 +79,6 @@ struct SettingsView: View {
             SettingsView()
         }
         .environment(AppEnvironment.preview)
-        .environment(AppSettings())
+        .environment(AppSettings.preview)
     }
 #endif
