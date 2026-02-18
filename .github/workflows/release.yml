@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.1"
+
+      - name: Run backend tests
+        run: cd Backend && swift test
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Backend
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/otaviocc/stash:latest
+            ghcr.io/otaviocc/stash:${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # NOTE: Container package visibility is NOT settable from CI. There is no
+      # REST endpoint for it, and GITHUB_TOKEN (a bot installation token) cannot
+      # call the user-scoped package API. After the first push, set the package
+      # public ONCE by hand: GitHub → Packages → stash → Package settings →
+      # Danger Zone → Change visibility → Public. It then stays public across
+      # all subsequent pushes.
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Stash ${{ github.ref_name }}
+          body: |
+            ## Stash ${{ github.ref_name }}
+
+            ### Quick start
+
+            1. Download `docker-compose.yml` below
+            2. Create a `.env` file with your configuration (see `.env.example`)
+            3. Run `docker compose up -d`
+            4. Open `http://localhost:8080/admin` and sign in with your admin credentials
+
+            The image is available at `ghcr.io/otaviocc/stash:${{ steps.version.outputs.version }}`
+          files: Backend/docker-compose.yml
+          draft: false
+          prerelease: false

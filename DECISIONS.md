@@ -927,3 +927,77 @@ the outer folder was `Common/`, the `Shared/` subfolder name was redundant.
   `isConfigured` to `false` the instant the field was cleared mid-edit, bouncing `RootView` back to
   `SetupView`. No change was needed below the view: `StashClientProvider` already rebuilds its
   cached client whenever the persisted URL changes, so the next login hits the new server.
+
+---
+
+## M4.1 — CI/CD pipeline & Docker image publishing
+
+- **✅ Two workflows, split by trigger and cost.** `.github/workflows/ci.yml` runs on every push to
+  `main` and every pull request — it builds and tests all components (`Backend` test, `StashKit`
+  build + test, `CLI` release build, and the iOS + macOS app builds) but **builds no image and pushes
+  nothing**, so it stays a regression gate. `.github/workflows/release.yml` runs **only on a `v*.*.*` tag push**;
+  it re-runs the backend test suite, then (and only if tests pass) builds and publishes the Docker
+  image. Keeping image publishing on tags-only means routine pushes never spend the multi-arch build.
+- **✅ `ci.yml` tests the backend in debug, not release.** An earlier revision built and tested the
+  backend with `-c release` (to validate the shipping configuration in one compile). That **crashed
+  the Swift 6.2.1 compiler** in CI: its SIL optimizer (which only runs under `-O`/release) hit a fatal
+  error compiling the Vapor dependency tree. A regression gate doesn't need release optimization — the
+  release build is validated by the Docker image (`swift build -c release` on Swift 6.1) at tag time —
+  so the backend is tested in plain debug (`swift test`, which compiles and runs in one step). Debug
+  skips the crashing optimizer entirely.
+- **✅ Backend tests run serially (`--no-parallel`).** swift-testing parallelizes by default, and each
+  test boots its own `Application` and hashes passwords with bcrypt cost 12 (deliberately slow). On a
+  CI runner that parallelism starves the SQLite connection pool — 6 of 76 tests failed with
+  `connectionRequestTimeout` (all timeouts, no logic failures) while the rest passed. Running the
+  suite with `--no-parallel` removes the contention; the trade-off is a slower run, acceptable for a
+  gate. (Locally on a fast multi-core Mac the parallel run doesn't starve, which is why this only
+  surfaced in CI.)
+- **✅ GitHub Actions layer cache for Docker builds (`type=gha`).** `docker/build-push-action` is
+  configured with `cache-from: type=gha` / `cache-to: type=gha,mode=max`, so the expensive Swift
+  layers — package resolution and compilation — are cached between runs. `mode=max` caches every
+  intermediate layer (not just the final image), which is what makes the Swift build layers reusable
+  and subsequent tagged releases substantially faster.
+- **⚠️ Image visibility is a one-time manual step, NOT automated; the repo stays private.** The brief
+  called for a `curl PATCH` to `/user/packages/container/stash/visibility` to flip the image public
+  from CI. That does not work: there is **no REST endpoint for container-package visibility** (the
+  Packages API only exposes `GET`/`DELETE`/`restore` — visibility is a web-UI-only setting), and even
+  if one existed, `GITHUB_TOKEN` is a bot installation token that cannot call the user-scoped
+  `/user/...` API. Worse, a bare `curl` without `--fail` swallows the 404/403 and the job stays green
+  — a silent no-op. The step was therefore **removed** and replaced with a comment: after the first
+  push, set the package public **once** by hand (Packages → `stash` → Package settings → Danger Zone →
+  Change visibility → Public). It then stays public across every subsequent push. The source
+  repository remains private — only the image is public.
+- **✅ `GITHUB_TOKEN` is sufficient for everything that IS automated — no PAT or extra secrets.** GHCR
+  login, the multi-arch push, and the release creation all authenticate with the workflow's built-in
+  `secrets.GITHUB_TOKEN`. The `publish` job declares `permissions: { contents: write, packages: write }`
+  so that token can push the package and create the release; no personal access token or additional
+  repository secret is needed. (The one thing it cannot do — flip package visibility — is the manual
+  step above.)
+- **✅ Release attaches the canonical `docker-compose.yml`.** `softprops/action-gh-release` publishes
+  a GitHub Release for the tag with `Backend/docker-compose.yml` attached and quick-start instructions
+  in the body, so a user downloads the compose file from the release and runs `docker compose up -d`
+  against the published image — no clone, no build.
+- **✅ Canonical `docker-compose.yml` references the published image; the local override stays
+  gitignored.** `Backend/docker-compose.yml` already points at `ghcr.io/otaviocc/stash:latest` (no
+  `build:`), and the local-development `Backend/docker-compose.override.yml` (which uses `build: .`)
+  is ignored via `Backend/.gitignore`, so it never lands in the repo and the release artifact is
+  always the image-based file.
+- **⚠️ `ci.yml` is split into a Linux `backend` job and a macOS `apple` job.** The components don't
+  share a platform *or* a toolchain. The `backend` runs on `ubuntu-latest` / Swift 6.1 — matching the
+  Docker image's `swift:6.1-jammy` base (and 6.1 avoids the 6.2.1 optimizer crash above). The `apple`
+  job covers everything Apple-platform — StashKit (build + test), CLI (release build), and the app +
+  Share Extension (iOS and macOS builds) — and **must run on macOS**: StashKit and CLI depend on
+  `MicroClient`, which uses Apple Foundation's networking types (`URLSession`/`URLRequest`/
+  `URLResponse`) without the `FoundationNetworking` shim Linux requires, so they do not compile on
+  Linux at all (the original M4.1 brief assumed they would); everything also targets iOS 26 / macOS 26
+  and declares swift-tools 6.2, i.e. it needs Xcode 26. The job runs on `macos-latest` and pins Xcode
+  via `maxim-lobanov/setup-xcode@v1` (`latest-stable`). ⚠️ macOS runner minutes bill at ~10× on a
+  private repo, so all the Apple targets share **one** runner rather than fanning out. `release.yml`'s
+  `test` job stays on Linux / Swift 6.1, since it only touches `Backend`.
+- **✅ The app is build-verified on both platforms, not unit-tested.** The `Stash` app and
+  `StashShareExtension` have no test target (PRD §19.6 — the app is manual/integration-tested, the
+  backend carries the suite). CI therefore *builds* the `Stash` scheme for iOS (a generic simulator
+  destination, so no specific simulator must exist on the runner) and macOS with
+  `CODE_SIGNING_ALLOWED=NO`; building also compiles the embedded Share Extension. That catches
+  compile-level regressions across the cross-platform `#if` shells — the practical risk for a target
+  with no tests.
