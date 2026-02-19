@@ -17,8 +17,11 @@ jobs:
         with:
           swift-version: "6.1"
 
+      # Serially, for the same reason as ci.yml: parallel execution starves the
+      # SQLite connection pool on a CI runner (connectionRequestTimeout). See
+      # DECISIONS.md M4.1.
       - name: Run backend tests
-        run: cd Backend && swift test
+        run: cd Backend && swift test --no-parallel
 
   publish:
     name: Publish
