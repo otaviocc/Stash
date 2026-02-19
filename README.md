@@ -9,16 +9,9 @@ third-party cloud.
 ## Quick start
 
 1. Download [`docker-compose.yml`](https://github.com/otaviocc/stash/releases/latest)
-2. Create `.env` from the example:
-   ```bash
-   cp Backend/.env.example .env
-   # Edit .env with your values
-   ```
-3. Start:
-   ```bash
-   docker compose up -d
-   ```
-4. Open `http://localhost:8080/admin` and sign in with your admin credentials.
+2. Create `.env` from the example
+3. Start: `docker compose up -d`
+4. Open `http://localhost:8080/admin` and sign in with your admin credentials
 
 The web frontend is at `http://localhost:8080/app`.
 
