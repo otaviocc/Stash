@@ -256,7 +256,7 @@
         function render() {
             var frag = (input.value.split(',')[segIndex()] || '').trim().toLowerCase();
             box.innerHTML = ''; active = -1;
-            var hits = frag ? known.filter(function (t) { return t.indexOf(frag) === 0 && t !== frag; }).slice(0, 8) : [];
+            var hits = frag ? known.filter(function (t) { return t !== frag && t.split('/').some(function (seg) { return seg.indexOf(frag) === 0; }); }).slice(0, 8) : [];
             if (!hits.length) { box.style.display = 'none'; return; }
             hits.forEach(function (t) {
                 var el = document.createElement('div');
