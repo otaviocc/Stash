@@ -457,6 +457,7 @@ Session-based auth (`stash_admin_session` cookie, in-memory, HTTPOnly, SameSite=
 
 - Accounts always created as `user` role
 - Admin cannot delete own account (button hidden + POST blocked → 400)
+- Admin cannot suspend own account (button hidden + POST blocked → 400)
 - Suspend and password reset invalidate all refresh tokens
 - 2FA reset: clears secret + recovery codes + invalidates refresh tokens
 - Post/Redirect/Get with `?ok=` confirmation banners
@@ -833,6 +834,7 @@ API: `/api/v1/`. Admin dashboard: `/admin`. Frontend: `/app`. Health: `/health`.
 | `duplicate_url` | 409 | URL already saved (includes `existingID`) |
 | `username_taken` | 409 | Username already exists |
 | `cannot_delete_self` | 400 | Admin attempting to delete own account |
+| `cannot_suspend_self` | 400 | Admin attempting to suspend own account |
 | `validation_failed` | 422 | Validation error |
 | `internal_error` | 500 | Unexpected server error |
 

@@ -83,6 +83,7 @@ struct AdminController: RouteCollection {
     }
 
     func updateUser(req: Request) async throws -> UserResponse {
+        let admin = try req.auth.require(User.self)
         let user = try await requireUser(req)
         let input = try req.content.decode(UpdateUserInput.self)
 
@@ -98,6 +99,10 @@ struct AdminController: RouteCollection {
         }
 
         if let isActive = input.isActive {
+            if !isActive, try user.requireID() == admin.requireID() {
+                throw APIError.cannotSuspendSelf
+            }
+
             user.isActive = isActive
             if !isActive {
                 invalidateRefreshTokens = true

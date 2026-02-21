@@ -21,14 +21,18 @@
     </div>
 
     <div class="card actions">
-        #if(user.isActive):
-        <form method="post" action="/admin/users/#(user.id)/suspend">
-            <button class="secondary" type="submit">Suspend account</button>
-        </form>
+        #if(isSelf):
+        <p class="muted">You cannot suspend your own account.</p>
         #else:
-        <form method="post" action="/admin/users/#(user.id)/unsuspend">
-            <button type="submit">Reactivate account</button>
-        </form>
+            #if(user.isActive):
+            <form method="post" action="/admin/users/#(user.id)/suspend">
+                <button class="secondary" type="submit">Suspend account</button>
+            </form>
+            #else:
+            <form method="post" action="/admin/users/#(user.id)/unsuspend">
+                <button type="submit">Reactivate account</button>
+            </form>
+            #endif
         #endif
 
         <form method="post" action="/admin/users/#(user.id)/reset-password">

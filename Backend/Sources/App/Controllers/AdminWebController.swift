@@ -208,7 +208,15 @@ struct AdminWebController: RouteCollection {
     }
 
     func suspend(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
+
+        if try user.requireID() == admin.requireID() {
+            return try await renderDetail(
+                req, user: user, error: "You cannot suspend your own account.", message: nil,
+                status: .badRequest
+            )
+        }
 
         user.isActive = false
         try await user.save(on: req.db)
