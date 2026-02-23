@@ -1,12 +1,13 @@
-# Stash CLI (`stash`)
+# Building and using the CLI
 
-A command-line client for Stash, a self-hosted multi-user bookmark manager. It talks to the
-[Stash backend](../Backend) over the public REST API (`/api/v1/`) via the shared
-[`StashKit`](../StashKit) package, and covers bookmarks, tags, import/export, and the admin
-operations.
+The `stash` command-line client. It talks to the backend over the public REST API
+(`/api/v1/`) via the shared [StashKit](stashkit.md) package, and covers bookmarks, tags,
+import/export, and admin operations.
 
-The design rationale behind the CLI lives in [`DECISIONS.md`](../DECISIONS.md) (M7); this document is
-the operational reference.
+## Prerequisites
+
+- Swift 6.2+ (ships with Xcode 26)
+- macOS 26 or later
 
 ## Dependencies
 
@@ -15,15 +16,21 @@ All fetched automatically by SwiftPM (`swift-tools-version:6.2`, macOS 26+):
 | Package | Purpose |
 |---------|---------|
 | [`apple/swift-argument-parser`](https://github.com/apple/swift-argument-parser) | Command/flag parsing |
-| [`StashKit`](../StashKit) (local) | DTOs, request factories, thin HTTP client |
+| [StashKit](stashkit.md) (local) | DTOs, request factories, thin HTTP client |
 | [`otaviocc/MicroClient`](https://github.com/otaviocc/MicroClient) | Re-declared so login can decode the 2FA-challenge response branch |
 
 ## Build and install
 
 ```bash
-cd CLI
+cd stash/CLI
 swift build -c release
 cp .build/release/stash /usr/local/bin/stash    # optional: install on PATH
+```
+
+Verify:
+
+```bash
+stash --help
 ```
 
 ## Configuration
@@ -31,11 +38,12 @@ cp .build/release/stash /usr/local/bin/stash    # optional: install on PATH
 Configuration and tokens live in `~/.config/stash/config.json`:
 
 ```bash
-stash config set-url http://localhost:8080
+stash config set-url http://yourserver:8080
 stash login                                     # prompts for credentials (and TOTP if enabled)
 ```
 
-Tokens are stored in that file and refreshed automatically before each authenticated command.
+Tokens are stored in that file and refreshed automatically before each authenticated
+command.
 
 ## Commands
 
@@ -57,10 +65,12 @@ stash admin stats                   # Admin: show stats
 stash admin users                   # Admin: list users
 ```
 
-Top-level aliases mirror the grouped subcommands, so `stash list` and `stash bookmarks list` are
-equivalent. Run `stash --help` (or `stash <command> --help`) for the full list.
+Top-level aliases mirror the grouped subcommands, so `stash list` and
+`stash bookmarks list` are equivalent. Run `stash --help` (or `stash <command> --help`)
+for the full list.
 
 ## JSON output
 
-All commands accept `--json` for machine-readable output (pretty-printed, ISO-8601 dates). Results go
-to stdout; prompts, confirmations, and errors go to stderr, with a non-zero exit on failure.
+All commands accept `--json` for machine-readable output (pretty-printed, ISO-8601
+dates). Results go to stdout; prompts, confirmations, and errors go to stderr, with a
+non-zero exit on failure.
