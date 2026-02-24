@@ -13,7 +13,7 @@ code, the deviations from the PRD, and the trade-offs accepted.
   mattered. Reference PRD sections as `§n`.
 - Prefer appending over rewriting history — a decision that was later reversed should be marked
   *Superseded* rather than deleted, with a pointer to what replaced it.
-- This is a decision log, not API docs. Endpoint/behaviour reference lives in `Backend/README.md`.
+- This is a decision log, not API docs. Endpoint/behaviour reference lives in `Docs/api.md`.
 
 ### Status legend
 
@@ -1028,3 +1028,21 @@ the outer folder was `Common/`, the `Shared/` subfolder name was redundant.
   reverse proxy on 80/443) covering both local network (`tls internal`, self-signed, with root-CA
   trust instructions per platform) and internet-exposed (automatic Let's Encrypt) use cases. No
   changes to the Stash image or Vapor backend are required.
+
+---
+
+## Documentation
+
+- **✅ All documentation consolidated into a single top-level `Docs/` folder.** Every component's
+  docs were merged into `Docs/` and the per-component READMEs (`Backend/README.md`, `CLI/README.md`,
+  `StashApp/README.md`, `StashKit/README.md`) were deleted; the root `README.md` became a concise
+  landing page that links into `Docs/`. The folder holds one guide per concern — `backend-build`,
+  `backend-local`, `backend-docker`, `backend-docker-caddy`, `configuration`, `api`, `cli-build`,
+  `mobile-build`, `stashkit`. `CLI/CLAUDE.md` stays put (it is a Claude Code guide, not user docs),
+  and `PRODUCT.md` / `DECISIONS.md` remain at the repo root.
+- **✅ The `caddy/` directory was folded into `Docs/backend-docker-caddy.md` and removed.** The
+  `Caddyfile` variants and the `docker-compose.caddy.yml` override (🔁 superseding the committed files
+  referenced in the *HTTPS / Caddy* entry above) now live as copy-paste code blocks inside that one
+  doc; users recreate them in a `caddy/` folder next to their `docker-compose.yml`. Trade-off: nothing
+  Caddy-related ships in the repo anymore, so there is a single documented source of truth instead of
+  files that could drift from their walkthrough.
