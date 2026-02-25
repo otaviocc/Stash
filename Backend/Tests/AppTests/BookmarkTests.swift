@@ -383,6 +383,30 @@ struct BookmarkTests {
         }
     }
 
+    @Test("the __untagged__ sentinel filters to bookmarks with no tags")
+    func untaggedFilter() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://tagged.com", tags: ["swift"])
+            try await app.makeBookmark(for: user, url: "https://untagged.com", tags: [])
+
+            // When
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks?tag=__untagged__",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://untagged.com"],
+                    "It should return only bookmarks that have no tags"
+                )
+            }
+        }
+    }
+
     @Test("archived filter defaults to false and can be toggled")
     func archivedFilter() async throws {
         try await withTestApp { app in

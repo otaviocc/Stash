@@ -53,11 +53,15 @@ struct BookmarkController: RouteCollection {
         }
 
         if let rawTag = query.tag?.nonEmpty {
-            let tag = Bookmark.normalizeTagQuery(rawTag)
-            if !tag.isEmpty {
-                builder.group(.or) { group in
-                    group.filter(\.$tagsSearch ~~ "|\(tag)|")
-                    group.filter(\.$tagsSearch ~~ "|\(tag)/")
+            if rawTag == Bookmark.untaggedSentinel {
+                builder.filter(\.$tagsSearch == "")
+            } else {
+                let tag = Bookmark.normalizeTagQuery(rawTag)
+                if !tag.isEmpty {
+                    builder.group(.or) { group in
+                        group.filter(\.$tagsSearch ~~ "|\(tag)|")
+                        group.filter(\.$tagsSearch ~~ "|\(tag)/")
+                    }
                 }
             }
         }

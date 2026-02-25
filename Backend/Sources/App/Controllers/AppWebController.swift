@@ -30,7 +30,7 @@ struct AppWebController: RouteCollection {
 
     // MARK: Static Properties
 
-    static let untaggedSentinel = "__untagged__"
+    static let untaggedSentinel = Bookmark.untaggedSentinel
 
     static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()

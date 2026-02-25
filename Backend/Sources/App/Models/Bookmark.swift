@@ -33,6 +33,8 @@ final class Bookmark: Model, Content, @unchecked Sendable {
 
     static let schema = "bookmarks"
 
+    static let untaggedSentinel = "__untagged__"
+
     // MARK: Properties
 
     @ID(key: .id)
