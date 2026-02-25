@@ -30,6 +30,7 @@ A self-hosted bookmark manager with native iOS, macOS, and web clients.
 | [Running locally](Docs/backend-local.md) | Swift + PostgreSQL, no Docker |
 | [Running with Docker](Docs/backend-docker.md) | Published image, recommended for most users |
 | [Adding HTTPS with Caddy](Docs/backend-docker-caddy.md) | Local network or internet-exposed |
+| [Releasing a new version](Docs/releasing.md) | Tag, build, and publish the backend image |
 | [Configuration reference](Docs/configuration.md) | Environment variables and per-component config |
 | [API and routes reference](Docs/api.md) | REST API, admin dashboard, and web frontend |
 | [Building and using the CLI](Docs/cli-build.md) | `stash` command-line tool |
