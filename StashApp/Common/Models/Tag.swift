@@ -51,3 +51,25 @@ extension Tag {
         count = dto.count
     }
 }
+
+// MARK: - Tag autocomplete
+
+extension [Tag] {
+
+    /// Returns tags whose name — or any `/`-delimited segment of it — begins with the given prefix,
+    /// case-insensitively. Mirrors the web frontend's per-segment autocomplete, so typing `music`
+    /// surfaces `music`, `kind/music-gear`, and `learning/music-theory`.
+    func autocomplete(prefix: String) -> [Tag] {
+        let needle = prefix.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !needle.isEmpty else {
+            return []
+        }
+
+        return filter { tag in
+            tag.name
+                .lowercased()
+                .split(separator: "/", omittingEmptySubsequences: false)
+                .contains { $0.hasPrefix(needle) }
+        }
+    }
+}
