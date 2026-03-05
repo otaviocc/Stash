@@ -566,8 +566,6 @@ stash admin delete-user <username>
 stash admin stats [--json]
 ```
 
-`CLAUDE.md` at `CLI/CLAUDE.md` documents the tool as a Claude Code skill.
-
 ---
 
 ## 15. StashKit — Shared Swift Package ✅ Complete (M6)
@@ -766,8 +764,7 @@ stash/
 │   └── Stash.xcodeproj          # committed; synchronized folder groups
 ├── CLI/                         # ✅ Complete (M7)
 │   ├── Sources/stash/
-│   ├── Package.swift
-│   └── CLAUDE.md
+│   └── Package.swift
 ├── .github/workflows/           # Planned (M4.1)
 ├── PRODUCT.md
 └── DECISIONS.md

@@ -305,8 +305,7 @@ code, the deviations from the PRD, and the trade-offs accepted.
   will work once the backend exposes the route.
 - **✅ No CLI tests (§18.7) — manual integration only.** Build is clean, `swiftformat --lint` is
   idempotent, and `swiftlint lint` reports 0 violations. The `.swiftformat`/`.swiftlint.yml` are
-  copied from `Backend/`; `CLAUDE.md` documents the tool as a Claude Code skill. All commands were
-  exercised against a live backend instance.
+  copied from `Backend/`. All commands were exercised against a live backend instance.
 
 ---
 
@@ -1050,8 +1049,7 @@ the outer folder was `Common/`, the `Shared/` subfolder name was redundant.
   `StashApp/README.md`, `StashKit/README.md`) were deleted; the root `README.md` became a concise
   landing page that links into `Docs/`. The folder holds one guide per concern — `backend-build`,
   `backend-local`, `backend-docker`, `backend-docker-caddy`, `configuration`, `api`, `cli-build`,
-  `mobile-build`, `stashkit`. `CLI/CLAUDE.md` stays put (it is a Claude Code guide, not user docs),
-  and `PRODUCT.md` / `DECISIONS.md` remain at the repo root.
+  `mobile-build`, `stashkit`. `PRODUCT.md` and `DECISIONS.md` remain at the repo root.
 - **✅ The `caddy/` directory was folded into `Docs/backend-docker-caddy.md` and removed.** The
   `Caddyfile` variants and the `docker-compose.caddy.yml` override (🔁 superseding the committed files
   referenced in the *HTTPS / Caddy* entry above) now live as copy-paste code blocks inside that one
