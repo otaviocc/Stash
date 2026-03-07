@@ -39,7 +39,15 @@ jobs:
     # on MicroClient (Apple Foundation networking, no FoundationNetworking shim)
     # and the app/extension are Xcode-only. All target iOS 26 / macOS 26, so they
     # need Xcode 26. One runner keeps macOS minutes (billed ~10x) down.
-    runs-on: macos-latest
+    #
+    # Pinned to macos-26 (not macos-latest, which still maps to macOS 15): the
+    # Icon Composer AppIcon.icon is compiled by actool via the AssetCatalogAgent
+    # rendering helper, and that helper crashes at launch on some macos-15 image
+    # patches due to a broken MediaToolbox/AVFCore dyld state ("AssetCatalogAgent
+    # closed the connection"). macOS 26 is the app's actual target OS and avoids
+    # that environment. Hosted runners can't pin an exact image patch, so this OS
+    # label is the strongest available pin.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
