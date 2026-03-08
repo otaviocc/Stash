@@ -1,28 +1,35 @@
 ---
-name: stash-cli
-description: Drive the `stash` command-line client for the self-hosted Stash bookmark manager. Use when the user wants to save, search, list, get, delete, or archive bookmarks; list, rename, or delete tags; import or export their bookmark collection; or (as an admin) manage users and view stats from the shell. Also use for intelligent tag suggestion when saving a bookmark. Covers exact command syntax, flags, default/JSON output shapes, and error messages.
+name: stash-cli description: Drive the `stash` command-line client for the
+self-hosted Stash bookmark manager. Use when the user wants to save, search,
+list, get, delete, or archive bookmarks; list, rename, or delete tags; import or
+export their bookmark collection; or (as an admin) manage users and view stats
+from the shell. Also use for intelligent tag suggestion when saving a bookmark.
+Covers exact command syntax, flags, default/JSON output shapes, and error
+messages.
 ---
 
 # Using the `stash` CLI
 
-Read this before running any `stash` command so you call it correctly on the first attempt.
-Everything here is derived from the CLI source, not the product spec — where the two differ,
-this document follows the source.
+Read this before running any `stash` command so you call it correctly on the
+first attempt. Everything here is derived from the CLI source, not the product
+spec — where the two differ, this document follows the source.
 
 ## 1. Overview
 
-Stash is a self-hosted, multi-user bookmark manager. The `stash` CLI is its command-line
-client: it talks to a Stash backend over the public REST API (`/api/v1/`) and can list,
-search, add, get, delete, and archive bookmarks; list, rename, and delete tags; import and
-export bookmark collections; and — for admin accounts — manage users and view stats. Use it
-whenever the user wants to save, find, organize, back up, or migrate their bookmarks, or
-administer their Stash instance, from the shell.
+Stash is a self-hosted, multi-user bookmark manager. The `stash` CLI is its
+command-line client: it talks to a Stash backend over the public REST API
+(`/api/v1/`) and can list, search, add, get, delete, and archive bookmarks;
+list, rename, and delete tags; import and export bookmark collections; and — for
+admin accounts — manage users and view stats. Use it whenever the user wants to
+save, find, organize, back up, or migrate their bookmarks, or administer their
+Stash instance, from the shell.
 
 ---
 
 ## 2. Prerequisites
 
-Three things must be true before any authenticated command works. Verify them in order.
+Three things must be true before any authenticated command works. Verify them in
+order.
 
 **1. The `stash` binary is installed and on `$PATH`.**
 
@@ -31,8 +38,8 @@ stash --help
 ```
 
 If this prints the command list, the binary is available. If the shell reports
-`command not found: stash`, it is not installed — build it (`cd CLI && swift build -c release`,
-then copy `.build/release/stash` onto `$PATH`).
+`command not found: stash`, it is not installed — build it (`cd CLI && swift
+build -c release`, then copy `.build/release/stash` onto `$PATH`).
 
 **2. A server URL is configured.**
 
@@ -40,8 +47,9 @@ then copy `.build/release/stash` onto `$PATH`).
 stash config show
 ```
 
-Look at the `Server URL:` line. If it reads `(not set)`, run `stash config set-url <url>`
-(see §3). Commands that need the server but find no URL fail on stderr with:
+Look at the `Server URL:` line. If it reads `(not set)`, run `stash config
+set-url <url>` (see §3). Commands that need the server but find no URL fail on
+stderr with:
 
 ```
 Error: No server URL configured. Run: stash config set-url <url>
@@ -49,26 +57,27 @@ Error: No server URL configured. Run: stash config set-url <url>
 
 **3. You are logged in (tokens present).**
 
-`stash config show` also prints `Access token:` and `Refresh token:` lines (masked to the
-first 8 characters). If either reads `(not set)`, run `stash login` (see §3). Authenticated
-commands with no access token fail with:
+`stash config show` also prints `Access token:` and `Refresh token:` lines
+(masked to the first 8 characters). If either reads `(not set)`, run `stash
+login` (see §3). Authenticated commands with no access token fail with:
 
 ```
 Error: Not logged in. Run: stash login
 ```
 
-`stash login` is interactive (it prompts for username, a hidden password, and a 2FA code if
-the account has 2FA enabled). You cannot complete a fresh login non-interactively — ask the
-user to run `stash login` themselves if tokens are missing or expired.
+`stash login` is interactive (it prompts for username, a hidden password, and a
+2FA code if the account has 2FA enabled). You cannot complete a fresh login
+non-interactively — ask the user to run `stash login` themselves if tokens are
+missing or expired.
 
 ---
 
 ## 3. Configuration
 
-Config and tokens live in a single JSON file at `~/.config/stash/config.json`. It holds three
-optional fields: `baseURL`, `accessToken`, and `refreshToken`. A missing file is treated as an
-empty config (commands then fail with a clear "not configured / not logged in" message rather
-than crashing).
+Config and tokens live in a single JSON file at `~/.config/stash/config.json`.
+It holds three optional fields: `baseURL`, `accessToken`, and `refreshToken`. A
+missing file is treated as an empty config (commands then fail with a clear "not
+configured / not logged in" message rather than crashing).
 
 Set it up:
 
@@ -86,13 +95,15 @@ Access token:  eyJhbGci…
 Refresh token: 9f3c0b2a…
 ```
 
-Tokens refresh automatically: before every authenticated command, if the access token is
-within 60 seconds of expiry and a refresh token exists, the CLI silently rotates the pair and
-re-saves the file. If the refresh fails (refresh token expired/revoked) it clears both tokens
-and surfaces `Error: Session expired — please run stash login`.
+Tokens refresh automatically: before every authenticated command, if the access
+token is within 60 seconds of expiry and a refresh token exists, the CLI
+silently rotates the pair and re-saves the file. If the refresh fails (refresh
+token expired/revoked) it clears both tokens and surfaces `Error: Session
+expired — please run stash login`.
 
-There is also `stash config set-token <token>`, which writes an access token directly into the
-config (for scripting against a token minted elsewhere). It prints `Access token saved.`
+There is also `stash config set-token <token>`, which writes an access token
+directly into the config (for scripting against a token minted elsewhere). It
+prints `Access token saved.`
 
 ---
 
@@ -100,12 +111,15 @@ config (for scripting against a token minted elsewhere). It prints `Access token
 
 Global conventions, true for every command:
 
-- **Results go to stdout; prompts, confirmations, and `Error:` lines go to stderr.** This lets
-  you pipe a table or `--json` payload cleanly. Any failure exits non-zero (exit code 1).
-- **`--json`** (where supported) prints pretty-printed JSON with **alphabetically sorted keys**,
-  unescaped slashes, and ISO-8601 dates (no fractional seconds).
-- **Bookmark/tag subcommands have top-level aliases.** `stash list` ≡ `stash bookmarks list`,
-  and likewise for `add`, `get`, `delete`, `archive`. Use the short forms.
+- **Results go to stdout; prompts, confirmations, and `Error:` lines go to
+  stderr.** This lets you pipe a table or `--json` payload cleanly. Any failure
+  exits non-zero (exit code 1).
+- **`--json`** (where supported) prints pretty-printed JSON with
+  **alphabetically sorted keys**, unescaped slashes, and ISO-8601 dates (no
+  fractional seconds).
+- **Bookmark/tag subcommands have top-level aliases.** `stash list` ≡ `stash
+  bookmarks list`, and likewise for `add`, `get`, `delete`, `archive`. Use the
+  short forms.
 
 ### `config`
 
@@ -115,7 +129,8 @@ Global conventions, true for every command:
 | set token | `stash config set-token <token>` | `Access token saved.` |
 | show | `stash config show` | three lines (URL + masked tokens), see §3 |
 
-`set-url` validates the URL must have a scheme and host, else `Error: Invalid URL: <url>`.
+`set-url` validates the URL must have a scheme and host, else `Error: Invalid
+URL: <url>`.
 
 ### `login` / `logout`
 
@@ -124,8 +139,8 @@ stash login      # prompts: Server URL (if unset) → Username → Password (hid
 stash logout     # invalidates the refresh token server-side and clears local tokens
 ```
 
-`login` prints `Logged in as <username>.`; `logout` prints `Logged out.` Both are interactive
-for `login` only — never assume you can script a login.
+`login` prints `Logged in as <username>.`; `logout` prints `Logged out.` Both
+are interactive for `login` only — never assume you can script a login.
 
 ### `add` (`bookmarks add`)
 
@@ -136,11 +151,12 @@ stash add <url> [--title <t>] [--description <d>] [--tag <name> ...] [--no-fetch
 - `<url>` is a required positional argument.
 - `--tag` is **repeatable**: `--tag swift --tag ios` attaches two tags.
 - `--no-fetch` skips server-side metadata (title/description/favicon) fetching.
-- By default the server auto-fetches metadata; `--title`/`--description` override fetched values.
+- By default the server auto-fetches metadata; `--title`/`--description`
+  override fetched values.
 
-Default output: `Saved <full-uuid> — <title>`. With `--json`: the created bookmark object
-(see §5). Saving a URL that already exists for this user fails with
-`Error: This URL is already saved (existing bookmark <uuid>).`
+Default output: `Saved <full-uuid> — <title>`. With `--json`: the created
+bookmark object (see §5). Saving a URL that already exists for this user fails
+with `Error: This URL is already saved (existing bookmark <uuid>).`
 
 ### `list` (`bookmarks list`)
 
@@ -148,16 +164,21 @@ Default output: `Saved <full-uuid> — <title>`. With `--json`: the created book
 stash list [--tag <name>] [--search <query>] [--archived] [--page <n>] [--per <n>] [--json]
 ```
 
-- `--tag` is a **prefix** filter: `--tag swift` matches `swift` and `swift/*` but not `swiftui`.
-  Pass the sentinel `--tag __untagged__` to return only bookmarks with no tags.
-- `--search` is full-text (matches URL, title, description, and tags; case-insensitive).
-- `--archived` is a boolean flag (default off); when set, returns archived bookmarks instead.
-- `--page` defaults to `1`, `--per` defaults to `20` (server clamps `per` to 1–100).
-- Default output: an aligned text table (see §5). With `--json`: the full paginated page object
-  (`items` + `metadata`).
+- `--tag` is a **prefix** filter: `--tag swift` matches `swift` and `swift/*`
+  but not `swiftui`. Pass the sentinel `--tag __untagged__` to return only
+  bookmarks with no tags.
+- `--search` is full-text (matches URL, title, description, and tags;
+  case-insensitive).
+- `--archived` is a boolean flag (default off); when set, returns archived
+  bookmarks instead.
+- `--page` defaults to `1`, `--per` defaults to `20` (server clamps `per` to
+  1–100).
+- Default output: an aligned text table (see §5). With `--json`: the full
+  paginated page object (`items` + `metadata`).
 
-Note: `--tag` and `--archived` are independent filters; there is no single command that returns
-both active and archived in one call (export handles that internally — see below).
+Note: `--tag` and `--archived` are independent filters; there is no single
+command that returns both active and archived in one call (export handles that
+internally — see below).
 
 ### `get` (`bookmarks get`)
 
@@ -166,8 +187,8 @@ stash get <id> [--json]
 ```
 
 `<id>` must be a full UUID (the CLI validates it locally; a bad value fails with
-`Error: Invalid bookmark ID: <value>` before any network call). Default output: a labeled
-detail block (see §5). With `--json`: the bookmark object.
+`Error: Invalid bookmark ID: <value>` before any network call). Default output:
+a labeled detail block (see §5). With `--json`: the bookmark object.
 
 ### `delete` (`bookmarks delete`)
 
@@ -175,9 +196,9 @@ detail block (see §5). With `--json`: the bookmark object.
 stash delete <id> [--force]
 ```
 
-Prompts `Delete bookmark <uuid>? [y/N] ` on stderr unless `--force` is given. Answering
-anything other than `y`/`yes` prints `Cancelled.` and exits 0 without deleting. On success:
-`Deleted <uuid>.` Use `--force` in automated workflows.
+Prompts `Delete bookmark <uuid>? [y/N] ` on stderr unless `--force` is given.
+Answering anything other than `y`/`yes` prints `Cancelled.` and exits 0 without
+deleting. On success: `Deleted <uuid>.` Use `--force` in automated workflows.
 
 ### `archive` (`bookmarks archive`)
 
@@ -185,8 +206,9 @@ anything other than `y`/`yes` prints `Cancelled.` and exits 0 without deleting. 
 stash archive <id>
 ```
 
-Sets the bookmark's archived flag. Prints `Archived <uuid>.` There is no unarchive command in
-the CLI — unarchiving must be done via the app/web UI (the CLI only sets `isArchived: true`).
+Sets the bookmark's archived flag. Prints `Archived <uuid>.` There is no
+unarchive command in the CLI — unarchiving must be done via the app/web UI (the
+CLI only sets `isArchived: true`).
 
 ### `tags` (`tags list`)
 
@@ -194,9 +216,9 @@ the CLI — unarchiving must be done via the app/web UI (the CLI only sets `isAr
 stash tags [--json]
 ```
 
-`stash tags` with no subcommand lists tags (the default subcommand). Default output: one
-`name (count)` line per tag, or `No tags found.` if empty. With `--json`: an array of
-`{ count, name }` objects.
+`stash tags` with no subcommand lists tags (the default subcommand). Default
+output: one `name (count)` line per tag, or `No tags found.` if empty. With
+`--json`: an array of `{ count, name }` objects.
 
 ### `tags rename`
 
@@ -204,9 +226,10 @@ stash tags [--json]
 stash tags rename --from <tag> --to <tag>
 ```
 
-Renames the exact tag **and all its children** (`foo/x` follows `foo` → `bar`). If the target
-already exists the tags merge. Output: `Renamed <from> to <to> (<n> bookmarks updated).`
-Idempotent: an unused or unchanged `from` reports `0 bookmarks updated`.
+Renames the exact tag **and all its children** (`foo/x` follows `foo` → `bar`).
+If the target already exists the tags merge. Output: `Renamed <from> to <to>
+(<n> bookmarks updated).` Idempotent: an unused or unchanged `from` reports `0
+bookmarks updated`.
 
 ### `tags delete`
 
@@ -214,9 +237,10 @@ Idempotent: an unused or unchanged `from` reports `0 bookmarks updated`.
 stash tags delete <tag> [--force]
 ```
 
-Removes the tag **and all its children** from every bookmark (bookmarks themselves are never
-deleted). Prompts `Delete tag <tag> and all its children? [y/N] ` unless `--force`. On success:
-`Deleted tag <tag> (<n> bookmarks updated).`
+Removes the tag **and all its children** from every bookmark (bookmarks
+themselves are never deleted). Prompts `Delete tag <tag> and all its children?
+[y/N] ` unless `--force`. On success: `Deleted tag <tag> (<n> bookmarks
+updated).`
 
 > Caveat: the underlying API deletes a tag subtree by passing the tag as a single path segment,
 > so a parent tag (`swift`) deletes `swift` and `swift/*`, but targeting a specific child like
@@ -231,25 +255,28 @@ stash import <file> [--format anybox|stash-json]
 
 - `<file>` is a path to the import file.
 - `--format` defaults to **`stash-json`**. The other accepted value is `anybox`.
-- The import is performed client-side over the public API (there is no server import endpoint
-  for the CLI): each record is created, and on a duplicate-URL response it is updated in place.
-- Output: `Imported: <i>, Updated: <u>, Skipped: <s>`. Records with a missing/invalid URL, or
-  that error on submit, are counted as skipped.
+- The import is performed client-side over the public API (there is no server
+  import endpoint for the CLI): each record is created, and on a duplicate-URL
+  response it is updated in place.
+- Output: `Imported: <i>, Updated: <u>, Skipped: <s>`. Records with a
+  missing/invalid URL, or that error on submit, are counted as skipped.
 
 Format differences:
-- **`anybox`** expects a top-level JSON **array** of bookmark objects. Anybox stores `tags` as
-  arrays of `[namespace, value]` pairs, which are joined with `/` into hierarchical tags
-  (`[["topic","swift"]]` → `topic/swift`); plain `[String]` tags are also accepted. All Anybox
-  records import as **not archived**. Wrong shape → `Error: This doesn't look like an Anybox JSON
-  export (expected a JSON array of bookmarks).`
-- **`stash-json`** expects an **object** with a `bookmarks` array (the shape `stash export`
-  produces); it honors each record's `isArchived`. Wrong shape → `Error: This doesn't look like
-  a Stash JSON export (expected an object with a "bookmarks" array).`
+- **`anybox`** expects a top-level JSON **array** of bookmark objects. Anybox
+  stores `tags` as arrays of `[namespace, value]` pairs, which are joined with
+  `/` into hierarchical tags (`[["topic","swift"]]` → `topic/swift`); plain
+  `[String]` tags are also accepted. All Anybox records import as **not
+  archived**. Wrong shape → `Error: This doesn't look like an Anybox JSON export
+  (expected a JSON array of bookmarks).`
+- **`stash-json`** expects an **object** with a `bookmarks` array (the shape
+  `stash export` produces); it honors each record's `isArchived`. Wrong shape →
+  `Error: This doesn't look like a Stash JSON export (expected an object with a
+  "bookmarks" array).`
 
-Limitation: importing over the REST API cannot preserve original `createdAt` on *new* records
-(they get a fresh timestamp) — but re-importing a Stash export of bookmarks that already exist
-takes the duplicate-update path, where the server preserves `createdAt`, so re-import is
-idempotent.
+Limitation: importing over the REST API cannot preserve original `createdAt` on
+*new* records (they get a fresh timestamp) — but re-importing a Stash export of
+bookmarks that already exist takes the duplicate-update path, where the server
+preserves `createdAt`, so re-import is idempotent.
 
 ### `export`
 
@@ -258,20 +285,21 @@ stash export [--format stash-json] [--output <path>]
 ```
 
 - `--format` defaults to (and only accepts) `stash-json`.
-- `--output` is the destination path; if omitted, writes to `stash-export-YYYY-MM-DD.json` in
-  the current directory.
-- Fetches **all** bookmarks — paginating through every page of both active *and* archived
-  (100 per page) — assembles the native `{ version, exportedAt, bookmarks[] }` envelope sorted
-  by `createdAt` ascending, and writes it.
+- `--output` is the destination path; if omitted, writes to
+  `stash-export-YYYY-MM-DD.json` in the current directory.
+- Fetches **all** bookmarks — paginating through every page of both active *and*
+  archived (100 per page) — assembles the native `{ version, exportedAt,
+  bookmarks[] }` envelope sorted by `createdAt` ascending, and writes it.
 - Output: `Exported <n> bookmarks to <path>.`
 
 ### `admin` (admin accounts only)
 
-All admin commands require the logged-in account to be an admin; a non-admin gets
-`Error: You don't have permission to perform that action.` The admin API is keyed by UUID, but
-every CLI admin command that targets a user takes a **username** and resolves it to a UUID
-internally by listing users and matching case-insensitively. An unknown name fails with
-`Error: No user named '<username>'.`
+All admin commands require the logged-in account to be an admin; a non-admin
+gets `Error: You don't have permission to perform that action.` The admin API is
+keyed by UUID, but every CLI admin command that targets a user takes a
+**username** and resolves it to a UUID internally by listing users and matching
+case-insensitively. An unknown name fails with `Error: No user named
+'<username>'.`
 
 ```bash
 stash admin users [--json]                              # list all users
@@ -284,15 +312,17 @@ stash admin delete-user <username> [--force]            # hard-delete (irreversi
 stash admin stats [--json]                              # aggregate + per-user stats
 ```
 
-- `create-user` and `reset-password` prompt for a hidden password if `--password` is omitted.
-  `create-user` prints `Created user <username>.`; accounts are always created with the `user`
-  role.
-- `suspend-user`/`unsuspend-user` print `Suspended <username>.` / `Unsuspended <username>.`
+- `create-user` and `reset-password` prompt for a hidden password if
+  `--password` is omitted. `create-user` prints `Created user <username>.`;
+  accounts are always created with the `user` role.
+- `suspend-user`/`unsuspend-user` print `Suspended <username>.` / `Unsuspended
+  <username>.`
 - `reset-password` prints `Reset password for <username>.`; `reset-totp` prints
   `Reset 2FA for <username>.`
-- `delete-user` prompts `Delete user <username>? [y/N] ` unless `--force`; on success
-  `Deleted <username>.` Admins cannot delete their own account.
-- `users` and `stats` default to text tables (see §5); add `--json` for structured output.
+- `delete-user` prompts `Delete user <username>? [y/N] ` unless `--force`; on
+  success `Deleted <username>.` Admins cannot delete their own account.
+- `users` and `stats` default to text tables (see §5); add `--json` for
+  structured output.
 
 > Known gap: `stash admin reset-totp` calls a JSON-API route that may not yet be exposed by the
 > backend; if so it surfaces `Error: Not found.` The command is otherwise correct.
@@ -303,10 +333,10 @@ stash admin stats [--json]                              # aggregate + per-user s
 
 ### Human-readable (default)
 
-**`stash list`** — a table with columns ID (8), TITLE (40), URL (50), TAGS, separated by two
-spaces. ID is the first 8 characters of the UUID. TITLE and URL are truncated to their width
-(last character replaced with `…` when over). TAGS is comma-separated and not truncated. Empty
-result prints `No bookmarks found.`
+**`stash list`** — a table with columns ID (8), TITLE (40), URL (50), TAGS,
+separated by two spaces. ID is the first 8 characters of the UUID. TITLE and URL
+are truncated to their width (last character replaced with `…` when over). TAGS
+is comma-separated and not truncated. Empty result prints `No bookmarks found.`
 
 ```
 ID        TITLE                                     URL                                                 TAGS
@@ -326,7 +356,8 @@ Archived:    no
 Created:     2026-01-15T09:30:00Z
 ```
 
-(The `Description:` line is omitted when there is no description; `Tags:` shows `—` when empty.)
+(The `Description:` line is omitted when there is no description; `Tags:` shows
+`—` when empty.)
 
 **`stash tags`** — `name (count)` per line:
 
@@ -336,8 +367,8 @@ swift/vapor (12)
 docs (7)
 ```
 
-**`stash admin users`** — columns USERNAME (20), ROLE (6), ACTIVE (7), 2FA (4), BOOKMARKS (10),
-ID (full UUID). ACTIVE is `yes`/`no`; 2FA is `on`/`off`.
+**`stash admin users`** — columns USERNAME (20), ROLE (6), ACTIVE (7), 2FA (4),
+BOOKMARKS (10), ID (full UUID). ACTIVE is `yes`/`no`; 2FA is `on`/`off`.
 
 **`stash admin stats`** — two summary lines then a table:
 
@@ -354,7 +385,8 @@ bob                   no       94
 
 Keys are sorted alphabetically. Dates are ISO-8601 without fractional seconds.
 
-**`stash list --json`** — the full paginated page (a `BookmarkDTO` list + metadata):
+**`stash list --json`** — the full paginated page (a `BookmarkDTO` list +
+metadata):
 
 ```json
 {
@@ -381,8 +413,8 @@ Keys are sorted alphabetically. Dates are ISO-8601 without fractional seconds.
 
 `description` and `faviconURL` may be absent/`null`. `id` is a full UUID.
 
-**`stash get <id> --json`** — a single bookmark object (the same shape as one `items` element
-above).
+**`stash get <id> --json`** — a single bookmark object (the same shape as one
+`items` element above).
 
 **`stash add --json`** — the created bookmark object (same shape).
 
@@ -475,9 +507,10 @@ stash admin delete-user alice --force
 
 ## 7. Error handling
 
-Every failure prints a single `Error: <message>` line to **stderr** and exits non-zero. These
-are the **actual** messages emitted by the CLI (note they are human-readable sentences, not the
-API's snake_case codes). When you see one, take the matching action.
+Every failure prints a single `Error: <message>` line to **stderr** and exits
+non-zero. These are the **actual** messages emitted by the CLI (note they are
+human-readable sentences, not the API's snake_case codes). When you see one,
+take the matching action.
 
 | stderr message | Meaning | Remedy |
 |---|---|---|
@@ -501,29 +534,37 @@ API's snake_case codes). When you see one, take the matching action.
 
 ## 8. Tips for Claude
 
-- **Always use `--json` when you need to parse output programmatically.** The text tables
-  truncate titles/URLs and show only the first 8 characters of the ID — never parse them for
-  IDs or full values.
-- **UUIDs in JSON are full; the text table shows only the first 8 characters.** To act on a
-  bookmark you found in a table, re-fetch with `--json` to get its full `id`.
-- **Tags are normalized server-side** (trimmed, lowercased, surrounding slashes stripped,
-  de-duplicated). `Swift` and `swift` are the same tag — don't rely on case.
-- **`stash list` returns 20 results per page by default.** Use `--page`/`--per` to paginate, or
-  `--json` and read `metadata.total` to know when you've seen everything.
-- **`--force` skips `[y/N]` confirmations** on `delete`, `tags delete`, and `admin delete-user`
-  — use it in automated workflows; otherwise the prompt blocks on stdin.
-- **`stash import --format stash-json` is idempotent** — re-importing the same file updates
-  existing bookmarks (matched by URL) instead of creating duplicates.
-- **`stash login` is interactive and cannot be scripted.** If tokens are missing or a command
-  reports a session error, ask the user to run `stash login` themselves.
-- **There is no `unarchive` command.** The CLI only archives; unarchiving needs the app/web UI.
+- **Always use `--json` when you need to parse output programmatically.** The
+  text tables truncate titles/URLs and show only the first 8 characters of the
+  ID — never parse them for IDs or full values.
+- **UUIDs in JSON are full; the text table shows only the first 8 characters.**
+  To act on a bookmark you found in a table, re-fetch with `--json` to get its
+  full `id`.
+- **Tags are normalized server-side** (trimmed, lowercased, surrounding slashes
+  stripped, de-duplicated). `Swift` and `swift` are the same tag — don't rely on
+  case.
+- **`stash list` returns 20 results per page by default.** Use `--page`/`--per`
+  to paginate, or `--json` and read `metadata.total` to know when you've seen
+  everything.
+- **`--force` skips `[y/N]` confirmations** on `delete`, `tags delete`, and
+  `admin delete-user` — use it in automated workflows; otherwise the prompt
+  blocks on stdin.
+- **`stash import --format stash-json` is idempotent** — re-importing the same
+  file updates existing bookmarks (matched by URL) instead of creating
+  duplicates.
+- **`stash login` is interactive and cannot be scripted.** If tokens are missing
+  or a command reports a session error, ask the user to run `stash login`
+  themselves.
+- **There is no `unarchive` command.** The CLI only archives; unarchiving needs
+  the app/web UI.
 
 ---
 
 ## 9. Intelligent tag suggestion
 
-One of the most useful things you can do is suggest good tags when saving a bookmark, drawn from
-the user's *existing* taxonomy rather than inventing new ones.
+One of the most useful things you can do is suggest good tags when saving a
+bookmark, drawn from the user's *existing* taxonomy rather than inventing new
+ones.
 
 **Workflow:**
 
@@ -532,11 +573,11 @@ the user's *existing* taxonomy rather than inventing new ones.
    stash tags --json
    ```
 2. Analyze the URL, page title, and any description against that tag list.
-3. Suggest the most relevant **existing** tags. Only propose a brand-new tag when the content
-   clearly warrants one that doesn't exist yet.
-4. Briefly explain the suggestion and confirm before saving, e.g.:
-   > "Based on your existing tags, I'd suggest `swift`, `swift/vapor`, and `backend`. Want me to
-   > save it with those, or adjust?"
+3. Suggest the most relevant **existing** tags. Only propose a brand-new tag
+   when the content clearly warrants one that doesn't exist yet.
+4. Briefly explain the suggestion and confirm before saving, e.g.: > "Based on
+   your existing tags, I'd suggest `swift`, `swift/vapor`, and `backend`. Want
+   me to > save it with those, or adjust?"
 5. Save with the agreed tags:
    ```bash
    stash add https://example.com --tag swift --tag swift/vapor --tag backend
@@ -544,15 +585,17 @@ the user's *existing* taxonomy rather than inventing new ones.
 
 **Rules:**
 
-- **Prefer existing tags over new ones.** If `apple/ios` exists, don't create a flat `ios` — use
-  the hierarchical tag already in the taxonomy.
-- **Respect the hierarchy.** If the user has `swift/concurrency` and `swift/vapor`, a Swift
-  networking article likely belongs under `swift/` — suggest `swift/networking`, not a flat
-  `networking`.
+- **Prefer existing tags over new ones.** If `apple/ios` exists, don't create a
+  flat `ios` — use the hierarchical tag already in the taxonomy.
+- **Respect the hierarchy.** If the user has `swift/concurrency` and
+  `swift/vapor`, a Swift networking article likely belongs under `swift/` —
+  suggest `swift/networking`, not a flat `networking`.
 - **Suggest 2–4 tags maximum.** Quality over quantity; don't over-tag.
-- **When in doubt, ask.** For ambiguous content, present the top options and let the user choose.
-- **Batch saves.** When saving several bookmarks at once, call `stash tags --json` **once** and
-  reuse that list across every save — don't re-fetch per bookmark.
+- **When in doubt, ask.** For ambiguous content, present the top options and let
+  the user choose.
+- **Batch saves.** When saving several bookmarks at once, call `stash tags
+  --json` **once** and reuse that list across every save — don't re-fetch per
+  bookmark.
 
 **Example:**
 

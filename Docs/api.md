@@ -2,13 +2,14 @@
 
 The backend exposes three independent surfaces:
 
-- a versioned JSON **REST API** under `/api/v1/` (JWT auth), consumed by the CLI and the
-  apps,
-- a server-rendered **admin dashboard** under `/admin` (its own session cookie), and
+- a versioned JSON **REST API** under `/api/v1/` (JWT auth), consumed by the CLI
+  and the apps,
+- a server-rendered **admin dashboard** under `/admin` (its own session cookie),
+  and
 - a server-rendered **user web frontend** under `/app` (its own session cookie).
 
-The JWT API and the two web UIs are independent: the web UIs use in-memory session
-cookies (`stash_admin_session`, `stash_session`), not the JWT flow.
+The JWT API and the two web UIs are independent: the web UIs use in-memory
+session cookies (`stash_admin_session`, `stash_session`), not the JWT flow.
 
 ## REST API (`/api/v1/`)
 
@@ -42,13 +43,13 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `DELETE` | `/admin/users/:id` | admin | Hard delete + cascade all owned data (204) |
 | `GET`  | `/admin/stats` | admin | Totals + per-user bookmark counts |
 
-Errors use a standard `{ error, code, message, existingID? }` envelope across every
-route, including routing 404s and validation failures.
+Errors use a standard `{ error, code, message, existingID? }` envelope across
+every route, including routing 404s and validation failures.
 
 ## Web admin dashboard (`/admin`)
 
-Server-rendered, unversioned, with its own `stash_admin_session` cookie, separate from
-the API.
+Server-rendered, unversioned, with its own `stash_admin_session` cookie,
+separate from the API.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -62,8 +63,8 @@ the API.
 
 ## Web frontend (`/app`)
 
-Server-rendered, unversioned, with its own `stash_session` cookie, separate from the API
-and the admin dashboard.
+Server-rendered, unversioned, with its own `stash_session` cookie, separate from
+the API and the admin dashboard.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -86,11 +87,11 @@ and the admin dashboard.
 | `GET`  | `/app/export?format=…` | Download all bookmarks as a file (attachment) |
 | `POST` | `/app/settings/delete-all-bookmarks` | Danger zone: delete all of the user's bookmarks (typed-phrase confirmation) |
 
-Import/export is pluggable; it ships with Anybox JSON and Stash JSON importers and a
-Stash JSON exporter. Theme (light/dark/auto) is a `stash_theme` cookie shared by both
-web UIs.
+Import/export is pluggable; it ships with Anybox JSON and Stash JSON importers
+and a Stash JSON exporter. Theme (light/dark/auto) is a `stash_theme` cookie
+shared by both web UIs.
 
 ## Talking to the API from Swift
 
-The [`StashKit`](stashkit.md) package provides typed DTOs and request factories for the
-REST API, used by both the CLI and the apps.
+The [`StashKit`](stashkit.md) package provides typed DTOs and request factories
+for the REST API, used by both the CLI and the apps.

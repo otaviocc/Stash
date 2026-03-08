@@ -1,14 +1,19 @@
 # Stash — Product Requirements Document
 
-**Version:** 1.7  
-**Status:** Living Document  
-**Author:** Otávio  
+**Version:** 1.7
+**Status:** Living Document
+**Author:** Otávio
 
 ---
 
 ## 1. Overview
 
-Stash is a self-hosted, fully private bookmark manager. It is multi-user: accounts are created by an admin, and each user manages their own private collection of bookmarks. It consists of a Swift/Vapor REST API backend backed by PostgreSQL, deployable via Docker, with native clients for iOS, macOS, and the command line. A shared Swift package (`StashKit`) provides models and networking logic across all clients.
+Stash is a self-hosted, fully private bookmark manager. It is multi-user:
+accounts are created by an admin, and each user manages their own private
+collection of bookmarks. It consists of a Swift/Vapor REST API backend backed by
+PostgreSQL, deployable via Docker, with native clients for iOS, macOS, and the
+command line. A shared Swift package (`StashKit`) provides models and networking
+logic across all clients.
 
 The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 
@@ -20,10 +25,13 @@ The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 - Retrieve bookmarks reliably via keyword search, tag browsing, or recency
 - Organise bookmarks with both flat and hierarchical tags
 - Rename and delete tags across all bookmarks in bulk
-- Auto-fetch page metadata (title, description, favicon) at save time, with manual override
+- Auto-fetch page metadata (title, description, favicon) at save time, with
+  manual override
 - Support multiple users, each with a fully isolated bookmark collection
-- Admin can create, suspend, and hard-delete accounts, reset passwords and 2FA — via web dashboard and CLI
-- Users authenticate with username + password + TOTP-based 2FA, with recovery codes
+- Admin can create, suspend, and hard-delete accounts, reset passwords and 2FA —
+  via web dashboard and CLI
+- Users authenticate with username + password + TOTP-based 2FA, with recovery
+  codes
 - Users can enable, disable, and manage their own 2FA
 - Users can change their own password
 - Duplicate URLs per user are blocked at save time
@@ -55,7 +63,8 @@ The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 | **Admin** | The primary user. Can manage all accounts, reset any user's 2FA. Has their own bookmark collection like any other user. |
 | **User** | A regular account created by the admin. Can manage their own bookmarks, change their own password, and manage their own 2FA. Cannot see other users' data. |
 
-There is exactly one admin. The admin account is seeded at first boot via environment variables — there is no public sign-up flow.
+There is exactly one admin. The admin account is seeded at first boot via
+environment variables — there is no public sign-up flow.
 
 ---
 
@@ -137,7 +146,8 @@ StashKit (Swift Package) — ✅ Complete (M6)
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
-**Duplicate URL constraint:** unique index on `(userID, url)`. API returns HTTP 409 Conflict if a duplicate is attempted.
+**Duplicate URL constraint:** unique index on `(userID, url)`. API returns HTTP
+409 Conflict if a duplicate is attempted.
 
 ### 7.3 Refresh Token
 
@@ -149,7 +159,8 @@ StashKit (Swift Package) — ✅ Complete (M6)
 | `expiresAt` | Date | 90 days from issuance |
 | `createdAt` | Date | Auto-set |
 
-Rotated on every use. Deleted on logout, suspension, hard deletion, password reset (admin), and 2FA disable/reset.
+Rotated on every use. Deleted on logout, suspension, hard deletion, password
+reset (admin), and 2FA disable/reset.
 
 ### 7.4 Recovery Code
 
@@ -164,13 +175,19 @@ Eight codes generated at 2FA enrolment. Deleted when 2FA is disabled or reset.
 
 ### 7.5 Tags
 
-Tags are plain strings stored on each bookmark. Hierarchical tags use slash notation: `swift/vapor`. The tag tree is derived dynamically per user — no separate tag table.
+Tags are plain strings stored on each bookmark. Hierarchical tags use slash
+notation: `swift/vapor`. The tag tree is derived dynamically per user — no
+separate tag table.
 
-A derived `tagsSearch` column stores tags as `|swift|swift/vapor|` for portable prefix-matching via SQL `LIKE`. Consistent across SQLite (tests) and PostgreSQL (production).
+A derived `tagsSearch` column stores tags as `|swift|swift/vapor|` for portable
+prefix-matching via SQL `LIKE`. Consistent across SQLite (tests) and PostgreSQL
+(production).
 
-Querying `tag=swift` matches bookmarks where `tagsSearch` contains `|swift` — prefix match: includes `swift` and `swift/*`, but not `swiftui`.
+Querying `tag=swift` matches bookmarks where `tagsSearch` contains `|swift` —
+prefix match: includes `swift` and `swift/*`, but not `swiftui`.
 
-**Tag normalisation:** trimmed, lowercased, surrounding slashes stripped, de-duplicated. Enforced server-side on every write.
+**Tag normalisation:** trimmed, lowercased, surrounding slashes stripped,
+de-duplicated. Enforced server-side on every write.
 
 ---
 
@@ -183,9 +200,12 @@ Querying `tag=swift` matches bookmarks where `tagsSearch` contains `|swift` — 
 | Access token (JWT, HS256) | 15 minutes | Keychain (iOS/macOS), memory (CLI, web) |
 | Refresh token (opaque 256-bit hex) | 90 days, rotated on use | Keychain (iOS/macOS), file (CLI), session (web) |
 
-Silent refresh within 60 seconds of expiry. The 2FA temp token uses `scope: "2fa"` so it cannot be replayed as an access token.
+Silent refresh within 60 seconds of expiry. The 2FA temp token uses `scope:
+"2fa"` so it cannot be replayed as an access token.
 
-Note: both tokens are stored in Keychain on iOS/macOS (deviation from the original memory-only access token spec) to enable cold-start session restoration and Share Extension token reuse.
+Note: both tokens are stored in Keychain on iOS/macOS (deviation from the
+original memory-only access token spec) to enable cold-start session restoration
+and Share Extension token reuse.
 
 ### 8.2 Login Flow
 
@@ -217,19 +237,25 @@ POST /api/v1/auth/totp/verify-setup  { totpCode }
 → { recoveryCodes: [...] }  (8 codes, shown once)
 ```
 
-Recovery codes: 8 × `XXXX-XXXX`, bcrypt-hashed, single-use. Shown exactly once with mandatory "I've saved these" confirmation.
+Recovery codes: 8 × `XXXX-XXXX`, bcrypt-hashed, single-use. Shown exactly once
+with mandatory "I've saved these" confirmation.
 
-Web UI shows `otpauthURI` + manual setup key — no QR image (CoreImage unavailable on Linux). Native clients display a QR code from `otpauthURI`.
+Web UI shows `otpauthURI` + manual setup key — no QR image (CoreImage
+unavailable on Linux). Native clients display a QR code from `otpauthURI`.
 
 ### 8.4 2FA Disable / Reset
 
-**User self-service (`POST /api/v1/auth/totp/disable`):** requires current TOTP code. Clears `totpSecret`, sets `isTOTPEnabled = false`, deletes recovery codes, invalidates all refresh tokens.
+**User self-service (`POST /api/v1/auth/totp/disable`):** requires current TOTP
+code. Clears `totpSecret`, sets `isTOTPEnabled = false`, deletes recovery codes,
+invalidates all refresh tokens.
 
-**Admin reset (`POST /api/v1/admin/users/:id/reset-totp`):** no confirmation code required. Same effect. Self-reset allowed. Invalidates refresh tokens.
+**Admin reset (`POST /api/v1/admin/users/:id/reset-totp`):** no confirmation
+code required. Same effect. Self-reset allowed. Invalidates refresh tokens.
 
 ### 8.5 Password Rules
 
-Minimum 12 characters. Bcrypt, cost factor 12. Unknown usernames run a throwaway bcrypt verify to prevent timing-based account enumeration.
+Minimum 12 characters. Bcrypt, cost factor 12. Unknown usernames run a throwaway
+bcrypt verify to prevent timing-based account enumeration.
 
 ### 8.6 Token Invalidation Rules
 
@@ -302,8 +328,8 @@ Response: `{ "from": "foo-bar", "to": "foobar", "affectedBookmarks": 12 }`
 - If `to` already exists: merge silently (de-duplicate)
 - `from == to` or unused `from`: idempotent 200, `affectedBookmarks: 0`
 
-**`DELETE /api/v1/tags/:tag`:**
-Response: `{ "tag": "foo-bar", "affectedBookmarks": 12 }`
+**`DELETE /api/v1/tags/:tag`:** Response: `{ "tag": "foo-bar",
+"affectedBookmarks": 12 }`
 
 - Removes exact tag and all children from all affected bookmarks
 - Bookmarks are never deleted — only their tags
@@ -334,7 +360,8 @@ Response: `{ "tag": "foo-bar", "affectedBookmarks": 12 }`
 On `POST /api/v1/bookmarks` with `fetchMetadata: true` (default):
 
 1. HTTP GET to the URL via Vapor's built-in HTTP client
-2. Dependency-free regex parser (`MetadataFetcher`) extracts `<title>`, `<meta name="description">`, favicon
+2. Dependency-free regex parser (`MetadataFetcher`) extracts `<title>`, `<meta
+   name="description">`, favicon
 3. Client-supplied values take precedence
 4. Title falls back to URL if blank
 5. On any failure: save proceeds with client-supplied values — never blocks
@@ -347,7 +374,8 @@ Timeout: 5 seconds. No retry.
 
 ### 11.1 Architecture
 
-Pluggable `ImportExportRegistry`. New formats: conform to protocol, register in `init` — no controller, route, or template changes needed.
+Pluggable `ImportExportRegistry`. New formats: conform to protocol, register in
+`init` — no controller, route, or template changes needed.
 
 ```swift
 protocol BookmarkImporter {
@@ -373,14 +401,20 @@ struct ImportResult {
 }
 ```
 
-Parse failure throws `ImportError.invalidFormat` (inline error, no redirect). Bad individual records are counted in `skipped`/`errors`, shown in a collapsible `<details>` block.
+Parse failure throws `ImportError.invalidFormat` (inline error, no redirect).
+Bad individual records are counted in `skipped`/`errors`, shown in a collapsible
+`<details>` block.
 
 ### 11.2 Anybox JSON Importer (`identifier: "anybox"`)
 
-Anybox exports a JSON array. **Actual field shapes** (verified against a real export):
+Anybox exports a JSON array. **Actual field shapes** (verified against a real
+export):
 
-- `tags` is `[[String]]` — arrays of `[namespace, value]` pairs (e.g. `[["topic","swift"],["status","reading"]]`). Each pair joined with `/` → hierarchical Stash tag (`topic/swift`). Plain `[String]` accepted as fallback.
-- `dateAdded` — camelCase, ISO-8601 string. Numeric `date_added`/`dateAdded` accepted as fallback. Missing → current time.
+- `tags` is `[[String]]` — arrays of `[namespace, value]` pairs (e.g.
+  `[["topic","swift"],["status","reading"]]`). Each pair joined with `/` →
+  hierarchical Stash tag (`topic/swift`). Plain `[String]` accepted as fallback.
+- `dateAdded` — camelCase, ISO-8601 string. Numeric `date_added`/`dateAdded`
+  accepted as fallback. Missing → current time.
 
 | Anybox field | Stash field | Notes |
 |---|---|------|
@@ -396,7 +430,8 @@ Duplicate URL: update title, description, tags in place. `createdAt` preserved.
 
 ### 11.3 Stash JSON Importer (`identifier: "stash-json"`)
 
-Imports a previously exported Stash JSON file. Useful for migrating between instances.
+Imports a previously exported Stash JSON file. Useful for migrating between
+instances.
 
 | Field | Notes |
 |-------|-------|
@@ -441,7 +476,9 @@ All bookmarks (including archived), sorted by `createdAt` ascending:
 
 ## 12. Web Admin Dashboard (`/admin`)
 
-Session-based auth (`stash_admin_session` cookie, in-memory, HTTPOnly, SameSite=Lax). Only active admin accounts can log in. Sessions don't survive a container restart.
+Session-based auth (`stash_admin_session` cookie, in-memory, HTTPOnly,
+SameSite=Lax). Only active admin accounts can log in. Sessions don't survive a
+container restart.
 
 ### Pages
 
@@ -467,7 +504,9 @@ Session-based auth (`stash_admin_session` cookie, in-memory, HTTPOnly, SameSite=
 
 ## 13. Web Frontend (`/app`)
 
-Session-based auth (`stash_session` cookie, path `/app`, in-memory, SameSite=Lax). Any active user role can log in. Sessions don't survive a container restart.
+Session-based auth (`stash_session` cookie, path `/app`, in-memory,
+SameSite=Lax). Any active user role can log in. Sessions don't survive a
+container restart.
 
 ### Pages
 
@@ -490,11 +529,13 @@ Session-based auth (`stash_session` cookie, path `/app`, in-memory, SameSite=Lax
 
 ### Tag Sidebar
 
-- Right column, plain flex — scrolls with the page as one unit (no fixed/sticky positioning)
+- Right column, plain flex — scrolls with the page as one unit (no fixed/sticky
+  positioning)
 - "All" link at top (highlighted when no filter active)
 - "Untagged" link (highlighted when `?tag=__untagged__`; count shown when > 0)
 - Full hierarchical tag tree, alphabetical at every level
-- Parent tags with children shown via indentation; synthetic parents (count 0) included so children always nest
+- Parent tags with children shown via indentation; synthetic parents (count 0)
+  included so children always nest
 - Tag counts in muted colour; active tag highlighted with accent colour
 - Aligned with the search bar via `margin-top`
 
@@ -503,7 +544,10 @@ Session-based auth (`stash_session` cookie, path `/app`, in-memory, SameSite=Lax
 - Add form: two-step — "Fetch metadata" previews server-side; "Save" persists
 - Duplicate URL: inline error with link to existing bookmark
 - Edit form does not allow URL changes (avoids duplicate-handling complexity)
-- Tag input with autocomplete: vanilla JS (~50 lines), splits on commas, matches user's existing tags embedded as JSON in `data-known-tags` attribute by per-segment prefix (a fragment matches any `/`-delimited segment that starts with it, so `music` finds `kind/music-gear`)
+- Tag input with autocomplete: vanilla JS (~50 lines), splits on commas, matches
+  user's existing tags embedded as JSON in `data-known-tags` attribute by
+  per-segment prefix (a fragment matches any `/`-delimited segment that starts
+  with it, so `music` finds `kind/music-gear`)
 
 ### Tag Browser (`/app/tags`)
 
@@ -515,18 +559,25 @@ Session-based auth (`stash_session` cookie, path `/app`, in-memory, SameSite=Lax
 
 ### Settings (`/app/settings`)
 
-**Appearance:** Light / Dark / Auto radio buttons. `POST /app/settings/theme` sets `stash_theme` cookie (1 year, path `/`, HTTPOnly=false, SameSite=Lax).
+**Appearance:** Light / Dark / Auto radio buttons. `POST /app/settings/theme`
+sets `stash_theme` cookie (1 year, path `/`, HTTPOnly=false, SameSite=Lax).
 
 **Account:** change password.
 
-**Two-Factor Authentication:** enrol (QR via `otpauthURI` + manual key), disable (requires current TOTP code; recovery codes shown once with "I've saved these" confirmation).
+**Two-Factor Authentication:** enrol (QR via `otpauthURI` + manual key), disable
+(requires current TOTP code; recovery codes shown once with "I've saved these"
+confirmation).
 
 **Import & Export:**
-- Import: file upload, format selector (Anybox JSON, Stash JSON), summary banner with imported/updated/skipped counts, collapsible error details. Upload body limit 16MB.
+- Import: file upload, format selector (Anybox JSON, Stash JSON), summary banner
+  with imported/updated/skipped counts, collapsible error details. Upload body
+  limit 16MB.
 - Export: "Download your bookmarks" → Stash JSON file download.
 
 **Danger Zone:**
-- "Delete all bookmarks" — requires typing `delete all` (case-insensitive). Verified server-side. Resets `bookmarkCount` to 0. Redirects to `/app` with flash banner.
+- "Delete all bookmarks" — requires typing `delete all` (case-insensitive).
+  Verified server-side. Resets `bookmarkCount` to 0. Redirects to `/app` with
+  flash banner.
 
 ### Dark Mode
 
@@ -535,13 +586,17 @@ Three-way CSS resolution:
 - `[data-theme="dark"]` → explicit dark
 - `@media (prefers-color-scheme: dark) :root:not([data-theme])` → auto
 
-Inline flash-prevention script at top of `<head>` sets `data-theme` from `stash_theme` cookie before first paint — no flash. Applies to both `/app` and `/admin` (shared `layout.leaf`). iOS-style palette: bg `#1c1c1e`, surface `#2c2c2e`, accent `#0a84ff`, danger `#ff453a`, success `#30d158`.
+Inline flash-prevention script at top of `<head>` sets `data-theme` from
+`stash_theme` cookie before first paint — no flash. Applies to both `/app` and
+`/admin` (shared `layout.leaf`). iOS-style palette: bg `#1c1c1e`, surface
+`#2c2c2e`, accent `#0a84ff`, danger `#ff453a`, success `#30d158`.
 
 ---
 
 ## 14. CLI — `stash` ✅ Complete (M7)
 
-Swift CLI, `ArgumentParser` + `MicroClient` (direct, for 2FA login branch), `StashKit`. Config: `~/.config/stash/config.json`.
+Swift CLI, `ArgumentParser` + `MicroClient` (direct, for 2FA login branch),
+`StashKit`. Config: `~/.config/stash/config.json`.
 
 ```
 stash login / logout
@@ -570,11 +625,18 @@ stash admin stats [--json]
 
 ## 15. StashKit — Shared Swift Package ✅ Complete (M6)
 
-Built on `MicroClient` (`from: "0.0.27"`). Swift tools 6.0, iOS 26.0 / macOS 26.0.
+Built on `MicroClient` (`from: "0.0.27"`). Swift tools 6.0, iOS 26.0 / macOS
+26.0.
 
-Three layers: **DTOs** (Codable/Sendable structs matching API wire shapes), **request factories** (one `enum` per domain, `public static` methods returning typed `NetworkRequest<…>`), **thin `StashClient`** (wraps `NetworkClient`, adds `BearerAuthorizationInterceptor` + `ContentTypeInterceptor` + `AcceptHeaderInterceptor`, maps errors to `StashAPIError`).
+Three layers: **DTOs** (Codable/Sendable structs matching API wire shapes),
+**request factories** (one `enum` per domain, `public static` methods returning
+typed `NetworkRequest<…>`), **thin `StashClient`** (wraps `NetworkClient`, adds
+`BearerAuthorizationInterceptor` + `ContentTypeInterceptor` +
+`AcceptHeaderInterceptor`, maps errors to `StashAPIError`).
 
-No storage, no refresh logic, no business logic. `tokenProvider: @escaping @Sendable () async -> String?` keeps the package storage-agnostic. Tag cache and silent refresh are the app's repository layer responsibility.
+No storage, no refresh logic, no business logic. `tokenProvider: @escaping
+@Sendable () async -> String?` keeps the package storage-agnostic. Tag cache and
+silent refresh are the app's repository layer responsibility.
 
 ---
 
@@ -582,8 +644,10 @@ No storage, no refresh logic, no business logic. `tokenProvider: @escaping @Send
 
 ### Project
 
-- `StashApp/Stash.xcodeproj` is committed and uses synchronized folder groups (XcodeGen was retired — see `DECISIONS.md`)
-- Single multiplatform SwiftUI app target `Stash` (iOS 26.0 + macOS 26.0) and one multiplatform Share Extension target
+- `StashApp/Stash.xcodeproj` is committed and uses synchronized folder groups
+  (XcodeGen was retired — see `DECISIONS.md`)
+- Single multiplatform SwiftUI app target `Stash` (iOS 26.0 + macOS 26.0) and
+  one multiplatform Share Extension target
 - Bundle ID: `cc.otavio.stash`
 - App Group: `group.cc.otavio.stash`
 - `NSAllowsArbitraryLoads: true`
@@ -591,67 +655,99 @@ No storage, no refresh logic, no business logic. `tokenProvider: @escaping @Send
 
 ### Architecture
 
-**Layers:** `StashKit` (DTOs + factories) → `Repository` (DTO→domain mapping, session state, tag cache) → `ViewModel/View`
+**Layers:** `StashKit` (DTOs + factories) → `Repository` (DTO→domain mapping,
+session state, tag cache) → `ViewModel/View`
 
-**`AppEnvironment`** — `@MainActor @Observable` DI container built once at launch. Exposes `makeBookmarkRepository()` (per-view instances) rather than a shared instance; `AuthRepository` and `TagRepository` remain shared singletons.
+**`AppEnvironment`** — `@MainActor @Observable` DI container built once at
+launch. Exposes `makeBookmarkRepository()` (per-view instances) rather than a
+shared instance; `AuthRepository` and `TagRepository` remain shared singletons.
 
-**Repository pattern:** `AuthRepository`, `BookmarkRepository`, `TagRepository` are `@MainActor @Observable`. Silent refresh centralised in `AuthRepository.refreshIfNeeded()` behind a `SessionRefreshing` protocol to avoid reference cycles.
+**Repository pattern:** `AuthRepository`, `BookmarkRepository`, `TagRepository`
+are `@MainActor @Observable`. Silent refresh centralised in
+`AuthRepository.refreshIfNeeded()` behind a `SessionRefreshing` protocol to
+avoid reference cycles.
 
-**`StashClientProvider`** — rebuilds `StashClient` only when the server URL changes. `tokenProvider` closure reads from `TokenManager` at request time.
+**`StashClientProvider`** — rebuilds `StashClient` only when the server URL
+changes. `tokenProvider` closure reads from `TokenManager` at request time.
 
 ### Keychain
 
-`KeychainStore` vendored from Triton, extended with optional `accessGroup: String?` parameter for Share Extension token sharing. Both tokens (access + refresh) stored in Keychain — enables cold-start session restoration and Share Extension reuse (deviation from original memory-only access token spec).
+`KeychainStore` vendored from Triton, extended with optional `accessGroup:
+String?` parameter for Share Extension token sharing. Both tokens (access +
+refresh) stored in Keychain — enables cold-start session restoration and Share
+Extension reuse (deviation from original memory-only access token spec).
 
-`TokenManager` decodes JWT `exp` by hand (base64url, no library) for `isAccessTokenExpiringSoon()`.
+`TokenManager` decodes JWT `exp` by hand (base64url, no library) for
+`isAccessTokenExpiringSoon()`.
 
 ### Navigation
 
-- **iPad:** `NavigationSplitView` — tag sidebar drives filtered `BookmarkListView` in detail column
-- **iPhone:** `TabContainerView` — Bookmarks / Tags / Settings tabs, each in its own `NavigationStack`. Tab bar uses iOS 26 floating Liquid Glass style; collapses on scroll via `tabBarMinimizeBehavior`
-- Bookmark rows use closure-based `NavigationLink` (not `navigationDestination(for:)`) to avoid multi-depth registration conflicts
+- **iPad:** `NavigationSplitView` — tag sidebar drives filtered
+  `BookmarkListView` in detail column
+- **iPhone:** `TabContainerView` — Bookmarks / Tags / Settings tabs, each in its
+  own `NavigationStack`. Tab bar uses iOS 26 floating Liquid Glass style;
+  collapses on scroll via `tabBarMinimizeBehavior`
+- Bookmark rows use closure-based `NavigationLink` (not
+  `navigationDestination(for:)`) to avoid multi-depth registration conflicts
 - Login uses typed `LoginRoute` enum for 2FA navigation
 
 ### Views (core)
 
-`RootView` → `SetupView` / `LoginView` / `TOTPView` / `RecoveryCodeView` / `MainView` → `BookmarkListView` / `BookmarkDetailView` (stub) / `AddBookmarkSheet` / `TagBrowserView` (stub) / `SettingsView` (stub with Sign Out)
+`RootView` → `SetupView` / `LoginView` / `TOTPView` / `RecoveryCodeView` /
+`MainView` → `BookmarkListView` / `BookmarkDetailView` (stub) /
+`AddBookmarkSheet` / `TagBrowserView` (stub) / `SettingsView` (stub with Sign
+Out)
 
-Liquid Glass design adopted automatically — tab bar floats over content, toolbars and navigation bars gain glass background. No explicit `.liquidGlass` calls needed; compiling against iOS 26 SDK is sufficient.
+Liquid Glass design adopted automatically — tab bar floats over content,
+toolbars and navigation bars gain glass background. No explicit `.liquidGlass`
+calls needed; compiling against iOS 26 SDK is sufficient.
 
-`FaviconView` vendored from Triton (Google favicon service, `AsyncImage`, fallback `"link"` SF Symbol, `RoundFaviconModifier` 16×16 4pt corners).
+`FaviconView` vendored from Triton (Google favicon service, `AsyncImage`,
+fallback `"link"` SF Symbol, `RoundFaviconModifier` 16×16 4pt corners).
 
-`BookmarkRowView` shows first three tags + `+N` overflow (not a scrolling row — avoids gesture conflict in lists).
+`BookmarkRowView` shows first three tags + `+N` overflow (not a scrolling row —
+avoids gesture conflict in lists).
 
-`AddBookmarkSheet` — paste button (`PasteButton`, no `UIKit`), metadata fetch, comma-separated tag input with `TagSuggestionView` autocomplete chips.
+`AddBookmarkSheet` — paste button (`PasteButton`, no `UIKit`), metadata fetch,
+comma-separated tag input with `TagSuggestionView` autocomplete chips.
 
-Context-aware empty states: `ContentUnavailableView.search` for active query, tag-specific, archived-specific, first-run.
+Context-aware empty states: `ContentUnavailableView.search` for active query,
+tag-specific, archived-specific, first-run.
 
 ### Remaining for M10
 
-Full Settings (password change, 2FA management), edit/delete bookmark, tag rename/delete, macOS target.
+Full Settings (password change, 2FA management), edit/delete bookmark, tag
+rename/delete, macOS target.
 
 ---
 
 ## 17. macOS App ✅ Complete (M10)
 
-macOS 26.0 is a destination of the **single multiplatform `Stash` target** (not a separate target) —
-the one `@main App` branches per platform with `#if os(macOS)`. Adopts the macOS 26 design language
-(Liquid Glass) automatically by building against the SDK; no explicit modifiers.
+macOS 26.0 is a destination of the **single multiplatform `Stash` target** (not
+a separate target) — the one `@main App` branches per platform with `#if
+os(macOS)`. Adopts the macOS 26 design language (Liquid Glass) automatically by
+building against the SDK; no explicit modifiers.
 
-- **Navigation:** `NavigationSplitView` with a tag sidebar (All Bookmarks, Untagged, the tag list)
-  driving the shared `BookmarkListView` in the detail column; selecting a bookmark pushes the shared
-  `BookmarkDetailView`. The optional inspector panel was not built (the shared list is reused as-is
-  for maximum code sharing).
-- **Window:** standard `WindowGroup`, 800×500 minimum (`windowResizability(.contentMinSize)`).
-- **Bookmarks:** shared list and rows; right-click context menu (Open in Browser, Copy URL,
-  Archive/Unarchive, Delete); add and edit via shared sheets; delete with confirmation.
-- **Settings scene (⌘,):** General (server URL, sign out), Account (change password, 2FA enrol /
-  disable), Appearance (Light / Dark / Auto, stored in `UserDefaults` — no theme cookie on native).
-- **Keyboard shortcuts:** ⌘N new, ⌘E edit, ⌘R refresh, ⌘⌫ delete (with confirmation).
-- **Share Extension:** the single multiplatform `StashShareExtension` target serves both platforms
-  (same three states and confirmation-with-undo); only the principal controller differs —
-  `MacShareViewController` (`NSViewController`) on macOS vs `ShareViewController` (`UIViewController`)
-  on iOS, both `#if`-guarded.
+- **Navigation:** `NavigationSplitView` with a tag sidebar (All Bookmarks,
+  Untagged, the tag list) driving the shared `BookmarkListView` in the detail
+  column; selecting a bookmark pushes the shared `BookmarkDetailView`. The
+  optional inspector panel was not built (the shared list is reused as-is for
+  maximum code sharing).
+- **Window:** standard `WindowGroup`, 800×500 minimum
+  (`windowResizability(.contentMinSize)`).
+- **Bookmarks:** shared list and rows; right-click context menu (Open in
+  Browser, Copy URL, Archive/Unarchive, Delete); add and edit via shared sheets;
+  delete with confirmation.
+- **Settings scene (⌘,):** General (server URL, sign out), Account (change
+  password, 2FA enrol / disable), Appearance (Light / Dark / Auto, stored in
+  `UserDefaults` — no theme cookie on native).
+- **Keyboard shortcuts:** ⌘N new, ⌘E edit, ⌘R refresh, ⌘⌫ delete (with
+  confirmation).
+- **Share Extension:** the single multiplatform `StashShareExtension` target
+  serves both platforms (same three states and confirmation-with-undo); only the
+  principal controller differs — `MacShareViewController` (`NSViewController`)
+  on macOS vs `ShareViewController` (`UIViewController`) on iOS, both
+  `#if`-guarded.
 
 ---
 
@@ -659,7 +755,8 @@ the one `@main App` branches per platform with `#if os(macOS)`. Adopts the macOS
 
 ### Distribution
 
-Docker image at `ghcr.io/otaviocc/stash`. Single `docker-compose.yml` — no build step required.
+Docker image at `ghcr.io/otaviocc/stash`. Single `docker-compose.yml` — no build
+step required.
 
 ### Image
 
@@ -700,11 +797,14 @@ volumes:
 
 ### First Boot
 
-Reads `ADMIN_USERNAME` / `ADMIN_PASSWORD` from env, creates admin if no users exist. Missing/invalid → logs critical error, exits. Subsequent boots: silent no-op. Migrations auto-run on boot (idempotent).
+Reads `ADMIN_USERNAME` / `ADMIN_PASSWORD` from env, creates admin if no users
+exist. Missing/invalid → logs critical error, exits. Subsequent boots: silent
+no-op. Migrations auto-run on boot (idempotent).
 
 ### Local Network
 
-Primary use case: `http://192.168.1.x:8080`. No domain or TLS required. In-memory sessions don't survive a container restart.
+Primary use case: `http://192.168.1.x:8080`. No domain or TLS required.
+In-memory sessions don't survive a container restart.
 
 ### External Access (optional)
 
@@ -725,7 +825,14 @@ stash.yourdomain.com {
 
 ### CI/CD ✅ Complete (M4.1)
 
-Two GitHub Actions workflows. `ci.yml` runs on every push to `main` and every pull request — builds and tests all components, no image. `release.yml` runs on a `v*.*.*` tag: re-runs the backend tests, then builds a multi-arch image (`linux/amd64`, `linux/arm64`) → pushes to `ghcr.io/otaviocc/stash` (`latest` + semver) → creates a GitHub Release with `docker-compose.yml` attached. `GITHUB_TOKEN` only — no extra secrets. The repo stays private; the image is made public via a **one-time manual setting** in the package settings (there is no API to do it from CI).
+Two GitHub Actions workflows. `ci.yml` runs on every push to `main` and every
+pull request — builds and tests all components, no image. `release.yml` runs on
+a `v*.*.*` tag: re-runs the backend tests, then builds a multi-arch image
+(`linux/amd64`, `linux/arm64`) → pushes to `ghcr.io/otaviocc/stash` (`latest` +
+semver) → creates a GitHub Release with `docker-compose.yml` attached.
+`GITHUB_TOKEN` only — no extra secrets. The repo stays private; the image is
+made public via a **one-time manual setting** in the package settings (there is
+no API to do it from CI).
 
 ---
 
@@ -844,7 +951,9 @@ Vapor's native `Page<T>`:
 
 ### 19.6 Testing
 
-Backend: `VaporTesting` + swift-testing, in-memory SQLite. Leaf templates: throwaway smoke tests (run then removed). StashKit: mock `URLSessionProtocol`. iOS app: no unit tests. CLI: manual integration only.
+Backend: `VaporTesting` + swift-testing, in-memory SQLite. Leaf templates:
+throwaway smoke tests (run then removed). StashKit: mock `URLSessionProtocol`.
+iOS app: no unit tests. CLI: manual integration only.
 
 **Required backend coverage:**
 
@@ -859,13 +968,18 @@ Backend: `VaporTesting` + swift-testing, in-memory SQLite. Leaf templates: throw
 
 ### 19.7 Code Style
 
-SwiftLint + SwiftFormat. `swiftlint lint` 0 violations, `swiftformat --lint` idempotent. Applied to Backend, StashKit, CLI, and iOS app.
+SwiftLint + SwiftFormat. `swiftlint lint` 0 violations, `swiftformat --lint`
+idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 
-- Organisation: type mode (`Nested Types → Static Properties → Properties → Computed Properties → Lifecycle → Functions`), public-before-private within sections
+- Organisation: type mode (`Nested Types → Static Properties → Properties →
+  Computed Properties → Lifecycle → Functions`), public-before-private within
+  sections
 - `///` doc comments on types only; no inline comments inside method bodies
 - American English throughout
-- Tests: Given/When/Then structure, `#expect` with `"It should ..."` descriptions
-- Blank line after `guard`; blank line before control flow and `return` in multi-statement bodies (manual convention)
+- Tests: Given/When/Then structure, `#expect` with `"It should ..."`
+  descriptions
+- Blank line after `guard`; blank line before control flow and `return` in
+  multi-statement bodies (manual convention)
 
 ---
 
@@ -890,10 +1004,13 @@ SwiftLint + SwiftFormat. `swiftlint lint` 0 violations, `swiftformat --lint` ide
 
 ## 21. Known Leaf Gotchas
 
-- `#if(count(x))` does **not** coerce `Int` to `Bool` — `count 0` evaluates truthy. Always use `#if(count(x) > 0)`.
+- `#if(count(x))` does **not** coerce `Int` to `Bool` — `count 0` evaluates
+  truthy. Always use `#if(count(x) > 0)`.
 - Inline conditionals require the colon: `#if(cond): … #endif`.
-- `#if(cond):#else: X #endif` with an empty then-branch misbehaves (else content dropped). Use positive single-branch tests.
-- A non-optional `String` field set to `""` makes `#if(field)` evaluate **true**. Use `#if(field != "")` or `#if(field == "")` explicitly.
+- `#if(cond):#else: X #endif` with an empty then-branch misbehaves (else content
+  dropped). Use positive single-branch tests.
+- A non-optional `String` field set to `""` makes `#if(field)` evaluate
+  **true**. Use `#if(field != "")` or `#if(field == "")` explicitly.
 
 ---
 

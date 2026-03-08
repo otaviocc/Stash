@@ -17,8 +17,10 @@ A self-hosted bookmark manager with native iOS, macOS, and web clients.
 
 ## Quick start
 
-1. Download [`docker-compose.yml`](https://github.com/otaviocc/stash/releases/latest)
-2. Create a `.env` file — see [Running with Docker](Docs/backend-docker.md) for the full guide
+1. Download
+   [`docker-compose.yml`](https://github.com/otaviocc/stash/releases/latest)
+2. Create a `.env` file — see [Running with Docker](Docs/backend-docker.md) for
+   the full guide
 3. `docker compose up -d`
 4. Open `http://localhost:8080/app`
 

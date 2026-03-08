@@ -1,15 +1,17 @@
 # Running via Docker Compose (published image)
 
-For end users deploying Stash on a home server, NAS, or VPS. This is the recommended
-way to run Stash.
+For end users deploying Stash on a home server, NAS, or VPS. This is the
+recommended way to run Stash.
 
 ## Prerequisites
 
-- Docker Desktop (Mac/Windows), or Docker Engine + the Docker Compose plugin (Linux).
+- Docker Desktop (Mac/Windows), or Docker Engine + the Docker Compose plugin
+  (Linux).
 
 ## Quick start
 
-1. Download `docker-compose.yml` from the [latest release](https://github.com/otaviocc/stash/releases/latest).
+1. Download `docker-compose.yml` from the [latest
+   release](https://github.com/otaviocc/stash/releases/latest).
 2. Create a `.env` file next to it:
 
    ```bash
@@ -44,8 +46,8 @@ docker compose pull && docker compose up -d  # Update to latest image
 
 ## Data persistence
 
-All data is stored in a named Docker volume (`stash_db`). It persists across container
-restarts and updates. To back it up:
+All data is stored in a named Docker volume (`stash_db`). It persists across
+container restarts and updates. To back it up:
 
 ```bash
 docker compose exec db pg_dump -U stash stash > backup.sql
@@ -60,10 +62,10 @@ docker compose exec db pg_dump -U stash stash > backup.sql
 | `ADMIN_USERNAME` | Yes (first boot) | Admin account username |
 | `ADMIN_PASSWORD` | Yes (first boot) | Admin account password (minimum 12 characters) |
 
-`ADMIN_USERNAME` and `ADMIN_PASSWORD` are only used on first boot to create the admin
-account. They are ignored on subsequent starts once the account exists.
+`ADMIN_USERNAME` and `ADMIN_PASSWORD` are only used on first boot to create the
+admin account. They are ignored on subsequent starts once the account exists.
 
 ## Adding HTTPS
 
-Stash serves plain HTTP by default. To put it behind HTTPS, see
-[Adding HTTPS with Caddy](backend-docker-caddy.md).
+Stash serves plain HTTP by default. To put it behind HTTPS, see [Adding HTTPS
+with Caddy](backend-docker-caddy.md).

@@ -1,8 +1,8 @@
 # Building and using the CLI
 
-The `stash` command-line client. It talks to the backend over the public REST API
-(`/api/v1/`) via the shared [StashKit](stashkit.md) package, and covers bookmarks, tags,
-import/export, and admin operations.
+The `stash` command-line client. It talks to the backend over the public REST
+API (`/api/v1/`) via the shared [StashKit](stashkit.md) package, and covers
+bookmarks, tags, import/export, and admin operations.
 
 ## Prerequisites
 
@@ -42,8 +42,8 @@ stash config set-url http://yourserver:8080
 stash login                                     # prompts for credentials (and TOTP if enabled)
 ```
 
-Tokens are stored in that file and refreshed automatically before each authenticated
-command.
+Tokens are stored in that file and refreshed automatically before each
+authenticated command.
 
 ## Commands
 
@@ -65,12 +65,12 @@ stash admin stats                   # Admin: show stats
 stash admin users                   # Admin: list users
 ```
 
-Top-level aliases mirror the grouped subcommands, so `stash list` and
-`stash bookmarks list` are equivalent. Run `stash --help` (or `stash <command> --help`)
+Top-level aliases mirror the grouped subcommands, so `stash list` and `stash
+bookmarks list` are equivalent. Run `stash --help` (or `stash <command> --help`)
 for the full list.
 
 ## JSON output
 
-All commands accept `--json` for machine-readable output (pretty-printed, ISO-8601
-dates). Results go to stdout; prompts, confirmations, and errors go to stderr, with a
-non-zero exit on failure.
+All commands accept `--json` for machine-readable output (pretty-printed,
+ISO-8601 dates). Results go to stdout; prompts, confirmations, and errors go to
+stderr, with a non-zero exit on failure.

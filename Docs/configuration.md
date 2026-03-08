@@ -1,18 +1,19 @@
 # Configuration reference
 
-A single reference for configuring every Stash component: the backend, the CLI, and the
-apps.
+A single reference for configuring every Stash component: the backend, the CLI,
+and the apps.
 
 ## Backend
 
-The backend reads all of its configuration from environment variables. There are no
-config files.
+The backend reads all of its configuration from environment variables. There are
+no config files.
 
 ### Docker Compose
 
-The published `docker-compose.yml` reads variables from a `.env` file in the same
-directory and injects them into the containers. The compose file interpolates
-`DB_PASSWORD` into the database container and into the app's `DATABASE_URL`.
+The published `docker-compose.yml` reads variables from a `.env` file in the
+same directory and injects them into the containers. The compose file
+interpolates `DB_PASSWORD` into the database container and into the app's
+`DATABASE_URL`.
 
 ```bash
 # .env
@@ -31,8 +32,8 @@ ADMIN_PASSWORD=choose-a-strong-password
 
 ### Running without Docker
 
-When running the server directly (`swift run App serve`), set `DATABASE_URL` itself
-rather than `DB_PASSWORD`:
+When running the server directly (`swift run App serve`), set `DATABASE_URL`
+itself rather than `DB_PASSWORD`:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -45,11 +46,11 @@ See [Running locally](backend-local.md) for the full local setup.
 
 ### First-boot behaviour
 
-On first boot, if the database has no users, the app creates the admin account from
-`ADMIN_USERNAME` / `ADMIN_PASSWORD`. If those are missing it logs an error and exits
-rather than starting a login-less instance. Once an admin exists, the two admin
-variables are ignored on subsequent boots. Database migrations run automatically on
-every boot.
+On first boot, if the database has no users, the app creates the admin account
+from `ADMIN_USERNAME` / `ADMIN_PASSWORD`. If those are missing it logs an error
+and exits rather than starting a login-less instance. Once an admin exists, the
+two admin variables are ignored on subsequent boots. Database migrations run
+automatically on every boot.
 
 ## CLI
 
@@ -60,17 +61,18 @@ stash config set-url http://localhost:8080
 stash login                # prompts for credentials (and TOTP if enabled)
 ```
 
-Tokens are written to that file and refreshed automatically before each authenticated
-command. See [Building and using the CLI](cli-build.md) for the full command list.
+Tokens are written to that file and refreshed automatically before each
+authenticated command. See [Building and using the CLI](cli-build.md) for the
+full command list.
 
 ## Apps (iOS / macOS)
 
-The apps have no build-time configuration for the server. On first launch the app shows
-a setup screen — enter your Stash server URL (e.g. `http://192.168.1.x:8080`) and sign
-in with an account created by the admin.
+The apps have no build-time configuration for the server. On first launch the
+app shows a setup screen — enter your Stash server URL (e.g.
+`http://192.168.1.x:8080`) and sign in with an account created by the admin.
 
 The main app and the Share Extension share the server URL (via the App Group's
-`UserDefaults` suite) and the access/refresh tokens (via a Keychain access group),
-through the App Group `group.cc.otavio.stash`. For plain HTTP on a local network,
-`NSAllowsArbitraryLoads` is already set to `true` in the app's `Info.plist`. See
-[Building the mobile apps](mobile-build.md).
+`UserDefaults` suite) and the access/refresh tokens (via a Keychain access
+group), through the App Group `group.cc.otavio.stash`. For plain HTTP on a local
+network, `NSAllowsArbitraryLoads` is already set to `true` in the app's
+`Info.plist`. See [Building the mobile apps](mobile-build.md).
