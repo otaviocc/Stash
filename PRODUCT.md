@@ -546,6 +546,10 @@ container restart.
 ### Add / Edit Bookmark
 
 - Add form: two-step — "Fetch metadata" previews server-side; "Save" persists
+- Add form accepts an optional `?url=` query parameter that pre-populates the
+  URL field (e.g. `/app/bookmarks/new?url=https://example.com`). It only
+  pre-fills — the user must still click "Save"; nothing is added automatically.
+  Enables a browser bookmarklet that opens Stash with the current page's URL.
 - Duplicate URL: inline error with link to existing bookmark
 - Edit form does not allow URL changes (avoids duplicate-handling complexity)
 - Tag input with autocomplete: vanilla JS (~50 lines), splits on commas, matches

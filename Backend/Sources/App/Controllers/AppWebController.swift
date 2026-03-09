@@ -354,9 +354,11 @@ struct AppWebController: RouteCollection {
 
     func newBookmarkForm(req: Request) async throws -> View {
         let user = try req.auth.require(User.self)
+        let url = req.query[String.self, at: "url"] ?? ""
+
         return try await req.view.render("app-bookmark-new", AppNewBookmarkContext(
             title: "Add bookmark", appUsername: user.username, error: nil, existingID: nil,
-            url: "", bookmarkTitle: "", description: "", tags: "", previewed: false,
+            url: url, bookmarkTitle: "", description: "", tags: "", previewed: false,
             knownTagsJSON: knownTagsJSON(req, user: user)
         ))
     }

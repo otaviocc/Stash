@@ -830,6 +830,15 @@ Glass adopted automatically by building against the 26 SDKs).
   `/`-delimited hierarchy the rest of Stash is built on (the `tags_search`
   prefix filter). One-line change in `layout.leaf`; the edit form shares the
   same script and gets it for free.
+- **✅ Add-bookmark form accepts a `?url=` prefill query parameter.**
+  `GET /app/bookmarks/new?url=…` reads the `url` query param
+  (`req.query[String.self, at: "url"]`, defaulting to `""`) and seeds the
+  `AppNewBookmarkContext.url` field, which the template already binds via
+  `value="#(url)"` (Leaf auto-escapes, so no attribute-injection risk). The page
+  only *pre-populates* — it never auto-submits or auto-saves, so a crafted link
+  cannot silently add bookmarks; the user still has to click "Save bookmark".
+  This is the groundwork for a browser bookmarklet that opens Stash with the
+  current page's URL ready to save.
 
 ---
 
