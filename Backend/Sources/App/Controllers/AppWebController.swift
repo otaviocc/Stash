@@ -32,6 +32,10 @@ struct AppWebController: RouteCollection {
 
     static let untaggedSentinel = Bookmark.untaggedSentinel
 
+    static let todaySentinel = Bookmark.todaySentinel
+
+    static let thisWeekSentinel = Bookmark.thisWeekSentinel
+
     static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -122,6 +126,15 @@ struct AppWebController: RouteCollection {
 
     static func display(_ tag: String) -> String {
         tag.components(separatedBy: "/").joined(separator: " › ")
+    }
+
+    static func dateBoundaries(now: Date = Date()) -> (today: Date, week: Date) {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2
+        let today = calendar.startOfDay(for: now)
+        let week = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? today
+
+        return (today, week)
     }
 
     static func parseTags(_ raw: String) -> [String] {
@@ -252,6 +265,7 @@ struct AppWebController: RouteCollection {
         let page = max(query.page ?? 1, 1)
         let per = 20
         let archived = query.archived ?? false
+        let boundaries = Self.dateBoundaries()
 
         let builder = try Bookmark.query(on: req.db)
             .filter(\.$user.$id == user.requireID())
@@ -264,6 +278,10 @@ struct AppWebController: RouteCollection {
         if let rawTag = query.tag?.nonEmpty {
             if rawTag == Self.untaggedSentinel {
                 builder.filter(\.$tagsSearch == "")
+            } else if rawTag == Self.todaySentinel {
+                builder.filter(\.$createdAt >= boundaries.today)
+            } else if rawTag == Self.thisWeekSentinel {
+                builder.filter(\.$createdAt >= boundaries.week)
             } else {
                 let tag = Bookmark.normalizeTagQuery(rawTag)
                 if !tag.isEmpty {
@@ -285,8 +303,28 @@ struct AppWebController: RouteCollection {
 
         let rawTag = query.tag?.nonEmpty
         let isUntagged = rawTag == Self.untaggedSentinel
-        let activeTag = isUntagged ? Self.untaggedSentinel : Bookmark.normalizeTagQuery(query.tag ?? "")
-        let sidebar = try await sidebarTags(for: user, activeTag: activeTag, on: req.db)
+        let isToday = rawTag == Self.todaySentinel
+        let isThisWeek = rawTag == Self.thisWeekSentinel
+        let isSpecial = isUntagged || isToday || isThisWeek
+        let activeTag = isSpecial ? "" : Bookmark.normalizeTagQuery(query.tag ?? "")
+        let sidebar = try await sidebarTags(
+            for: user,
+            activeTag: activeTag,
+            today: boundaries.today,
+            week: boundaries.week,
+            on: req.db
+        )
+
+        let tagDisplay: String =
+            if isUntagged {
+                "Untagged"
+            } else if isToday {
+                "Today"
+            } else if isThisWeek {
+                "This Week"
+            } else {
+                Self.display(rawTag ?? "")
+            }
 
         return try await req.view.render("app-bookmarks", AppBookmarksContext(
             title: archived ? "Archived" : "Bookmarks",
@@ -294,7 +332,7 @@ struct AppWebController: RouteCollection {
             bookmarks: result.items.map { try Self.row(from: $0) },
             q: query.q?.nonEmpty ?? "",
             tag: rawTag ?? "",
-            tagDisplay: isUntagged ? "Untagged" : Self.display(rawTag ?? ""),
+            tagDisplay: tagDisplay,
             archived: archived,
             total: total,
             page: page,
@@ -304,7 +342,11 @@ struct AppWebController: RouteCollection {
             notice: Self.notice(for: req.query[String.self, at: "notice"]),
             sidebarTags: sidebar.tags,
             untaggedCount: sidebar.untaggedCount,
-            untaggedActive: isUntagged
+            untaggedActive: isUntagged,
+            todayCount: sidebar.todayCount,
+            todayActive: isToday,
+            thisWeekCount: sidebar.thisWeekCount,
+            thisWeekActive: isThisWeek
         ))
     }
 
@@ -733,20 +775,31 @@ struct AppWebController: RouteCollection {
     private func sidebarTags(
         for user: User,
         activeTag: String,
+        today: Date,
+        week: Date,
         on db: any Database
-    ) async throws -> (tags: [SidebarTag], untaggedCount: Int) {
+    ) async throws -> (tags: [SidebarTag], untaggedCount: Int, todayCount: Int, thisWeekCount: Int) {
         let bookmarks = try await Bookmark.query(on: db)
             .filter(\.$user.$id == user.requireID())
             .all()
         var counts: [String: Int] = [:]
         var untaggedCount = 0
+        var todayCount = 0
+        var thisWeekCount = 0
         for bookmark in bookmarks {
             if bookmark.tags.isEmpty { untaggedCount += 1 }
+
+            if let created = bookmark.createdAt {
+                if created >= today { todayCount += 1 }
+
+                if created >= week { thisWeekCount += 1 }
+            }
+
             for tag in bookmark.tags {
                 counts[tag, default: 0] += 1
             }
         }
-        return (Self.buildSidebar(counts: counts, activeTag: activeTag), untaggedCount)
+        return (Self.buildSidebar(counts: counts, activeTag: activeTag), untaggedCount, todayCount, thisWeekCount)
     }
 
     private func setArchived(_ req: Request, _ archived: Bool) async throws -> Response {

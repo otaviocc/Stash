@@ -32,8 +32,9 @@ final class Bookmark: Model, Content, @unchecked Sendable {
     // MARK: Static Properties
 
     static let schema = "bookmarks"
-
     static let untaggedSentinel = "__untagged__"
+    static let todaySentinel = "__today__"
+    static let thisWeekSentinel = "__this_week__"
 
     // MARK: Properties
 

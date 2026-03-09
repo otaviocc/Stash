@@ -982,6 +982,28 @@ Glass adopted automatically by building against the 26 SDKs).
   `?tag=__untagged__` returns only tagless bookmarks. ⚠️ The filter *expression*
   is still written in both controllers — only the sentinel constant is shared;
   this duplication is what let the API drift from the web UI in the first place.
+- **✅ "Today" / "This Week" recency filters via the same sentinel pattern.** Two
+  more sidebar helpers sit after "Untagged": `?tag=__today__` (bookmarks created
+  since `Calendar.startOfDay`) and `?tag=__this_week__` (created since the most
+  recent Monday). They reuse the `tag` query param rather than a new `added=`
+  parameter — this is deliberate: the sentinel approach inherits the existing
+  plumbing for free (the `listURL` pagination helper and the toolbar's hidden
+  `tag` input already round-trip `tag`, and the filter banner's `tagDisplay`
+  just gains "Today"/"This Week" overrides alongside "Untagged"). The trade-off
+  is that recency and tag filters are mutually exclusive, same as "Untagged" —
+  an acceptable limitation for these convenience shortcuts. The two new
+  sentinels live on `Bookmark` next to `untaggedSentinel`; the date math is one
+  shared `AppWebController.dateBoundaries(now:)` helper used for *both* the
+  query filter and the sidebar counts, so the two can never disagree. Week start
+  is **Monday** (`calendar.firstWeekday = 2`, then
+  `dateInterval(of: .weekOfYear)`), using the server's `Calendar.current`
+  timezone. The today/this-week counts are tallied in the same single pass over
+  the user's bookmarks that already builds the sidebar
+  (no extra query), and the count badge is hidden when 0 like the others. ⚠️
+  Web-UI only — the JSON API does not (yet) honor these sentinels, consistent
+  with their nature as web-frontend conveniences. ⚠️ Like "Untagged", the filter
+  banner renders "Filtered by tag Today", a slight wording mismatch carried over
+  from the shared template path.
 
 ---
 

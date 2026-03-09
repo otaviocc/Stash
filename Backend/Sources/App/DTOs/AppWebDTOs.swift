@@ -155,6 +155,10 @@ struct AppBookmarksContext: Content {
     let sidebarTags: [SidebarTag]
     let untaggedCount: Int
     let untaggedActive: Bool
+    let todayCount: Int
+    let todayActive: Bool
+    let thisWeekCount: Int
+    let thisWeekActive: Bool
 }
 
 // MARK: - AppNewBookmarkContext

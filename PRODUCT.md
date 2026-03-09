@@ -533,6 +533,10 @@ container restart.
   positioning)
 - "All" link at top (highlighted when no filter active)
 - "Untagged" link (highlighted when `?tag=__untagged__`; count shown when > 0)
+- "Today" link (highlighted when `?tag=__today__`; bookmarks created since the
+  start of the current day; count shown when > 0)
+- "This Week" link (highlighted when `?tag=__this_week__`; bookmarks created
+  since the most recent Monday; count shown when > 0)
 - Full hierarchical tag tree, alphabetical at every level
 - Parent tags with children shown via indentation; synthetic parents (count 0)
   included so children always nest
