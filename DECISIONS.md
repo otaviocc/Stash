@@ -1419,3 +1419,54 @@ Glass adopted automatically by building against the 26 SDKs).
   and headings are left as-is (tables cannot be narrowed without losing
   structure). Every time a Markdown file is created or edited, apply this
   convention to the modified sections.
+
+---
+
+## Site Settings & Admin Customisation
+
+- **✅ `SiteSettings` is a single-row table, never deleted.** There is always
+  exactly one row, seeded by the `CreateSiteSettings` migration (accent theme
+  `ocean`, all other fields `nil`). `SiteSettingsService.current(on:)` is the
+  single accessor; it recreates the row on first access if somehow missing, so
+  callers never deal with an empty table.
+- **✅ Theme injection via a server-side CSS block.** The selected accent theme's
+  light and dark hex values are injected into `<head>` in `layout.leaf` as a
+  second `<style>` block (after the main stylesheet) that overrides the default
+  `--accent` custom property. All existing `var(--accent)` uses pick it up
+  automatically — no per-template or per-stylesheet changes. There is **no
+  per-request DB query**: the values come from an app-level cache
+  (`SiteSettingsCache` on `Application.storage`, behind an `NSLock`) loaded once
+  at boot and refreshed in place when the admin saves the appearance form.
+- **⚠️ Chrome is a nested `chrome` field on every web context, not a flattened
+  merge.** Both web controllers pass `chrome: req.siteChrome()` (footer + accent
+  + about text) into every page context, and `layout.leaf` / `_footer.leaf` read
+  `chrome.*`. A generic wrapper that flattens an arbitrary page context's keys
+  alongside a `chrome` key was rejected: Leaf's `LeafEncoder` `fatalError`s on a
+  second `container(keyedBy:)` at the same encoding level ("Can't encode to
+  multiple containers at the same encoding level"), so the
+  `try page.encode(to:)`-then-add-a-key trick that works with `JSONEncoder`
+  crashes under Leaf. Threading one nested field is verbose but reliable.
+  `req.siteChrome()` is synchronous and never throws — a missing cache falls back
+  to defaults so a page render is never blocked by a missing footer config.
+- **✅ Stash identity is hardcoded, not configurable.** The name "Stash", the
+  Ko-fi link (`https://ko-fi.com/otaviocc`), and the Mastodon link
+  (`https://social.lol/@otaviocc`) live directly in `_footer.leaf`. Admins cannot
+  remove or replace them; they are not passed via `FooterContext`, so they cannot
+  be accidentally omitted or overridden.
+- **✅ `VERSION` file approach.** The version string is read from `Backend/VERSION`
+  at startup (`AppVersion.read(directory:)`, relative to the working directory)
+  and stored on `Application` under `AppVersionKey`. It is copied into the Docker
+  image (`COPY`/`cp` of `VERSION` in the build stage). Falls back to `"dev"` when
+  the file is missing or empty.
+- **✅ Theme picker is pure HTML radio inputs.** No JavaScript is needed for
+  selection: nine visually-hidden radio inputs, each wrapped by a `<label>` whose
+  coloured circle (`.theme-swatch`, the theme's light value) is styled via CSS,
+  with `input:checked + .theme-swatch` drawing the active ring.
+- **✅ `aboutText` capped at 280 characters.** A natural limit for a short
+  instance description (one Mastodon post). Enforced server-side (422 + inline
+  error on overflow); a small `oninput` counter mirrors the existing danger-zone
+  JS pattern for convenience only.
+- **✅ `footerCustomURL` requires `https://`.** Plain HTTP links are rejected
+  (422) to avoid mixed-content warnings on HTTPS instances. The custom footer
+  link renders only when **both** label and URL are non-empty; empties are
+  normalised to `nil` on save.

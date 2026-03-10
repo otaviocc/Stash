@@ -159,6 +159,7 @@ struct AppBookmarksContext: Content {
     let todayActive: Bool
     let thisWeekCount: Int
     let thisWeekActive: Bool
+    let chrome: SiteChrome
 }
 
 // MARK: - AppNewBookmarkContext
@@ -176,6 +177,7 @@ struct AppNewBookmarkContext: Content {
     let tags: String
     let previewed: Bool
     let knownTagsJSON: String
+    let chrome: SiteChrome
 }
 
 // MARK: - AppEditBookmarkContext
@@ -193,6 +195,7 @@ struct AppEditBookmarkContext: Content {
     let tags: String
     let isArchived: Bool
     let knownTagsJSON: String
+    let chrome: SiteChrome
 }
 
 // MARK: - AppBookmarkDetailContext
@@ -204,6 +207,7 @@ struct AppBookmarkDetailContext: Content {
     let appUsername: String
     let bookmark: AppBookmarkRow
     let message: String?
+    let chrome: SiteChrome
 }
 
 // MARK: - AppTagCount
@@ -226,6 +230,7 @@ struct AppTagsContext: Content {
     let tags: [AppTagCount]
     let message: String?
     let error: String?
+    let chrome: SiteChrome
 }
 
 // MARK: - TagRenameForm
@@ -286,6 +291,7 @@ struct AppSettingsContext: Content {
     let importError: String?
     let importSummary: ImportSummaryContext?
     let theme: String
+    let chrome: SiteChrome
 }
 
 // MARK: - AppTOTPSetupContext
@@ -298,6 +304,7 @@ struct AppTOTPSetupContext: Content {
     let secret: String
     let otpauthURI: String
     let error: String?
+    let chrome: SiteChrome
 }
 
 // MARK: - AppRecoveryCodesContext
@@ -308,4 +315,5 @@ struct AppRecoveryCodesContext: Content {
     let title: String
     let appUsername: String
     let codes: [String]
+    let chrome: SiteChrome
 }

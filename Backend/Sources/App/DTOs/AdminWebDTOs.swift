@@ -70,6 +70,7 @@ struct LoginPageContext: Content {
 
     let title: String
     let error: String?
+    let chrome: SiteChrome
 }
 
 // MARK: - DashboardContext
@@ -82,6 +83,7 @@ struct DashboardContext: Content {
     let totalUsers: Int
     let totalBookmarks: Int
     let users: [UserRowContext]
+    let chrome: SiteChrome
 }
 
 // MARK: - UsersContext
@@ -92,6 +94,7 @@ struct UsersContext: Content {
     let title: String
     let adminUsername: String
     let users: [UserRowContext]
+    let chrome: SiteChrome
 }
 
 // MARK: - NewUserContext
@@ -103,6 +106,7 @@ struct NewUserContext: Content {
     let adminUsername: String
     let error: String?
     let username: String?
+    let chrome: SiteChrome
 }
 
 // MARK: - UserDetailContext
@@ -117,4 +121,5 @@ struct UserDetailContext: Content {
     let isSelf: Bool
     let error: String?
     let message: String?
+    let chrome: SiteChrome
 }

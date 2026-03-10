@@ -212,7 +212,7 @@ struct AppWebController: RouteCollection {
     // MARK: - Login / logout
 
     func loginPage(req: Request) async throws -> View {
-        try await req.view.render("app-login", LoginPageContext(title: "Sign in", error: nil))
+        try await req.view.render("app-login", LoginPageContext(title: "Sign in", error: nil, chrome: req.siteChrome()))
     }
 
     func login(req: Request) async throws -> Response {
@@ -222,7 +222,11 @@ struct AppWebController: RouteCollection {
         func failure() async throws -> Response {
             try await render(
                 req, "app-login",
-                LoginPageContext(title: "Sign in", error: "Invalid username, password, or 2FA code."),
+                LoginPageContext(
+                    title: "Sign in",
+                    error: "Invalid username, password, or 2FA code.",
+                    chrome: req.siteChrome()
+                ),
                 status: .unauthorized
             )
         }
@@ -346,7 +350,8 @@ struct AppWebController: RouteCollection {
             todayCount: sidebar.todayCount,
             todayActive: isToday,
             thisWeekCount: sidebar.thisWeekCount,
-            thisWeekActive: isThisWeek
+            thisWeekActive: isThisWeek,
+            chrome: req.siteChrome()
         ))
     }
 
@@ -359,7 +364,8 @@ struct AppWebController: RouteCollection {
         return try await req.view.render("app-bookmark-new", AppNewBookmarkContext(
             title: "Add bookmark", appUsername: user.username, error: nil, existingID: nil,
             url: url, bookmarkTitle: "", description: "", tags: "", previewed: false,
-            knownTagsJSON: knownTagsJSON(req, user: user)
+            knownTagsJSON: knownTagsJSON(req, user: user),
+            chrome: req.siteChrome()
         ))
     }
 
@@ -382,7 +388,8 @@ struct AppWebController: RouteCollection {
             try await render(req, "app-bookmark-new", AppNewBookmarkContext(
                 title: "Add bookmark", appUsername: user.username, error: error, existingID: existingID,
                 url: rawURL, bookmarkTitle: title ?? "", description: description ?? "",
-                tags: tagsText, previewed: previewed, knownTagsJSON: tagsJSON
+                tags: tagsText, previewed: previewed, knownTagsJSON: tagsJSON,
+                chrome: req.siteChrome()
             ), status: status)
         }
 
@@ -454,7 +461,8 @@ struct AppWebController: RouteCollection {
             title: bookmark.title,
             appUsername: req.auth.require(User.self).username,
             bookmark: Self.row(from: bookmark),
-            message: message
+            message: message,
+            chrome: req.siteChrome()
         ))
     }
 
@@ -535,7 +543,8 @@ struct AppWebController: RouteCollection {
         }
 
         return try await req.view.render("app-tags", AppTagsContext(
-            title: "Tags", appUsername: user.username, tags: tags, message: message, error: error
+            title: "Tags", appUsername: user.username, tags: tags, message: message, error: error,
+            chrome: req.siteChrome()
         ))
     }
 
@@ -627,7 +636,8 @@ struct AppWebController: RouteCollection {
         return try await render(req, "app-totp-setup", AppTOTPSetupContext(
             title: "Enable 2FA", appUsername: user.username,
             secret: secret, otpauthURI: TOTP.otpauthURI(secret: secret, username: user.username),
-            error: nil
+            error: nil,
+            chrome: req.siteChrome()
         ))
     }
 
@@ -642,7 +652,8 @@ struct AppWebController: RouteCollection {
             return try await render(req, "app-totp-setup", AppTOTPSetupContext(
                 title: "Enable 2FA", appUsername: user.username,
                 secret: secret, otpauthURI: TOTP.otpauthURI(secret: secret, username: user.username),
-                error: "That code didn't match. Try again."
+                error: "That code didn't match. Try again.",
+                chrome: req.siteChrome()
             ), status: .badRequest)
         }
 
@@ -656,7 +667,8 @@ struct AppWebController: RouteCollection {
         try await user.save(on: req.db)
 
         return try await render(req, "app-recovery-codes", AppRecoveryCodesContext(
-            title: "Save your recovery codes", appUsername: user.username, codes: plainCodes
+            title: "Save your recovery codes", appUsername: user.username, codes: plainCodes,
+            chrome: req.siteChrome()
         ))
     }
 
@@ -830,7 +842,8 @@ struct AppWebController: RouteCollection {
             exporters: ImportExportRegistry.shared.exporterOptions,
             importError: importError,
             importSummary: importSummary,
-            theme: Self.currentTheme(req)
+            theme: Self.currentTheme(req),
+            chrome: req.siteChrome()
         )
     }
 
@@ -876,7 +889,8 @@ struct AppWebController: RouteCollection {
             description: bookmark.description ?? "",
             tags: bookmark.tags.joined(separator: ", "),
             isArchived: bookmark.isArchived,
-            knownTagsJSON: knownTagsJSON(req, user: user)
+            knownTagsJSON: knownTagsJSON(req, user: user),
+            chrome: req.siteChrome()
         ))
     }
 

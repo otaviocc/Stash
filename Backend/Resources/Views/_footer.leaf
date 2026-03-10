@@ -1,0 +1,17 @@
+<footer class="site-footer">
+    #if(chrome.aboutText):
+    <p class="about">#(chrome.aboutText)</p>
+    #endif
+    <div class="footer-row">
+        <div class="footer-links">
+            <a href="https://social.lol/@otaviocc" target="_blank" rel="noopener noreferrer">Mastodon</a>
+            <a href="https://ko-fi.com/otaviocc" target="_blank" rel="noopener noreferrer">Support Stash on Ko-fi</a>
+            #if(chrome.footer.customLabel):
+            #if(chrome.footer.customURL):
+            <a href="#(chrome.footer.customURL)" target="_blank" rel="noopener noreferrer">#(chrome.footer.customLabel)</a>
+            #endif
+            #endif
+        </div>
+        <span class="version">Stash #(chrome.footer.version)</span>
+    </div>
+</footer>

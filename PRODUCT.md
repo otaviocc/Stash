@@ -189,6 +189,52 @@ prefix match: includes `swift` and `swift/*`, but not `swiftui`.
 **Tag normalisation:** trimmed, lowercased, surrounding slashes stripped,
 de-duplicated. Enforced server-side on every write.
 
+### 7.6 Site Settings
+
+Instance-wide customisation, managed by the admin. A single-row configuration
+table — always exactly one row, created on first boot with default values, never
+deleted. Cached on the application at startup so page renders never hit the
+database.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | UUID | Primary key |
+| `accentTheme` | String | Default `"ocean"`. One of the nine theme identifiers. |
+| `aboutText` | String? | Optional. Short message shown in the footer. Max 280 chars. |
+| `footerCustomLabel` | String? | Display label for the admin's custom footer link. |
+| `footerCustomURL` | String? | URL for the custom footer link. Must be `https://`. |
+| `createdAt` | Date | Auto-set |
+| `updatedAt` | Date | Auto-updated |
+
+**Accent themes.** Nine named themes, each with a light-mode and a dark-mode hex
+value; the active value is selected automatically from the `data-theme`
+attribute. `ocean` is the default and matches the app's original accent.
+
+| Identifier | Name | Light | Dark |
+|------------|------|-------|------|
+| `ocean` | Ocean | `#0a84ff` | `#409cff` |
+| `sunny` | Sunny | `#f59e0b` | `#fbbf24` |
+| `forest` | Forest | `#16a34a` | `#4ade80` |
+| `ember` | Ember | `#dc2626` | `#f87171` |
+| `aurora` | Aurora | `#7c3aed` | `#a78bfa` |
+| `arctic` | Arctic | `#0891b2` | `#22d3ee` |
+| `rose` | Rose | `#be185d` | `#f472b6` |
+| `dusk` | Dusk | `#b45309` | `#d97706` |
+| `slate` | Slate | `#475569` | `#94a3b8` |
+
+The selected theme's values are injected into `layout.leaf`'s `<head>` as a CSS
+block overriding `--accent`, from the app-level cache (no per-request query).
+
+**Footer.** Shown on every `/app` and `/admin` page via `layout.leaf`. Fixed,
+non-configurable content: a Mastodon link (`https://social.lol/@otaviocc`), a
+Ko-fi link (`https://ko-fi.com/otaviocc`), and the version string (read from a
+`VERSION` file at startup, `"dev"` if missing). Configurable content: the
+optional `aboutText` (shown above the links) and one optional custom link
+(`footerCustomLabel` + `footerCustomURL`, shown only when both are non-empty).
+All external links open in a new tab with `rel="noopener noreferrer"`. The Stash
+identity (name, logo, Ko-fi and Mastodon links) is hardcoded and not
+configurable.
+
 ---
 
 ## 8. Authentication & Security
@@ -489,6 +535,7 @@ container restart.
 | User List | `/admin/users` |
 | Create User | `/admin/users/new` |
 | User Detail | `/admin/users/:id` |
+| Appearance | `/admin/appearance` |
 
 ### Business Rules
 
@@ -499,6 +546,11 @@ container restart.
 - 2FA reset: clears secret + recovery codes + invalidates refresh tokens
 - Post/Redirect/Get with `?ok=` confirmation banners
 - HTML forms use POST sub-routes for destructive actions (suspend, delete, etc.)
+- The Appearance page (`GET`/`POST /admin/appearance`) edits the instance
+  `SiteSettings` (§7.6): accent theme (nine circles, pure-HTML radios), the
+  about message (max 280 chars), and the custom footer link (URL must be
+  `https://`). Invalid input → 422 with the form re-rendered; on success the
+  app-level cache is refreshed and PRG redirects with `?ok=saved`.
 
 ---
 

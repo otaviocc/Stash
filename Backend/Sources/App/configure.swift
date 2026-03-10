@@ -67,6 +67,11 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateRefreshToken())
     app.migrations.add(CreateRecoveryCode())
     app.migrations.add(CreateBookmark())
+    app.migrations.add(CreateSiteSettings())
+
+    // MARK: Version
+
+    app.storage[AppVersionKey.self] = AppVersion.read(directory: app.directory.workingDirectory)
 
     // MARK: Outbound HTTP
 
@@ -93,6 +98,10 @@ public func configure(_ app: Application) async throws {
     // MARK: Migrations
 
     try await app.autoMigrate()
+
+    // MARK: Site settings cache
+
+    try await SiteSettingsService.loadAndCache(on: app)
 
     // MARK: First-boot admin seeding
 

@@ -1,0 +1,56 @@
+#extend("layout"):
+#export("content"):
+    <h1>Appearance</h1>
+    <p class="muted">Personalise this Stash instance.</p>
+
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
+    <form method="post" action="/admin/appearance">
+        <div class="card">
+            <h2>Accent theme</h2>
+            <p class="muted">The accent colour used across the admin dashboard and the user app.</p>
+            <div class="theme-grid">
+                #for(theme in themes):
+                <label class="theme-option" title="#(theme.name)">
+                    <input type="radio" name="accentTheme" value="#(theme.id)"#if(theme.isSelected): checked#endif>
+                    <span class="theme-swatch" style="background: #(theme.color);"></span>
+                    <span class="theme-name">#(theme.name)</span>
+                </label>
+                #endfor
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>About this instance</h2>
+            <label>Message
+                <textarea name="aboutText" id="aboutText" rows="3" maxlength="280"
+                    placeholder="A short message about this instance, shown in the footer. Max 280 characters."
+                    oninput="document.getElementById('aboutCount').textContent = this.value.length">#(aboutText)</textarea>
+            </label>
+            <p class="muted"><span id="aboutCount">0</span> / 280</p>
+        </div>
+
+        <div class="card">
+            <h2>Custom footer link</h2>
+            <p class="muted">An optional extra link shown in the footer. Both fields are required for it to appear.</p>
+            <label>Label
+                <input name="footerCustomLabel" value="#(footerCustomLabel)" placeholder="Our website">
+            </label>
+            <label>URL <span class="muted">(must start with https://)</span>
+                <input name="footerCustomURL" type="url" value="#(footerCustomURL)" placeholder="https://example.com">
+            </label>
+        </div>
+
+        <button type="submit">Save appearance</button>
+    </form>
+
+    <script>
+        document.getElementById('aboutCount').textContent = document.getElementById('aboutText').value.length;
+    </script>
+#endexport
+#endextend

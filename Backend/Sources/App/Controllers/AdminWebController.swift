@@ -74,12 +74,14 @@ struct AdminWebController: RouteCollection {
         protected.post("users", ":userID", "reset-password", use: resetPassword)
         protected.post("users", ":userID", "reset-totp", use: resetTOTP)
         protected.post("users", ":userID", "delete", use: deleteUser)
+        protected.get("appearance", use: appearance)
+        protected.post("appearance", use: saveAppearance)
     }
 
     // MARK: - Login / logout
 
     func loginPage(req: Request) async throws -> View {
-        try await req.view.render("login", LoginPageContext(title: "Sign in", error: nil))
+        try await req.view.render("login", LoginPageContext(title: "Sign in", error: nil, chrome: req.siteChrome()))
     }
 
     func login(req: Request) async throws -> Response {
@@ -89,7 +91,11 @@ struct AdminWebController: RouteCollection {
         func failure() async throws -> Response {
             try await render(
                 req, "login",
-                LoginPageContext(title: "Sign in", error: "Invalid username, password, or 2FA code."),
+                LoginPageContext(
+                    title: "Sign in",
+                    error: "Invalid username, password, or 2FA code.",
+                    chrome: req.siteChrome()
+                ),
                 status: .unauthorized
             )
         }
@@ -137,7 +143,8 @@ struct AdminWebController: RouteCollection {
             adminUsername: admin.username,
             totalUsers: users.count,
             totalBookmarks: totalBookmarks,
-            users: rows
+            users: rows,
+            chrome: req.siteChrome()
         ))
     }
 
@@ -149,14 +156,16 @@ struct AdminWebController: RouteCollection {
         return try await req.view.render("users", UsersContext(
             title: "Users",
             adminUsername: admin.username,
-            users: users.map { try $0.asRow() }
+            users: users.map { try $0.asRow() },
+            chrome: req.siteChrome()
         ))
     }
 
     func newUserForm(req: Request) async throws -> View {
         let admin = try req.auth.require(User.self)
         return try await req.view.render("user-new", NewUserContext(
-            title: "New user", adminUsername: admin.username, error: nil, username: nil
+            title: "New user", adminUsername: admin.username, error: nil, username: nil,
+            chrome: req.siteChrome()
         ))
     }
 
@@ -168,7 +177,10 @@ struct AdminWebController: RouteCollection {
         func formError(_ message: String) async throws -> Response {
             try await render(
                 req, "user-new",
-                NewUserContext(title: "New user", adminUsername: admin.username, error: message, username: username),
+                NewUserContext(
+                    title: "New user", adminUsername: admin.username, error: message, username: username,
+                    chrome: req.siteChrome()
+                ),
                 status: .badRequest
             )
         }
@@ -281,7 +293,98 @@ struct AdminWebController: RouteCollection {
         return req.redirect(to: "/admin/users")
     }
 
+    // MARK: - Appearance
+
+    func appearance(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+        let settings = try await SiteSettingsService.current(on: req.db)
+        let message = req.query[String.self, at: "ok"] == "saved" ? "Appearance saved." : nil
+
+        return try await renderAppearance(
+            req,
+            admin: admin,
+            accentTheme: settings.accentTheme,
+            aboutText: settings.aboutText ?? "",
+            footerCustomLabel: settings.footerCustomLabel ?? "",
+            footerCustomURL: settings.footerCustomURL ?? "",
+            error: nil,
+            message: message
+        )
+    }
+
+    func saveAppearance(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+        let form = try req.content.decode(AppearanceForm.self)
+
+        let accentTheme = form.accentTheme.trimmingCharacters(in: .whitespacesAndNewlines)
+        let aboutText = form.aboutText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let label = form.footerCustomLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let url = form.footerCustomURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        func formError(_ message: String) async throws -> Response {
+            try await renderAppearance(
+                req,
+                admin: admin,
+                accentTheme: accentTheme,
+                aboutText: aboutText,
+                footerCustomLabel: label,
+                footerCustomURL: url,
+                error: message,
+                message: nil,
+                status: .unprocessableEntity
+            )
+        }
+
+        guard AccentTheme.validIdentifiers.contains(accentTheme) else {
+            return try await formError("Choose one of the available accent themes.")
+        }
+        guard aboutText.count <= 280 else {
+            return try await formError("The about message must be 280 characters or fewer.")
+        }
+        guard url.isEmpty || url.lowercased().hasPrefix("https://") else {
+            return try await formError("The footer link URL must start with https://.")
+        }
+
+        let settings = try await SiteSettingsService.current(on: req.db)
+        settings.accentTheme = accentTheme
+        settings.aboutText = aboutText.isEmpty ? nil : aboutText
+        settings.footerCustomLabel = label.isEmpty ? nil : label
+        settings.footerCustomURL = url.isEmpty ? nil : url
+        try await settings.save(on: req.db)
+        SiteSettingsService.refreshCache(with: settings, on: req.application)
+
+        return req.redirect(to: "/admin/appearance?ok=saved")
+    }
+
     // MARK: - Helpers
+
+    private func renderAppearance(
+        _ req: Request,
+        admin: User,
+        accentTheme: String,
+        aboutText: String,
+        footerCustomLabel: String,
+        footerCustomURL: String,
+        error: String?,
+        message: String?,
+        status: HTTPResponseStatus = .ok
+    ) async throws -> Response {
+        let themes = AccentTheme.all.map {
+            ThemeOption(id: $0.id, name: $0.name, color: $0.light, isSelected: $0.id == accentTheme)
+        }
+        let context = AppearanceContext(
+            title: "Appearance",
+            adminUsername: admin.username,
+            themes: themes,
+            aboutText: aboutText,
+            footerCustomLabel: footerCustomLabel,
+            footerCustomURL: footerCustomURL,
+            error: error,
+            message: message,
+            chrome: req.siteChrome()
+        )
+        return try await render(req, "appearance", context, status: status)
+    }
 
     private func loadUser(_ req: Request) async throws -> User? {
         guard let id = req.parameters.get("userID", as: UUID.self) else { return nil }
@@ -305,7 +408,8 @@ struct AdminWebController: RouteCollection {
             createdAt: Self.dateFormatter.string(from: user.createdAt ?? Date()),
             isSelf: isSelf,
             error: error,
-            message: message
+            message: message,
+            chrome: req.siteChrome()
         )
         return try await render(req, "user-detail", context, status: status)
     }
