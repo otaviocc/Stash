@@ -1470,3 +1470,43 @@ Glass adopted automatically by building against the 26 SDKs).
   (422) to avoid mixed-content warnings on HTTPS instances. The custom footer
   link renders only when **both** label and URL are non-empty; empties are
   normalised to `nil` on save.
+
+---
+
+## Token refresh — concurrent-refresh race (macOS spurious logout)
+
+- **✅ Silent refresh is single-flight; concurrent callers are coalesced.**
+  Refresh tokens are single-use — the backend rotates on every
+  `POST /api/v1/auth/refresh` and deletes the one just presented (M1, §8.1). The
+  app fires `refreshIfNeeded()` before *every* authenticated request, and it had
+  no serialization: two requests that started together with an expired access
+  token both read the same refresh token from the Keychain and both POSTed it.
+  The server honoured the first and deleted it; the second arrived with a now-
+  deleted token → `401 token_invalid` → `clearSession()` → the user was dropped
+  to the login screen. `AuthRepository` (and the Share Extension's
+  `ExtensionSession`) now hold an `inflightRefresh: Task<Void, Error>?`: the
+  first caller spawns the refresh task and stores it; concurrent callers `await`
+  that same task instead of starting their own. Because both types are
+  `@MainActor`-isolated, the check-and-set is race-free without locks (the first
+  suspension point is `await task.value`, after the task is stored).
+- **⚠️ Why this only bit macOS / iPad, not iPhone.** It is the navigation shell,
+  not the auth code (which is shared). `MacContentView` (and the iPad
+  `NavigationSplitView`) render both columns at launch, so the sidebar's
+  `tagRepository.load()` and the detail column's bookmark load fire two
+  authenticated requests *simultaneously* — the race. iPhone's
+  `TabContainerView` lazy-loads tabs, so only one request fires at cold start; a
+  backend restart is a red herring (refresh tokens live in Postgres with a
+  volume and survive it). The bug was intermittent because it only triggers when
+  the cached access token is already expired at launch (app idle > ~15 min); a
+  fresh token short-circuits at the expiry guard before any refresh.
+- **✅ Only a definitive auth failure clears the session.** The old `catch`
+  cleared the session on *any* refresh error, so a transient network blip or a
+  5xx during refresh logged the user out even though the refresh token was still
+  valid server-side. `performRefresh()` now clears only on an authentication
+  failure (`token_expired` / `token_invalid` / `invalid_credentials` /
+  `account_suspended`) and rethrows everything else with the session intact for
+  retry. This is safe because the refresh endpoint returns `token_invalid` /
+  `token_expired` for *every* dead-token case — invalid, expired, rotated-away,
+  and revoked (suspend / password reset / 2FA reset, §8.6) — so the logout
+  behaviour for genuinely dead tokens is unchanged; only transient failures are
+  spared.

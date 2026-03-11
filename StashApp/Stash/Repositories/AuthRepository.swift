@@ -30,7 +30,10 @@ import StashKit
 ///
 /// Owns the silent token refresh used by the other repositories: before an authenticated request,
 /// `refreshIfNeeded()` checks the access token's expiry and rotates the token pair when it is about
-/// to expire. A failed refresh clears the session so the UI returns to the login screen.
+/// to expire. Concurrent callers are coalesced onto a single in-flight refresh so the single-use
+/// refresh token is never rotated twice in parallel. Only a definitive authentication failure clears
+/// the session and returns the UI to login; a transient network or server error is rethrown with the
+/// session left intact so the caller can retry.
 @MainActor
 @Observable
 final class AuthRepository: SessionRefreshing {
@@ -41,6 +44,7 @@ final class AuthRepository: SessionRefreshing {
 
     private let clientProvider: StashClientProvider
     private let tokenManager: TokenManager
+    private var inflightRefresh: Task<Void, Error>?
 
     // MARK: Lifecycle
 
@@ -51,6 +55,20 @@ final class AuthRepository: SessionRefreshing {
         self.clientProvider = clientProvider
         self.tokenManager = tokenManager
         isAuthenticated = tokenManager.accessToken != nil
+    }
+
+    // MARK: Static Functions
+
+    private static func isAuthenticationFailure(_ error: Error) -> Bool {
+        switch error {
+        case StashAPIError.tokenExpired,
+             StashAPIError.tokenInvalid,
+             StashAPIError.invalidCredentials,
+             StashAPIError.accountSuspended:
+            true
+        default:
+            false
+        }
     }
 
     // MARK: Functions
@@ -126,20 +144,17 @@ final class AuthRepository: SessionRefreshing {
         guard tokenManager.isAccessTokenExpiringSoon() else {
             return
         }
-        guard let client = clientProvider.client(), let refreshToken = tokenManager.refreshToken else {
-            clearSession()
-            throw AppError.sessionExpired
+
+        if let inflightRefresh {
+            return try await inflightRefresh.value
         }
 
-        do {
-            let pair = try await client
-                .run(AuthRequestFactory.makeRefreshRequest(refreshToken: refreshToken))
-                .value
-            tokenManager.save(accessToken: pair.accessToken, refreshToken: pair.refreshToken)
-        } catch {
-            clearSession()
-            throw error
-        }
+        let task = Task { try await performRefresh() }
+        inflightRefresh = task
+
+        defer { inflightRefresh = nil }
+
+        try await task.value
     }
 
     func currentUser() async throws -> CurrentUser {
@@ -195,6 +210,26 @@ final class AuthRepository: SessionRefreshing {
         }
 
         return client
+    }
+
+    private func performRefresh() async throws {
+        guard let client = clientProvider.client(), let refreshToken = tokenManager.refreshToken else {
+            clearSession()
+            throw AppError.sessionExpired
+        }
+
+        do {
+            let pair = try await client
+                .run(AuthRequestFactory.makeRefreshRequest(refreshToken: refreshToken))
+                .value
+            tokenManager.save(accessToken: pair.accessToken, refreshToken: pair.refreshToken)
+        } catch {
+            if Self.isAuthenticationFailure(error) {
+                clearSession()
+            }
+
+            throw error
+        }
     }
 
     private func completeLogin(accessToken: String, refreshToken: String) {

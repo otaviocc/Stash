@@ -29,7 +29,8 @@ import Foundation
 @MainActor
 protocol SessionRefreshing: AnyObject {
 
-    /// Refreshes the access token if it is expiring soon. On refresh failure the session is logged
-    /// out and the error is rethrown.
+    /// Refreshes the access token if it is expiring soon, coalescing concurrent callers onto one
+    /// in-flight refresh. A definitive authentication failure logs the session out; any other error is
+    /// rethrown with the session intact. The error is rethrown in both cases.
     func refreshIfNeeded() async throws
 }

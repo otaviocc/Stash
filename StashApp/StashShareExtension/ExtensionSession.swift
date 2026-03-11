@@ -38,6 +38,7 @@ final class ExtensionSession {
 
     private let clientProvider: StashClientProvider
     private let tokenManager: TokenManager
+    private var inflightRefresh: Task<Void, Error>?
 
     // MARK: Computed Properties
 
@@ -84,6 +85,20 @@ final class ExtensionSession {
         guard tokenManager.isAccessTokenExpiringSoon() else {
             return
         }
+
+        if let inflightRefresh {
+            return try await inflightRefresh.value
+        }
+
+        let task = Task { try await performRefresh() }
+        inflightRefresh = task
+
+        defer { inflightRefresh = nil }
+
+        try await task.value
+    }
+
+    private func performRefresh() async throws {
         guard let client = clientProvider.client(), let refreshToken = tokenManager.refreshToken else {
             throw AppError.sessionExpired
         }
