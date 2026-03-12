@@ -26,11 +26,11 @@ import Foundation
 ///
 /// `AuthRepository` provides the concrete implementation; the bookmark and tag repositories depend
 /// on this narrow protocol so they can ensure a fresh token without owning the auth state.
+/// `refreshIfNeeded()` refreshes only when the token is expiring soon, coalesces concurrent callers
+/// onto one in-flight refresh, and logs the session out only on a definitive authentication failure —
+/// any other error is rethrown with the session intact.
 @MainActor
 protocol SessionRefreshing: AnyObject {
 
-    /// Refreshes the access token if it is expiring soon, coalescing concurrent callers onto one
-    /// in-flight refresh. A definitive authentication failure logs the session out; any other error is
-    /// rethrown with the session intact. The error is rethrown in both cases.
     func refreshIfNeeded() async throws
 }
