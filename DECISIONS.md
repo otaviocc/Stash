@@ -1013,6 +1013,15 @@ Glass adopted automatically by building against the 26 SDKs).
   with their nature as web-frontend conveniences. ⚠️ Like "Untagged", the filter
   banner renders "Filtered by tag Today", a slight wording mismatch carried over
   from the shared template path.
+- **✅ Sidebar split into two labeled sections: Views + Tags.** The smart filters
+  (All, Untagged, Today, This Week) and the hierarchical tag tree had grown into
+  one undifferentiated list under a single "Tags" heading, which mislabeled the
+  filters as tags. They now live in two `<ul class="tag-tree">` lists, each under
+  its own `h2` — "Views" over the filters, "Tags" over the tree (`.tag-tree + h2`
+  gets `margin-top` so the second heading is spaced from the first list). Both
+  lists reuse the `tag-tree` styling. The "Views" heading is now the sidebar's
+  first element, so it takes over the `margin-top: 3.25rem` search-field alignment
+  role previously held by "Tags" — no value change needed, just a heading rename.
 
 ---
 

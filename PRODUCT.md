@@ -583,6 +583,9 @@ container restart.
 
 - Right column, plain flex — scrolls with the page as one unit (no fixed/sticky
   positioning)
+- Two labeled sections: a **Views** heading over the smart filters (All,
+  Untagged, Today, This Week), then a **Tags** heading over the hierarchical tag
+  tree. The top heading also lines the sidebar up with the search field.
 - "All" link at top (highlighted when no filter active)
 - "Untagged" link (highlighted when `?tag=__untagged__`; count shown when > 0)
 - "Today" link (highlighted when `?tag=__today__`; bookmarks created since the

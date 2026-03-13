@@ -177,9 +177,10 @@
         /* Pin the heading box so the sidebar's top offset is exact, not a guessed number.
            Line box = line-height 1.5 × font-size 1.5rem = 2.25rem; bottom margin 1rem. */
         .app-main h1 { margin: 0 0 1rem; }
-        /* Drop "Tags" to line up with the search field: clear the h1 (2.25rem + 1rem margin). */
+        /* Drop "Views" (the sidebar's first heading) to line up with the search field: clear the h1 (2.25rem + 1rem margin). */
         .tag-sidebar { flex: 0 0 220px; width: 220px; margin-top: 3.25rem; }
         .tag-sidebar h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+        .tag-sidebar .tag-tree + h2 { margin-top: 1.25rem; }
         .tag-tree { list-style: none; margin: 0; padding: 0; }
         .tag-tree li { margin: 0; line-height: 1.7; }
         .tag-tree a { text-decoration: none; color: var(--text); }

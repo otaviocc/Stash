@@ -54,12 +54,15 @@
     </div>
 
     <aside class="tag-sidebar">
-        <h2>Tags</h2>
+        <h2>Views</h2>
         <ul class="tag-tree">
             <li><a href="/app"#if(tag == ""): class="active"#endif>All</a></li>
             <li><a href="/app?tag=__untagged__"#if(untaggedActive): class="active"#endif>Untagged</a>#if(untaggedCount > 0): <span class="count">(#(untaggedCount))</span>#endif</li>
             <li><a href="/app?tag=__today__"#if(todayActive): class="active"#endif>Today</a>#if(todayCount > 0): <span class="count">(#(todayCount))</span>#endif</li>
             <li><a href="/app?tag=__this_week__"#if(thisWeekActive): class="active"#endif>This Week</a>#if(thisWeekCount > 0): <span class="count">(#(thisWeekCount))</span>#endif</li>
+        </ul>
+        <h2>Tags</h2>
+        <ul class="tag-tree">
             #for(t in sidebarTags):
             <li style="padding-left: calc(#(t.depth) * 0.9rem)">
                 <a href="#(t.href)"#if(t.isActive): class="active"#endif>#(t.label)</a>#if(t.count > 0): <span class="count">(#(t.count))</span>#endif
