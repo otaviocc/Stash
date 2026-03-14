@@ -1,0 +1,175 @@
+import Fluent
+import Vapor
+
+/// Bookmark CRUD, scoped to the authenticated user (PRD §9.3).
+struct BookmarkController: RouteCollection {
+    func boot(routes: RoutesBuilder) throws {
+        let bookmarks = routes.grouped("bookmarks")
+        bookmarks.get(use: list)
+        bookmarks.post(use: create)
+        bookmarks.group(":bookmarkID") { bookmark in
+            bookmark.get(use: get)
+            bookmark.put(use: update)
+            bookmark.delete(use: delete)
+        }
+    }
+
+    // GET /bookmarks
+    func list(req: Request) async throws -> Page<BookmarkResponse> {
+        let user = try req.auth.require(User.self)
+        let query = try req.query.decode(BookmarkListQuery.self)
+
+        let page = max(query.page ?? 1, 1)
+        let per = min(max(query.per ?? 20, 1), 100)
+
+        let builder = try Bookmark.query(on: req.db)
+            .filter(\.$user.$id == user.requireID())
+            .filter(\.$isArchived == (query.archived ?? false))
+
+        // Full-text search across URL, title, description.
+        if let term = query.q?.nonEmpty {
+            builder.group(.or) { group in
+                group.filter(\.$url ~~ term)
+                group.filter(\.$title ~~ term)
+                group.filter(\.$description ~~ term)
+            }
+        }
+
+        // Tag prefix match: `swift` matches `swift` and `swift/*` (PRD §7.5).
+        if let rawTag = query.tag?.nonEmpty {
+            let tag = Bookmark.normalizeTagQuery(rawTag)
+            if !tag.isEmpty {
+                builder.group(.or) { group in
+                    group.filter(\.$tagsSearch ~~ "|\(tag)|")
+                    group.filter(\.$tagsSearch ~~ "|\(tag)/")
+                }
+            }
+        }
+
+        let result = try await builder
+            .sort(\.$createdAt, .descending)
+            .sort(\.$id, .descending)
+            .paginate(PageRequest(page: page, per: per))
+
+        let items = try result.items.map { try $0.asResponse() }
+        return Page(items: items, metadata: result.metadata)
+    }
+
+    // POST /bookmarks
+    func create(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        let input = try req.content.decode(CreateBookmarkInput.self)
+        let url = try Bookmark.validatedURL(input.url)
+        let userID = try user.requireID()
+
+        if let existing = try await self.existingBookmark(url: url, userID: userID, on: req.db) {
+            throw APIError.duplicateURL(existingID: try existing.requireID())
+        }
+
+        // Client-supplied values take precedence over fetched ones (PRD §10).
+        var title = input.title?.nonEmpty
+        var description = input.description?.nonEmpty
+        var faviconURL: String?
+
+        if input.fetchMetadata ?? true {
+            let fetched = await MetadataFetcher.fetch(url: url, on: req)
+            title = title ?? fetched.title
+            description = description ?? fetched.description
+            faviconURL = fetched.faviconURL
+        }
+
+        let bookmark = Bookmark(
+            userID: userID,
+            url: url,
+            title: title ?? url,
+            description: description,
+            faviconURL: faviconURL,
+            tags: Bookmark.normalizeTags(input.tags ?? []),
+            isArchived: false
+        )
+
+        do {
+            try await bookmark.save(on: req.db)
+        } catch {
+            // Unique-index backstop in case of a race between the check above and the insert.
+            if let existing = try await self.existingBookmark(url: url, userID: userID, on: req.db) {
+                throw APIError.duplicateURL(existingID: try existing.requireID())
+            }
+            throw error
+        }
+
+        user.bookmarkCount += 1
+        try await user.save(on: req.db)
+
+        let response = Response(status: .created)
+        try response.content.encode(try bookmark.asResponse())
+        return response
+    }
+
+    // GET /bookmarks/:id
+    func get(req: Request) async throws -> BookmarkResponse {
+        try await self.requireBookmark(req).asResponse()
+    }
+
+    // PUT /bookmarks/:id
+    func update(req: Request) async throws -> BookmarkResponse {
+        let user = try req.auth.require(User.self)
+        let bookmark = try await self.requireBookmark(req)
+        let input = try req.content.decode(UpdateBookmarkInput.self)
+
+        if let rawURL = input.url {
+            let url = try Bookmark.validatedURL(rawURL)
+            if url != bookmark.url {
+                if let existing = try await self.existingBookmark(url: url, userID: user.requireID(), on: req.db),
+                   try existing.requireID() != bookmark.requireID() {
+                    throw APIError.duplicateURL(existingID: try existing.requireID())
+                }
+                bookmark.url = url
+            }
+        }
+        if let title = input.title { bookmark.title = title }
+        if let description = input.description { bookmark.description = description }
+        if let tags = input.tags { bookmark.applyTags(Bookmark.normalizeTags(tags)) }
+        if let isArchived = input.isArchived { bookmark.isArchived = isArchived }
+
+        try await bookmark.save(on: req.db)
+        return try bookmark.asResponse()
+    }
+
+    // DELETE /bookmarks/:id
+    func delete(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        let bookmark = try await self.requireBookmark(req)
+        try await bookmark.delete(on: req.db)
+
+        user.bookmarkCount = max(user.bookmarkCount - 1, 0)
+        try await user.save(on: req.db)
+        return Response(status: .noContent)
+    }
+
+    // MARK: - Helpers
+
+    /// Load a bookmark by id, scoped to the current user. Cross-user access returns 404,
+    /// which is exactly the user-isolation guarantee (PRD §17.7).
+    private func requireBookmark(_ req: Request) async throws -> Bookmark {
+        let user = try req.auth.require(User.self)
+        guard let id = req.parameters.get("bookmarkID", as: UUID.self) else {
+            throw APIError.notFound
+        }
+        guard let bookmark = try await Bookmark.query(on: req.db)
+            .filter(\.$user.$id == user.requireID())
+            .filter(\.$id == id)
+            .first()
+        else {
+            throw APIError.notFound
+        }
+        return bookmark
+    }
+
+    private func existingBookmark(url: String, userID: User.IDValue, on db: Database) async throws -> Bookmark? {
+        try await Bookmark.query(on: db)
+            .filter(\.$user.$id == userID)
+            .filter(\.$url == url)
+            .first()
+    }
+}
