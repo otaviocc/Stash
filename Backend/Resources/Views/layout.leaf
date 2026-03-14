@@ -233,6 +233,7 @@
             <a href="/admin/users">Users</a>
             <a href="/admin/users/new">New user</a>
             <a href="/admin/appearance">Appearance</a>
+            <a href="/app">App</a>
         </nav>
         <span class="spacer"></span>
         <span class="who">#(adminUsername)</span>
@@ -249,6 +250,7 @@
             <a href="/app/bookmarks/new">Add</a>
             <a href="/app/tags">Tags</a>
             <a href="/app/settings">Settings</a>
+            #if(appIsAdmin):<a href="/admin">Dashboard</a>#endif
         </nav>
         <span class="spacer"></span>
         <span class="who">#(appUsername)</span>

@@ -1519,3 +1519,28 @@ Glass adopted automatically by building against the 26 SDKs).
   and revoked (suspend / password reset / 2FA reset, §8.6) — so the logout
   behaviour for genuinely dead tokens is unchanged; only transient failures are
   spared.
+
+---
+
+## Cross-links between the `/app` and `/admin` web navs
+
+- **✅ The `/app` nav shows a "Dashboard" link to `/admin`, gated to admins.**
+  The user-facing frontend's nav bar gained a "Dashboard" entry after
+  "Settings", linking straight to the admin dashboard so an admin browsing their
+  own bookmarks can cross over without retyping the URL. It is rendered only when
+  the signed-in user is an admin (`#if(appIsAdmin)`), since the `/admin` section
+  is role-gated and admits a regular user only to its own login screen — showing
+  the link to everyone would be a dead end.
+- **✅ `appIsAdmin` is a per-context flag, mirroring `appUsername`.** The web
+  layout has no global render context — every page concern (`appUsername`,
+  `chrome`, …) is passed explicitly into each view context. So `appIsAdmin: Bool`
+  was added to all eight `/app` page contexts in `AppWebDTOs.swift` and populated
+  from `user.role == .admin` at each `req.view.render` call in `AppWebController`,
+  alongside the existing `appUsername`. A real `Bool` means the template uses
+  `#if(appIsAdmin)` directly, avoiding the `#if(count(x) > 0)` Int-coercion gotcha
+  codified in M11 (that only applies to counts, not booleans).
+- **✅ The `/admin` nav shows a reciprocal "App" link to `/app`, always.** Unlike
+  the `/app → /admin` direction, this one needs no gating: only admins ever reach
+  the admin dashboard, and every admin also has a regular `/app` account (the two
+  web UIs share the same user table), so the link is never a dead end. It is a
+  plain `<a href="/app">App</a>` with no context flag.

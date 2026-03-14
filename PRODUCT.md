@@ -546,6 +546,8 @@ container restart.
 - 2FA reset: clears secret + recovery codes + invalidates refresh tokens
 - Post/Redirect/Get with `?ok=` confirmation banners
 - HTML forms use POST sub-routes for destructive actions (suspend, delete, etc.)
+- Nav includes an "App" link to `/app` (always shown — every admin also has a
+  regular bookmark collection, so it is never a dead end)
 - The Appearance page (`GET`/`POST /admin/appearance`) edits the instance
   `SiteSettings` (§7.6): accent theme (nine circles, pure-HTML radios), the
   about message (max 280 chars), and the custom footer link (URL must be
@@ -571,6 +573,10 @@ container restart.
 | Edit Bookmark | `/app/bookmarks/:id/edit` |
 | Tag Browser | `/app/tags` |
 | Settings | `/app/settings` |
+
+Nav includes a "Dashboard" link to `/admin`, shown only when the signed-in user
+is an admin (a regular user can't get past the admin login, so the link would be
+a dead end for them).
 
 ### Bookmark List Features
 

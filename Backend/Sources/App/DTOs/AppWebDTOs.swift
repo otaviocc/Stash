@@ -141,6 +141,7 @@ struct AppBookmarksContext: Content {
 
     let title: String
     let appUsername: String
+    let appIsAdmin: Bool
     let bookmarks: [AppBookmarkRow]
     let q: String
     let tag: String
@@ -169,6 +170,7 @@ struct AppNewBookmarkContext: Content {
 
     let title: String
     let appUsername: String
+    let appIsAdmin: Bool
     let error: String?
     let existingID: String?
     let url: String
@@ -187,6 +189,7 @@ struct AppEditBookmarkContext: Content {
 
     let title: String
     let appUsername: String
+    let appIsAdmin: Bool
     let error: String?
     let id: String
     let url: String
@@ -205,6 +208,7 @@ struct AppBookmarkDetailContext: Content {
 
     let title: String
     let appUsername: String
+    let appIsAdmin: Bool
     let bookmark: AppBookmarkRow
     let message: String?
     let chrome: SiteChrome
@@ -227,6 +231,7 @@ struct AppTagsContext: Content {
 
     let title: String
     let appUsername: String
+    let appIsAdmin: Bool
     let tags: [AppTagCount]
     let message: String?
     let error: String?
@@ -283,6 +288,7 @@ struct AppSettingsContext: Content {
 
     let title: String
     let appUsername: String
+    let appIsAdmin: Bool
     let isTOTPEnabled: Bool
     let error: String?
     let message: String?
@@ -301,6 +307,7 @@ struct AppTOTPSetupContext: Content {
 
     let title: String
     let appUsername: String
+    let appIsAdmin: Bool
     let secret: String
     let otpauthURI: String
     let error: String?
@@ -314,6 +321,7 @@ struct AppRecoveryCodesContext: Content {
 
     let title: String
     let appUsername: String
+    let appIsAdmin: Bool
     let codes: [String]
     let chrome: SiteChrome
 }

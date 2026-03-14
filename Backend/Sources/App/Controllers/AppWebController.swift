@@ -333,6 +333,7 @@ struct AppWebController: RouteCollection {
         return try await req.view.render("app-bookmarks", AppBookmarksContext(
             title: archived ? "Archived" : "Bookmarks",
             appUsername: user.username,
+            appIsAdmin: user.role == .admin,
             bookmarks: result.items.map { try Self.row(from: $0) },
             q: query.q?.nonEmpty ?? "",
             tag: rawTag ?? "",
@@ -362,7 +363,8 @@ struct AppWebController: RouteCollection {
         let url = req.query[String.self, at: "url"] ?? ""
 
         return try await req.view.render("app-bookmark-new", AppNewBookmarkContext(
-            title: "Add bookmark", appUsername: user.username, error: nil, existingID: nil,
+            title: "Add bookmark", appUsername: user.username, appIsAdmin: user.role == .admin, error: nil,
+            existingID: nil,
             url: url, bookmarkTitle: "", description: "", tags: "", previewed: false,
             knownTagsJSON: knownTagsJSON(req, user: user),
             chrome: req.siteChrome()
@@ -386,7 +388,8 @@ struct AppWebController: RouteCollection {
             previewed: Bool = false
         ) async throws -> Response {
             try await render(req, "app-bookmark-new", AppNewBookmarkContext(
-                title: "Add bookmark", appUsername: user.username, error: error, existingID: existingID,
+                title: "Add bookmark", appUsername: user.username, appIsAdmin: user.role == .admin, error: error,
+                existingID: existingID,
                 url: rawURL, bookmarkTitle: title ?? "", description: description ?? "",
                 tags: tagsText, previewed: previewed, knownTagsJSON: tagsJSON,
                 chrome: req.siteChrome()
@@ -460,6 +463,7 @@ struct AppWebController: RouteCollection {
         return try await render(req, "app-bookmark-detail", AppBookmarkDetailContext(
             title: bookmark.title,
             appUsername: req.auth.require(User.self).username,
+            appIsAdmin: req.auth.require(User.self).role == .admin,
             bookmark: Self.row(from: bookmark),
             message: message,
             chrome: req.siteChrome()
@@ -543,7 +547,8 @@ struct AppWebController: RouteCollection {
         }
 
         return try await req.view.render("app-tags", AppTagsContext(
-            title: "Tags", appUsername: user.username, tags: tags, message: message, error: error,
+            title: "Tags", appUsername: user.username, appIsAdmin: user.role == .admin, tags: tags, message: message,
+            error: error,
             chrome: req.siteChrome()
         ))
     }
@@ -634,7 +639,7 @@ struct AppWebController: RouteCollection {
         try await user.save(on: req.db)
 
         return try await render(req, "app-totp-setup", AppTOTPSetupContext(
-            title: "Enable 2FA", appUsername: user.username,
+            title: "Enable 2FA", appUsername: user.username, appIsAdmin: user.role == .admin,
             secret: secret, otpauthURI: TOTP.otpauthURI(secret: secret, username: user.username),
             error: nil,
             chrome: req.siteChrome()
@@ -650,7 +655,7 @@ struct AppWebController: RouteCollection {
         }
         guard TOTP(secret: secretData).validate(form.totpCode) else {
             return try await render(req, "app-totp-setup", AppTOTPSetupContext(
-                title: "Enable 2FA", appUsername: user.username,
+                title: "Enable 2FA", appUsername: user.username, appIsAdmin: user.role == .admin,
                 secret: secret, otpauthURI: TOTP.otpauthURI(secret: secret, username: user.username),
                 error: "That code didn't match. Try again.",
                 chrome: req.siteChrome()
@@ -667,7 +672,8 @@ struct AppWebController: RouteCollection {
         try await user.save(on: req.db)
 
         return try await render(req, "app-recovery-codes", AppRecoveryCodesContext(
-            title: "Save your recovery codes", appUsername: user.username, codes: plainCodes,
+            title: "Save your recovery codes", appUsername: user.username, appIsAdmin: user.role == .admin,
+            codes: plainCodes,
             chrome: req.siteChrome()
         ))
     }
@@ -835,6 +841,7 @@ struct AppWebController: RouteCollection {
         AppSettingsContext(
             title: "Settings",
             appUsername: user.username,
+            appIsAdmin: user.role == .admin,
             isTOTPEnabled: user.isTOTPEnabled,
             error: error,
             message: message,
@@ -882,6 +889,7 @@ struct AppWebController: RouteCollection {
         return try await render(req, "app-bookmark-edit", AppEditBookmarkContext(
             title: "Edit",
             appUsername: user.username,
+            appIsAdmin: user.role == .admin,
             error: error,
             id: bookmark.requireID().uuidString,
             url: bookmark.url,
