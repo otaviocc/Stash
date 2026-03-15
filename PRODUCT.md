@@ -551,7 +551,9 @@ container restart.
 - The Appearance page (`GET`/`POST /admin/appearance`) edits the instance
   `SiteSettings` (§7.6): accent theme (nine circles, pure-HTML radios), the
   about message (max 280 chars), and the custom footer link (URL must be
-  `https://`). Invalid input → 422 with the form re-rendered; on success the
+  `https://`). Each theme circle previews the colour for the active mode — its
+  light value in light mode, its dark value in dark mode — matching what the app
+  actually renders. Invalid input → 422 with the form re-rendered; on success the
   app-level cache is refreshed and PRG redirects with `?ok=saved`.
 
 ---

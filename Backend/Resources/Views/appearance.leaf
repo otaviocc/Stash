@@ -18,7 +18,7 @@
                 #for(theme in themes):
                 <label class="theme-option" title="#(theme.name)">
                     <input type="radio" name="accentTheme" value="#(theme.id)"#if(theme.isSelected): checked#endif>
-                    <span class="theme-swatch" style="background: #(theme.color);"></span>
+                    <span class="theme-swatch" style="--swatch-light: #(theme.light); --swatch-dark: #(theme.dark);"></span>
                     <span class="theme-name">#(theme.name)</span>
                 </label>
                 #endfor

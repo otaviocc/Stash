@@ -52,7 +52,8 @@ struct ThemeOption: Content {
 
     let id: String
     let name: String
-    let color: String
+    let light: String
+    let dark: String
     let isSelected: Bool
 }
 

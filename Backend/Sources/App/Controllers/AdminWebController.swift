@@ -370,7 +370,7 @@ struct AdminWebController: RouteCollection {
         status: HTTPResponseStatus = .ok
     ) async throws -> Response {
         let themes = AccentTheme.all.map {
-            ThemeOption(id: $0.id, name: $0.name, color: $0.light, isSelected: $0.id == accentTheme)
+            ThemeOption(id: $0.id, name: $0.name, light: $0.light, dark: $0.dark, isSelected: $0.id == accentTheme)
         }
         let context = AppearanceContext(
             title: "Appearance",

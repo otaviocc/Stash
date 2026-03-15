@@ -1469,8 +1469,8 @@ Glass adopted automatically by building against the 26 SDKs).
   the file is missing or empty.
 - **✅ Theme picker is pure HTML radio inputs.** No JavaScript is needed for
   selection: nine visually-hidden radio inputs, each wrapped by a `<label>` whose
-  coloured circle (`.theme-swatch`, the theme's light value) is styled via CSS,
-  with `input:checked + .theme-swatch` drawing the active ring.
+  coloured circle (`.theme-swatch`) is styled via CSS, with
+  `input:checked + .theme-swatch` drawing the active ring.
 - **✅ `aboutText` capped at 280 characters.** A natural limit for a short
   instance description (one Mastodon post). Enforced server-side (422 + inline
   error on overflow); a small `oninput` counter mirrors the existing danger-zone
@@ -1544,3 +1544,20 @@ Glass adopted automatically by building against the 26 SDKs).
   the admin dashboard, and every admin also has a regular `/app` account (the two
   web UIs share the same user table), so the link is never a dead end. It is a
   plain `<a href="/app">App</a>` with no context flag.
+
+---
+
+## Appearance theme swatches respect dark mode
+
+- **✅ Each swatch previews the colour for the active light/dark mode.** Every
+  `AccentTheme` carries both a light and a dark hex (§7.6), but the appearance
+  picker rendered each swatch with an inline `background` hardcoded to the light
+  value (`ThemeOption.color = $0.light`), so in Dark Mode the circles showed the
+  wrong (light-mode) colours while the rest of the page was dark. The swatch now
+  switches with the page: `ThemeOption` carries both `light` and `dark`, the
+  inline style sets `--swatch-light` / `--swatch-dark` custom properties only,
+  and `.theme-swatch` resolves the background from them in CSS — defaulting to
+  `--swatch-light`, overridden to `--swatch-dark` under `[data-theme="dark"]` and
+  under `prefers-color-scheme: dark` in auto mode. This mirrors the three-way
+  resolution already used for the injected `--accent` override, so the previews
+  match the colour the app actually renders.
