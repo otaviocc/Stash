@@ -1561,3 +1561,82 @@ Glass adopted automatically by building against the 26 SDKs).
   under `prefers-color-scheme: dark` in auto mode. This mirrors the three-way
   resolution already used for the injected `--accent` override, so the previews
   match the colour the app actually renders.
+
+---
+
+## Smart Views
+
+- **✅ All conditions are ANDed.** A Smart View matches a bookmark only when *every*
+  condition holds. There is no `OR`, no grouping, and no boolean-expression parser
+  — AND covers the large majority of "saved query" use cases, and the absence of a
+  query DSL keeps both the data model and the builder UI trivial. A user who needs
+  an alternative just creates a second Smart View.
+- **✅ Conditions stored as a JSON array of `{ type, value }` objects.** The
+  `conditions` column is a single `.json` column holding an array of
+  discriminated-union objects (`{ "type": "urlContains", "value": "youtube" }`).
+  Adding a new condition type is a code-only change — no schema migration — and the
+  flat `{ type, value }` shape (all values are strings; dates are ISO-8601,
+  `isArchived` is `"true"`/`"false"`) is the same on the wire and in the DB, so the
+  API response is a direct projection of the stored value. `SmartViewCondition` is a
+  Swift `enum` whose `Codable` round-trips that shape; its `validated(type:value:)`
+  factory is the single choke point that rejects unknown types, empty values, and
+  unparseable dates/booleans with `422 validation_failed`.
+- **⚠️ Conditions are wrapped in a single-object `SmartViewConditionList`, not a
+  bare `[SmartViewCondition]` field.** Storing the array directly worked on the
+  SQLite test DB but failed in production on PostgreSQL: Fluent's Postgres encoder
+  serializes a top-level Swift array as `jsonb[]`, which the `jsonb` column rejects
+  (`column "conditions" is of type jsonb but expression is of type jsonb[]`). SQLite
+  has no array type, so it stored the same value as JSON text and the tests passed
+  — a textbook SQLite-tests / Postgres-prod divergence the in-memory test DB can't
+  catch. Wrapping the array in a one-field `Codable` struct makes Fluent emit a
+  single `jsonb` document on both drivers; `SmartView.conditions` is a computed
+  accessor over the stored wrapper, so call sites are unchanged. This keeps the
+  already-created `jsonb` column valid — no ALTER migration needed. (Verified by
+  running the backend against a real PostgreSQL 16, not just the SQLite test suite.)
+- **✅ Text conditions reuse the portable case-insensitive `LIKE` helper.**
+  `urlContains` / `titleContains` / `descriptionContains` use a new
+  `QueryBuilder<Bookmark>.filterColumn(_:contains:)` that compares
+  `lower(column) LIKE lower('%value%')` via a bound parameter — the same approach as
+  the existing `filterFullText`, portable across SQLite (tests) and PostgreSQL
+  (production). The `tag` condition reuses the bookmark list's exact prefix-match
+  semantics (`tags_search` contains `|tag|` *or* `|tag/`), so a Smart View tag
+  filter behaves identically to the sidebar tag filter (matches the tag and its
+  descendants). Multiple conditions of the same type are allowed and ANDed — two
+  `tag` conditions require both tags.
+- **✅ `isArchived` overrides the default archived filter.** The bookmarks endpoint
+  returns non-archived bookmarks unless the Smart View carries an `isArchived`
+  condition, which then controls archived state entirely. On the web results page
+  the archived toggle is hidden when an `isArchived` condition is present (the
+  condition owns it) and works normally otherwise.
+- **✅ No count in the sidebar.** Smart Views render in the bookmark-list sidebar
+  (above the tag tree, below the time filters) as plain links with no count — a
+  count would mean running each saved query on every page render. The user's Smart
+  Views are loaded in one `.all()` call per render alongside the tag list; the
+  dividers/section only appear when the user has at least one Smart View.
+- **✅ Loaded per render, no cache.** Like the tag list, Smart Views are read fresh
+  on each page render (one extra query). The data is small and per-user, so caching
+  would add invalidation complexity for no meaningful gain.
+- **✅ Management is a top-level nav item.** The create/edit/delete management page
+  (`/app/smart-views`) is linked directly from the main nav (between Tags and
+  Settings) rather than buried under Settings — Smart Views are a first-class
+  browse/organize surface alongside Bookmarks and Tags, so the nav entry makes them
+  discoverable. (Initially placed under Settings; promoted to the nav for
+  discoverability.) The results page reuses the existing bookmark-list template (same sidebar, same
+  pagination) with an `isSmartView` flag that swaps the search toolbar for a "Smart
+  View" label. The condition builder is the same minimal-vanilla-JS pattern as the
+  tag autocomplete and danger zone: rows cloned from a `<template>`, each row's
+  type-select toggling between a text/date input and a Yes/No select (the inactive
+  control is `disabled`, so exactly one value submits per row).
+- **✅ The `tag` condition value reuses the bookmark forms' tag autocomplete.** The
+  layout's autocomplete was refactored into a reusable `window.stashTagAutocomplete(
+  input, known, opts)`; the bookmark fields call it in `multi` mode (comma-segment
+  completion) and the Smart View condition value calls it in single mode (replaces
+  the whole value), gated by an `enabled` callback so suggestions only appear while
+  the row's type is `tag`. The form embeds the user's tags in a `data-known-tags`
+  attribute (same zero-extra-request approach as the add/edit forms), so picking a
+  tag never requires guessing.
+- **✅ StashKit gains a `SmartViewRequestFactory` + DTOs only.** Following the M6
+  thin-package rule, StashKit adds `SmartViewDTO` / `SmartViewConditionDTO`, a
+  `SmartViewRequest` body, and the factory (list/create/get/update/delete/bookmarks)
+  — no client state. `smart_view_not_found` maps to the existing `.notFound`
+  `StashAPIError` case. No CLI or native-app surface was added this pass.

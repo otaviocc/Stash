@@ -1,0 +1,66 @@
+#extend("layout"):
+#export("content"):
+    <h1>Smart Views</h1>
+
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+
+    <p class="muted">Saved queries that filter your bookmarks by a set of conditions. They appear in
+        the sidebar on the bookmark list.</p>
+    <p><a href="/app/smart-views/new"><button type="button">New Smart View</button></a></p>
+
+    #if(count(smartViews) > 0):
+    <div class="card">
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Conditions</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                #for(sv in smartViews):
+                <tr class="sv-row">
+                    <td><a href="/app/smart-views/#(sv.id)">#(sv.name)</a></td>
+                    <td class="muted">#(sv.summary)</td>
+                    <td>
+                        <span class="sv-actions">
+                            <a href="/app/smart-views/#(sv.id)/edit">Edit</a>
+                            <button type="button" class="secondary sv-delete-toggle">Delete</button>
+                        </span>
+                        <form class="sv-delete-form" method="post" action="/app/smart-views/#(sv.id)/delete" style="display:none">
+                            <span>Delete this Smart View?</span>
+                            <button type="submit" class="danger">Confirm</button>
+                            <button type="button" class="secondary sv-delete-cancel">Cancel</button>
+                        </form>
+                    </td>
+                </tr>
+                #endfor
+            </tbody>
+        </table>
+    </div>
+    #else:
+    <div class="card"><p class="muted">No Smart Views yet.</p></div>
+    #endif
+
+    <script>
+    // Inline delete confirmation per row (same toggle pattern as the tag browser).
+    document.querySelectorAll('.sv-row').forEach(function (row) {
+        var actions = row.querySelector('.sv-actions');
+        var form = row.querySelector('.sv-delete-form');
+        if (!actions || !form) return;
+        row.querySelector('.sv-delete-toggle').addEventListener('click', function () {
+            actions.style.display = 'none';
+            form.style.display = 'flex';
+        });
+        row.querySelector('.sv-delete-cancel').addEventListener('click', function () {
+            form.style.display = 'none';
+            actions.style.display = '';
+        });
+    });
+    </script>
+    <style>
+        .sv-actions { display: flex; gap: 0.75rem; align-items: center; }
+        .sv-delete-form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        .sv-delete-form span { color: var(--text-muted); }
+    </style>
+#endexport
+#endextend

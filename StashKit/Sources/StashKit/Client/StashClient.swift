@@ -94,7 +94,7 @@ public final class StashClient: Sendable {
         case "totp_required": .totpRequired
         case "totp_invalid": .totpInvalid
         case "forbidden": .forbidden
-        case "not_found": .notFound
+        case "not_found", "smart_view_not_found": .notFound
         case "username_taken": .usernameTaken
         case "validation_failed": .validationFailed
         case "internal_error": .serverError

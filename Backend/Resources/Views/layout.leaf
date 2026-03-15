@@ -253,6 +253,7 @@
             <a href="/app">Bookmarks</a>
             <a href="/app/bookmarks/new">Add</a>
             <a href="/app/tags">Tags</a>
+            <a href="/app/smart-views">Smart Views</a>
             <a href="/app/settings">Settings</a>
             #if(appIsAdmin):<a href="/admin">Dashboard</a>#endif
         </nav>
@@ -268,28 +269,38 @@
     </main>
     #extend("_footer")
     <script>
-    // Dependency-free tag autocomplete for inputs carrying data-known-tags (a JSON array).
-    document.querySelectorAll('input[data-known-tags]').forEach(function (input) {
-        var known = [];
-        try { known = JSON.parse(input.getAttribute('data-known-tags')) || []; } catch (e) { return; }
-        if (!known.length) return;
+    // Dependency-free, reusable tag autocomplete. `multi` (default true) does comma-segment
+    // completion for the bookmark tag fields; single mode replaces the whole value (used by the
+    // Smart View tag conditions). `enabled` gates whether suggestions appear at all (so the Smart
+    // View value input only autocompletes while its row's type is "tag").
+    window.stashTagAutocomplete = function (input, known, opts) {
+        opts = opts || {};
+        var multi = opts.multi !== false;
+        var enabled = opts.enabled || function () { return true; };
+        if (!known || !known.length) return;
         var box = document.createElement('div');
         box.className = 'tag-suggest';
         input.insertAdjacentElement('afterend', box);
         var active = -1;
-        function segIndex() { return input.value.slice(0, input.selectionStart).split(',').length - 1; }
+        function segIndex() { return multi ? input.value.slice(0, input.selectionStart).split(',').length - 1 : 0; }
+        function frag() { return (multi ? (input.value.split(',')[segIndex()] || '') : input.value).trim().toLowerCase(); }
         function choose(tag) {
-            var segs = input.value.split(',');
-            segs[segIndex()] = (segIndex() > 0 ? ' ' : '') + tag;
-            input.value = segs.join(',') + ', ';
+            if (multi) {
+                var segs = input.value.split(',');
+                segs[segIndex()] = (segIndex() > 0 ? ' ' : '') + tag;
+                input.value = segs.join(',') + ', ';
+            } else {
+                input.value = tag;
+            }
             box.style.display = 'none';
             input.focus();
             input.setSelectionRange(input.value.length, input.value.length);
         }
         function render() {
-            var frag = (input.value.split(',')[segIndex()] || '').trim().toLowerCase();
+            if (!enabled()) { box.style.display = 'none'; return; }
+            var f = frag();
             box.innerHTML = ''; active = -1;
-            var hits = frag ? known.filter(function (t) { return t !== frag && t.split('/').some(function (seg) { return seg.indexOf(frag) === 0; }); }).slice(0, 8) : [];
+            var hits = f ? known.filter(function (t) { return t !== f && t.split('/').some(function (seg) { return seg.indexOf(f) === 0; }); }).slice(0, 8) : [];
             if (!hits.length) { box.style.display = 'none'; return; }
             hits.forEach(function (t) {
                 var el = document.createElement('div');
@@ -313,6 +324,12 @@
             items.forEach(function (it, j) { it.classList.toggle('active', j === active); });
         });
         input.addEventListener('blur', function () { setTimeout(function () { box.style.display = 'none'; }, 150); });
+    };
+
+    document.querySelectorAll('input[data-known-tags]').forEach(function (input) {
+        var known = [];
+        try { known = JSON.parse(input.getAttribute('data-known-tags')) || []; } catch (e) { return; }
+        window.stashTagAutocomplete(input, known, { multi: true });
     });
     </script>
 </body>

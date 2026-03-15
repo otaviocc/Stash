@@ -1,0 +1,131 @@
+#extend("layout"):
+#export("content"):
+    <h1>#(title)</h1>
+
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
+    <div class="card">
+        <form method="post" action="#(action)">
+            <label>Name
+                <input name="name" value="#(name)" maxlength="100" autocomplete="off" required>
+            </label>
+
+            <label>Conditions <span class="muted">(a bookmark must match every condition)</span></label>
+            <div id="cond-list" data-known-tags='#(knownTagsJSON)'>
+                #for(c in conditions):
+                <div class="cond-row">
+                    <select name="conditionType[]" class="cond-type">
+                        <option value="tag"#if(c.type == "tag"): selected#endif>Tag</option>
+                        <option value="urlContains"#if(c.type == "urlContains"): selected#endif>URL contains</option>
+                        <option value="titleContains"#if(c.type == "titleContains"): selected#endif>Title contains</option>
+                        <option value="descriptionContains"#if(c.type == "descriptionContains"): selected#endif>Description contains</option>
+                        <option value="createdBefore"#if(c.type == "createdBefore"): selected#endif>Created before</option>
+                        <option value="createdAfter"#if(c.type == "createdAfter"): selected#endif>Created after</option>
+                        <option value="isArchived"#if(c.type == "isArchived"): selected#endif>Is archived</option>
+                    </select>
+                    <input name="conditionValue[]" class="cond-value-text" type="#if(c.isDate):date#else:text#endif" value="#(c.textValue)" autocomplete="off"#if(c.isBool): disabled style="display:none"#endif>
+                    <select name="conditionValue[]" class="cond-value-bool"#if(c.isText): disabled style="display:none"#endif>
+                        <option value="true"#if(c.boolValue == "true"): selected#endif>Yes</option>
+                        <option value="false"#if(c.boolValue == "false"): selected#endif>No</option>
+                    </select>
+                    <button type="button" class="secondary cond-remove" aria-label="Remove condition">×</button>
+                </div>
+                #endfor
+            </div>
+            <p><button type="button" id="cond-add" class="secondary">Add condition</button></p>
+
+            <div style="display:flex; gap:0.75rem; margin-top:0.5rem;">
+                <button type="submit">Save</button>
+                <a href="/app/smart-views"><button type="button" class="secondary">Cancel</button></a>
+            </div>
+        </form>
+    </div>
+
+    <template id="cond-template">
+        <div class="cond-row">
+            <select name="conditionType[]" class="cond-type">
+                <option value="tag">Tag</option>
+                <option value="urlContains">URL contains</option>
+                <option value="titleContains">Title contains</option>
+                <option value="descriptionContains">Description contains</option>
+                <option value="createdBefore">Created before</option>
+                <option value="createdAfter">Created after</option>
+                <option value="isArchived">Is archived</option>
+            </select>
+            <input name="conditionValue[]" class="cond-value-text" type="text" value="" autocomplete="off">
+            <select name="conditionValue[]" class="cond-value-bool" disabled style="display:none">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+            </select>
+            <button type="button" class="secondary cond-remove" aria-label="Remove condition">×</button>
+        </div>
+    </template>
+
+    <script>
+    // Runs on DOMContentLoaded so window.stashTagAutocomplete (defined later in the body) exists.
+    document.addEventListener('DOMContentLoaded', function () {
+        var list = document.getElementById('cond-list');
+        var addBtn = document.getElementById('cond-add');
+        var template = document.getElementById('cond-template');
+        if (!list || !addBtn || !template) return;
+        var knownTags = [];
+        try { knownTags = JSON.parse(list.getAttribute('data-known-tags')) || []; } catch (e) {}
+
+        function syncRow(row) {
+            var type = row.querySelector('.cond-type').value;
+            var text = row.querySelector('.cond-value-text');
+            var bool = row.querySelector('.cond-value-bool');
+            if (type === 'isArchived') {
+                text.disabled = true; text.style.display = 'none';
+                bool.disabled = false; bool.style.display = '';
+            } else {
+                bool.disabled = true; bool.style.display = 'none';
+                text.disabled = false; text.style.display = '';
+                text.type = (type === 'createdBefore' || type === 'createdAfter') ? 'date' : 'text';
+            }
+        }
+
+        function updateRemoveButtons() {
+            var rows = list.querySelectorAll('.cond-row');
+            rows.forEach(function (row) {
+                row.querySelector('.cond-remove').disabled = (rows.length <= 1);
+            });
+        }
+
+        function wireRow(row) {
+            var typeSelect = row.querySelector('.cond-type');
+            typeSelect.addEventListener('change', function () { syncRow(row); });
+            row.querySelector('.cond-remove').addEventListener('click', function () {
+                row.remove();
+                updateRemoveButtons();
+            });
+            if (knownTags.length && window.stashTagAutocomplete) {
+                window.stashTagAutocomplete(row.querySelector('.cond-value-text'), knownTags, {
+                    multi: false,
+                    enabled: function () { return typeSelect.value === 'tag'; }
+                });
+            }
+            syncRow(row);
+        }
+
+        list.querySelectorAll('.cond-row').forEach(wireRow);
+        updateRemoveButtons();
+
+        addBtn.addEventListener('click', function () {
+            var clone = template.content.firstElementChild.cloneNode(true);
+            list.appendChild(clone);
+            wireRow(clone);
+            updateRemoveButtons();
+        });
+    });
+    </script>
+    <style>
+        .cond-row { position: relative; display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+        .cond-row select, .cond-row input { margin: 0; }
+        .cond-row .cond-value-text { flex: 1; }
+        .cond-row .cond-remove { padding: 0.35rem 0.6rem; line-height: 1; }
+    </style>
+#endexport
+#endextend

@@ -7,6 +7,18 @@
         #endif
         <h1>#(title)</h1>
 
+        #if(isSmartView):
+        <p class="muted" style="margin-top:-0.75rem;">⊞ Smart View</p>
+        #if(showArchivedToggle):
+        <div class="toolbar">
+            #if(archived):
+            <a href="/app/smart-views/#(smartViewID)">← Active bookmarks</a>
+            #else:
+            <a href="/app/smart-views/#(smartViewID)?archived=true">View archived</a>
+            #endif
+        </div>
+        #endif
+        #else:
         <div class="toolbar">
             <form method="get" action="/app">
                 <input type="search" name="q" value="#(q)" placeholder="Search…">
@@ -23,6 +35,7 @@
 
         #if(tag != ""):
         <p>Filtered by tag <span class="tag">#(tagDisplay)</span> · <a href="/app">clear</a></p>
+        #endif
         #endif
 
         #if(count(bookmarks) > 0):
@@ -61,6 +74,14 @@
             <li><a href="/app?tag=__today__"#if(todayActive): class="active"#endif>Today</a>#if(todayCount > 0): <span class="count">(#(todayCount))</span>#endif</li>
             <li><a href="/app?tag=__this_week__"#if(thisWeekActive): class="active"#endif>This Week</a>#if(thisWeekCount > 0): <span class="count">(#(thisWeekCount))</span>#endif</li>
         </ul>
+        #if(count(smartViews) > 0):
+        <h2>Smart Views</h2>
+        <ul class="tag-tree">
+            #for(sv in smartViews):
+            <li><a href="#(sv.href)"#if(sv.isActive): class="active"#endif>⊞ #(sv.name)</a></li>
+            #endfor
+        </ul>
+        #endif
         <h2>Tags</h2>
         <ul class="tag-tree">
             #for(t in sidebarTags):

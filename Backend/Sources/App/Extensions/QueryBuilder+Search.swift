@@ -32,26 +32,41 @@ extension QueryBuilder where Model == Bookmark {
     /// derived tag-search column.
     ///
     /// Matching is case-insensitive and portable across SQLite (tests) and PostgreSQL (production):
-    /// both the column and the term are lowered before a `LIKE` comparison. PostgreSQL's `LIKE` is
-    /// otherwise case-sensitive, which the PRD's full-text search (§9.3, "ILIKE on PostgreSQL") does
-    /// not want. The term is passed as a bound parameter, so `LIKE` wildcards in the term are treated
-    /// as wildcards exactly as the previous `~~` behavior did.
+    /// the column is lowered before a `LIKE` comparison against a lowered, bound term. PostgreSQL's
+    /// `LIKE` is otherwise case-sensitive, which the PRD's full-text search (§9.3, "ILIKE on
+    /// PostgreSQL") does not want. `LIKE` metacharacters in the term are escaped, so `%` and `_`
+    /// match as literal characters rather than acting as wildcards.
     @discardableResult
     func filterFullText(_ term: String) -> Self {
-        let pattern = "%\(term.lowercased())%"
+        let pattern = likeContainsPattern(term)
 
         return group(.or) { group in
             for column in ["url", "title", "description", "tags_search"] {
-                group.filter(
-                    .sql(
-                        SQLBinaryExpression(
-                            left: SQLFunction("lower", args: SQLColumn(column)),
-                            op: SQLBinaryOperator.like,
-                            right: SQLBind(pattern)
-                        )
-                    )
-                )
+                group.filter(.sql(likeContainsExpression(column: column, pattern: pattern)))
             }
         }
     }
+
+    /// Adds a case-insensitive "contains" filter against a single column, using the same portable,
+    /// metacharacter-escaped `lower(column) LIKE` approach as `filterFullText` (Smart Views, the
+    /// `urlContains` / `titleContains` / `descriptionContains` conditions).
+    @discardableResult
+    func filterColumn(_ column: String, contains value: String) -> Self {
+        filter(.sql(likeContainsExpression(column: column, pattern: likeContainsPattern(value))))
+    }
+}
+
+private func likeContainsPattern(_ raw: String) -> String {
+    let escaped = raw.lowercased()
+        .replacingOccurrences(of: "\\", with: "\\\\")
+        .replacingOccurrences(of: "%", with: "\\%")
+        .replacingOccurrences(of: "_", with: "\\_")
+
+    return "%\(escaped)%"
+}
+
+private func likeContainsExpression(column: String, pattern: String) -> SQLExpression {
+    let expression: SQLQueryString = "lower(\(ident: column)) LIKE \(bind: pattern) ESCAPE '\\'"
+
+    return expression
 }

@@ -33,6 +33,7 @@ enum APIError: AbortError {
     case totpInvalid
     case forbidden
     case notFound
+    case smartViewNotFound
     case duplicateURL(existingID: UUID)
     case usernameTaken
     case cannotDeleteSelf
@@ -50,7 +51,7 @@ enum APIError: AbortError {
             .unauthorized
         case .forbidden:
             .forbidden
-        case .notFound:
+        case .notFound, .smartViewNotFound:
             .notFound
         case .duplicateURL, .usernameTaken:
             .conflict
@@ -75,6 +76,7 @@ enum APIError: AbortError {
         case .totpInvalid: "totp_invalid"
         case .forbidden: "forbidden"
         case .notFound: "not_found"
+        case .smartViewNotFound: "smart_view_not_found"
         case .duplicateURL: "duplicate_url"
         case .usernameTaken: "username_taken"
         case .cannotDeleteSelf: "cannot_delete_self"
@@ -95,6 +97,7 @@ enum APIError: AbortError {
         case .totpInvalid: "The TOTP or recovery code is invalid."
         case .forbidden: "You do not have permission to perform this action."
         case .notFound: "The requested resource does not exist."
+        case .smartViewNotFound: "The requested Smart View does not exist."
         case .duplicateURL: "This URL has already been saved."
         case .usernameTaken: "That username is already taken."
         case .cannotDeleteSelf: "An admin cannot delete their own account."

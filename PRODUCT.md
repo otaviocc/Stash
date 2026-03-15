@@ -25,6 +25,7 @@ The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 - Retrieve bookmarks reliably via keyword search, tag browsing, or recency
 - Organise bookmarks with both flat and hierarchical tags
 - Rename and delete tags across all bookmarks in bulk
+- Save named queries as Smart Views that filter bookmarks by a set of AND conditions
 - Auto-fetch page metadata (title, description, favicon) at save time, with
   manual override
 - Support multiple users, each with a fully isolated bookmark collection
@@ -225,6 +226,38 @@ attribute. `ocean` is the default and matches the app's original accent.
 The selected theme's values are injected into `layout.leaf`'s `<head>` as a CSS
 block overriding `--accent`, from the app-level cache (no per-request query).
 
+### 7.7 Smart View
+
+A named, saved query owned by a user. Stores rules, not results — each time it is
+opened the query runs live against the user's bookmarks. All conditions are ANDed:
+a bookmark must match every condition to appear.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | UUID | Primary key |
+| `userID` | UUID | Foreign key → User; all queries scoped to this |
+| `name` | String | Display name. Required, max 100 chars. |
+| `conditions` | [SmartViewCondition] | JSON column. At least one required. |
+| `createdAt` | Date | Auto-set |
+| `updatedAt` | Date | Auto-updated |
+
+Each condition is a `{ type, value }` object (all values strings; dates ISO-8601,
+`isArchived` is `"true"`/`"false"`). Supported types:
+
+| Type | Meaning |
+|------|---------|
+| `tag` | `tagsSearch` contains `\|<value>` (prefix match, same as the tag filter) |
+| `urlContains` | `url` contains `value` (case-insensitive) |
+| `titleContains` | `title` contains `value` (case-insensitive) |
+| `descriptionContains` | `description` contains `value` (case-insensitive) |
+| `createdBefore` | `createdAt` is before the ISO-8601 date |
+| `createdAfter` | `createdAt` is after the ISO-8601 date |
+| `isArchived` | `isArchived` equals `true`/`false` |
+
+Text conditions use the same portable `lower(column) LIKE lower('%value%')` helper
+as full-text search. Multiple conditions of the same type are allowed (two `tag`
+conditions = the bookmark must have both tags).
+
 **Footer.** Shown on every `/app` and `/admin` page via `layout.leaf`. Fixed,
 non-configurable content: a Mastodon link (`https://social.lol/@otaviocc`), a
 Ko-fi link (`https://ko-fi.com/otaviocc`), and the version string (read from a
@@ -381,13 +414,30 @@ Response: `{ "from": "foo-bar", "to": "foobar", "affectedBookmarks": 12 }`
 - Bookmarks are never deleted — only their tags
 - Unused tag: idempotent 200, `affectedBookmarks: 0`
 
-### 9.5 Metadata (authenticated)
+### 9.5 Smart Views (authenticated, scoped to current user)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/smart-views` | List all Smart Views for the current user |
+| `POST` | `/api/v1/smart-views` | Create a Smart View |
+| `GET` | `/api/v1/smart-views/:id` | Get a single Smart View |
+| `PUT` | `/api/v1/smart-views/:id` | Update a Smart View |
+| `DELETE` | `/api/v1/smart-views/:id` | Delete a Smart View |
+| `GET` | `/api/v1/smart-views/:id/bookmarks` | Run the query; returns `Page<Bookmark>` |
+
+Validation (`POST`/`PUT`): non-empty `name` ≤ 100 chars, at least one condition,
+each condition a valid type with a non-empty (and, for dates, ISO-8601-parseable)
+value — otherwise `422 validation_failed`. A missing/foreign Smart View returns
+`404 smart_view_not_found`. `:id/bookmarks` supports `page`/`per`; the `isArchived`
+condition overrides the default archived filter (otherwise non-archived only).
+
+### 9.6 Metadata (authenticated)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/v1/metadata` | Fetch title, description, favicon without saving |
 
-### 9.6 Admin (authenticated, admin role only)
+### 9.7 Admin (authenticated, admin role only)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -574,6 +624,9 @@ container restart.
 | Bookmark Detail | `/app/bookmarks/:id` |
 | Edit Bookmark | `/app/bookmarks/:id/edit` |
 | Tag Browser | `/app/tags` |
+| Smart Views (manage) | `/app/smart-views` |
+| New / Edit Smart View | `/app/smart-views/new`, `/app/smart-views/:id/edit` |
+| Smart View results | `/app/smart-views/:id` |
 | Settings | `/app/settings` |
 
 Nav includes a "Dashboard" link to `/admin`, shown only when the signed-in user
@@ -627,6 +680,25 @@ a dead end for them).
 - Inline delete confirmation per tag (vanilla JS toggle, Post/Redirect/Get)
 - Rename renames tag and all children; merge if target exists
 - Delete removes tag and all children from all bookmarks
+
+### Smart Views
+
+- Appear in the bookmark-list sidebar above the tag tree (below Today / This Week),
+  sorted alphabetically, each a `⊞`-prefixed link to `/app/smart-views/:id`. No
+  count is shown; the section only appears when the user has at least one Smart
+  View. The active Smart View highlights with `--accent`.
+- The results page reuses the bookmark-list template (same sidebar, same
+  pagination) with the page title set to the Smart View name and a "Smart View"
+  label. No search bar. The archived toggle works unless the Smart View has an
+  `isArchived` condition (then it is hidden and the condition controls it).
+- Management is a top-level nav item (`Smart Views`, between Tags and Settings): a
+  table of all Smart Views with their condition summaries and Edit / Delete actions. The create/edit form is
+  a dynamic condition builder (type `<select>` + value input per row, Add / Remove
+  rows, native date picker for date conditions, Yes/No select for `isArchived`),
+  using the same minimal vanilla JS as the tag autocomplete. A `tag` condition's
+  value field reuses the bookmark forms' tag autocomplete (suggesting the user's
+  existing tags), so tags don't have to be guessed. PRG with `?ok=saved` /
+  `?ok=deleted` banners; inline delete confirmation.
 
 ### Settings (`/app/settings`)
 
@@ -708,6 +780,11 @@ typed `NetworkRequest<…>`), **thin `StashClient`** (wraps `NetworkClient`, add
 No storage, no refresh logic, no business logic. `tokenProvider: @escaping
 @Sendable () async -> String?` keeps the package storage-agnostic. Tag cache and
 silent refresh are the app's repository layer responsibility.
+
+Domains covered by request factories: auth, user, bookmarks, tags, metadata,
+admin, and `SmartViewRequestFactory` (list/create/get/update/delete plus the
+`:id/bookmarks` query), with matching `SmartViewDTO` / `SmartViewConditionDTO`
+DTOs and a `SmartViewRequest` body.
 
 ---
 
@@ -1070,6 +1147,7 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 | M9 | iOS Share Extension | ✅ Complete |
 | M10 | macOS app + Share Extension | ✅ Complete |
 | M4.1 | CI/CD: GitHub Actions, publish to ghcr.io | ✅ Complete |
+| M12 | Smart Views: saved AND-condition queries (backend, StashKit, web UI) | ✅ Complete |
 
 ---
 

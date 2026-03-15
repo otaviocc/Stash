@@ -68,6 +68,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateRecoveryCode())
     app.migrations.add(CreateBookmark())
     app.migrations.add(CreateSiteSettings())
+    app.migrations.add(CreateSmartViews())
 
     // MARK: Version
 

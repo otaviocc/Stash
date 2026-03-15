@@ -52,6 +52,19 @@ struct AppWebController: RouteCollection {
 
     static let dummyHash = "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
 
+    // MARK: Static Computed Properties
+
+    static var defaultField: SmartViewConditionField {
+        SmartViewConditionField(
+            type: "tag",
+            textValue: "",
+            boolValue: "true",
+            isBool: false,
+            isText: true,
+            isDate: false
+        )
+    }
+
     // MARK: Static Functions
 
     static func buildSidebar(counts: [String: Int], activeTag: String) -> [SidebarTag] {
@@ -141,6 +154,100 @@ struct AppWebController: RouteCollection {
         raw.components(separatedBy: CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines))
     }
 
+    static func smartViewListURL(id: String, archived: Bool, page: Int) -> String {
+        var components = URLComponents()
+        components.path = "/app/smart-views/\(id)"
+        var items: [URLQueryItem] = []
+        if archived { items.append(.init(name: "archived", value: "true")) }
+
+        if page > 1 { items.append(.init(name: "page", value: String(page))) }
+
+        components.queryItems = items.isEmpty ? nil : items
+        return components.string ?? "/app/smart-views/\(id)"
+    }
+
+    static func summary(for conditions: [SmartViewCondition]) -> String {
+        conditions.map { conditionLabel($0) }.joined(separator: ", ")
+    }
+
+    static func conditionLabel(_ condition: SmartViewCondition) -> String {
+        switch condition {
+        case let .tag(value): "Tag: \(value)"
+        case let .urlContains(value): "URL contains “\(value)”"
+        case let .titleContains(value): "Title contains “\(value)”"
+        case let .descriptionContains(value): "Description contains “\(value)”"
+        case let .createdBefore(date): "Created before \(SmartViewCondition.iso8601.string(from: date).prefix(10))"
+        case let .createdAfter(date): "Created after \(SmartViewCondition.iso8601.string(from: date).prefix(10))"
+        case let .isArchived(value): "Archived: \(value ? "Yes" : "No")"
+        }
+    }
+
+    static func normalizedConditionValue(type: String, value: String) -> String {
+        guard type == "createdBefore" || type == "createdAfter" else { return value }
+
+        if value.count == 10, value.contains("-"), !value.contains("T") {
+            return value + "T00:00:00Z"
+        }
+
+        return value
+    }
+
+    static func conditions(from form: SmartViewForm) throws -> [SmartViewCondition] {
+        let types = form.conditionType ?? []
+        let values = form.conditionValue ?? []
+        var result: [SmartViewCondition] = []
+        for (index, type) in types.enumerated() {
+            let raw = (index < values.count ? values[index] : "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !raw.isEmpty else { continue }
+
+            try result.append(SmartViewCondition.validated(
+                type: type,
+                value: normalizedConditionValue(type: type, value: raw)
+            ))
+        }
+        guard !result.isEmpty else {
+            throw APIError.validationFailed("Add at least one condition with a value.")
+        }
+
+        return result
+    }
+
+    static func fields(from form: SmartViewForm) -> [SmartViewConditionField] {
+        let types = form.conditionType ?? []
+        let values = form.conditionValue ?? []
+        var fields: [SmartViewConditionField] = []
+        for (index, type) in types.enumerated() {
+            let value = index < values.count ? values[index] : ""
+            fields.append(field(type: type, rawValue: value))
+        }
+        return fields.isEmpty ? [defaultField] : fields
+    }
+
+    static func field(from condition: SmartViewCondition) -> SmartViewConditionField {
+        let type = condition.typeString
+        var raw = condition.valueString
+        if type == "createdBefore" || type == "createdAfter" {
+            raw = String(raw.prefix(10))
+        }
+
+        return field(type: type, rawValue: raw)
+    }
+
+    static func field(type: String, rawValue: String) -> SmartViewConditionField {
+        let isBool = type == "isArchived"
+        let isDate = type == "createdBefore" || type == "createdAfter"
+        let boolValue = (isBool && rawValue.lowercased() == "false") ? "false" : "true"
+
+        return SmartViewConditionField(
+            type: type,
+            textValue: isBool ? "" : rawValue,
+            boolValue: boolValue,
+            isBool: isBool,
+            isText: !isBool,
+            isDate: isDate
+        )
+    }
+
     static func listURL(_ query: BookmarkListQuery, page: Int) -> String {
         var components = URLComponents()
         components.path = "/app"
@@ -192,6 +299,15 @@ struct AppWebController: RouteCollection {
         bookmarks.post(":bookmarkID", "delete", use: deleteBookmark)
         bookmarks.post(":bookmarkID", "archive", use: archiveBookmark)
         bookmarks.post(":bookmarkID", "unarchive", use: unarchiveBookmark)
+
+        let smartViews = app.grouped("smart-views")
+        smartViews.get(use: smartViewManage)
+        smartViews.get("new", use: newSmartViewForm)
+        smartViews.post("new", use: createSmartView)
+        smartViews.get(":smartViewID", use: smartViewResults)
+        smartViews.get(":smartViewID", "edit", use: editSmartViewForm)
+        smartViews.post(":smartViewID", "edit", use: updateSmartView)
+        smartViews.post(":smartViewID", "delete", use: deleteSmartView)
 
         app.get("tags", use: tagBrowser)
         app.post("tags", "rename", use: renameTag)
@@ -330,6 +446,8 @@ struct AppWebController: RouteCollection {
                 Self.display(rawTag ?? "")
             }
 
+        let smartViews = try await sidebarSmartViews(for: user, activeID: "", on: req.db)
+
         return try await req.view.render("app-bookmarks", AppBookmarksContext(
             title: archived ? "Archived" : "Bookmarks",
             appUsername: user.username,
@@ -352,6 +470,10 @@ struct AppWebController: RouteCollection {
             todayActive: isToday,
             thisWeekCount: sidebar.thisWeekCount,
             thisWeekActive: isThisWeek,
+            smartViews: smartViews,
+            isSmartView: false,
+            smartViewID: "",
+            showArchivedToggle: false,
             chrome: req.siteChrome()
         ))
     }
@@ -506,6 +628,193 @@ struct AppWebController: RouteCollection {
 
     func unarchiveBookmark(req: Request) async throws -> Response {
         try await setArchived(req, false)
+    }
+
+    // MARK: - Smart Views
+
+    func smartViewResults(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        guard let smartView = try await loadSmartView(req) else { return req.redirect(to: "/app/smart-views") }
+
+        let id = try smartView.requireID().uuidString
+        let overridesArchived = smartView.conditions.contains { if case .isArchived = $0 { true } else { false } }
+        let archived = !overridesArchived && (req.query[Bool.self, at: "archived"] ?? false)
+        let page = max(req.query[Int.self, at: "page"] ?? 1, 1)
+        let per = 20
+        let boundaries = Self.dateBoundaries()
+
+        let builder = try Bookmark.query(on: req.db)
+            .filter(\.$user.$id == user.requireID())
+        if !overridesArchived {
+            builder.filter(\.$isArchived == archived)
+        }
+
+        for condition in smartView.conditions {
+            condition.apply(to: builder)
+        }
+
+        let result = try await builder
+            .sort(\.$createdAt, .descending)
+            .sort(\.$id, .descending)
+            .paginate(PageRequest(page: page, per: per))
+
+        let total = result.metadata.total
+        let pageCount = total == 0 ? 1 : (total + per - 1) / per
+        let sidebar = try await sidebarTags(
+            for: user,
+            activeTag: "",
+            today: boundaries.today,
+            week: boundaries.week,
+            on: req.db
+        )
+        let smartViews = try await sidebarSmartViews(for: user, activeID: id, on: req.db)
+
+        return try await render(req, "app-bookmarks", AppBookmarksContext(
+            title: smartView.name,
+            appUsername: user.username,
+            appIsAdmin: user.role == .admin,
+            bookmarks: result.items.map { try Self.row(from: $0) },
+            q: "",
+            tag: "",
+            tagDisplay: "",
+            archived: archived,
+            total: total,
+            page: page,
+            pageCount: pageCount,
+            prevURL: page > 1 ? Self.smartViewListURL(id: id, archived: archived, page: page - 1) : nil,
+            nextURL: page < pageCount ? Self.smartViewListURL(id: id, archived: archived, page: page + 1) : nil,
+            notice: nil,
+            sidebarTags: sidebar.tags,
+            untaggedCount: sidebar.untaggedCount,
+            untaggedActive: false,
+            todayCount: sidebar.todayCount,
+            todayActive: false,
+            thisWeekCount: sidebar.thisWeekCount,
+            thisWeekActive: false,
+            smartViews: smartViews,
+            isSmartView: true,
+            smartViewID: id,
+            showArchivedToggle: !overridesArchived,
+            chrome: req.siteChrome()
+        ))
+    }
+
+    func smartViewManage(req: Request) async throws -> View {
+        let user = try req.auth.require(User.self)
+        let smartViews = try await SmartView.query(on: req.db)
+            .filter(\.$user.$id == user.requireID())
+            .sort(\.$name)
+            .all()
+        let rows = try smartViews.map { view in
+            try AppSmartViewRow(
+                id: view.requireID().uuidString,
+                name: view.name,
+                summary: Self.summary(for: view.conditions)
+            )
+        }
+        let message: String? = switch req.query[String.self, at: "ok"] {
+        case "saved": "Smart View saved."
+        case "deleted": "Smart View deleted."
+        default: nil
+        }
+
+        return try await req.view.render("app-smart-views", AppSmartViewsContext(
+            title: "Smart Views",
+            appUsername: user.username,
+            appIsAdmin: user.role == .admin,
+            smartViews: rows,
+            message: message,
+            chrome: req.siteChrome()
+        ))
+    }
+
+    func newSmartViewForm(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+
+        return try await renderSmartViewForm(
+            req, user,
+            title: "New Smart View",
+            isEdit: false,
+            action: "/app/smart-views/new",
+            name: "",
+            conditions: [Self.defaultField],
+            error: nil
+        )
+    }
+
+    func createSmartView(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        let form = try req.content.decode(SmartViewForm.self)
+
+        do {
+            let name = try SmartViewController.validatedName(form.name)
+            let conditions = try Self.conditions(from: form)
+            let smartView = try SmartView(userID: user.requireID(), name: name, conditions: conditions)
+            try await smartView.save(on: req.db)
+
+            return req.redirect(to: "/app/smart-views?ok=saved")
+        } catch let error as APIError {
+            return try await renderSmartViewForm(
+                req, user,
+                title: "New Smart View",
+                isEdit: false,
+                action: "/app/smart-views/new",
+                name: form.name,
+                conditions: Self.fields(from: form),
+                error: error.reason,
+                status: .unprocessableEntity
+            )
+        }
+    }
+
+    func editSmartViewForm(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        guard let smartView = try await loadSmartView(req) else { return req.redirect(to: "/app/smart-views") }
+
+        let id = try smartView.requireID().uuidString
+        return try await renderSmartViewForm(
+            req, user,
+            title: "Edit Smart View",
+            isEdit: true,
+            action: "/app/smart-views/\(id)/edit",
+            name: smartView.name,
+            conditions: smartView.conditions.map { Self.field(from: $0) },
+            error: nil
+        )
+    }
+
+    func updateSmartView(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        guard let smartView = try await loadSmartView(req) else { return req.redirect(to: "/app/smart-views") }
+
+        let id = try smartView.requireID().uuidString
+        let form = try req.content.decode(SmartViewForm.self)
+
+        do {
+            smartView.name = try SmartViewController.validatedName(form.name)
+            smartView.conditions = try Self.conditions(from: form)
+            try await smartView.save(on: req.db)
+
+            return req.redirect(to: "/app/smart-views?ok=saved")
+        } catch let error as APIError {
+            return try await renderSmartViewForm(
+                req, user,
+                title: "Edit Smart View",
+                isEdit: true,
+                action: "/app/smart-views/\(id)/edit",
+                name: form.name,
+                conditions: Self.fields(from: form),
+                error: error.reason,
+                status: .unprocessableEntity
+            )
+        }
+    }
+
+    func deleteSmartView(req: Request) async throws -> Response {
+        guard let smartView = try await loadSmartView(req) else { return req.redirect(to: "/app/smart-views") }
+
+        try await smartView.delete(on: req.db)
+        return req.redirect(to: "/app/smart-views?ok=deleted")
     }
 
     // MARK: - Tags
@@ -855,6 +1164,56 @@ struct AppWebController: RouteCollection {
     }
 
     // MARK: - Helpers
+
+    private func loadSmartView(_ req: Request) async throws -> SmartView? {
+        let user = try req.auth.require(User.self)
+        guard let id = req.parameters.get("smartViewID", as: UUID.self) else { return nil }
+
+        return try await SmartView.query(on: req.db)
+            .filter(\.$user.$id == user.requireID())
+            .filter(\.$id == id)
+            .first()
+    }
+
+    private func sidebarSmartViews(
+        for user: User,
+        activeID: String,
+        on db: any Database
+    ) async throws -> [SidebarSmartView] {
+        let views = try await SmartView.query(on: db)
+            .filter(\.$user.$id == user.requireID())
+            .sort(\.$name)
+            .all()
+        return try views.map { view in
+            let id = try view.requireID().uuidString
+            return SidebarSmartView(name: view.name, href: "/app/smart-views/\(id)", isActive: id == activeID)
+        }
+    }
+
+    private func renderSmartViewForm(
+        _ req: Request,
+        _ user: User,
+        title: String,
+        isEdit: Bool,
+        action: String,
+        name: String,
+        conditions: [SmartViewConditionField],
+        error: String?,
+        status: HTTPResponseStatus = .ok
+    ) async throws -> Response {
+        try await render(req, "app-smart-view-form", AppSmartViewFormContext(
+            title: title,
+            appUsername: user.username,
+            appIsAdmin: user.role == .admin,
+            error: error,
+            isEdit: isEdit,
+            action: action,
+            name: name,
+            conditions: conditions,
+            knownTagsJSON: knownTagsJSON(req, user: user),
+            chrome: req.siteChrome()
+        ), status: status)
+    }
 
     private func loadBookmark(_ req: Request) async throws -> Bookmark? {
         let user = try req.auth.require(User.self)

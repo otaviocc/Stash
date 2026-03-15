@@ -160,6 +160,10 @@ struct AppBookmarksContext: Content {
     let todayActive: Bool
     let thisWeekCount: Int
     let thisWeekActive: Bool
+    let smartViews: [SidebarSmartView]
+    let isSmartView: Bool
+    let smartViewID: String
+    let showArchivedToggle: Bool
     let chrome: SiteChrome
 }
 
