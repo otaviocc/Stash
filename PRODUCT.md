@@ -229,14 +229,16 @@ block overriding `--accent`, from the app-level cache (no per-request query).
 ### 7.7 Smart View
 
 A named, saved query owned by a user. Stores rules, not results — each time it is
-opened the query runs live against the user's bookmarks. All conditions are ANDed:
-a bookmark must match every condition to appear.
+opened the query runs live against the user's bookmarks. `matchMode` decides how
+the conditions combine: `all` (every condition must match — AND) or `any` (at
+least one — OR), like macOS Music's "Match all/any of the following rules".
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | UUID | Primary key |
 | `userID` | UUID | Foreign key → User; all queries scoped to this |
 | `name` | String | Display name. Required, max 100 chars. |
+| `matchMode` | String | `"all"` (AND) or `"any"` (OR). Defaults to `"all"`. |
 | `conditions` | [SmartViewCondition] | JSON column. At least one required. |
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
@@ -255,8 +257,11 @@ Each condition is a `{ type, value }` object (all values strings; dates ISO-8601
 | `isArchived` | `isArchived` equals `true`/`false` |
 
 Text conditions use the same portable `lower(column) LIKE lower('%value%')` helper
-as full-text search. Multiple conditions of the same type are allowed (two `tag`
-conditions = the bookmark must have both tags).
+as full-text search. Multiple conditions of the same type are allowed (with
+`matchMode: all`, two `tag` conditions = the bookmark must have both tags; with
+`any`, either tag matches). The non-archived default is applied as an outer AND in
+both modes — results are limited to non-archived bookmarks unless an `isArchived`
+condition is present.
 
 **Footer.** Shown on every `/app` and `/admin` page via `layout.leaf`. Fixed,
 non-configurable content: a Mastodon link (`https://social.lol/@otaviocc`), a
@@ -425,9 +430,10 @@ Response: `{ "from": "foo-bar", "to": "foobar", "affectedBookmarks": 12 }`
 | `DELETE` | `/api/v1/smart-views/:id` | Delete a Smart View |
 | `GET` | `/api/v1/smart-views/:id/bookmarks` | Run the query; returns `Page<Bookmark>` |
 
-Validation (`POST`/`PUT`): non-empty `name` ≤ 100 chars, at least one condition,
-each condition a valid type with a non-empty (and, for dates, ISO-8601-parseable)
-value — otherwise `422 validation_failed`. A missing/foreign Smart View returns
+Validation (`POST`/`PUT`): non-empty `name` ≤ 100 chars, an optional `matchMode`
+of `all`/`any` (defaults to `all`), at least one condition, each condition a valid
+type with a non-empty (and, for dates, ISO-8601-parseable) value — otherwise
+`422 validation_failed`. A missing/foreign Smart View returns
 `404 smart_view_not_found`. `:id/bookmarks` supports `page`/`per`; the `isArchived`
 condition overrides the default archived filter (otherwise non-archived only).
 

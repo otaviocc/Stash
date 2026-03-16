@@ -80,6 +80,7 @@ struct AppSmartViewFormContext: Content {
     let isEdit: Bool
     let action: String
     let name: String
+    let matchMode: String
     let conditions: [SmartViewConditionField]
     let knownTagsJSON: String
     let chrome: SiteChrome
@@ -92,6 +93,7 @@ struct AppSmartViewFormContext: Content {
 struct SmartViewForm: Content {
 
     let name: String
+    let matchMode: String?
     let conditionType: [String]?
     let conditionValue: [String]?
 }

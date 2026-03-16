@@ -443,6 +443,231 @@ struct SmartViewTests {
             }
         }
     }
+
+    @Test("matchMode 'any' returns the union of the conditions (OR)")
+    func anyModeIsOr() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://youtube.com/x", title: "Plain video")
+            try await app.makeBookmark(for: user, url: "https://vimeo.com/y", title: "A review")
+            try await app.makeBookmark(for: user, url: "https://example.com/z", title: "Unrelated")
+            let view = try await app.makeSmartView(
+                token: pair.accessToken,
+                name: "YT or reviews",
+                conditions: [
+                    SmartViewConditionPayload(type: "urlContains", value: "youtube"),
+                    SmartViewConditionPayload(type: "titleContains", value: "review")
+                ],
+                matchMode: "any"
+            )
+
+            // When
+            try await app.testing().test(
+                .GET, "api/v1/smart-views/\(view.id)/bookmarks",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    Set(page.items.map(\.url)) == ["https://youtube.com/x", "https://vimeo.com/y"],
+                    "It should return bookmarks matching either condition, not only those matching both"
+                )
+            }
+        }
+    }
+
+    @Test("matchMode defaults to 'all' when omitted")
+    func matchModeDefaultsToAll() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://youtube.com/x", title: "A review")
+            try await app.makeBookmark(for: user, url: "https://youtube.com/y", title: "Plain video")
+
+            // When
+            var created: SmartViewResponse?
+            try await app.testing().test(
+                .POST, "api/v1/smart-views",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(SmartViewRequestBody(
+                        name: "No mode",
+                        conditions: [
+                            SmartViewConditionPayload(type: "urlContains", value: "youtube"),
+                            SmartViewConditionPayload(type: "titleContains", value: "review")
+                        ]
+                    ))
+                },
+                afterResponse: { res async throws in created = try res.content.decode(SmartViewResponse.self) }
+            )
+            let view = try #require(created)
+
+            // Then
+            #expect(view.matchMode == "all", "It should default the match mode to 'all'")
+            try await app.testing().test(
+                .GET, "api/v1/smart-views/\(view.id)/bookmarks",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://youtube.com/x"],
+                    "It should AND the conditions by default (only the bookmark matching both)"
+                )
+            }
+        }
+    }
+
+    @Test("an invalid matchMode returns 422")
+    func invalidMatchMode() async throws {
+        try await withTestApp { app in
+            try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            try await app.testing().test(
+                .POST, "api/v1/smart-views",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(SmartViewRequestBody(
+                        name: "Bad mode",
+                        conditions: [SmartViewConditionPayload(type: "tag", value: "swift")],
+                        matchMode: "sometimes"
+                    ))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .unprocessableEntity, "It should reject an unknown match mode")
+                    #expect(
+                        try res.content.decode(TestError.self).code == "validation_failed",
+                        "It should fail validation"
+                    )
+                }
+            )
+        }
+    }
+
+    @Test("update changes the name, conditions, and matchMode")
+    func updateChangesMatchMode() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://youtube.com/a", title: "plain")
+            try await app.makeBookmark(for: user, url: "https://vimeo.com/b", title: "a review")
+            let view = try await app.makeSmartView(
+                token: pair.accessToken,
+                name: "Original",
+                conditions: [SmartViewConditionPayload(type: "urlContains", value: "youtube")],
+                matchMode: "all"
+            )
+
+            // When
+            try await app.testing().test(
+                .PUT, "api/v1/smart-views/\(view.id)",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(SmartViewRequestBody(
+                        name: "Renamed",
+                        conditions: [
+                            SmartViewConditionPayload(type: "urlContains", value: "youtube"),
+                            SmartViewConditionPayload(type: "titleContains", value: "review")
+                        ],
+                        matchMode: "any"
+                    ))
+                },
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(res.status == .ok, "It should return 200 OK")
+                    let updated = try res.content.decode(SmartViewResponse.self)
+                    #expect(updated.name == "Renamed", "It should update the name")
+                    #expect(updated.matchMode == "any", "It should update the match mode")
+                    #expect(updated.conditions.count == 2, "It should update the conditions")
+                }
+            )
+
+            try await app.testing().test(
+                .GET, "api/v1/smart-views/\(view.id)/bookmarks",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    Set(page.items.map(\.url)) == ["https://youtube.com/a", "https://vimeo.com/b"],
+                    "It should run the updated 'any' query (OR) after the update"
+                )
+            }
+        }
+    }
+
+    @Test("update without a matchMode preserves the existing value")
+    func updatePreservesMatchModeWhenOmitted() async throws {
+        try await withTestApp { app in
+            // Given
+            try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            let view = try await app.makeSmartView(
+                token: pair.accessToken,
+                name: "Any view",
+                conditions: [SmartViewConditionPayload(type: "tag", value: "swift")],
+                matchMode: "any"
+            )
+
+            // When — a PUT body that omits matchMode entirely
+            try await app.testing().test(
+                .PUT, "api/v1/smart-views/\(view.id)",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(SmartViewRequestBody(
+                        name: "Renamed",
+                        conditions: [SmartViewConditionPayload(type: "tag", value: "swift")]
+                    ))
+                },
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(res.status == .ok, "It should return 200 OK")
+                    let updated = try res.content.decode(SmartViewResponse.self)
+                    #expect(updated.name == "Renamed", "It should apply the other changes")
+                    #expect(
+                        updated.matchMode == "any",
+                        "It should keep the existing match mode when the body omits it"
+                    )
+                }
+            )
+        }
+    }
+
+    @Test("matchMode 'any' still excludes archived bookmarks without an isArchived condition")
+    func anyModeRespectsArchivedDefault() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://active.com", tags: ["swift"], isArchived: false)
+            try await app.makeBookmark(for: user, url: "https://archived.com", tags: ["swift"], isArchived: true)
+            let view = try await app.makeSmartView(
+                token: pair.accessToken,
+                name: "Any swift",
+                conditions: [
+                    SmartViewConditionPayload(type: "tag", value: "swift"),
+                    SmartViewConditionPayload(type: "titleContains", value: "nothing")
+                ],
+                matchMode: "any"
+            )
+
+            // When
+            try await app.testing().test(
+                .GET, "api/v1/smart-views/\(view.id)/bookmarks",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://active.com"],
+                    "It should apply the non-archived default as an outer AND in 'any' mode"
+                )
+            }
+        }
+    }
 }
 
 extension Application {
@@ -450,14 +675,15 @@ extension Application {
     func makeSmartView(
         token: String,
         name: String,
-        conditions: [SmartViewConditionPayload]
+        conditions: [SmartViewConditionPayload],
+        matchMode: String = "all"
     ) async throws -> SmartViewResponse {
         var result: SmartViewResponse?
         try await testing().test(
             .POST, "api/v1/smart-views",
             headers: bearer(token),
             beforeRequest: { req in
-                try req.content.encode(SmartViewRequestBody(name: name, conditions: conditions))
+                try req.content.encode(SmartViewRequestBody(name: name, conditions: conditions, matchMode: matchMode))
             },
             afterResponse: { res async throws in
                 result = try res.content.decode(SmartViewResponse.self)

@@ -166,8 +166,11 @@ struct AppWebController: RouteCollection {
         return components.string ?? "/app/smart-views/\(id)"
     }
 
-    static func summary(for conditions: [SmartViewCondition]) -> String {
-        conditions.map { conditionLabel($0) }.joined(separator: ", ")
+    static func summary(for conditions: [SmartViewCondition], matchMode: String) -> String {
+        let prefix = matchMode == SmartView.matchAny ? "Match any" : "Match all"
+        let labels = conditions.map { conditionLabel($0) }.joined(separator: ", ")
+
+        return "\(prefix): \(labels)"
     }
 
     static func conditionLabel(_ condition: SmartViewCondition) -> String {
@@ -645,13 +648,7 @@ struct AppWebController: RouteCollection {
 
         let builder = try Bookmark.query(on: req.db)
             .filter(\.$user.$id == user.requireID())
-        if !overridesArchived {
-            builder.filter(\.$isArchived == archived)
-        }
-
-        for condition in smartView.conditions {
-            condition.apply(to: builder)
-        }
+        smartView.applyConditions(to: builder, archivedDefault: archived)
 
         let result = try await builder
             .sort(\.$createdAt, .descending)
@@ -709,7 +706,7 @@ struct AppWebController: RouteCollection {
             try AppSmartViewRow(
                 id: view.requireID().uuidString,
                 name: view.name,
-                summary: Self.summary(for: view.conditions)
+                summary: Self.summary(for: view.conditions, matchMode: view.matchMode)
             )
         }
         let message: String? = switch req.query[String.self, at: "ok"] {
@@ -737,6 +734,7 @@ struct AppWebController: RouteCollection {
             isEdit: false,
             action: "/app/smart-views/new",
             name: "",
+            matchMode: SmartView.matchAll,
             conditions: [Self.defaultField],
             error: nil
         )
@@ -748,8 +746,14 @@ struct AppWebController: RouteCollection {
 
         do {
             let name = try SmartViewController.validatedName(form.name)
+            let matchMode = try SmartViewController.validatedMatchMode(form.matchMode)
             let conditions = try Self.conditions(from: form)
-            let smartView = try SmartView(userID: user.requireID(), name: name, conditions: conditions)
+            let smartView = try SmartView(
+                userID: user.requireID(),
+                name: name,
+                conditions: conditions,
+                matchMode: matchMode
+            )
             try await smartView.save(on: req.db)
 
             return req.redirect(to: "/app/smart-views?ok=saved")
@@ -760,6 +764,7 @@ struct AppWebController: RouteCollection {
                 isEdit: false,
                 action: "/app/smart-views/new",
                 name: form.name,
+                matchMode: form.matchMode ?? SmartView.matchAll,
                 conditions: Self.fields(from: form),
                 error: error.reason,
                 status: .unprocessableEntity
@@ -778,6 +783,7 @@ struct AppWebController: RouteCollection {
             isEdit: true,
             action: "/app/smart-views/\(id)/edit",
             name: smartView.name,
+            matchMode: smartView.matchMode,
             conditions: smartView.conditions.map { Self.field(from: $0) },
             error: nil
         )
@@ -792,6 +798,7 @@ struct AppWebController: RouteCollection {
 
         do {
             smartView.name = try SmartViewController.validatedName(form.name)
+            smartView.matchMode = try SmartViewController.validatedMatchMode(form.matchMode)
             smartView.conditions = try Self.conditions(from: form)
             try await smartView.save(on: req.db)
 
@@ -803,6 +810,7 @@ struct AppWebController: RouteCollection {
                 isEdit: true,
                 action: "/app/smart-views/\(id)/edit",
                 name: form.name,
+                matchMode: form.matchMode ?? SmartView.matchAll,
                 conditions: Self.fields(from: form),
                 error: error.reason,
                 status: .unprocessableEntity
@@ -1197,6 +1205,7 @@ struct AppWebController: RouteCollection {
         isEdit: Bool,
         action: String,
         name: String,
+        matchMode: String,
         conditions: [SmartViewConditionField],
         error: String?,
         status: HTTPResponseStatus = .ok
@@ -1209,6 +1218,7 @@ struct AppWebController: RouteCollection {
             isEdit: isEdit,
             action: action,
             name: name,
+            matchMode: matchMode,
             conditions: conditions,
             knownTagsJSON: knownTagsJSON(req, user: user),
             chrome: req.siteChrome()

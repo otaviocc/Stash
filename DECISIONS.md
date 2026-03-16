@@ -1566,11 +1566,25 @@ Glass adopted automatically by building against the 26 SDKs).
 
 ## Smart Views
 
-- **✅ All conditions are ANDed.** A Smart View matches a bookmark only when *every*
-  condition holds. There is no `OR`, no grouping, and no boolean-expression parser
-  — AND covers the large majority of "saved query" use cases, and the absence of a
-  query DSL keeps both the data model and the builder UI trivial. A user who needs
-  an alternative just creates a second Smart View.
+- **✅ A per-view match mode: `all` (AND) or `any` (OR).** Mirroring macOS Music's
+  "Match all/any of the following rules", each Smart View carries a `match_mode`
+  string (`all`/`any`, default `all`, validated at the boundary like condition
+  types and `accentTheme` — no Fluent DB enum). `all` ANDs the conditions as
+  top-level filters; `any` wraps them in a single `.group(.or)`. There is still no
+  per-rule grouping or boolean-expression parser — one global combinator covers the
+  vast majority of "saved query" use cases without a query DSL. Added via a separate
+  `AddSmartViewMatchMode` migration (column with `default("all")`) so existing rows
+  backfill to the prior AND behavior without an edit to the already-applied
+  `CreateSmartViews`.
+- **✅ The non-archived default is an outer AND in both modes.** `applyConditions`
+  applies `isArchived == <default>` as a top-level filter unless an `isArchived`
+  condition is present, *then* combines the rules (AND or OR). So `any` mode can't
+  leak archived bookmarks just because one OR-branch happens to match — archived
+  results still require an explicit `isArchived` rule. The match-mode + archived
+  logic lives only in `SmartView.applyConditions(to:archivedDefault:)`; the web
+  results handler passes its archived-toggle state as `archivedDefault` and the API
+  uses the `false` default, so the two callers share one mechanism (this also
+  retired the duplicated inline loop a prior review flagged).
 - **✅ Conditions stored as a JSON array of `{ type, value }` objects.** The
   `conditions` column is a single `.json` column holding an array of
   discriminated-union objects (`{ "type": "urlContains", "value": "youtube" }`).

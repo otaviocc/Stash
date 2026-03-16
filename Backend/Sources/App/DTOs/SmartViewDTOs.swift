@@ -33,11 +33,24 @@ struct SmartViewConditionPayload: Content {
 
 // MARK: - SmartViewRequestBody
 
-/// `POST` / `PUT /smart-views` body — the display name and the (unvalidated) condition list.
+/// `POST` / `PUT /smart-views` body — the display name, the match mode (`all` / `any`), and the
+/// (unvalidated) condition list. `matchMode` is optional: omitting it defaults to `all` on create
+/// and leaves the existing value unchanged on update.
 struct SmartViewRequestBody: Content {
 
+    // MARK: Properties
+
     let name: String
+    let matchMode: String?
     let conditions: [SmartViewConditionPayload]
+
+    // MARK: Lifecycle
+
+    init(name: String, conditions: [SmartViewConditionPayload], matchMode: String? = nil) {
+        self.name = name
+        self.matchMode = matchMode
+        self.conditions = conditions
+    }
 }
 
 // MARK: - SmartViewResponse
@@ -47,6 +60,7 @@ struct SmartViewResponse: Content {
 
     let id: UUID
     let name: String
+    let matchMode: String
     let conditions: [SmartViewConditionPayload]
     let createdAt: Date
     let updatedAt: Date

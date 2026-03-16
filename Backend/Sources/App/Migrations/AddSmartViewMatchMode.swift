@@ -20,24 +20,21 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import Foundation
+import Fluent
 
-// MARK: - SmartViewRequest
+/// Migration that adds the `match_mode` column to `smart_views`. The `"all"` default backfills
+/// existing rows so they keep their original AND behavior.
+struct AddSmartViewMatchMode: AsyncMigration {
 
-/// Request body for creating or updating a Smart View.
-public struct SmartViewRequest: Encodable, Sendable {
+    func prepare(on database: Database) async throws {
+        try await database.schema("smart_views")
+            .field("match_mode", .string, .required, .sql(.default("all")))
+            .update()
+    }
 
-    // MARK: Properties
-
-    public let name: String
-    public let matchMode: String
-    public let conditions: [SmartViewConditionDTO]
-
-    // MARK: Lifecycle
-
-    public init(name: String, conditions: [SmartViewConditionDTO], matchMode: String = "all") {
-        self.name = name
-        self.matchMode = matchMode
-        self.conditions = conditions
+    func revert(on database: Database) async throws {
+        try await database.schema("smart_views")
+            .deleteField("match_mode")
+            .update()
     }
 }

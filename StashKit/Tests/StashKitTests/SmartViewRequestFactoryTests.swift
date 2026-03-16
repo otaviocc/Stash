@@ -49,7 +49,8 @@ struct SmartViewRequestFactoryTests {
     func createRequest() {
         let body = SmartViewRequest(
             name: "YouTube Reviews",
-            conditions: [SmartViewConditionDTO(type: "urlContains", value: "youtube")]
+            conditions: [SmartViewConditionDTO(type: "urlContains", value: "youtube")],
+            matchMode: "any"
         )
 
         let request = SmartViewRequestFactory.makeCreateRequest(body)
@@ -57,6 +58,7 @@ struct SmartViewRequestFactoryTests {
         #expect(request.path == "/api/v1/smart-views", "It should target the smart-views collection")
         #expect(request.method == .post, "It should use POST")
         #expect(request.body?.name == "YouTube Reviews", "It should carry the submitted name")
+        #expect(request.body?.matchMode == "any", "It should carry the match mode")
     }
 
     @Test("builds GET and PUT requests for a single smart view by id")
@@ -77,6 +79,26 @@ struct SmartViewRequestFactoryTests {
 
         #expect(request.path == "/api/v1/smart-views/\(id.uuidString)", "It should target the smart view by id")
         #expect(request.method == .delete, "It should use DELETE")
+    }
+
+    @Test("SmartViewDTO decoding defaults matchMode to 'all' when the field is absent")
+    func decodesMissingMatchMode() throws {
+        let json = """
+        {
+            "id": "11111111-2222-3333-4444-555555555555",
+            "name": "Legacy",
+            "conditions": [{ "type": "tag", "value": "swift" }],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z"
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        let dto = try decoder.decode(SmartViewDTO.self, from: Data(json.utf8))
+
+        #expect(dto.matchMode == "all", "It should default matchMode to 'all' for a response that omits it")
+        #expect(dto.name == "Legacy", "It should still decode the other fields")
     }
 
     @Test("builds a paginated bookmarks request for a smart view")

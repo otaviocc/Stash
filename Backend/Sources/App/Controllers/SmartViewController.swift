@@ -51,6 +51,14 @@ struct SmartViewController: RouteCollection {
         return conditions
     }
 
+    static func validatedMatchMode(_ raw: String?) throws -> String {
+        switch raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case nil, "", SmartView.matchAll: SmartView.matchAll
+        case SmartView.matchAny: SmartView.matchAny
+        default: throw APIError.validationFailed("Match mode must be 'all' or 'any'.")
+        }
+    }
+
     // MARK: Functions
 
     func boot(routes: RoutesBuilder) throws {
@@ -81,8 +89,14 @@ struct SmartViewController: RouteCollection {
 
         let name = try Self.validatedName(body.name)
         let conditions = try Self.validatedConditions(body.conditions)
+        let matchMode = try Self.validatedMatchMode(body.matchMode)
 
-        let smartView = try SmartView(userID: user.requireID(), name: name, conditions: conditions)
+        let smartView = try SmartView(
+            userID: user.requireID(),
+            name: name,
+            conditions: conditions,
+            matchMode: matchMode
+        )
         try await smartView.save(on: req.db)
 
         let response = Response(status: .created)
@@ -100,6 +114,9 @@ struct SmartViewController: RouteCollection {
 
         smartView.name = try Self.validatedName(body.name)
         smartView.conditions = try Self.validatedConditions(body.conditions)
+        if let rawMatchMode = body.matchMode {
+            smartView.matchMode = try Self.validatedMatchMode(rawMatchMode)
+        }
 
         try await smartView.save(on: req.db)
         return try smartView.asResponse()

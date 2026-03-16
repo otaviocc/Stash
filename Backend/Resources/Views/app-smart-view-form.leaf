@@ -12,7 +12,13 @@
                 <input name="name" value="#(name)" maxlength="100" autocomplete="off" required>
             </label>
 
-            <label>Conditions <span class="muted">(a bookmark must match every condition)</span></label>
+            <label for="match-mode">Match
+                <select name="matchMode" id="match-mode" style="display:inline; width:auto;">
+                    <option value="all"#if(matchMode == "all"): selected#endif>all</option>
+                    <option value="any"#if(matchMode == "any"): selected#endif>any</option>
+                </select>
+                of the following rules:
+            </label>
             <div id="cond-list" data-known-tags='#(knownTagsJSON)'>
                 #for(c in conditions):
                 <div class="cond-row">

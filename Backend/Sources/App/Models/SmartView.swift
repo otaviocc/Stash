@@ -26,15 +26,18 @@ import Vapor
 
 // MARK: - SmartView
 
-/// A saved query owned by a user. Runs live against the user's bookmarks and returns the ones
-/// matching every (AND) condition. The query is stored as rules, never as results. See the
-/// Smart Views section of `DECISIONS.md`.
+/// A saved query owned by a user. Runs live against the user's bookmarks, returning the ones
+/// that match its conditions — every condition when `matchMode` is `all`, at least one when it
+/// is `any`. The query is stored as rules, never as results. See the Smart Views section of
+/// `DECISIONS.md`.
 final class SmartView: Model, Content, @unchecked Sendable {
 
     // MARK: Static Properties
 
     static let schema = "smart_views"
     static let maxNameLength = 100
+    static let matchAll = "all"
+    static let matchAny = "any"
 
     // MARK: Properties
 
@@ -49,6 +52,9 @@ final class SmartView: Model, Content, @unchecked Sendable {
 
     @Field(key: "conditions")
     var conditionsStore: SmartViewConditionList
+
+    @Field(key: "match_mode")
+    var matchMode: String
 
     @Timestamp(key: "created_at", on: .create)
     var createdAt: Date?
@@ -71,12 +77,14 @@ final class SmartView: Model, Content, @unchecked Sendable {
         id: UUID? = nil,
         userID: User.IDValue,
         name: String,
-        conditions: [SmartViewCondition]
+        conditions: [SmartViewCondition],
+        matchMode: String = SmartView.matchAll
     ) {
         self.id = id
         $user.id = userID
         self.name = name
         conditionsStore = SmartViewConditionList(conditions: conditions)
+        self.matchMode = matchMode
     }
 
     // MARK: Functions
@@ -85,20 +93,29 @@ final class SmartView: Model, Content, @unchecked Sendable {
         try SmartViewResponse(
             id: requireID(),
             name: name,
+            matchMode: matchMode,
             conditions: conditions.map { SmartViewConditionPayload(type: $0.typeString, value: $0.valueString) },
             createdAt: createdAt ?? Date(),
             updatedAt: updatedAt ?? Date()
         )
     }
 
-    func applyConditions(to builder: QueryBuilder<Bookmark>) {
+    func applyConditions(to builder: QueryBuilder<Bookmark>, archivedDefault: Bool = false) {
         let overridesArchived = conditions.contains { if case .isArchived = $0 { true } else { false } }
         if !overridesArchived {
-            builder.filter(\.$isArchived == false)
+            builder.filter(\.$isArchived == archivedDefault)
         }
 
-        for condition in conditions {
-            condition.apply(to: builder)
+        if matchMode == SmartView.matchAny {
+            builder.group(.or) { group in
+                for condition in conditions {
+                    condition.apply(to: group)
+                }
+            }
+        } else {
+            for condition in conditions {
+                condition.apply(to: builder)
+            }
         }
     }
 }
