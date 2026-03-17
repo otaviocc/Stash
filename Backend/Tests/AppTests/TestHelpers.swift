@@ -69,6 +69,9 @@ extension Application {
             isArchived: isArchived
         )
         try await bookmark.save(on: self.db)
+        // Keep the denormalised count in sync, mirroring BookmarkController.create (PRD §7.1).
+        user.bookmarkCount += 1
+        try await user.save(on: self.db)
         return bookmark
     }
 }
