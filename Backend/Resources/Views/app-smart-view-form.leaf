@@ -30,6 +30,7 @@
                         <option value="createdBefore"#if(c.type == "createdBefore"): selected#endif>Created before</option>
                         <option value="createdAfter"#if(c.type == "createdAfter"): selected#endif>Created after</option>
                         <option value="isArchived"#if(c.type == "isArchived"): selected#endif>Is archived</option>
+                        <option value="hasTags"#if(c.type == "hasTags"): selected#endif>Has tags</option>
                     </select>
                     <input name="conditionValue[]" class="cond-value-text" type="#if(c.isDate):date#else:text#endif" value="#(c.textValue)" autocomplete="off"#if(c.isBool): disabled style="display:none"#endif>
                     <select name="conditionValue[]" class="cond-value-bool"#if(c.isText): disabled style="display:none"#endif>
@@ -59,6 +60,7 @@
                 <option value="createdBefore">Created before</option>
                 <option value="createdAfter">Created after</option>
                 <option value="isArchived">Is archived</option>
+                <option value="hasTags">Has tags</option>
             </select>
             <input name="conditionValue[]" class="cond-value-text" type="text" value="" autocomplete="off">
             <select name="conditionValue[]" class="cond-value-bool" disabled style="display:none">
@@ -83,7 +85,7 @@
             var type = row.querySelector('.cond-type').value;
             var text = row.querySelector('.cond-value-text');
             var bool = row.querySelector('.cond-value-bool');
-            if (type === 'isArchived') {
+            if (type === 'isArchived' || type === 'hasTags') {
                 text.disabled = true; text.style.display = 'none';
                 bool.disabled = false; bool.style.display = '';
             } else {

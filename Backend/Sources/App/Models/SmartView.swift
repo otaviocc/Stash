@@ -144,6 +144,7 @@ enum SmartViewCondition: Codable, Equatable {
     case createdBefore(Date)
     case createdAfter(Date)
     case isArchived(Bool)
+    case hasTags(Bool)
 
     // MARK: Nested Types
 
@@ -172,6 +173,7 @@ enum SmartViewCondition: Codable, Equatable {
         case .createdBefore: "createdBefore"
         case .createdAfter: "createdAfter"
         case .isArchived: "isArchived"
+        case .hasTags: "hasTags"
         }
     }
 
@@ -182,7 +184,7 @@ enum SmartViewCondition: Codable, Equatable {
             value
         case let .createdBefore(date), let .createdAfter(date):
             Self.iso8601.string(from: date)
-        case let .isArchived(value):
+        case let .isArchived(value), let .hasTags(value):
             value ? "true" : "false"
         }
     }
@@ -231,6 +233,12 @@ enum SmartViewCondition: Codable, Equatable {
             case "false": return .isArchived(false)
             default: throw APIError.validationFailed("The isArchived value must be 'true' or 'false'.")
             }
+        case "hasTags":
+            switch trimmed.lowercased() {
+            case "true": return .hasTags(true)
+            case "false": return .hasTags(false)
+            default: throw APIError.validationFailed("The hasTags value must be 'true' or 'false'.")
+            }
         default:
             throw APIError.validationFailed("'\(type)' is not a valid condition type.")
         }
@@ -266,6 +274,8 @@ enum SmartViewCondition: Codable, Equatable {
             builder.filter(\.$createdAt > date)
         case let .isArchived(value):
             builder.filter(\.$isArchived == value)
+        case let .hasTags(value):
+            builder.filter(value ? \.$tagsSearch != "" : \.$tagsSearch == "")
         }
     }
 }

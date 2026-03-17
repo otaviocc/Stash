@@ -182,6 +182,7 @@ struct AppWebController: RouteCollection {
         case let .createdBefore(date): "Created before \(SmartViewCondition.iso8601.string(from: date).prefix(10))"
         case let .createdAfter(date): "Created after \(SmartViewCondition.iso8601.string(from: date).prefix(10))"
         case let .isArchived(value): "Archived: \(value ? "Yes" : "No")"
+        case let .hasTags(value): "Has tags: \(value ? "Yes" : "No")"
         }
     }
 
@@ -237,7 +238,7 @@ struct AppWebController: RouteCollection {
     }
 
     static func field(type: String, rawValue: String) -> SmartViewConditionField {
-        let isBool = type == "isArchived"
+        let isBool = type == "isArchived" || type == "hasTags"
         let isDate = type == "createdBefore" || type == "createdAfter"
         let boolValue = (isBool && rawValue.lowercased() == "false") ? "false" : "true"
 

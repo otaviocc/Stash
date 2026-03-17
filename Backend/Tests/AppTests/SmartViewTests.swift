@@ -326,6 +326,109 @@ struct SmartViewTests {
         }
     }
 
+    @Test("a hasTags condition filters on whether a bookmark has any tags")
+    func hasTagsCondition() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://tagged.com", tags: ["swift"])
+            try await app.makeBookmark(for: user, url: "https://untagged.com", tags: [])
+            let untaggedView = try await app.makeSmartView(
+                token: pair.accessToken,
+                name: "Untagged",
+                conditions: [SmartViewConditionPayload(type: "hasTags", value: "false")]
+            )
+            let taggedView = try await app.makeSmartView(
+                token: pair.accessToken,
+                name: "Tagged",
+                conditions: [SmartViewConditionPayload(type: "hasTags", value: "true")]
+            )
+
+            // When / Then
+            try await app.testing().test(
+                .GET, "api/v1/smart-views/\(untaggedView.id)/bookmarks",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://untagged.com"],
+                    "It should return only bookmarks with no tags when hasTags is false"
+                )
+            }
+
+            try await app.testing().test(
+                .GET, "api/v1/smart-views/\(taggedView.id)/bookmarks",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://tagged.com"],
+                    "It should return only bookmarks with at least one tag when hasTags is true"
+                )
+            }
+        }
+    }
+
+    @Test("hasTags combines with another condition (untagged AND url contains)")
+    func hasTagsCombinedWithUrl() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://wwdc.io/untagged", tags: [])
+            try await app.makeBookmark(for: user, url: "https://wwdc.io/tagged", tags: ["video"])
+            try await app.makeBookmark(for: user, url: "https://example.com/untagged", tags: [])
+            let view = try await app.makeSmartView(
+                token: pair.accessToken,
+                name: "Untagged WWDC",
+                conditions: [
+                    SmartViewConditionPayload(type: "hasTags", value: "false"),
+                    SmartViewConditionPayload(type: "urlContains", value: "wwdc")
+                ]
+            )
+
+            // When
+            try await app.testing().test(
+                .GET, "api/v1/smart-views/\(view.id)/bookmarks",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://wwdc.io/untagged"],
+                    "It should return only the untagged bookmark whose URL also contains 'wwdc'"
+                )
+            }
+        }
+    }
+
+    @Test("an invalid hasTags value returns 422")
+    func invalidHasTags() async throws {
+        try await withTestApp { app in
+            try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            try await app.testing().test(
+                .POST, "api/v1/smart-views",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(SmartViewRequestBody(
+                        name: "Bad",
+                        conditions: [SmartViewConditionPayload(type: "hasTags", value: "maybe")]
+                    ))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .unprocessableEntity, "It should reject a non-boolean hasTags value")
+                    #expect(
+                        try res.content.decode(TestError.self).code == "validation_failed",
+                        "It should fail validation"
+                    )
+                }
+            )
+        }
+    }
+
     @Test("multiple conditions must all match (AND)")
     func multipleConditionsAreAnded() async throws {
         try await withTestApp { app in

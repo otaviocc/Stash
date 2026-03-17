@@ -255,6 +255,7 @@ Each condition is a `{ type, value }` object (all values strings; dates ISO-8601
 | `createdBefore` | `createdAt` is before the ISO-8601 date |
 | `createdAfter` | `createdAt` is after the ISO-8601 date |
 | `isArchived` | `isArchived` equals `true`/`false` |
+| `hasTags` | `tagsSearch` is non-empty (`true`) or empty (`false`) — i.e. the bookmark has any tags |
 
 Text conditions use the same portable `lower(column) LIKE lower('%value%')` helper
 as full-text search. Multiple conditions of the same type are allowed (with

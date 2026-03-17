@@ -1594,7 +1594,11 @@ Glass adopted automatically by building against the 26 SDKs).
   API response is a direct projection of the stored value. `SmartViewCondition` is a
   Swift `enum` whose `Codable` round-trips that shape; its `validated(type:value:)`
   factory is the single choke point that rejects unknown types, empty values, and
-  unparseable dates/booleans with `422 validation_failed`.
+  unparseable dates/booleans with `422 validation_failed`. Adding `hasTags` (a
+  boolean condition: `true` = the bookmark has any tags, `false` = none) was exactly
+  this code-only change — no migration, no StashKit change — and it reuses the
+  derived `tags_search` column (`!= ""` / `== ""`, the same basis as the
+  `__untagged__` filter) rather than introducing new storage.
 - **⚠️ Conditions are wrapped in a single-object `SmartViewConditionList`, not a
   bare `[SmartViewCondition]` field.** Storing the array directly worked on the
   SQLite test DB but failed in production on PostgreSQL: Fluent's Postgres encoder
