@@ -24,7 +24,8 @@ import Fluent
 import Foundation
 
 /// Imports Stash's own native export format (see `StashJSONExporter` / PRD §11.3): an object with
-/// a `bookmarks` array. Round-trips a Stash export, and is the natural restore-from-backup path.
+/// a `bookmarks` array and an optional `smartViews` array. Round-trips a Stash export, and is the
+/// natural restore-from-backup path.
 ///
 /// Per-bookmark mapping:
 /// - `url` (required; record skipped if missing/invalid)
@@ -35,14 +36,20 @@ import Foundation
 ///
 /// A duplicate URL updates the existing bookmark in place (title/description/tags/isArchived/
 /// faviconURL overwritten, `createdAt` left untouched).
+///
+/// Per-Smart-View mapping: `name`, `matchMode` (defaults to `all`), and `conditions` are used and
+/// validated; `id`/`createdAt`/`updatedAt` are ignored. A Smart View whose name already exists is
+/// updated in place; otherwise a new one is created — so re-importing is idempotent. The
+/// `smartViews` node is optional, so older exports without it still import cleanly.
 struct StashJSONImporter: BookmarkImporter {
 
     // MARK: Nested Types
 
-    /// Top-level decoded envelope holding the bookmark records.
+    /// Top-level decoded envelope holding the bookmark and Smart View records.
     private struct Document: Decodable {
 
         let bookmarks: [Record]
+        let smartViews: [SmartViewRecord]?
     }
 
     /// A single decoded Stash JSON bookmark record.
@@ -55,6 +62,21 @@ struct StashJSONImporter: BookmarkImporter {
         let isArchived: Bool?
         let faviconURL: String?
         let createdAt: String?
+    }
+
+    /// A single decoded Stash JSON Smart View record.
+    private struct SmartViewRecord: Decodable {
+
+        let name: String?
+        let matchMode: String?
+        let conditions: [ConditionRecord]?
+    }
+
+    /// A single decoded Smart View condition: a `{ type, value }` pair.
+    private struct ConditionRecord: Decodable {
+
+        let type: String?
+        let value: String?
     }
 
     // MARK: Static Properties
@@ -154,6 +176,54 @@ struct StashJSONImporter: BookmarkImporter {
             try await user.save(on: db)
         }
 
-        return ImportResult(imported: imported, updated: updated, skipped: skipped, errors: errors)
+        var smartViewsImported = 0
+        var smartViewsUpdated = 0
+        var smartViewsSkipped = 0
+
+        for (index, record) in (document.smartViews ?? []).enumerated() {
+            let position = index + 1
+
+            let name: String
+            let matchMode: String
+            let conditions: [SmartViewCondition]
+            do {
+                name = try SmartViewController.validatedName(record.name ?? "")
+                matchMode = try SmartViewController.validatedMatchMode(record.matchMode)
+                conditions = try SmartViewController.validatedConditions(
+                    (record.conditions ?? [])
+                        .map { SmartViewConditionPayload(type: $0.type ?? "", value: $0.value ?? "") }
+                )
+            } catch {
+                smartViewsSkipped += 1
+                let reason = (error as? APIError)?.reason ?? "could not be imported."
+                errors.append("Smart View \(position): \(reason)")
+                continue
+            }
+
+            if let existing = try await SmartView.query(on: db)
+                .filter(\.$user.$id == userID)
+                .filter(\.$name == name)
+                .first()
+            {
+                existing.matchMode = matchMode
+                existing.conditions = conditions
+                try await existing.save(on: db)
+                smartViewsUpdated += 1
+            } else {
+                let smartView = SmartView(userID: userID, name: name, conditions: conditions, matchMode: matchMode)
+                try await smartView.save(on: db)
+                smartViewsImported += 1
+            }
+        }
+
+        return ImportResult(
+            imported: imported,
+            updated: updated,
+            skipped: skipped,
+            smartViewsImported: smartViewsImported,
+            smartViewsUpdated: smartViewsUpdated,
+            smartViewsSkipped: smartViewsSkipped,
+            errors: errors
+        )
     }
 }

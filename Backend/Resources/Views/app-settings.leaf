@@ -70,6 +70,10 @@
         <p class="banner ok">
             Import complete: #(importSummary.imported) added, #(importSummary.updated) updated,
             #(importSummary.skipped) skipped.
+            #if(importSummary.hasSmartViews):
+            Smart Views: #(importSummary.smartViewsImported) added,
+            #(importSummary.smartViewsUpdated) updated, #(importSummary.smartViewsSkipped) skipped.
+            #endif
         </p>
         #if(count(importSummary.errors) > 0):
         <details>
@@ -93,7 +97,8 @@
             </label>
             <button type="submit">Import</button>
         </form>
-        <p class="muted">Existing bookmarks with the same URL are updated in place.</p>
+        <p class="muted">Existing bookmarks with the same URL are updated in place. A Stash JSON file
+            also restores Smart Views, matched by name.</p>
 
         <h3>Export bookmarks</h3>
         <form method="get" action="/app/export">

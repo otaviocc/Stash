@@ -60,13 +60,39 @@ protocol BookmarkExporter: Sendable {
 
 // MARK: - ImportResult
 
-/// Outcome of an import run.
+/// Outcome of an import run. The `smartViews*` counts default to zero so importers that only
+/// handle bookmarks (e.g. Anybox) need not set them.
 struct ImportResult {
+
+    // MARK: Properties
 
     let imported: Int
     let updated: Int
     let skipped: Int
+    let smartViewsImported: Int
+    let smartViewsUpdated: Int
+    let smartViewsSkipped: Int
     let errors: [String]
+
+    // MARK: Lifecycle
+
+    init(
+        imported: Int,
+        updated: Int,
+        skipped: Int,
+        smartViewsImported: Int = 0,
+        smartViewsUpdated: Int = 0,
+        smartViewsSkipped: Int = 0,
+        errors: [String]
+    ) {
+        self.imported = imported
+        self.updated = updated
+        self.skipped = skipped
+        self.smartViewsImported = smartViewsImported
+        self.smartViewsUpdated = smartViewsUpdated
+        self.smartViewsSkipped = smartViewsSkipped
+        self.errors = errors
+    }
 }
 
 // MARK: - ImportError

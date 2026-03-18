@@ -38,6 +38,7 @@ The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 - Duplicate URLs per user are blocked at save time
 - Import bookmarks from Anybox JSON export and Stash JSON
 - Export bookmarks in Stash native JSON format
+- Export and import Smart Views as part of the Stash native JSON format
 - Dark mode support (Light / Dark / Auto)
 - Keep all data on infrastructure the user controls
 - Remain fully private — no public sharing, no public registration
@@ -545,13 +546,20 @@ instances.
 | `bookmarks[].isArchived` | |
 | `bookmarks[].faviconURL` | |
 | `bookmarks[].createdAt` | ISO-8601; current time if missing |
-| `id`, `updatedAt`, `version`, `exportedAt` | Ignored |
+| `smartViews[].name` | Required; ≤ 100 chars |
+| `smartViews[].matchMode` | `all`/`any`; defaults to `all` |
+| `smartViews[].conditions` | At least one valid `{ type, value }`; same validation as the API |
+| `id`, `updatedAt`, `version`, `exportedAt` | Ignored (also `smartViews[].id`/`createdAt`/`updatedAt`) |
 
-Duplicate URL: update in place. `createdAt` preserved.
+Duplicate URL: update in place. `createdAt` preserved. The `smartViews` node is optional, so
+older exports without it still import. A Smart View whose `name` already exists for the user is
+updated in place; otherwise it is created — so re-importing is idempotent. A Smart View with an
+empty name or no valid conditions is skipped and reported, like a bad bookmark record.
 
 ### 11.4 Stash JSON Exporter (`identifier: "stash-json"`)
 
-All bookmarks (including archived), sorted by `createdAt` ascending:
+All bookmarks (including archived), sorted by `createdAt` ascending, plus all of the user's Smart
+Views, sorted by `name`:
 
 ```json
 {
@@ -566,6 +574,19 @@ All bookmarks (including archived), sorted by `createdAt` ascending:
       "tags": ["swift", "ios"],
       "faviconURL": "https://example.com/favicon.ico",
       "isArchived": false,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "updatedAt": "2026-01-02T00:00:00Z"
+    }
+  ],
+  "smartViews": [
+    {
+      "id": "uuid",
+      "name": "Reading list",
+      "matchMode": "all",
+      "conditions": [
+        { "type": "tag", "value": "swift" },
+        { "type": "hasTags", "value": "true" }
+      ],
       "createdAt": "2026-01-01T00:00:00Z",
       "updatedAt": "2026-01-02T00:00:00Z"
     }
@@ -720,9 +741,11 @@ confirmation).
 
 **Import & Export:**
 - Import: file upload, format selector (Anybox JSON, Stash JSON), summary banner
-  with imported/updated/skipped counts, collapsible error details. Upload body
-  limit 16MB.
-- Export: "Download your bookmarks" → Stash JSON file download.
+  with imported/updated/skipped counts (plus a Smart Views count when the file
+  carried any), collapsible error details. Upload body limit 16MB. A Stash JSON
+  file also restores Smart Views, matched by name.
+- Export: "Download your bookmarks" → Stash JSON file download (bookmarks and
+  Smart Views).
 
 **Danger Zone:**
 - "Delete all bookmarks" — requires typing `delete all` (case-insensitive).
@@ -770,6 +793,11 @@ stash admin reset-totp <username>
 stash admin delete-user <username>
 stash admin stats [--json]
 ```
+
+`stash export` of a Stash JSON file includes the user's Smart Views, and `stash import` of a
+Stash JSON file restores them (matched by name, via the Smart View REST API) — at parity with the
+web frontend. The CLI cannot preserve a Smart View's `createdAt` (no direct DB access), the same
+limitation already noted for bookmarks.
 
 ---
 

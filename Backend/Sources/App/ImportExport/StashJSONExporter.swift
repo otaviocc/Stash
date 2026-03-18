@@ -29,12 +29,14 @@ struct StashJSONExporter: BookmarkExporter {
 
     // MARK: Nested Types
 
-    /// Top-level export envelope wrapping the format version and the bookmark items.
+    /// Top-level export envelope wrapping the format version, the bookmark items, and the
+    /// user's Smart Views.
     private struct Document: Encodable {
 
         let version: String
         let exportedAt: String
         let bookmarks: [Item]
+        let smartViews: [SmartViewItem]
     }
 
     /// A single bookmark serialized into the Stash JSON shape.
@@ -49,6 +51,24 @@ struct StashJSONExporter: BookmarkExporter {
         let isArchived: Bool
         let createdAt: String
         let updatedAt: String
+    }
+
+    /// A single Smart View serialized into the Stash JSON shape.
+    private struct SmartViewItem: Encodable {
+
+        let id: String
+        let name: String
+        let matchMode: String
+        let conditions: [ConditionItem]
+        let createdAt: String
+        let updatedAt: String
+    }
+
+    /// A single Smart View condition: a `{ type, value }` pair, matching the API wire shape.
+    private struct ConditionItem: Encodable {
+
+        let type: String
+        let value: String
     }
 
     // MARK: Static Properties
@@ -82,7 +102,28 @@ struct StashJSONExporter: BookmarkExporter {
             )
         }
 
-        let document = Document(version: "1", exportedAt: iso.string(from: Date()), bookmarks: items)
+        let smartViews = try await SmartView.query(on: db)
+            .filter(\.$user.$id == userID)
+            .sort(\.$name, .ascending)
+            .all()
+
+        let smartViewItems = try smartViews.map { smartView in
+            try SmartViewItem(
+                id: smartView.requireID().uuidString,
+                name: smartView.name,
+                matchMode: smartView.matchMode,
+                conditions: smartView.conditions.map { ConditionItem(type: $0.typeString, value: $0.valueString) },
+                createdAt: iso.string(from: smartView.createdAt ?? Date()),
+                updatedAt: iso.string(from: smartView.updatedAt ?? Date())
+            )
+        }
+
+        let document = Document(
+            version: "1",
+            exportedAt: iso.string(from: Date()),
+            bookmarks: items,
+            smartViews: smartViewItems
+        )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(document)

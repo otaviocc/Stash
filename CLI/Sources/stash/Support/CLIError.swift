@@ -59,6 +59,22 @@ enum CLIErrorReporter {
         }
     }
 
+    /// Whether an error should abort a batch operation rather than be treated as one bad record.
+    /// Per-record rejections (validation, duplicate, not-found, username conflicts) are recoverable
+    /// and let the batch continue; auth, connectivity, server, and unrecognized errors abort it so a
+    /// transient failure is never silently miscounted as invalid data.
+    static func abortsBatch(_ error: Error) -> Bool {
+        switch error {
+        case StashAPIError.validationFailed,
+             StashAPIError.duplicateURL,
+             StashAPIError.notFound,
+             StashAPIError.usernameTaken:
+            false
+        default:
+            true
+        }
+    }
+
     private static func message(for error: StashAPIError) -> String {
         switch error {
         case .invalidCredentials:

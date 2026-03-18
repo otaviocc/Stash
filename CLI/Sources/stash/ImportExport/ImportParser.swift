@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 import Foundation
+import StashKit
 
 // MARK: - ImportFormat
 
@@ -43,16 +44,37 @@ struct ParsedBookmark {
     var isArchived: Bool
 }
 
+// MARK: - ParsedSmartView
+
+/// A single Smart View parsed from an import file, before validation and submission.
+struct ParsedSmartView {
+
+    var name: String?
+    var matchMode: String?
+    var conditions: [SmartViewConditionDTO]
+}
+
+// MARK: - ParsedImport
+
+/// The bookmarks and Smart Views parsed from an import file. Anybox imports carry no Smart Views.
+struct ParsedImport {
+
+    var bookmarks: [ParsedBookmark]
+    var smartViews: [ParsedSmartView]
+}
+
 // MARK: - ImportParser
 
-/// Parses Anybox and Stash JSON exports into a common `[ParsedBookmark]`, re-implementing the
-/// backend's importer field mapping locally because the import endpoint is web-only (PRD §13).
+/// Parses Anybox and Stash JSON exports into a common `ParsedImport` (bookmarks plus, for Stash
+/// JSON, Smart Views), re-implementing the backend's importer field mapping locally because the
+/// import endpoint is web-only (PRD §13).
 ///
 /// Anybox stores `tags` as arrays of `[namespace, value]` pairs joined with `/`; a plain `[String]`
-/// is accepted as a fallback. Validation, duplicate handling, and submission are the caller's job.
+/// is accepted as a fallback, and Anybox carries no Smart Views. Validation, duplicate handling,
+/// and submission are the caller's job.
 enum ImportParser {
 
-    static func parse(_ data: Data, format: ImportFormat) throws -> [ParsedBookmark] {
+    static func parse(_ data: Data, format: ImportFormat) throws -> ParsedImport {
         switch format {
         case .anybox:
             try parseAnybox(data)
@@ -61,7 +83,7 @@ enum ImportParser {
         }
     }
 
-    private static func parseAnybox(_ data: Data) throws -> [ParsedBookmark] {
+    private static func parseAnybox(_ data: Data) throws -> ParsedImport {
         let records: [AnyboxRecord]
         do {
             records = try JSONDecoder().decode([AnyboxRecord].self, from: data)
@@ -69,7 +91,7 @@ enum ImportParser {
             throw CLIError("This doesn't look like an Anybox JSON export (expected a JSON array of bookmarks).")
         }
 
-        return records.map { record in
+        let bookmarks = records.map { record in
             ParsedBookmark(
                 url: record.url,
                 title: record.title,
@@ -78,9 +100,11 @@ enum ImportParser {
                 isArchived: false
             )
         }
+
+        return ParsedImport(bookmarks: bookmarks, smartViews: [])
     }
 
-    private static func parseStashJSON(_ data: Data) throws -> [ParsedBookmark] {
+    private static func parseStashJSON(_ data: Data) throws -> ParsedImport {
         let document: StashDocument
         do {
             document = try JSONDecoder().decode(StashDocument.self, from: data)
@@ -90,7 +114,7 @@ enum ImportParser {
             )
         }
 
-        return document.bookmarks.map { record in
+        let bookmarks = document.bookmarks.map { record in
             ParsedBookmark(
                 url: record.url,
                 title: record.title,
@@ -99,6 +123,19 @@ enum ImportParser {
                 isArchived: record.isArchived ?? false
             )
         }
+
+        let smartViews = (document.smartViews ?? []).map { record in
+            ParsedSmartView(
+                name: record.name,
+                matchMode: record.matchMode,
+                conditions: (record.conditions ?? []).map { SmartViewConditionDTO(
+                    type: $0.type ?? "",
+                    value: $0.value ?? ""
+                ) }
+            )
+        }
+
+        return ParsedImport(bookmarks: bookmarks, smartViews: smartViews)
     }
 }
 
@@ -163,6 +200,7 @@ private struct AnyboxRecord: Decodable {
 private struct StashDocument: Decodable {
 
     let bookmarks: [StashRecord]
+    let smartViews: [StashSmartViewRecord]?
 }
 
 // MARK: - StashRecord
@@ -175,4 +213,23 @@ private struct StashRecord: Decodable {
     let description: String?
     let tags: [String]?
     let isArchived: Bool?
+}
+
+// MARK: - StashSmartViewRecord
+
+/// A single decoded Stash JSON Smart View record.
+private struct StashSmartViewRecord: Decodable {
+
+    let name: String?
+    let matchMode: String?
+    let conditions: [StashConditionRecord]?
+}
+
+// MARK: - StashConditionRecord
+
+/// A single decoded Smart View condition: a `{ type, value }` pair.
+private struct StashConditionRecord: Decodable {
+
+    let type: String?
+    let value: String?
 }

@@ -1658,3 +1658,42 @@ Glass adopted automatically by building against the 26 SDKs).
   `SmartViewRequest` body, and the factory (list/create/get/update/delete/bookmarks)
   — no client state. `smart_view_not_found` maps to the existing `.notFound`
   `StashAPIError` case. No CLI or native-app surface was added this pass.
+
+---
+
+## Smart View import / export
+
+- **✅ Smart Views ride the existing Stash JSON envelope as an optional sibling node.** Rather than
+  a new format or a separate file, the `stash-json` exporter/importer gained a `smartViews` array
+  alongside `bookmarks` (`{ id, name, matchMode, conditions: [{type,value}], createdAt, updatedAt }`,
+  the API wire shape). The node is **optional on import**, so older exports without it still import
+  and the format `version` stays `"1"` — no version bump, fully backward-compatible (the decoder
+  only reads keys it knows). One file, one upload, round-trips both.
+- **✅ Dedup by name, mirroring bookmark dedup-by-URL.** A Smart View whose `name` already exists for
+  the user is updated in place (matchMode + conditions overwritten); otherwise it is created. This
+  makes re-import idempotent. `id`/`createdAt`/`updatedAt` are ignored on import, exactly as the
+  bookmark importer ignores `id`/`updatedAt`.
+- **✅ Validation is reused, not reimplemented.** The importer calls the existing
+  `SmartViewController.validatedName` / `validatedMatchMode` / `validatedConditions` (and through
+  them `SmartViewCondition.validated`), so an imported Smart View is held to exactly the same rules
+  as one created via the API. A Smart View with an empty name or no valid conditions is **counted and
+  reported** (`smartViewsSkipped` + an `errors` line), never thrown — the same parse-failure-vs-bad-
+  record split bookmarks already use.
+- **✅ `ImportResult` extended with defaulted counts.** Three new fields
+  (`smartViewsImported`/`Updated`/`Skipped`) carry `= 0` defaults so the Anybox importer (bookmarks
+  only) is untouched. The web summary banner shows the Smart View line only when the file carried any
+  (a precomputed `hasSmartViews` Bool on `ImportSummaryContext`, dodging Leaf's `#if(count … )`
+  Int-truthiness gotcha).
+- **✅ CLI reaches parity over the public API.** `stash export` lists Smart Views via
+  `SmartViewRequestFactory.makeListRequest()` and folds them into its local `ExportDocument`; `stash
+  import` parses the `smartViews` node and submits each via create/update (matched by name, listing
+  existing views once). Unlike the web importer with direct DB access, the CLI **cannot preserve a
+  Smart View's `createdAt`** — the same accepted limitation already documented for bookmarks under M7.
+- **✅ Per-record failures are reported; connectivity/auth failures abort the import.** A shared
+  `CLIErrorReporter.abortsBatch(_:)` splits errors into per-record rejections (`validation_failed`,
+  `duplicate_url`, `not_found`, `username_taken` → skip this record, record a reason) and everything
+  else (auth, server, transport, unrecognized → rethrow, so `runCLI` prints the message and exits
+  non-zero). Without this, a dropped session mid-import was silently counted as "skipped", making a
+  recoverable failure look like bad data. Smart View skip reasons print after the summary (matching
+  the web importer's per-record error lines); the same classifier was applied to the bookmark
+  `submit` path so both halves of `stash import` behave consistently.

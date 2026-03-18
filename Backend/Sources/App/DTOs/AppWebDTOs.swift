@@ -269,19 +269,43 @@ struct ImportSummaryContext: Content {
     let imported: Int
     let updated: Int
     let skipped: Int
+    let smartViewsImported: Int
+    let smartViewsUpdated: Int
+    let smartViewsSkipped: Int
+    let hasSmartViews: Bool
     let errors: [String]
 
     // MARK: Lifecycle
 
-    init(imported: Int, updated: Int, skipped: Int, errors: [String]) {
+    init(
+        imported: Int,
+        updated: Int,
+        skipped: Int,
+        smartViewsImported: Int,
+        smartViewsUpdated: Int,
+        smartViewsSkipped: Int,
+        errors: [String]
+    ) {
         self.imported = imported
         self.updated = updated
         self.skipped = skipped
+        self.smartViewsImported = smartViewsImported
+        self.smartViewsUpdated = smartViewsUpdated
+        self.smartViewsSkipped = smartViewsSkipped
+        hasSmartViews = smartViewsImported + smartViewsUpdated + smartViewsSkipped > 0
         self.errors = errors
     }
 
     init(_ result: ImportResult) {
-        self.init(imported: result.imported, updated: result.updated, skipped: result.skipped, errors: result.errors)
+        self.init(
+            imported: result.imported,
+            updated: result.updated,
+            skipped: result.skipped,
+            smartViewsImported: result.smartViewsImported,
+            smartViewsUpdated: result.smartViewsUpdated,
+            smartViewsSkipped: result.smartViewsSkipped,
+            errors: result.errors
+        )
     }
 }
 

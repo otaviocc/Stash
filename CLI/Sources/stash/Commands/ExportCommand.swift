@@ -64,14 +64,16 @@ struct ExportCommand: AsyncParsableCommand {
             var bookmarks = try await fetchAll(archived: false, client: client)
             bookmarks += try await fetchAll(archived: true, client: client)
 
-            let document = ExportDocument(bookmarks: bookmarks, exportedAt: Date())
+            let smartViews = try await client.run(SmartViewRequestFactory.makeListRequest()).value
+
+            let document = ExportDocument(bookmarks: bookmarks, smartViews: smartViews, exportedAt: Date())
             let data = try document.encoded()
 
             let path = output ?? defaultFileName()
             let url = URL(fileURLWithPath: path)
             try data.write(to: url, options: .atomic)
 
-            Console.out("Exported \(bookmarks.count) bookmarks to \(path).")
+            Console.out("Exported \(bookmarks.count) bookmarks and \(smartViews.count) Smart Views to \(path).")
         }
     }
 
