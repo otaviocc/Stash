@@ -9,32 +9,42 @@
     <p class="banner error">#(error)</p>
     #endif
 
+    <p class="muted">Tags applied to your bookmarks. They appear in the sidebar on the bookmark list.
+        Renaming a tag moves all its children with it.</p>
+
     #if(count(tags) > 0):
     <div class="card">
-        <ul class="tag-list">
-            #for(t in tags):
-            <li class="tag-row">
-                <span class="tag-row-view">
-                    <a href="/app?tag=#(t.name)">#(t.display)</a>
-                    <span class="muted">(#(t.count))</span>
-                    <button type="button" class="secondary rename-toggle">Rename</button>
-                    <button type="button" class="secondary delete-toggle">Delete</button>
-                </span>
-                <form class="tag-row-edit" method="post" action="/app/tags/rename" style="display:none">
-                    <input type="hidden" name="from" value="#(t.name)">
-                    <input name="to" value="#(t.name)" autocomplete="off" autocapitalize="none" required>
-                    <button type="submit">Save</button>
-                    <button type="button" class="secondary rename-cancel">Cancel</button>
-                </form>
-                <form class="tag-row-delete" method="post" action="/app/tags/delete" style="display:none">
-                    <input type="hidden" name="tag" value="#(t.name)">
-                    <span>Delete #(t.display) and all its children? This cannot be undone.</span>
-                    <button type="submit" class="danger">Confirm delete</button>
-                    <button type="button" class="secondary delete-cancel">Cancel</button>
-                </form>
-            </li>
-            #endfor
-        </ul>
+        <table class="tag-table">
+            <thead>
+                <tr><th>Tag</th><th>Bookmarks</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                #for(t in tags):
+                <tr class="tag-row">
+                    <td><a href="/app?tag=#(t.name)">#(t.display)</a></td>
+                    <td class="muted">#(t.count)</td>
+                    <td>
+                        <span class="tag-actions">
+                            <a href="#" class="rename-toggle">Rename</a>
+                            <button type="button" class="secondary delete-toggle">Delete</button>
+                        </span>
+                        <form class="tag-rename-form" method="post" action="/app/tags/rename" style="display:none">
+                            <input type="hidden" name="from" value="#(t.name)">
+                            <input name="to" value="#(t.name)" autocomplete="off" autocapitalize="none" required>
+                            <button type="submit">Save</button>
+                            <button type="button" class="secondary rename-cancel">Cancel</button>
+                        </form>
+                        <form class="tag-delete-form" method="post" action="/app/tags/delete" style="display:none">
+                            <input type="hidden" name="tag" value="#(t.name)">
+                            <span>Delete #(t.display) and all its children? This cannot be undone.</span>
+                            <button type="submit" class="danger">Confirm</button>
+                            <button type="button" class="secondary delete-cancel">Cancel</button>
+                        </form>
+                    </td>
+                </tr>
+                #endfor
+            </tbody>
+        </table>
     </div>
     #else:
     <div class="card"><p class="muted">No tags yet.</p></div>
@@ -42,26 +52,27 @@
 
     <script>
     // Reveal/hide the inline rename and delete forms per tag row (same toggle pattern as the
-    // danger zone). Only one form is open at a time per row.
+    // Smart Views browser). Only one form is open at a time per row.
     document.querySelectorAll('.tag-row').forEach(function (row) {
-        var view = row.querySelector('.tag-row-view');
-        var renameForm = row.querySelector('.tag-row-edit');
-        var deleteForm = row.querySelector('.tag-row-delete');
+        var actions = row.querySelector('.tag-actions');
+        var renameForm = row.querySelector('.tag-rename-form');
+        var deleteForm = row.querySelector('.tag-delete-form');
         var input = renameForm.querySelector('input[name="to"]');
         function reset() {
             renameForm.style.display = 'none';
             deleteForm.style.display = 'none';
-            view.style.display = '';
+            actions.style.display = '';
         }
-        row.querySelector('.rename-toggle').addEventListener('click', function () {
-            view.style.display = 'none';
+        row.querySelector('.rename-toggle').addEventListener('click', function (event) {
+            event.preventDefault();
+            actions.style.display = 'none';
             deleteForm.style.display = 'none';
             renameForm.style.display = 'flex';
             input.focus();
             input.select();
         });
         row.querySelector('.delete-toggle').addEventListener('click', function () {
-            view.style.display = 'none';
+            actions.style.display = 'none';
             renameForm.style.display = 'none';
             deleteForm.style.display = 'flex';
         });
@@ -69,5 +80,14 @@
         row.querySelector('.delete-cancel').addEventListener('click', reset);
     });
     </script>
+    <style>
+        .tag-table th:first-child, .tag-table td:first-child { width: 100%; }
+        .tag-table th:not(:first-child), .tag-table td:not(:first-child) { white-space: nowrap; }
+        .tag-actions { display: flex; gap: 0.75rem; align-items: center; }
+        .tag-rename-form { display: flex; gap: 0.5rem; align-items: center; }
+        .tag-rename-form input[name="to"] { display: inline-block; width: auto; flex: 1; margin: 0; }
+        .tag-delete-form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        .tag-delete-form span { flex: 1; color: var(--text-muted); }
+    </style>
 #endexport
 #endextend
