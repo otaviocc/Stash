@@ -12,6 +12,7 @@ enum APIError: AbortError {
     case notFound
     case duplicateURL(existingID: UUID)
     case usernameTaken
+    case cannotDeleteSelf
     case validationFailed(String)
     case internalError
     case custom(status: HTTPResponseStatus, code: String, message: String)
@@ -27,6 +28,8 @@ enum APIError: AbortError {
             return .notFound
         case .duplicateURL, .usernameTaken:
             return .conflict
+        case .cannotDeleteSelf:
+            return .badRequest
         case .validationFailed:
             return .unprocessableEntity
         case .internalError:
@@ -49,6 +52,7 @@ enum APIError: AbortError {
         case .notFound: return "not_found"
         case .duplicateURL: return "duplicate_url"
         case .usernameTaken: return "username_taken"
+        case .cannotDeleteSelf: return "cannot_delete_self"
         case .validationFailed: return "validation_failed"
         case .internalError: return "internal_error"
         case let .custom(_, code, _): return code
@@ -67,6 +71,7 @@ enum APIError: AbortError {
         case .notFound: return "The requested resource does not exist."
         case .duplicateURL: return "This URL has already been saved."
         case .usernameTaken: return "That username is already taken."
+        case .cannotDeleteSelf: return "An admin cannot delete their own account."
         case let .validationFailed(message): return message
         case .internalError: return "An unexpected error occurred."
         case let .custom(_, _, message): return message

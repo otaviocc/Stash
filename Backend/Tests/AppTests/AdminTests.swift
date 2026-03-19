@@ -103,7 +103,7 @@ struct AdminTests {
                 .POST, "api/v1/admin/users",
                 headers: headers,
                 beforeRequest: { req in
-                    try req.content.encode(CreateUserInput(username: "Alice", password: "alice-password-123", role: .user))
+                    try req.content.encode(CreateUserInput(username: "Alice", password: "alice-password-123"))
                 },
                 afterResponse: { res async throws in
                     #expect(res.status == .created)
@@ -120,21 +120,29 @@ struct AdminTests {
         }
     }
 
-    @Test("create user defaults role to user when omitted")
-    func createUserDefaultRole() async throws {
+    @Test("a role field in the create body is ignored — the account is always a user")
+    func createUserIgnoresRole() async throws {
         try await withTestApp { app in
             let headers = try await adminHeaders(app)
+            // Send a raw body that explicitly asks for an admin account.
+            let body = #"{"username":"carol","password":"carol-password-123","role":"admin"}"#
+
             try await app.testing().test(
                 .POST, "api/v1/admin/users",
                 headers: headers,
                 beforeRequest: { req in
-                    try req.content.encode(CreateUserInput(username: "carol", password: "carol-password-123", role: nil))
+                    req.headers.contentType = .json
+                    req.body = ByteBuffer(string: body)
                 },
                 afterResponse: { res async throws in
                     #expect(res.status == .created)
                     #expect(try res.content.decode(UserResponse.self).role == .user)
                 }
             )
+
+            // Confirm it persisted as a user, not an admin.
+            let carol = try await User.query(on: app.db).filter(\.$username == "carol").first()
+            #expect(carol?.role == .user)
         }
     }
 
@@ -148,7 +156,7 @@ struct AdminTests {
                 .POST, "api/v1/admin/users",
                 headers: headers,
                 beforeRequest: { req in
-                    try req.content.encode(CreateUserInput(username: "alice", password: "another-password-123", role: .user))
+                    try req.content.encode(CreateUserInput(username: "alice", password: "another-password-123"))
                 },
                 afterResponse: { res async throws in
                     #expect(res.status == .conflict)
@@ -166,7 +174,7 @@ struct AdminTests {
                 .POST, "api/v1/admin/users",
                 headers: headers,
                 beforeRequest: { req in
-                    try req.content.encode(CreateUserInput(username: "dave", password: "short", role: .user))
+                    try req.content.encode(CreateUserInput(username: "dave", password: "short"))
                 },
                 afterResponse: { res async throws in
                     #expect(res.status == .unprocessableEntity)
@@ -262,6 +270,33 @@ struct AdminTests {
         }
     }
 
+    @Test("resetting a password invalidates the user's existing refresh tokens")
+    func resetPasswordInvalidatesSessions() async throws {
+        try await withTestApp { app in
+            let headers = try await adminHeaders(app)
+            let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
+            let aliceTokens = try await app.login(username: "alice", password: "alice-password-123")
+
+            // Admin resets the password.
+            try await app.testing().test(
+                .PUT, "api/v1/admin/users/\(try alice.requireID())",
+                headers: headers,
+                beforeRequest: { req in try req.content.encode(UpdateUserInput(isActive: nil, password: "brand-new-password-456")) },
+                afterResponse: { res async throws in #expect(res.status == .ok) }
+            )
+
+            // No refresh tokens remain for the user, and the (already rotated) token is rejected.
+            let remaining = try await RefreshToken.query(on: app.db).filter(\.$user.$id == alice.requireID()).count()
+            #expect(remaining == 0)
+
+            try await app.testing().test(
+                .POST, "api/v1/auth/refresh",
+                beforeRequest: { req in try req.content.encode(RefreshRequest(refreshToken: aliceTokens.refreshToken)) },
+                afterResponse: { res async throws in #expect(res.status == .unauthorized) }
+            )
+        }
+    }
+
     @Test("resetting to a too-short password fails validation (422)")
     func resetPasswordTooShort() async throws {
         try await withTestApp { app in
@@ -321,6 +356,30 @@ struct AdminTests {
                 headers: headers,
                 afterResponse: { res async throws in #expect(res.status == .notFound) }
             )
+        }
+    }
+
+    @Test("an admin cannot delete their own account (400 cannot_delete_self)")
+    func cannotDeleteSelf() async throws {
+        try await withTestApp { app in
+            let admin = try await app.makeUser(username: "root", password: "admin-password-123", role: .admin)
+            let pair = try await app.login(username: "root", password: "admin-password-123")
+            let adminID = try admin.requireID()
+
+            try await app.testing().test(
+                .DELETE, "api/v1/admin/users/\(adminID)",
+                headers: bearer(pair.accessToken),
+                afterResponse: { res async throws in
+                    #expect(res.status == .badRequest)
+                    let err = try res.content.decode(TestError.self)
+                    #expect(err.error == true)
+                    #expect(err.code == "cannot_delete_self")
+                    #expect(err.message == "An admin cannot delete their own account.")
+                }
+            )
+
+            // The admin account still exists.
+            #expect(try await User.find(adminID, on: app.db) != nil)
         }
     }
 

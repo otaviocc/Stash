@@ -2,11 +2,12 @@ import Vapor
 
 // MARK: - Requests
 
-/// `POST /admin/users` body (PRD §9.6). `role` defaults to `user` when omitted.
+/// `POST /admin/users` body (PRD §9.6). Accounts created here are always `user` role; any
+/// `role` field in the body is silently ignored (unknown keys are dropped on decode). Admin
+/// accounts can only exist via first-boot seeding (PRD §4).
 struct CreateUserInput: Content, Validatable {
     let username: String
     let password: String
-    let role: UserRole?
 
     static func validations(_ validations: inout Validations) {
         validations.add("username", as: String.self, is: !.empty)
