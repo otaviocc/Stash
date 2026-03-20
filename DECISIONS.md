@@ -1697,3 +1697,34 @@ Glass adopted automatically by building against the 26 SDKs).
   recoverable failure look like bad data. Smart View skip reasons print after the summary (matching
   the web importer's per-record error lines); the same classifier was applied to the bookmark
   `submit` path so both halves of `stash import` behave consistently.
+
+---
+
+## Tags & Smart Views web UI — table layout and delete confirmation
+
+- **✅ The Tag Browser now renders as a table mirroring the Smart Views management
+  page.** The tag list was a `<ul class="tag-list">`; it became a `.card`-wrapped
+  `<table>` with `Tag` / `Bookmarks` / `Actions` columns, so `/app/tags` and
+  `/app/smart-views` read as one consistent surface. Rename was a `secondary`
+  `<button>`; it is now an accent `<a>` matching the Smart Views `Edit` link (it
+  still toggles the inline rename form — the only action that needs a text input —
+  via `preventDefault()`). The now-unused `.tag-list` / `.tag-row*` rules were
+  dropped from the shared `layout.leaf`; each page keeps its small action styles in
+  a scoped `<style>` block.
+- **✅ The Tag column absorbs the table's slack so the actions sit flush.** A table
+  with only short cells (`Tag`, a count, two actions) stretches the last column and
+  leaves a large gap after the Delete button — the Smart Views table doesn't show
+  this because its wide `Conditions` column eats the slack. Fix is pure CSS:
+  `.tag-table` sets the first column to `width: 100%` and `white-space: nowrap` on
+  the rest, pinning the actions to their content width. No layout change to Smart
+  Views, whose `Conditions` column already does this naturally.
+- **✅ Delete switched from an inline-reveal form to a native `confirm()` dialog.**
+  Both pages previously toggled a per-row confirmation form into view on Delete,
+  which mutated the table in place and reflowed the row (visible "things out of
+  place" while one row's form was open). Both now use `onsubmit="return
+  confirm(…)"` on a small `inline` POST form — the exact pattern already used to
+  delete a bookmark — so Delete never alters the table before submit. This removed
+  the `.sv-delete-form` toggle script entirely from the Smart Views page and the
+  delete half of the tag browser's toggle script; only the tag Rename reveal
+  remains. The confirm copy is a static string (not interpolated with the tag name)
+  to avoid breaking the JS string on tags containing quotes.

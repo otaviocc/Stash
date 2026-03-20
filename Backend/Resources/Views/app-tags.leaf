@@ -26,19 +26,17 @@
                     <td>
                         <span class="tag-actions">
                             <a href="#" class="rename-toggle">Rename</a>
-                            <button type="button" class="secondary delete-toggle">Delete</button>
+                            <form class="inline" method="post" action="/app/tags/delete"
+                                  onsubmit="return confirm('Delete this tag and all its children? This cannot be undone.');">
+                                <input type="hidden" name="tag" value="#(t.name)">
+                                <button type="submit" class="secondary">Delete</button>
+                            </form>
                         </span>
                         <form class="tag-rename-form" method="post" action="/app/tags/rename" style="display:none">
                             <input type="hidden" name="from" value="#(t.name)">
                             <input name="to" value="#(t.name)" autocomplete="off" autocapitalize="none" required>
                             <button type="submit">Save</button>
                             <button type="button" class="secondary rename-cancel">Cancel</button>
-                        </form>
-                        <form class="tag-delete-form" method="post" action="/app/tags/delete" style="display:none">
-                            <input type="hidden" name="tag" value="#(t.name)">
-                            <span>Delete #(t.display) and all its children? This cannot be undone.</span>
-                            <button type="submit" class="danger">Confirm</button>
-                            <button type="button" class="secondary delete-cancel">Cancel</button>
                         </form>
                     </td>
                 </tr>
@@ -51,33 +49,24 @@
     #endif
 
     <script>
-    // Reveal/hide the inline rename and delete forms per tag row (same toggle pattern as the
-    // Smart Views browser). Only one form is open at a time per row.
+    // Reveal/hide the inline rename form per tag row. Delete uses a native confirm dialog on
+    // submit (same pattern as deleting a bookmark), so it never mutates the table in place.
     document.querySelectorAll('.tag-row').forEach(function (row) {
         var actions = row.querySelector('.tag-actions');
         var renameForm = row.querySelector('.tag-rename-form');
-        var deleteForm = row.querySelector('.tag-delete-form');
         var input = renameForm.querySelector('input[name="to"]');
         function reset() {
             renameForm.style.display = 'none';
-            deleteForm.style.display = 'none';
             actions.style.display = '';
         }
         row.querySelector('.rename-toggle').addEventListener('click', function (event) {
             event.preventDefault();
             actions.style.display = 'none';
-            deleteForm.style.display = 'none';
             renameForm.style.display = 'flex';
             input.focus();
             input.select();
         });
-        row.querySelector('.delete-toggle').addEventListener('click', function () {
-            actions.style.display = 'none';
-            renameForm.style.display = 'none';
-            deleteForm.style.display = 'flex';
-        });
         row.querySelector('.rename-cancel').addEventListener('click', reset);
-        row.querySelector('.delete-cancel').addEventListener('click', reset);
     });
     </script>
     <style>
@@ -86,8 +75,6 @@
         .tag-actions { display: flex; gap: 0.75rem; align-items: center; }
         .tag-rename-form { display: flex; gap: 0.5rem; align-items: center; }
         .tag-rename-form input[name="to"] { display: inline-block; width: auto; flex: 1; margin: 0; }
-        .tag-delete-form { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-        .tag-delete-form span { flex: 1; color: var(--text-muted); }
     </style>
 #endexport
 #endextend

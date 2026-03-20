@@ -703,9 +703,13 @@ a dead end for them).
 
 ### Tag Browser (`/app/tags`)
 
-- Full tag list with counts
-- Inline rename form per tag (vanilla JS toggle, Post/Redirect/Get)
-- Inline delete confirmation per tag (vanilla JS toggle, Post/Redirect/Get)
+- Tag list in a `.card`-wrapped table (Tag / Bookmarks / Actions), matching the
+  Smart Views management table; the Tag column absorbs the table's slack so the
+  actions sit flush
+- Inline rename form per tag (vanilla JS toggle, Post/Redirect/Get); Rename is an
+  accent link, styled like the Smart Views Edit action
+- Delete uses a native `confirm()` dialog on submit (same pattern as deleting a
+  bookmark) — no inline reveal, so the table never re-renders in place
 - Rename renames tag and all children; merge if target exists
 - Delete removes tag and all children from all bookmarks
 
@@ -726,7 +730,8 @@ a dead end for them).
   using the same minimal vanilla JS as the tag autocomplete. A `tag` condition's
   value field reuses the bookmark forms' tag autocomplete (suggesting the user's
   existing tags), so tags don't have to be guessed. PRG with `?ok=saved` /
-  `?ok=deleted` banners; inline delete confirmation.
+  `?ok=deleted` banners; Delete uses a native `confirm()` dialog on submit (same
+  pattern as the tag browser and bookmark deletion).
 
 ### Settings (`/app/settings`)
 
