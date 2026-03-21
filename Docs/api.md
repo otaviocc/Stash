@@ -35,6 +35,12 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `GET`  | `/tags` | access token | Distinct tags with counts |
 | `POST` | `/tags/rename` | access token | Rename a tag (and its children); 422 if `from`/`to` empty |
 | `DELETE` | `/tags/:tag` | access token | Delete a tag (and its children); 422 if empty; idempotent |
+| `GET`  | `/smart-views` | access token | List the user's Smart Views |
+| `POST` | `/smart-views` | access token | Create a Smart View; 422 on invalid name/conditions |
+| `GET`  | `/smart-views/:id` | access token | Single Smart View (404 if not yours) |
+| `PUT`  | `/smart-views/:id` | access token | Update a Smart View |
+| `DELETE` | `/smart-views/:id` | access token | Delete a Smart View (204) |
+| `GET`  | `/smart-views/:id/bookmarks` | access token | Run the query; `Page<Bookmark>` (`?page=&per=`) |
 | `POST` | `/metadata` | access token | Fetch title/description/favicon for a URL |
 | `GET`  | `/admin/users` | admin | List all users with stats |
 | `POST` | `/admin/users` | admin | Create account; 409 `username_taken` on dupe |
@@ -77,9 +83,14 @@ the API and the admin dashboard.
 | `GET`  | `/app/bookmarks/:id/edit` | Edit form |
 | `POST` | `/app/bookmarks/:id` | Update (title, description, tags, archived) |
 | `POST` | `/app/bookmarks/:id/delete` · `/archive` · `/unarchive` | Actions |
-| `GET`  | `/app/tags` | Tag browser (counts, links to `/app?tag=…`, inline rename/delete) |
+| `GET`  | `/app/tags` | Tag browser table (counts, links to `/app?tag=…`, inline rename, confirm-dialog delete) |
 | `POST` | `/app/tags/rename` | Rename a tag (PRG → `?ok=renamed` banner) |
 | `POST` | `/app/tags/delete` | Delete a tag and its children (PRG → `?ok=deleted` banner) |
+| `GET`  | `/app/smart-views` | Smart Views management table (Edit / confirm-dialog delete) |
+| `GET`/`POST` | `/app/smart-views/new` | Create Smart View (condition builder; PRG → `?ok=saved`) |
+| `GET`  | `/app/smart-views/:id` | Smart View results (reuses the bookmark-list view) |
+| `GET`/`POST` | `/app/smart-views/:id/edit` | Edit Smart View (PRG → `?ok=saved`) |
+| `POST` | `/app/smart-views/:id/delete` | Delete a Smart View (PRG → `?ok=deleted` banner) |
 | `GET`  | `/app/settings` | Settings |
 | `POST` | `/app/settings/password` | Change own password |
 | `GET`  | `/app/settings/totp` · `POST /verify` · `POST /disable` | 2FA enrolment / disable (requires a current code) |

@@ -29,7 +29,7 @@ Three layers, in dependency order:
 
 1. **DTOs** (`Sources/StashKit/DTOs/`) — `Codable & Sendable` structs matching
    the API's JSON shapes (`BookmarkDTO`, `TagDTO`, `UserDTO`, `TokenPairDTO`,
-   `PageDTO<T>`, `APIErrorDTO`, …).
+   `SmartViewDTO`, `SmartViewConditionDTO`, `PageDTO<T>`, `APIErrorDTO`, …).
 2. **Request factories** (`Sources/StashKit/Factories/`) — one `enum` per API
    domain whose `public static` methods build typed
    `NetworkRequest<RequestModel, ResponseModel>` values. They are pure value
@@ -92,6 +92,7 @@ The factories:
 | `AuthRequestFactory` | login, TOTP, recovery, refresh, logout, TOTP setup/verify/disable |
 | `BookmarkRequestFactory` | list, get, create, update, delete |
 | `TagRequestFactory` | list, rename, delete |
+| `SmartViewRequestFactory` | list, get, create, update, delete, run query (`:id/bookmarks`) |
 | `MetadataRequestFactory` | fetch title/description/favicon for a URL |
 | `UserRequestFactory` | current user (`/me`), change password |
 | `AdminRequestFactory` | list/create/get/update/delete users, stats |
