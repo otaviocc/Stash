@@ -22,6 +22,18 @@
 
 import Vapor
 
+// MARK: - LandingPageContext
+
+/// View context for the public landing page at `/` (unauthenticated). `aboutText` is surfaced
+/// directly here — in addition to the footer copy carried by `chrome` — so the page can show an
+/// "About this instance" card between the hero and the features when the admin has set one.
+struct LandingPageContext: Content {
+
+    let title: String
+    let chrome: SiteChrome
+    let aboutText: String?
+}
+
 // MARK: - CreateBookmarkForm
 
 /// `POST /app/bookmarks` form. `action` is "preview" (fetch metadata, don't save) or "save".

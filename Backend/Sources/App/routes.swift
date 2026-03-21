@@ -63,4 +63,6 @@ func routes(_ app: Application) throws {
     )
     let frontend = app.grouped("app").grouped(appSessions)
     try frontend.register(collection: AppWebController())
+
+    try app.register(collection: LandingController())
 }

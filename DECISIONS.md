@@ -1728,3 +1728,52 @@ Glass adopted automatically by building against the 26 SDKs).
   delete half of the tag browser's toggle script; only the tag Rename reveal
   remains. The confirm copy is a static string (not interpolated with the tag name)
   to avoid breaking the JS string on tags containing quotes.
+
+---
+
+## Public landing page at `/`
+
+- **✅ A server-rendered landing page now lives at the root path.** Before this,
+  `/` returned a bare 404 — the only entry points were `/app` and `/admin`. The
+  new page (PRD §1) is a product pitch reflecting the self-hosted, data-ownership
+  philosophy: a hero ("Your bookmarks. Your server. Your data."), two CTA buttons
+  (Sign in → `/app`, Admin → `/admin`, the latter visually secondary), and a 2×2
+  feature grid (self-hosted, multi-platform, organised, multi-user) that
+  collapses to a single column under 600px. It reuses `layout.leaf` wholesale: the
+  nav header is gated on `adminUsername`/`appUsername`, neither of which is set for
+  an anonymous visitor, so the layout degrades to `<main>` + footer with no change
+  needed. All colours come from the existing CSS variables, so dark mode and the
+  admin's accent theme apply for free. Per-page styles sit in a scoped `<style>`
+  block in the template, matching the Tags/Smart Views convention. The CTAs point
+  at `/app` and `/admin` rather than their `/login` sub-paths: both surfaces are
+  session-protected, so an anonymous visitor is redirected to the right login page
+  anyway, while a still-signed-in user lands straight on their content.
+- **✅ The page touches no session — it renders the same for everyone, signed in
+  or not.** An earlier revision tried to redirect a logged-in visitor to `/app` by
+  reading the `stash_session` cookie at `/`. That backfired: the `stash_session`
+  cookie is path-scoped to `/app` (see routes.swift), so a browser never sends it
+  to `/`. Merely *reading* `req.session` there created a fresh empty session, and
+  the sessions middleware then wrote a `Set-Cookie: stash_session=…; Path=/app`
+  that **overwrote the visitor's real session cookie** — i.e. visiting `/` silently
+  logged you out of `/app`. The redirect and the sessions middleware were removed
+  from the landing route entirely; `LandingController` now does a pure render with
+  no session access. The trade-off: a signed-in user who navigates to `/` sees the
+  landing page instead of being bounced to `/app`. That was preferred over the
+  alternative fix (widening the `stash_session` cookie path to `/`), which would
+  have changed the session scope for the whole `/app` surface just to power a
+  cosmetic redirect.
+- **✅ `aboutText` is surfaced on the landing page as well as the footer.** When
+  the admin has set an "About this instance" message (`SiteSettings.aboutText`,
+  PRD §7.6), it renders in a `.card` between the hero and the features
+  ("About this instance: …"); when empty/nil the section is omitted entirely. This
+  is a deliberate dual use — the same text already appears in the shared footer via
+  `chrome` — so the one admin-editable blurb does double duty as the landing
+  page's instance description without adding a new settings field. The dedicated
+  `LandingPageContext.aboutText` is populated from `chrome.aboutText` (which is
+  already `nonEmpty`-filtered), so the Leaf `#if(aboutText)` test behaves correctly
+  and never trips the empty-string-is-truthy gotcha (§21).
+- **✅ Route placement.** The root route is registered after the `/app` frontend in
+  `routes.swift` via `app.register(collection: LandingController())` — no group, no
+  middleware. It is the sole unauthenticated web page besides the two login screens;
+  no new tests beyond a throwaway Leaf smoke test (render + aboutText card — run
+  then removed, per §19.6).
