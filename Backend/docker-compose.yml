@@ -1,0 +1,26 @@
+services:
+  app:
+    image: ghcr.io/otaviocc/stash:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://stash:${DB_PASSWORD}@db:5432/stash
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - stash_db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=stash
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=stash
+    restart: unless-stopped
+
+volumes:
+  stash_db:
