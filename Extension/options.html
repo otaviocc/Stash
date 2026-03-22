@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stash Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="card">
+    <header class="head">
+      <img class="logo" src="icons/icon-48.png" alt="" width="32" height="32">
+      <h1>Stash Settings</h1>
+    </header>
+
+    <p class="status" id="status" hidden></p>
+
+    <form id="login-form" autocomplete="on">
+      <label for="server-url">Server URL</label>
+      <input type="url" id="server-url" name="serverURL" placeholder="http://192.168.1.x:8080"
+             autocomplete="url" required>
+
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" autocomplete="username" required>
+
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+      <p class="error" id="error" hidden></p>
+
+      <div class="buttons">
+        <button type="submit" id="save">Save &amp; Sign In</button>
+        <button type="button" class="secondary" id="signout" hidden>Sign Out</button>
+      </div>
+    </form>
+
+    <form id="totp-form" hidden>
+      <p class="hint" id="totp-hint">Enter the 6-digit code from your authenticator app.</p>
+
+      <label for="totp-code"><span id="totp-label">Verification code</span></label>
+      <input type="text" id="totp-code" name="totpCode" inputmode="numeric"
+             autocomplete="one-time-code" placeholder="123456">
+
+      <p class="error" id="totp-error" hidden></p>
+
+      <div class="buttons">
+        <button type="submit" id="verify">Verify</button>
+        <button type="button" class="link" id="toggle-recovery">Use a recovery code</button>
+      </div>
+    </form>
+  </main>
+
+  <script src="options.js"></script>
+</body>
+</html>

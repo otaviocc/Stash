@@ -73,3 +73,16 @@ jobs:
 
       - name: Build app (macOS)
         run: cd StashApp && xcodebuild -scheme Stash -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
+
+  extension:
+    name: Extension
+    # The browser extension has no compile step — it is validated, not built.
+    # `make lint` runs dependency-free checks (manifest is valid JSON; the JS
+    # passes `node --check`) since the project deliberately ships no npm/web-ext
+    # toolchain. python3 and node are both preinstalled on the ubuntu runner.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate extension
+        run: cd Extension && make lint

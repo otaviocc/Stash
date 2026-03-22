@@ -1,6 +1,6 @@
 # Stash — Product Requirements Document
 
-**Version:** 1.7
+**Version:** 1.8
 **Status:** Living Document
 **Author:** Otávio
 
@@ -51,7 +51,6 @@ The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 - Cross-user bookmark visibility or sharing
 - Page content archiving or offline reading
 - Public or shared collections
-- Browser extension
 - Read-later / queue functionality
 - SSO or OAuth
 - Menu bar app (macOS)
@@ -80,6 +79,7 @@ environment variables — there is no public sign-up flow.
 | CLI (`stash`) | Swift CLI tool | ✅ Complete |
 | iOS | Native SwiftUI app + Share Extension | ✅ Complete (M8 + M9) |
 | macOS | Native SwiftUI app + Share Extension | ✅ Complete (M10) |
+| Browser extension | WebExtension (Firefox + Chrome/Zen) | ✅ Complete |
 
 ---
 
@@ -939,6 +939,59 @@ building against the SDK; no explicit modifiers.
 
 ---
 
+## 17B. Browser Extension ✅ Complete
+
+A WebExtension that saves the current page to a Stash instance from Firefox or
+Chrome (including Zen), living in the top-level `Extension/` folder. It talks
+directly to the REST API (`/api/v1/`) — no backend, StashKit, or native-app
+changes. Plain HTML + CSS + vanilla JS, no build step (the same philosophy as
+the web frontend).
+
+### Structure
+
+```
+Extension/
+├── manifest.json     # WebExtension manifest v3 (Firefox + Chrome)
+├── background.js     # Service worker — token storage, refresh, API calls
+├── popup.html/.js/.css   # Toolbar button popup (add-bookmark form)
+├── options.html/.js/.css # Settings page (server URL, sign in, 2FA)
+├── icons/            # 16/32/48/128 PNGs + icon.svg master + generator
+└── README.md
+```
+
+### Supported browsers
+
+Manifest v3, with the background declared as both `service_worker` (Chrome) and
+`scripts` (Firefox/Zen) so one manifest serves both engines. Sideloaded via
+developer mode
+(`about:debugging` on Firefox, `chrome://extensions` → Load unpacked on Chrome);
+distributable to the Firefox Add-ons store or Chrome Web Store.
+
+### Behaviour
+
+Clicking the toolbar button opens a popup with the full add-bookmark form,
+pre-filled with the active tab's URL (read-only) and title. A "Fetch metadata"
+button pulls the server-side title/description (`POST /api/v1/metadata`, filling
+only empty fields); tag input offers autocomplete chips from `GET /api/v1/tags`
+using the web UI's per-segment prefix rule; "Save" creates the bookmark
+(`fetchMetadata: false`). A duplicate URL surfaces inline as "Already saved" with
+a link to the existing bookmark; a save confirmation offers View bookmark / Save
+another and auto-closes. No undo (the popup lifecycle is too short).
+
+### Authentication
+
+Username + password against `POST /api/v1/auth/login`, with the access/refresh
+pair stored in `chrome.storage.local`. The background service worker owns all
+token storage and API calls (the popup/options pages communicate with it via
+`chrome.runtime.sendMessage`); it decodes the JWT `exp` claim by hand and
+silently refreshes within 60 s of expiry and once on any `401`, mirroring the CLI
+and iOS app. The 2FA branch (`/api/v1/auth/totp`, `/api/v1/auth/recovery`) is
+handled inline on the settings page. `host_permissions: ["<all_urls>"]` is
+required because the self-hosted server URL is user-supplied and unknown at build
+time.
+
+---
+
 ## 18. Deployment
 
 ### Distribution
@@ -1208,7 +1261,6 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 - Open/public registration
 - Cross-user bookmark visibility or sharing
 - Page archiving or offline reading
-- Browser extension
 - Read-later queue or unread state
 - Annotations or highlights
 - SSO / OAuth

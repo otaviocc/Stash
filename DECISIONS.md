@@ -1777,3 +1777,99 @@ Glass adopted automatically by building against the 26 SDKs).
   middleware. It is the sole unauthenticated web page besides the two login screens;
   no new tests beyond a throwaway Leaf smoke test (render + aboutText card — run
   then removed, per §19.6).
+
+---
+
+## Browser Extension
+
+A WebExtension (`Extension/`) that saves the current page to a Stash instance
+from Firefox or Chrome (including Zen). It talks directly to the REST API
+(`/api/v1/`) — **no backend, StashKit, or native-app changes**.
+
+- **✅ Plain HTML + vanilla JS, no build step.** No npm, no bundler, no
+  framework — the same philosophy as the server-rendered web UI (§13). The
+  extension is small enough (a popup, an options page, a service worker) that a
+  framework would add tooling and a build artifact for no real gain. All files
+  load directly in the browser. The popup/options CSS copies the web UI's CSS
+  variables (system font stack, the same light/dark palette) and resolves dark
+  mode via `prefers-color-scheme`, so it reads as part of Stash without sharing
+  any code with the Leaf templates.
+- **✅ Manifest v3, one manifest for both browsers.** v3 is required by Chrome;
+  Firefox supports it too. The background is declared with **both**
+  `service_worker` (used by Chrome) **and** `scripts` (used by Firefox/Zen, which
+  do not enable `background.service_worker` by default and reject a
+  service-worker-only manifest with "background.service_worker is currently
+  disabled. Add background.scripts."). Each engine uses the key it supports and
+  ignores the other, so one `manifest.json` serves both without per-browser
+  variants. No `type: "module"` — `background.js` has no ES imports, so a classic
+  script is valid as both a Chrome service worker and a Firefox event-page
+  script, and dropping the key avoids depending on module-background support
+  (newer Firefox only).
+- **✅ `background.js` owns all token storage and API calls.** The service worker
+  is the only place that touches `chrome.storage.local` for tokens; the popup and
+  options page communicate with it over `chrome.runtime.sendMessage` (a small
+  message API: `login`, `verify2FA`, `logout`, `getStatus`, `apiCall`). This
+  keeps token logic in one place — login, the silent-refresh window, the
+  refresh-on-401 retry, and logout all live in the worker — and means the popup
+  never needs storage permissions or its own copy of the refresh logic. It
+  mirrors the app's `AuthRepository.refreshIfNeeded()` centralization (§16) and
+  the CLI's `CLIRuntime` proactive refresh (M7).
+- **✅ JWT `exp` decoded by hand, 60-second skew.** Like the CLI's `JWTDecoder`
+  and the app's `TokenManager`, the worker base64url-decodes the access token's
+  payload and reads `exp`, refreshing when within 60 s of expiry (and once more
+  on a `401`, after which it clears the session). No JWT library — `atob` in the
+  service worker is enough.
+- **✅ 2FA handled inline on the settings page.** `POST /api/v1/auth/login`
+  returns either a token pair or `{ requires2FA, tempToken }`, both as HTTP 200
+  (§8.2) — the worker switches on the body shape exactly as the CLI and app do.
+  When 2FA is required the options page reveals a code field and calls
+  `verify2FA` (→ `/api/v1/auth/totp`, with a "use a recovery code" toggle →
+  `/api/v1/auth/recovery`). The extension must work for users who have 2FA
+  enabled, so this can't be deferred. After a 2FA login the username isn't known
+  locally, so it is resolved via `GET /api/v1/me` for the status line.
+- **✅ `host_permissions: ["<all_urls>"]`.** A self-hosted tool's server URL is
+  user-supplied and unknown at build time (a LAN IP, a `.local` host, a public
+  domain), so there is no narrower host pattern to request — both engines require
+  this for cross-origin fetch from the extension.
+- **✅ URL field is read-only.** The extension saves the page you are on; the URL
+  is pre-filled from the active tab and shown read-only (with a ↗ link-out).
+  Making it editable would mean the user has to navigate away from the page they
+  want to save, which defeats the purpose. Title, description, and tags are
+  editable; "Fetch metadata" (`POST /api/v1/metadata`) fills only the empty
+  fields so it never clobbers what the user typed. Save sends
+  `fetchMetadata: false` — the extension drives metadata explicitly.
+- **✅ No undo in the popup.** The popup lifecycle is too short for the
+  timer-based undo the Share Extensions use (M9/M10) — closing the popup would
+  cancel the timer. Instead: save → confirmation (with View bookmark / Save
+  another, auto-closing after 3 s) → done. Duplicate URLs surface inline as
+  "Already saved" with a link to the existing bookmark (the `409`'s `existingID`
+  → `/app/bookmarks/:id`); deletion is left to the web UI or a native app.
+- **✅ Tag autocomplete reuses the web UI's per-segment prefix rule.** The popup
+  fetches `GET /api/v1/tags` on open and offers suggestion chips matching the
+  comma-segment under the cursor, where a fragment matches any `/`-delimited
+  segment that starts with it (so `music` finds `kind/music-gear`) — the same
+  behavior as the Leaf forms' `data-known-tags` autocomplete (§13).
+- **✅ Icons generated programmatically.** `icons/icon.svg` is the master vector
+  (the Stash bookmark ribbon, deep indigo `#231468`); `icons/generate-icons.py`
+  rasterizes it to the four manifest sizes (16/32/48/128) with Pillow only, so
+  the PNGs are reproducible from source rather than committed opaquely.
+- **✅ "Build" = package, not compile.** With no build step, the only build-time
+  task is zipping the folder for store submission. An `Extension/Makefile`
+  (mirroring `Backend/Makefile`'s `## help` style) wraps it: `lint`, `icons`,
+  `package` (→ `dist/stash-extension-<version>.zip`, named from the manifest
+  version), and `clean`. The core targets use only `zip`/`python3`/`node` — no
+  npm or bundler, keeping the no-build-step promise. `package` zips just the
+  runtime files, excluding the Makefile, README, and the icon source/generator.
+  `dist/` is gitignored.
+- **✅ `lint` degrades gracefully, no npm required.** Mozilla's `web-ext` is the
+  proper extension linter but it is an npm tool, which the project deliberately
+  avoids. `make lint` uses `web-ext` *if it happens to be installed*, otherwise
+  falls back to dependency-free checks (manifest is valid JSON; the three JS
+  files pass `node --check`). This is the one automated guard that matters, since
+  there is no compiler to catch a malformed manifest or a JS typo.
+- **✅ CI validates, release packages.** A small `extension` job in `ci.yml` runs
+  `make lint` on every push/PR (python3 + node are preinstalled on the ubuntu
+  runner; no npm step added). `release.yml` runs `make package` on a `v*.*.*` tag
+  and attaches `Extension/dist/*.zip` to the GitHub Release alongside
+  `docker-compose.yml`. The extension's manifest version is independent of the
+  image semver tag, so the attached zip reflects the extension's own version.

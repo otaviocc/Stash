@@ -67,6 +67,12 @@ jobs:
       # Danger Zone → Change visibility → Public. It then stays public across
       # all subsequent pushes.
 
+      # The extension has no build step; "package" just zips the runtime files
+      # into Extension/dist/ (named from its own manifest version, independent of
+      # the image tag). Attached to the release so users can sideload it.
+      - name: Package browser extension
+        run: cd Extension && make package
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -83,6 +89,13 @@ jobs:
             4. Open `http://localhost:8080/admin` and sign in with your admin credentials
 
             The image is available at `ghcr.io/otaviocc/stash:${{ steps.version.outputs.version }}`
-          files: Backend/docker-compose.yml
+
+            ### Browser extension
+
+            The `stash-extension-*.zip` below is the Firefox/Chrome extension —
+            sideload it via developer mode, or see `Extension/README.md`.
+          files: |
+            Backend/docker-compose.yml
+            Extension/dist/*.zip
           draft: false
           prerelease: false

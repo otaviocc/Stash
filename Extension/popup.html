@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- State 1 / 2: setup or sign-in required -->
+  <section id="state-setup" class="state empty" hidden>
+    <img class="logo" src="icons/icon-48.png" alt="" width="40" height="40">
+    <p id="setup-message"></p>
+    <button id="open-settings">Open Settings</button>
+  </section>
+
+  <!-- State 3: add bookmark form -->
+  <section id="state-form" class="state" hidden>
+    <header class="bar">
+      <img id="favicon" class="favicon" alt="" width="16" height="16" hidden>
+      <span class="bar-title">Save to Stash</span>
+    </header>
+
+    <div class="body">
+      <label for="url">URL</label>
+      <div class="url-row">
+        <input type="text" id="url" readonly>
+        <a id="open-url" class="icon-button" title="Open page" target="_blank" rel="noopener noreferrer">↗</a>
+      </div>
+
+      <label for="title">Title</label>
+      <input type="text" id="title">
+
+      <label for="description">Description</label>
+      <textarea id="description" rows="2"></textarea>
+
+      <label for="tags">Tags</label>
+      <input type="text" id="tags" placeholder="swift, ios" autocomplete="off">
+      <div id="suggestions" class="suggestions"></div>
+
+      <p id="form-error" class="error" hidden></p>
+
+      <div class="buttons">
+        <button id="fetch" class="secondary">Fetch metadata</button>
+        <button id="save">Save</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- State 4: saved confirmation -->
+  <section id="state-saved" class="state" hidden>
+    <header class="bar">
+      <span class="bar-title">&#10003; Saved to Stash</span>
+    </header>
+    <div class="body">
+      <p id="saved-title" class="saved-title"></p>
+      <p id="saved-tags" class="saved-tags muted"></p>
+      <div class="buttons">
+        <button id="view-bookmark" class="secondary">View bookmark</button>
+        <button id="save-another">Save another</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

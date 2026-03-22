@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Stash bookmark ribbon: a vertical ribbon with a V-notch at the bottom,
+       deep indigo (#231468) on a transparent background. The PNG icons in this
+       folder are rendered from this shape by generate-icons.py. -->
+  <path fill="#231468"
+        d="M46.4 15.36
+           h35.2
+           a7.68 7.68 0 0 1 7.68 7.68
+           v89.6
+           L64 89.6
+           L38.72 112.64
+           V23.04
+           a7.68 7.68 0 0 1 7.68-7.68
+           Z" />
+</svg>

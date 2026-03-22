@@ -1,0 +1,135 @@
+/* Stash settings page — matches the Stash web UI palette (system font stack,
+   CSS variables, prefers-color-scheme dark mode). */
+
+:root {
+  color-scheme: light;
+  --bg: #f4f4f5;
+  --text: #1a1a1a;
+  --text-muted: #71717a;
+  --surface: #ffffff;
+  --border: #e4e4e7;
+  --border-input: #d4d4d8;
+  --accent: #0a58ca;
+  --btn-text: #ffffff;
+  --btn-secondary: #52525b;
+  --ok-bg: #dcfce7;
+  --ok-text: #166534;
+  --err-bg: #fee2e2;
+  --err-text: #991b1b;
+  --shadow: rgba(0, 0, 0, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #1c1c1e;
+    --text: #f2f2f7;
+    --text-muted: #aeaeb2;
+    --surface: #2c2c2e;
+    --border: #3a3a3c;
+    --border-input: #48484a;
+    --accent: #0a84ff;
+    --btn-text: #ffffff;
+    --btn-secondary: #48484a;
+    --ok-bg: #1c3a2a;
+    --ok-text: #30d158;
+    --err-bg: #3a1f1f;
+    --err-text: #ff6961;
+    --shadow: rgba(0, 0, 0, 0.5);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, system-ui, sans-serif;
+  line-height: 1.5;
+  margin: 0;
+  padding: 2.5rem 1.25rem;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.card {
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.75rem;
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.head .logo { display: block; }
+.head h1 { font-size: 1.4rem; margin: 0; }
+
+label {
+  display: block;
+  margin: 1rem 0 0.25rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+input {
+  display: block;
+  width: 100%;
+  padding: 0.55rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+button {
+  font: inherit;
+  padding: 0.55rem 1rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--btn-text);
+  cursor: pointer;
+}
+
+button.secondary { background: var(--btn-secondary); }
+
+button.link {
+  background: none;
+  color: var(--accent);
+  padding: 0.55rem 0;
+}
+
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.status,
+.error,
+.hint {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.status.ok { background: var(--ok-bg); color: var(--ok-text); }
+.status.off { background: var(--bg); color: var(--text-muted); }
+.error { background: var(--err-bg); color: var(--err-text); }
+.hint { background: var(--bg); color: var(--text-muted); padding: 0; }

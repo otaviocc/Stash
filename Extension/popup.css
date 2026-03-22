@@ -1,0 +1,199 @@
+/* Stash popup — 380px wide, matches the Stash web UI palette. */
+
+:root {
+  color-scheme: light;
+  --bg: #f4f4f5;
+  --text: #1a1a1a;
+  --text-2: #3f3f46;
+  --text-muted: #71717a;
+  --surface: #ffffff;
+  --surface-2: #fafafa;
+  --border: #e4e4e7;
+  --border-input: #d4d4d8;
+  --accent: #0a58ca;
+  --btn-text: #ffffff;
+  --btn-secondary: #52525b;
+  --url: #16a34a;
+  --tag-bg: #e4e4e7;
+  --tag-hover: #d4d4d8;
+  --err-bg: #fee2e2;
+  --err-text: #991b1b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #1c1c1e;
+    --text: #f2f2f7;
+    --text-2: #c7c7cc;
+    --text-muted: #aeaeb2;
+    --surface: #2c2c2e;
+    --surface-2: #3a3a3c;
+    --border: #3a3a3c;
+    --border-input: #48484a;
+    --accent: #0a84ff;
+    --btn-text: #ffffff;
+    --btn-secondary: #48484a;
+    --url: #30d158;
+    --tag-bg: #3a3a3c;
+    --tag-hover: #48484a;
+    --err-bg: #3a1f1f;
+    --err-text: #ff6961;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 380px;
+  margin: 0;
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.bar-title { font-weight: 600; flex: 1; }
+.favicon { border-radius: 3px; }
+
+.body { padding: 0.85rem; }
+
+.empty {
+  text-align: center;
+  padding: 2rem 1.25rem;
+}
+
+.empty .logo { margin-bottom: 0.75rem; }
+.empty p { margin: 0 0 1.25rem; color: var(--text-2); }
+
+label {
+  display: block;
+  margin: 0.75rem 0 0.2rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+label:first-of-type { margin-top: 0; }
+
+input,
+textarea {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  resize: vertical;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+input[readonly] {
+  color: var(--url);
+  background: var(--surface-2);
+}
+
+.url-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.url-row input { flex: 1; }
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0 0.4rem;
+  font-size: 1.1rem;
+  text-decoration: none;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.icon-button:hover { background: var(--tag-hover); }
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  min-height: 0;
+}
+
+.suggestions:empty { margin-top: 0; }
+
+.chip {
+  padding: 0.1rem 0.55rem;
+  font-size: 0.8rem;
+  color: var(--text-2);
+  background: var(--tag-bg);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.chip:hover { background: var(--tag-hover); }
+
+.buttons {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+button {
+  font: inherit;
+  flex: 1;
+  padding: 0.5rem 0.9rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--btn-text);
+  cursor: pointer;
+}
+
+.empty button { flex: none; padding: 0.5rem 1.25rem; }
+
+button.secondary {
+  background: var(--surface);
+  color: var(--text-2);
+  border: 1px solid var(--border-input);
+}
+
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.error {
+  margin: 0.85rem 0 0;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.85rem;
+  background: var(--err-bg);
+  color: var(--err-text);
+  border-radius: 6px;
+}
+
+.error a { color: var(--err-text); font-weight: 600; }
+
+.saved-title { font-weight: 600; margin: 0 0 0.25rem; }
+.saved-tags { margin: 0; font-size: 0.85rem; }
+.muted { color: var(--text-muted); }
