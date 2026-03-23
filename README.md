@@ -1,12 +1,13 @@
 # Stash
 
-A self-hosted bookmark manager with native iOS, macOS, and web clients.
+A self-hosted bookmark manager with native iOS, macOS, web, and browser-extension clients.
 
 ![CI](https://github.com/otaviocc/stash/actions/workflows/ci.yml/badge.svg)
 
 ## Features
 
-- Save bookmarks from iOS, macOS, Safari Share Extension, CLI, or web browser
+- Save bookmarks from iOS, macOS, Safari Share Extension, CLI, the web UI, or a
+  Firefox/Chrome browser extension
 - Hierarchical tags, full-text search, bulk tag rename and delete
 - Import from Anybox JSON; export to Stash JSON
 - Multi-user with per-user 2FA (TOTP) and recovery codes
@@ -38,6 +39,7 @@ A self-hosted bookmark manager with native iOS, macOS, and web clients.
 | [Building and using the CLI](Docs/cli-build.md) | `stash` command-line tool |
 | [Building the mobile apps](Docs/mobile-build.md) | iOS and macOS apps from source |
 | [StashKit](Docs/stashkit.md) | Shared Swift package (DTOs, request factories, client) |
+| [Browser extension](Docs/browser-extension.md) | Firefox/Chrome extension — install, usage, packaging |
 
 ## Clients
 
@@ -45,3 +47,5 @@ A self-hosted bookmark manager with native iOS, macOS, and web clients.
 - **iOS** — native SwiftUI app (build from source)
 - **macOS** — native SwiftUI app (build from source)
 - **CLI** — `stash` command-line tool (build from source)
+- **Browser extension** — Firefox & Chrome (including Zen); saves the current
+  page (see [Browser extension](Docs/browser-extension.md))

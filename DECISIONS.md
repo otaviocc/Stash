@@ -1404,11 +1404,18 @@ Glass adopted automatically by building against the 26 SDKs).
 - **✅ All documentation consolidated into a single top-level `Docs/` folder.**
   Every component's docs were merged into `Docs/` and the per-component READMEs
   (`Backend/README.md`, `CLI/README.md`, `StashApp/README.md`,
-  `StashKit/README.md`) were deleted; the root `README.md` became a concise
-  landing page that links into `Docs/`. The folder holds one guide per concern —
-  `backend-build`, `backend-local`, `backend-docker`, `backend-docker-caddy`,
-  `configuration`, `api`, `cli-build`, `mobile-build`, `stashkit`. `PRODUCT.md`
-  and `DECISIONS.md` remain at the repo root.
+  `StashKit/README.md`, and later `Extension/README.md`) were deleted; the root
+  `README.md` became a concise landing page that links into `Docs/`. The folder
+  holds one guide per concern — `backend-build`, `backend-local`,
+  `backend-docker`, `backend-docker-caddy`, `configuration`, `api`, `cli-build`,
+  `mobile-build`, `stashkit`, `browser-extension`. `PRODUCT.md` and
+  `DECISIONS.md` remain at the repo root.
+- **✅ Convention: new user-facing docs go in `Docs/`, not a component README.**
+  This is the standing rule — a new component or feature gets one guide in
+  `Docs/` (linked from the root `README.md` table), never a `Component/README.md`.
+  The browser extension followed this: it shipped with an `Extension/README.md`
+  first, which was then folded into `Docs/browser-extension.md` and deleted to
+  match every other component.
 - **✅ The `caddy/` directory was folded into `Docs/backend-docker-caddy.md` and
   removed.** The `Caddyfile` variants and the `docker-compose.caddy.yml`
   override (🔁 superseding the committed files referenced in the *HTTPS / Caddy*
@@ -1859,7 +1866,7 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
   `package` (→ `dist/stash-extension-<version>.zip`, named from the manifest
   version), and `clean`. The core targets use only `zip`/`python3`/`node` — no
   npm or bundler, keeping the no-build-step promise. `package` zips just the
-  runtime files, excluding the Makefile, README, and the icon source/generator.
+  runtime files, excluding the Makefile and the icon source/generator.
   `dist/` is gitignored.
 - **✅ `lint` degrades gracefully, no npm required.** Mozilla's `web-ext` is the
   proper extension linter but it is an npm tool, which the project deliberately

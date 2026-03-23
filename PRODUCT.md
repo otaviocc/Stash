@@ -956,8 +956,10 @@ Extension/
 ├── popup.html/.js/.css   # Toolbar button popup (add-bookmark form)
 ├── options.html/.js/.css # Settings page (server URL, sign in, 2FA)
 ├── icons/            # 16/32/48/128 PNGs + icon.svg master + generator
-└── README.md
+└── Makefile          # lint / icons / package / clean
 ```
+
+Documented in [`Docs/browser-extension.md`](Docs/browser-extension.md).
 
 ### Supported browsers
 

@@ -37,7 +37,7 @@ package: ## Build the store-ready zip into dist/
 	@mkdir -p dist
 	@rm -f dist/$(PACKAGE)
 	zip -r dist/$(PACKAGE) . \
-		-x 'dist/*' 'Makefile' 'README.md' 'icons/generate-icons.py' 'icons/icon.svg' \
+		-x 'dist/*' 'Makefile' 'icons/generate-icons.py' 'icons/icon.svg' \
 		   '*.DS_Store' '*/.*'
 	@echo "Wrote dist/$(PACKAGE)"
 
