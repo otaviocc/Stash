@@ -1880,3 +1880,39 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
   and attaches `Extension/dist/*.zip` to the GitHub Release alongside
   `docker-compose.yml`. The extension's manifest version is independent of the
   image semver tag, so the attached zip reflects the extension's own version.
+
+---
+
+## Web CSS extracted to static stylesheets
+
+- **🔁 CSS moved out of the Leaf templates into static `.css` files served by
+  `FileMiddleware`.** Until now every style lived in `<style>` blocks: one large
+  block in `layout.leaf` (the shared design system + theme variables) plus
+  per-page blocks in `landing.leaf`, `app-tags.leaf`, `app-smart-views.leaf`, and
+  `app-smart-view-form.leaf` (the "scoped `<style>` block" convention noted under
+  *Public landing page* and *Tags & Smart Views web UI*, now superseded). The
+  shared block became `Public/css/stash.css`; each per-page block became its own
+  file (`landing.css`, `tags.css`, `smart-views.css`, `smart-view-form.css`).
+  `FileMiddleware(publicDirectory:)` is registered once in `configure.swift`
+  (after `StashErrorMiddleware`); it falls through to the router when no file
+  matches, so the API and web routes are untouched. The Dockerfile staging step
+  now copies `Public/` next to `Resources/`.
+- **✅ Shared CSS linked in `layout.leaf`'s `<head>`; per-page CSS via an
+  `#import("css")` slot.** The layout carries `<link rel="stylesheet"
+  href="/css/stash.css">` plus an `#import("css")` placeholder in `<head>`. A page
+  that needs extra styles provides them with an `#export("css"): <link …>
+  #endexport` sibling of its `#export("content")`. Pages without that export
+  render nothing there — LeafKit's `ignoreUnfoundImports` defaults to `true`, so
+  an unmatched `#import` is dropped silently rather than erroring (verified in the
+  leaf-kit source before relying on it). No layout edits are needed per page.
+- **✅ The accent-theme override stays inline.** The second `<style>` block in
+  `layout.leaf` injects `--accent` from the `SiteSettings` cache
+  (`#(chrome.accentLight)` / `#(chrome.accentDark)`) and is therefore
+  Leaf-templated per request — it can't be a static file, so it remains inline,
+  immediately after the `stash.css` link so it overrides the defaults. The
+  flash-prevention `<script>` (§13) likewise stays inline (it must run before
+  first paint).
+- **✅ Verified.** `swift build` clean; a throwaway smoke test (run then removed,
+  per §19.6) confirmed `GET /css/stash.css` returns `200 text/css` and that the
+  landing page's `<head>` links both `stash.css` and `landing.css` with no
+  residual inline `<style>`.

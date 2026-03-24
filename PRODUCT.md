@@ -1096,7 +1096,8 @@ stash/
 │   │   ├── Extensions/          # QueryBuilder+filterFullText, etc.
 │   │   └── configure.swift
 │   ├── Tests/AppTests/
-│   ├── Resources/Views/
+│   ├── Resources/Views/           # Leaf templates (markup only; CSS lives in Public/)
+│   ├── Public/css/                # Static stylesheets served by FileMiddleware
 │   ├── Package.swift
 │   ├── Dockerfile
 │   └── docker-compose.yml

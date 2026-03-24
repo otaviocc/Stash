@@ -1,0 +1,21 @@
+.cond-row {
+    position: relative;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.cond-row select,
+.cond-row input {
+    margin: 0;
+}
+
+.cond-row .cond-value-text {
+    flex: 1;
+}
+
+.cond-row .cond-remove {
+    padding: 0.35rem 0.6rem;
+    line-height: 1;
+}

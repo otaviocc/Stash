@@ -1,0 +1,28 @@
+.tag-table th:first-child,
+.tag-table td:first-child {
+    width: 100%;
+}
+
+.tag-table th:not(:first-child),
+.tag-table td:not(:first-child) {
+    white-space: nowrap;
+}
+
+.tag-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.tag-rename-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.tag-rename-form input[name="to"] {
+    display: inline-block;
+    width: auto;
+    flex: 1;
+    margin: 0;
+}

@@ -1,26 +1,8 @@
 #extend("layout"):
+#export("css"):
+    <link rel="stylesheet" href="/css/landing.css">
+#endexport
 #export("content"):
-    <style>
-        .landing-hero { text-align: center; padding: 2.5rem 0 1rem; }
-        .landing-hero h1 { font-size: 2.4rem; line-height: 1.15; margin: 0 0 0.85rem; }
-        .landing-hero .lead { font-size: 1.2rem; color: var(--text-muted); max-width: 38rem; margin: 0 auto 1.85rem; }
-        .landing-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; }
-        .landing-cta a { display: inline-block; padding: 0.6rem 1.4rem; border-radius: 6px; text-decoration: none; font-weight: 600; }
-        .landing-cta a.primary { background: var(--accent); color: var(--btn-text); }
-        .landing-cta a.secondary { background: transparent; color: var(--text); border: 1px solid var(--border-input); }
-        .landing-cta a.secondary:hover { background: var(--surface-2); }
-        .landing-about { margin-top: 2.25rem; }
-        .landing-about .label { font-weight: 600; }
-        .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 2.5rem; }
-        .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1.35rem; }
-        .feature .icon { font-size: 1.7rem; line-height: 1; }
-        .feature h3 { margin: 0.6rem 0 0.35rem; font-size: 1.05rem; }
-        .feature p { margin: 0; color: var(--text-2); font-size: 0.95rem; }
-        @media (max-width: 600px) {
-            .features { grid-template-columns: 1fr; }
-            .landing-hero h1 { font-size: 1.9rem; }
-        }
-    </style>
     <section class="landing-hero">
         <h1>Your bookmarks. Your server. Your data.</h1>
         <p class="lead">Stash is a self-hosted bookmark manager with native iOS, macOS, and web clients.</p>

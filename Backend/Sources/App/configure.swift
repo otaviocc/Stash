@@ -93,6 +93,10 @@ public func configure(_ app: Application) async throws {
     app.middleware = Middlewares()
     app.middleware.use(StashErrorMiddleware())
 
+    // MARK: Static files
+
+    app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+
     // MARK: Routes
 
     try routes(app)
