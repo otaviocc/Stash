@@ -1,4 +1,7 @@
 #extend("layout"):
+#export("scripts"):
+    <script defer src="/js/bookmarks.js"></script>
+#endexport
 #export("content"):
 <div class="app-layout">
     <div class="app-main">
@@ -92,19 +95,5 @@
         </ul>
     </aside>
 </div>
-
-<script>
-// Press "/" anywhere outside a text field to jump focus into the search box.
-document.addEventListener('keydown', function (e) {
-    if (e.key !== '/') return;
-    var el = document.activeElement;
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
-    var search = document.querySelector('input[type="search"]');
-    if (!search) return;
-    e.preventDefault();
-    search.focus();
-    search.select();
-});
-</script>
 #endexport
 #endextend

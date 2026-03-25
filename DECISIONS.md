@@ -1883,7 +1883,7 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
 
 ---
 
-## Web CSS extracted to static stylesheets
+## Web CSS and JS extracted to static assets
 
 - **🔁 CSS moved out of the Leaf templates into static `.css` files served by
   `FileMiddleware`.** Until now every style lived in `<style>` blocks: one large
@@ -1912,7 +1912,32 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
   immediately after the `stash.css` link so it overrides the defaults. The
   flash-prevention `<script>` (§13) likewise stays inline (it must run before
   first paint).
+- **🔁 The inline `<script>` blocks moved to `Public/js/` the same way.** Every
+  page's JavaScript was inline: the shared tag-autocomplete (`stashTagAutocomplete`
+  + the `data-known-tags` auto-wiring, §13) lived at the end of `layout.leaf`'s
+  `<body>`; per-page scripts lived in `app-bookmarks` (the `/` search shortcut),
+  `app-settings` (delete-all reveal/confirm), `app-tags` (rename-row toggle),
+  `app-smart-view-form` (the condition builder), and `appearance` (the about-text
+  char counter). None referenced Leaf variables — they all read DOM attributes or
+  query the DOM — so each became a static file (`tag-autocomplete.js`,
+  `bookmarks.js`, `settings.js`, `tags.js`, `smart-view-form.js`, `appearance.js`)
+  served by the same `FileMiddleware`. The shared `tag-autocomplete.js` is linked
+  once in `layout.leaf`'s `<head>`; per-page scripts use an `#import("scripts")`
+  slot fed by an `#export("scripts")` sibling, mirroring the `css` slot.
+- **✅ All extracted scripts are `defer`red; the theme-flash script stays inline.**
+  External scripts use `<script defer …>` so they execute after parse, in document
+  order, before `DOMContentLoaded`. The shared `tag-autocomplete.js` link precedes
+  the `#import("scripts")` slot in `<head>`, so it always runs before any page
+  script that depends on `window.stashTagAutocomplete` (e.g. the Smart View form).
+  The one script that must **not** be deferred is `layout.leaf`'s
+  flash-prevention snippet (§13): it sets `data-theme` from the cookie before first
+  paint, so it stays inline at the top of `<head>` — externalizing or deferring it
+  would reintroduce the wrong-theme flash. Inline event-handler attributes
+  (`onsubmit="return confirm(…)"`) were left as-is; they are markup, not script
+  blocks.
 - **✅ Verified.** `swift build` clean; a throwaway smoke test (run then removed,
-  per §19.6) confirmed `GET /css/stash.css` returns `200 text/css` and that the
-  landing page's `<head>` links both `stash.css` and `landing.css` with no
-  residual inline `<style>`.
+  per §19.6) confirmed `GET /css/stash.css` returns `200 text/css` and
+  `GET /js/tag-autocomplete.js` returns `200` JavaScript, that the landing page's
+  `<head>` links the static assets (no residual inline `<style>`/`<script>`
+  definitions), and that the flash-prevention script still precedes the deferred
+  shared script in head order.

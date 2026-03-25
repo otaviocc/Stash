@@ -1,4 +1,7 @@
 #extend("layout"):
+#export("scripts"):
+    <script defer src="/js/appearance.js"></script>
+#endexport
 #export("content"):
     <h1>Appearance</h1>
     <p class="muted">Personalise this Stash instance.</p>
@@ -49,8 +52,5 @@
         <button type="submit">Save appearance</button>
     </form>
 
-    <script>
-        document.getElementById('aboutCount').textContent = document.getElementById('aboutText').value.length;
-    </script>
 #endexport
 #endextend
