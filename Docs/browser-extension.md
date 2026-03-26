@@ -59,8 +59,8 @@ The status line reads "Connected as _username_" once you are signed in.
 
 Navigate to any page, click the Stash icon, optionally click **Fetch metadata**
 to pull the server-side title and description, add tags (with autocomplete from
-your existing tags), and click **Save**. A confirmation appears with links to view
-the bookmark or save another; it closes itself after a few seconds.
+your existing tags), and click **Save**. A confirmation appears with a link to
+view the bookmark; it closes itself after a few seconds.
 
 The URL field is read-only — the extension always saves the page you are on. If
 the page is already saved, an inline "Already saved" message links to the existing

@@ -11,5 +11,8 @@ DerivedData/
 # Browser extension packages
 Extension/dist/
 
+# Editor config
+.vscode/
+
 # macOS
 .DS_Store

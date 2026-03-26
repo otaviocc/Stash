@@ -219,17 +219,6 @@ function showSaved(bookmark, tags) {
   autoCloseTimer = setTimeout(() => window.close(), 3000);
 }
 
-function resetForm() {
-  clearTimeout(autoCloseTimer);
-  titleInput.value = "";
-  descriptionInput.value = "";
-  tagsInput.value = "";
-  suggestionsEl.innerHTML = "";
-  hide(formError);
-  showState("form");
-  loadCurrentTab();
-}
-
 // --- Wiring -----------------------------------------------------------------
 
 document.getElementById("open-settings").addEventListener("click", () => {
@@ -237,7 +226,6 @@ document.getElementById("open-settings").addEventListener("click", () => {
   window.close();
 });
 
-document.getElementById("save-another").addEventListener("click", resetForm);
 fetchButton.addEventListener("click", fetchMetadata);
 saveButton.addEventListener("click", save);
 tagsInput.addEventListener("input", renderSuggestions);

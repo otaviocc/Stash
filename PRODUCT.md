@@ -977,8 +977,10 @@ button pulls the server-side title/description (`POST /api/v1/metadata`, filling
 only empty fields); tag input offers autocomplete chips from `GET /api/v1/tags`
 using the web UI's per-segment prefix rule; "Save" creates the bookmark
 (`fetchMetadata: false`). A duplicate URL surfaces inline as "Already saved" with
-a link to the existing bookmark; a save confirmation offers View bookmark / Save
-another and auto-closes. No undo (the popup lifecycle is too short).
+a link to the existing bookmark; a save confirmation offers a View bookmark link
+and auto-closes. No undo (the popup lifecycle is too short), and no "save
+another" — the extension saves the page you are on, so there is nothing more to
+add for the same tab.
 
 ### Authentication
 

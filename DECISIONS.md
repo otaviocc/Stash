@@ -1845,10 +1845,12 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
   editable; "Fetch metadata" (`POST /api/v1/metadata`) fills only the empty
   fields so it never clobbers what the user typed. Save sends
   `fetchMetadata: false` — the extension drives metadata explicitly.
-- **✅ No undo in the popup.** The popup lifecycle is too short for the
-  timer-based undo the Share Extensions use (M9/M10) — closing the popup would
-  cancel the timer. Instead: save → confirmation (with View bookmark / Save
-  another, auto-closing after 3 s) → done. Duplicate URLs surface inline as
+- **✅ No undo and no "save another" in the popup.** The popup lifecycle is too
+  short for the timer-based undo the Share Extensions use (M9/M10) — closing the
+  popup would cancel the timer. Instead: save → confirmation (a single View
+  bookmark link, auto-closing after 3 s) → done. There is deliberately no "save
+  another" either: the extension saves the page you are on, so once that tab is
+  saved there is nothing more to add for it. Duplicate URLs surface inline as
   "Already saved" with a link to the existing bookmark (the `409`'s `existingID`
   → `/app/bookmarks/:id`); deletion is left to the web UI or a native app.
 - **✅ Tag autocomplete reuses the web UI's per-segment prefix rule.** The popup
