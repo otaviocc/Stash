@@ -13,6 +13,8 @@ REST API for Stash.
 - **M4** — Docker packaging: multi-stage `Dockerfile` (`swift:5.10` build → `ubuntu:22.04`
   runtime, `linux/amd64` + `linux/arm64`), canonical `docker-compose.yml`, first-boot admin
   seeding, and a `Makefile`.
+- **M5** — web admin dashboard: server-rendered Leaf pages at `/admin` (login, dashboard, user
+  list, create user, user detail) with cookie-based session auth, separate from the JWT API.
 
 ## Deployment (Docker)
 
@@ -83,6 +85,31 @@ swift-testing. Use the local `withTestApp { app in ... }` helper rather than Vap
 | `PUT`  | `/admin/users/:id` | admin | Suspend/unsuspend (`isActive`) and/or reset `password` |
 | `DELETE` | `/admin/users/:id` | admin | Hard delete + cascade all owned data (204) |
 | `GET`  | `/admin/stats` | admin | Totals + per-user bookmark counts |
+
+## Web admin dashboard (server-rendered, session cookie — PRD §11)
+
+Unversioned, mounted at `/admin`, separate from the API above.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`/`POST` | `/admin/login` | Login form (username + password + optional TOTP) |
+| `POST` | `/admin/logout` | Clear the session |
+| `GET`  | `/admin` | Dashboard: total users, total bookmarks, per-user counts |
+| `GET`  | `/admin/users` | User list |
+| `GET`/`POST` | `/admin/users/new` | Create user (always `user` role) |
+| `GET`  | `/admin/users/:id` | User detail |
+| `POST` | `/admin/users/:id/suspend` · `/unsuspend` · `/reset-password` · `/delete` | Actions |
+
+### M5 notes
+
+- **Session auth** uses a cookie (`stash_admin_session`, in-memory store), wholly separate from
+  the API's JWT flow. `AdminSessionMiddleware` loads the admin from the session and redirects to
+  `/admin/login` if it's missing, the account is gone, suspended, or no longer an admin.
+- **Same business rules as the API**, enforced in the web handlers: dashboard-created accounts are
+  always `user` role (the form has no role field, and any submitted one is ignored); suspension and
+  password reset both revoke the target's refresh tokens; self-deletion is blocked (returns 400).
+- **Templates** live in `Resources/Views` (one `layout.leaf` + five pages), copied into the Docker
+  image by the Dockerfile. Plain HTML forms, inline CSS, no JS framework.
 
 ### M4 notes
 

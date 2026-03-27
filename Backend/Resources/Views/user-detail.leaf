@@ -1,0 +1,51 @@
+#extend("layout"):
+#export("content"):
+    <h1>#(user.username)</h1>
+    <p class="muted"><a href="/admin/users">← Back to users</a></p>
+
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
+    <div class="card">
+        <p><strong>Role:</strong> #(user.role)</p>
+        <p><strong>Status:</strong>
+            #if(user.isActive):<span class="pill active">Active</span>
+            #else:<span class="pill suspended">Suspended</span>#endif
+        </p>
+        <p><strong>Bookmarks:</strong> #(user.bookmarkCount)</p>
+        <p><strong>Created:</strong> #(createdAt)</p>
+    </div>
+
+    <div class="card actions">
+        #if(user.isActive):
+        <form method="post" action="/admin/users/#(user.id)/suspend">
+            <button class="secondary" type="submit">Suspend account</button>
+        </form>
+        #else:
+        <form method="post" action="/admin/users/#(user.id)/unsuspend">
+            <button type="submit">Reactivate account</button>
+        </form>
+        #endif
+
+        <form method="post" action="/admin/users/#(user.id)/reset-password">
+            <label>Reset password <span class="muted">(min 12 characters)</span>
+                <input type="password" name="password" minlength="12" required>
+            </label>
+            <button class="secondary" type="submit">Reset password</button>
+        </form>
+
+        #if(isSelf):
+        <p class="muted">You cannot delete your own account.</p>
+        #else:
+        <form method="post" action="/admin/users/#(user.id)/delete"
+              onsubmit="return confirm('Delete #(user.username) and all their data? This cannot be undone.');">
+            <button class="danger" type="submit">Delete user</button>
+        </form>
+        #endif
+    </div>
+#endexport
+#endextend

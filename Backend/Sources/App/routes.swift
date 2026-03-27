@@ -24,4 +24,9 @@ func routes(_ app: Application) throws {
     // Admin-only endpoints (PRD §9.6). Non-admins get 403 via AdminMiddleware.
     let admin = protected.grouped("admin").grouped(AdminMiddleware())
     try admin.register(collection: AdminController())
+
+    // Web admin dashboard (PRD §11). Server-rendered Leaf pages at /admin, using cookie-based
+    // session auth — entirely separate from the JWT API above. Unversioned (PRD §17.3).
+    let dashboard = app.grouped("admin").grouped(app.sessions.middleware)
+    try dashboard.register(collection: AdminWebController())
 }
