@@ -97,5 +97,6 @@ struct TagBrowserView: View {
             TagBrowserView()
         }
         .environment(AppEnvironment.preview)
+        .environment(AppSettings.preview)
     }
 #endif

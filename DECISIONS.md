@@ -2026,10 +2026,18 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
   logic itself is exercised directly against a `MockClient` `Client` conformance
   — including the three-tier order, content-type/size rejection, the failure path,
   and the same-domain dedupe — so coverage doesn't depend on the detached path.
-- **Native apps unaffected.** iOS/macOS `FaviconView` continues to fetch directly
-  from Google client-side; moving them onto this cached endpoint is a candidate
-  for a future session.
-- **✅ Verified.** `swift build` clean, `swift test --no-parallel` green (128
-  tests incl. 18 new favicon tests across domain extraction, the fetcher, and the
-  serve/refresh endpoints); `swiftformat . --lint` idempotent and `swiftlint lint`
-  reports 0 violations.
+- **✅ Native apps moved onto the cached endpoint.** iOS/macOS `FaviconView` now
+  loads `GET <serverURL>/api/v1/favicons/:domain` (the unauthenticated, browser-
+  cacheable route) instead of hitting Google directly. It reads `serverURL` from
+  the `AppSettings` already in the SwiftUI environment, and the domain comes from
+  a `Bookmark.faviconDomain` computed property that **mirrors the backend's
+  `DomainExtractor`** (lowercased host, `www.` stripped, port kept) so the client
+  produces the exact cache key the server stored. A 404 (uncached/failed domain)
+  falls through `AsyncImage` to the existing `link` placeholder. The normalization
+  is duplicated in Swift on both sides because no module spans the backend and the
+  app (StashKit, the shared layer, is deliberately logic-free) — the property
+  carries a comment pointing at the server source of truth.
+- **✅ Verified.** Backend: `swift build` clean, `swift test --no-parallel` green
+  (132 tests incl. 22 favicon tests across domain extraction, the fetcher, and the
+  serve/refresh endpoints). Apps: `Stash` builds for both iOS and macOS. All:
+  `swiftformat . --lint` idempotent and `swiftlint lint` reports 0 violations.

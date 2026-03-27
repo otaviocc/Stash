@@ -958,8 +958,10 @@ Liquid Glass design adopted automatically — tab bar floats over content,
 toolbars and navigation bars gain glass background. No explicit `.liquidGlass`
 calls needed; compiling against iOS 26 SDK is sufficient.
 
-`FaviconView` vendored from Triton (Google favicon service, `AsyncImage`,
-fallback `"link"` SF Symbol, `RoundFaviconModifier` 16×16 4pt corners).
+`FaviconView` (`AsyncImage`, fallback `"link"` SF Symbol, `RoundFaviconModifier`
+16×16 4pt corners) loads favicons from the configured Stash instance's cached
+endpoint (`GET /api/v1/favicons/:domain`, §9.8) keyed by the bookmark's domain —
+no longer Google directly. A 404 (uncached domain) falls back to the placeholder.
 
 `BookmarkRowView` shows first three tags + `+N` overflow (not a scrolling row —
 avoids gesture conflict in lists).

@@ -46,6 +46,23 @@ struct Bookmark: Identifiable, Hashable {
     var hostname: String {
         url.host() ?? url.absoluteString
     }
+
+    /// Cache key for Stash's favicon endpoint. Must match the backend's DomainExtractor:
+    /// lowercased host, leading `www.` stripped, explicit port kept.
+    var faviconDomain: String? {
+        guard var host = url.host()?.lowercased(), !host.isEmpty else { return nil }
+
+        if host.hasPrefix("www.") {
+            host = String(host.dropFirst(4))
+            guard !host.isEmpty else { return nil }
+        }
+
+        if let port = url.port {
+            return "\(host):\(port)"
+        }
+
+        return host
+    }
 }
 
 // MARK: - Bookmark + DTO

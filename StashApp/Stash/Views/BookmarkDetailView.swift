@@ -66,7 +66,7 @@ struct BookmarkDetailView: View {
         Form {
             Section {
                 HStack(spacing: 8) {
-                    FaviconView(url: bookmark.url)
+                    FaviconView(domain: bookmark.faviconDomain)
                     Text(bookmark.title)
                         .font(.headline)
                 }
@@ -206,5 +206,6 @@ struct BookmarkDetailView: View {
             BookmarkDetailView(bookmark: .sample, repository: AppEnvironment.preview.makeBookmarkRepository())
         }
         .environment(AppEnvironment.preview)
+        .environment(AppSettings.preview)
     }
 #endif

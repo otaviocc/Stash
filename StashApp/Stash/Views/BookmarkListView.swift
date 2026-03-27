@@ -336,5 +336,6 @@ private struct BookmarkListContent: View {
             BookmarkListView(tag: nil)
         }
         .environment(AppEnvironment.preview)
+        .environment(AppSettings.preview)
     }
 #endif

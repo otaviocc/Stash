@@ -38,7 +38,7 @@ struct BookmarkRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
-                FaviconView(url: bookmark.url)
+                FaviconView(domain: bookmark.faviconDomain)
                 Text(bookmark.title)
                     .font(.headline)
                     .lineLimit(2)
@@ -96,5 +96,6 @@ struct TagPill: View {
         List(Bookmark.samples) { bookmark in
             BookmarkRowView(bookmark: bookmark)
         }
+        .environment(AppSettings.preview)
     }
 #endif

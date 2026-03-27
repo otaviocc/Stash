@@ -24,19 +24,36 @@ import SwiftUI
 
 // MARK: - FaviconView
 
-/// A view that displays a favicon for a given URL.
+/// A view that displays a favicon served from the configured Stash instance, keyed by domain.
+/// Falls back to a `link` symbol while loading and when the instance has no cached icon (404).
 struct FaviconView: View {
+
+    // MARK: SwiftUI Properties
+
+    @Environment(AppSettings.self) private var appSettings
 
     // MARK: Properties
 
-    private let iconURL: URL?
+    private let domain: String?
+
+    // MARK: Computed Properties
+
+    private var iconURL: URL? {
+        guard let domain, !domain.isEmpty else { return nil }
+
+        var base = appSettings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        while base.hasSuffix("/") {
+            base = String(base.dropLast())
+        }
+        guard !base.isEmpty else { return nil }
+
+        return URL(string: "\(base)/api/v1/favicons/\(domain)")
+    }
 
     // MARK: Lifecycle
 
-    init(url: URL?) {
-        iconURL = url.flatMap {
-            URL(string: "https://www.google.com/s2/favicons?sz=16&domain=\($0.absoluteString)")
-        }
+    init(domain: String?) {
+        self.domain = domain
     }
 
     // MARK: Content Properties
@@ -46,6 +63,8 @@ struct FaviconView: View {
     var body: some View {
         AsyncImage(url: iconURL) { image in
             image
+                .resizable()
+                .scaledToFit()
         } placeholder: {
             Image(systemName: "link")
         }
@@ -76,7 +95,8 @@ extension View {
 
 #if DEBUG
     #Preview {
-        FaviconView(url: URL(string: "https://swift.org"))
+        FaviconView(domain: "swift.org")
+            .environment(AppSettings.preview)
             .padding()
     }
 #endif
