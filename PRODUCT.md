@@ -275,6 +275,35 @@ All external links open in a new tab with `rel="noopener noreferrer"`. The Stash
 identity (name, logo, Ko-fi and Mastodon links) is hardcoded and not
 configurable.
 
+### 7.8 Favicon Cache
+
+Favicons are cached **per domain** (not per bookmark or per user) and served from
+Stash itself instead of relying on the browser fetching from the origin site or
+Google on every render. A new bookmark for any URL on an already-cached domain
+reuses the existing image — the cache grows with unique domains, not bookmark
+count. Fetched once when a domain is first encountered; re-fetched only on an
+explicit manual refresh.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | UUID | Primary key |
+| `domain` | String | Unique. Lowercased hostname, `www.` stripped, explicit port kept (e.g. `github.com`, `192.168.1.5:8080`). |
+| `imageData` | Data? | Binary image bytes (`bytea`/BLOB). `nil` if the fetch failed. |
+| `contentType` | String? | MIME type, e.g. `image/png`, `image/x-icon`. |
+| `sourceURL` | String? | The URL the image was actually fetched from, for debugging. |
+| `status` | Enum | `pending`, `cached`, or `failed`. |
+| `fetchedAt` | Date? | When the fetch last completed (success or failure). |
+| `createdAt` | Date | Auto-set |
+| `updatedAt` | Date | Auto-updated |
+
+**Unique index on `domain`** — the insert-then-catch path uses it to dedupe
+concurrent first-time fetches for the same domain. Image bytes are capped at 100KB
+(rejected via the `Content-Length` header before download when present), the
+`Content-Type` must be a non-SVG `image/*` (SVG is refused as active content), and
+the served response carries `X-Content-Type-Options: nosniff`. The bookmark's
+`faviconURL` field is no longer written for new bookmarks (domain-keyed lookup at
+render time supersedes it) but the column is retained.
+
 ---
 
 ## 8. Authentication & Security
@@ -457,6 +486,23 @@ condition overrides the default archived filter (otherwise non-archived only).
 | `POST` | `/api/v1/admin/users/:id/reset-totp` | Reset user's 2FA |
 | `GET` | `/api/v1/admin/stats` | Aggregate stats |
 
+### 9.8 Favicons
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/api/v1/favicons/:domain` | None | Serve the cached favicon image for a domain |
+| `POST` | `/api/v1/favicons/:domain/refresh` | Any active user | Delete the cached row and trigger a re-fetch |
+
+- `GET` is **unauthenticated** so `<img>` tags can load it without attaching
+  credentials. A `cached` row returns the image bytes with its stored
+  `Content-Type` and `Cache-Control: public, max-age=2592000, immutable` (30
+  days). A `failed`, `pending`, or missing row returns `404 not_found` — the web
+  UI degrades gracefully to no icon.
+- `POST .../refresh` requires being logged in (favicons are shared, not
+  privileged, but auth prevents anonymous abuse). It deletes the existing row and
+  kicks off a fresh fetch detached, returning `202 Accepted` immediately. No rate
+  limiting (see `DECISIONS.md`).
+
 ---
 
 ## 10. Metadata Fetching
@@ -471,6 +517,13 @@ On `POST /api/v1/bookmarks` with `fetchMetadata: true` (default):
 5. On any failure: save proceeds with client-supplied values — never blocks
 
 Timeout: 5 seconds. No retry.
+
+**Favicon fetching is decoupled** from this per-bookmark metadata fetch. The
+metadata fetch still discovers the page's declared `<link rel="icon">`, but
+favicon *caching* now happens at the domain level (§7.8): on bookmark creation
+Stash hands that declared icon (when available) to a detached `FaviconFetcher`
+keyed by domain, rather than storing a per-bookmark `faviconURL`. See §7.8 and
+the Favicon Caching section of `DECISIONS.md`.
 
 ---
 
@@ -667,6 +720,21 @@ a dead end for them).
 - Pagination with prev/next links preserving active filters
 - Two-column layout: bookmark list (left/main) + tag sidebar (right, 220px)
 - Mobile (<768px): sidebar hidden, filter pills used instead
+- Each row (and the detail page title) shows the domain's cached favicon via
+  `<img src="/api/v1/favicons/{domain}">` (§7.8, §9.8), with an `onerror` handler
+  that hides the image on a `404` — graceful degradation to no icon, never a
+  broken-image glyph. The `{domain}` is computed server-side per row.
+
+### Favicons
+
+- Served from Stash's domain-keyed cache (§7.8), not fetched from the origin site
+  or Google by the browser. Computed once per domain at bookmark creation.
+- The bookmark detail page (`/app/bookmarks/:id`) carries a small "Refresh
+  favicon" button that POSTs to `/app/bookmarks/:id/refresh-favicon` (a thin
+  session-auth wrapper that triggers the same re-fetch as the API's
+  `POST /api/v1/favicons/:domain/refresh`). PRG redirects back with a
+  `?ok=favicon_refreshing` banner ("Favicon refresh started — it may take a
+  moment to update.").
 
 ### Tag Sidebar
 

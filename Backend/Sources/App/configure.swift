@@ -70,6 +70,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateSiteSettings())
     app.migrations.add(CreateSmartViews())
     app.migrations.add(AddSmartViewMatchMode())
+    app.migrations.add(CreateFaviconCache())
 
     // MARK: Version
 

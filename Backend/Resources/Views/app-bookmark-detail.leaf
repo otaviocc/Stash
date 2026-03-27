@@ -5,7 +5,7 @@
     <p class="banner ok">#(message)</p>
     #endif
 
-    <h1>#(bookmark.title)</h1>
+    <h1 class="detail-title">#if(bookmark.faviconDomain):<img src="/api/v1/favicons/#(bookmark.faviconDomain)" alt="" class="favicon favicon-lg" onerror="this.style.display='none'">#endif#(bookmark.title)</h1>
 
     <div class="card">
         <p class="url"><a href="#(bookmark.url)" target="_blank" rel="noopener">#(bookmark.url)</a></p>
@@ -24,6 +24,11 @@
     <div class="row-actions">
         <a href="#(bookmark.url)" target="_blank" rel="noopener"><button type="button">Open URL</button></a>
         <a href="/app/bookmarks/#(bookmark.id)/edit"><button type="button" class="secondary">Edit</button></a>
+        #if(bookmark.faviconDomain):
+        <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/refresh-favicon">
+            <button type="submit" class="secondary">Refresh favicon</button>
+        </form>
+        #endif
         #if(bookmark.isArchived):
         <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/unarchive">
             <button type="submit" class="secondary">Unarchive</button>

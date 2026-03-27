@@ -131,6 +131,7 @@ struct AppWebController: RouteCollection {
             title: bookmark.title,
             description: bookmark.description,
             faviconURL: bookmark.faviconURL,
+            faviconDomain: DomainExtractor.domain(from: bookmark.url),
             tags: bookmark.tags.map { TagLink(name: $0, display: display($0)) },
             isArchived: bookmark.isArchived,
             createdAt: dateFormatter.string(from: bookmark.createdAt ?? Date())
@@ -273,6 +274,7 @@ struct AppWebController: RouteCollection {
         case "password": "Password changed."
         case "totp_disabled": "Two-factor authentication disabled."
         case "theme": "Appearance updated."
+        case "favicon_refreshing": "Favicon refresh started — it may take a moment to update."
         default: nil
         }
     }
@@ -303,6 +305,7 @@ struct AppWebController: RouteCollection {
         bookmarks.post(":bookmarkID", "delete", use: deleteBookmark)
         bookmarks.post(":bookmarkID", "archive", use: archiveBookmark)
         bookmarks.post(":bookmarkID", "unarchive", use: unarchiveBookmark)
+        bookmarks.post(":bookmarkID", "refresh-favicon", use: refreshFavicon)
 
         let smartViews = app.grouped("smart-views")
         smartViews.get(use: smartViewManage)
@@ -545,12 +548,12 @@ struct AppWebController: RouteCollection {
             )
         }
 
-        var faviconURL: String?
+        var declaredIcon: String?
         if title == nil || description == nil {
             let fetched = await MetadataFetcher.fetch(url: url, on: req)
             title = title ?? fetched.title
             description = description ?? fetched.description
-            faviconURL = fetched.faviconURL
+            declaredIcon = fetched.faviconURL
         }
 
         let bookmark = Bookmark(
@@ -558,7 +561,6 @@ struct AppWebController: RouteCollection {
             url: url,
             title: title ?? url,
             description: description,
-            faviconURL: faviconURL,
             tags: Bookmark.normalizeTags(Self.parseTags(tagsText)),
             isArchived: false
         )
@@ -577,6 +579,8 @@ struct AppWebController: RouteCollection {
 
         user.bookmarkCount += 1
         try await user.save(on: req.db)
+        FaviconFetcher.enqueue(forURL: url, declaredIconURL: declaredIcon, on: req.application)
+
         return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=created")
     }
 
@@ -632,6 +636,16 @@ struct AppWebController: RouteCollection {
 
     func unarchiveBookmark(req: Request) async throws -> Response {
         try await setArchived(req, false)
+    }
+
+    func refreshFavicon(req: Request) async throws -> Response {
+        guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
+
+        if let domain = DomainExtractor.domain(from: bookmark.url) {
+            try await FaviconFetcher.refresh(domain: domain, on: req.application)
+        }
+
+        return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=favicon_refreshing")
     }
 
     // MARK: - Smart Views

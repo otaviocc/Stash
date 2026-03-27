@@ -141,6 +141,7 @@ struct AppBookmarkRow: Content {
     let title: String
     let description: String?
     let faviconURL: String?
+    let faviconDomain: String?
     let tags: [TagLink]
     let isArchived: Bool
     let createdAt: String

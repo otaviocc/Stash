@@ -87,13 +87,13 @@ struct BookmarkController: RouteCollection {
 
         var title = input.title?.nonEmpty
         var description = input.description?.nonEmpty
-        var faviconURL: String?
+        var declaredIcon: String?
 
         if input.fetchMetadata ?? true {
             let fetched = await MetadataFetcher.fetch(url: url, on: req)
             title = title ?? fetched.title
             description = description ?? fetched.description
-            faviconURL = fetched.faviconURL
+            declaredIcon = fetched.faviconURL
         }
 
         let bookmark = Bookmark(
@@ -101,7 +101,6 @@ struct BookmarkController: RouteCollection {
             url: url,
             title: title ?? url,
             description: description,
-            faviconURL: faviconURL,
             tags: Bookmark.normalizeTags(input.tags ?? []),
             isArchived: false
         )
@@ -117,6 +116,8 @@ struct BookmarkController: RouteCollection {
 
         user.bookmarkCount += 1
         try await user.save(on: req.db)
+
+        FaviconFetcher.enqueue(forURL: url, declaredIconURL: declaredIcon, on: req.application)
 
         let response = Response(status: .created)
         try response.content.encode(bookmark.asResponse())

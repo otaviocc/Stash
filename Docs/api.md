@@ -42,6 +42,8 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `DELETE` | `/smart-views/:id` | access token | Delete a Smart View (204) |
 | `GET`  | `/smart-views/:id/bookmarks` | access token | Run the query; `Page<Bookmark>` (`?page=&per=`) |
 | `POST` | `/metadata` | access token | Fetch title/description/favicon for a URL |
+| `GET`  | `/favicons/:domain` | none | Serve the domain's cached favicon image; 404 if uncached/failed/pending; `Cache-Control: public, max-age=2592000, immutable` |
+| `POST` | `/favicons/:domain/refresh` | access token | Delete the cached row and re-fetch the favicon detached (202) |
 | `GET`  | `/admin/users` | admin | List all users with stats |
 | `POST` | `/admin/users` | admin | Create account; 409 `username_taken` on dupe |
 | `GET`  | `/admin/users/:id` | admin | Single user (404 if unknown) |
@@ -83,6 +85,7 @@ the API and the admin dashboard.
 | `GET`  | `/app/bookmarks/:id/edit` | Edit form |
 | `POST` | `/app/bookmarks/:id` | Update (title, description, tags, archived) |
 | `POST` | `/app/bookmarks/:id/delete` · `/archive` · `/unarchive` | Actions |
+| `POST` | `/app/bookmarks/:id/refresh-favicon` | Re-fetch the domain's cached favicon (PRG → `?ok=favicon_refreshing`) |
 | `GET`  | `/app/tags` | Tag browser table (counts, links to `/app?tag=…`, inline rename, confirm-dialog delete) |
 | `POST` | `/app/tags/rename` | Rename a tag (PRG → `?ok=renamed` banner) |
 | `POST` | `/app/tags/delete` | Delete a tag and its children (PRG → `?ok=deleted` banner) |

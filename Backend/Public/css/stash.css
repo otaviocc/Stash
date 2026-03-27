@@ -342,6 +342,26 @@ form.inline {
     text-decoration: none;
 }
 
+.favicon {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    vertical-align: text-bottom;
+    margin-right: 0.4rem;
+    object-fit: contain;
+}
+
+.favicon-lg {
+    width: 24px;
+    height: 24px;
+    margin-right: 0.5rem;
+}
+
+.detail-title {
+    display: flex;
+    align-items: center;
+}
+
 .list-item .url {
     color: var(--url);
     font-size: 0.85rem;

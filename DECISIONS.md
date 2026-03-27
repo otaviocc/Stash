@@ -1943,3 +1943,93 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
   `<head>` links the static assets (no residual inline `<style>`/`<script>`
   definitions), and that the flash-prevention script still precedes the deferred
   shared script in head order.
+
+## Favicon Caching
+
+- **✅ Cached per domain, not per bookmark or per user.** Favicons belong to a
+  domain, not to a private collection, so one `FaviconCache` row keyed by a
+  unique, lowercased, `www.`-stripped `domain` is shared across every user and
+  every bookmark on that host. A new bookmark for any URL on `github.com` reuses
+  the existing image with no fetch. The practical win: the cache fills in
+  proportion to **unique domains**, not bookmark count, which scales far better
+  for a heavy collection. `DomainExtractor` parses with `URLComponents` (the same
+  parser `Bookmark.validatedURL` uses, so a URL that validates resolves a
+  consistent host) and **keeps an explicit port** in the key (`192.168.1.5:8080`)
+  — without it, two services on one LAN host (the documented `http://192.168.1.x:8080`
+  use case) would collide on one row and show each other's icon.
+- **✅ Three-tier fetch, declared icon first.** `FaviconFetcher.fetchAndCache`
+  tries, in order: the page's declared `<link rel="icon">` (handed in from the
+  metadata fetch that already ran at bookmark creation), then a `/favicon.ico`
+  guess, then Google's `s2/favicons?sz=64&domain=` service as a last resort. This
+  mirrors the order the macOS app's `FaviconView` reaches for conceptually, now
+  centralized server-side. The `/favicon.ico` guess is built from the bookmark's
+  **origin** (`scheme://host[:port]`, derived by `DomainExtractor.origin` and
+  threaded through `enqueue(forURL:)`) rather than a hardcoded `https://` — an
+  http-only LAN box would never answer an https probe. The declared-icon URL is
+  an optional parameter, so the manual-refresh path — which has no page HTML and
+  no origin in hand — falls back to `https://<domain>/favicon.ico`.
+- **✅ Stored as a binary column, not a filesystem volume.** `image_data` is
+  `bytea` on Postgres / BLOB on SQLite. One database volume to back up, no extra
+  Docker volume to configure, acceptable because favicons are tiny — anything over
+  **100KB** is rejected as "not a favicon" and stored as `failed`. A
+  `Content-Length` header over the cap is rejected **before** the body is read;
+  a chunked response without one is still bounded by the post-read byte count plus
+  the 5-second read timeout. The `Content-Type` must start with `image/` **and**
+  must not be SVG: `image/svg+xml` is refused because it is active content, and
+  the serve endpoint returns favicon bytes from the Stash origin — an SVG with an
+  embedded `<script>` opened directly would execute in that origin. The serve
+  response also carries `X-Content-Type-Options: nosniff` as defense in depth so a
+  mistyped `image/*` body can't be MIME-sniffed into markup.
+- **✅ Fetch-once, manual-refresh-only.** A favicon is fetched exactly once, when
+  its domain is first encountered, and **never** automatically re-fetched — no
+  background polling, no scheduled refresh, no per-render staleness check. A site
+  changing its icon is rare enough that a user-triggered
+  `POST /api/v1/favicons/:domain/refresh` (which deletes the row and re-fetches)
+  is sufficient. Refresh is available to **any** active user, since favicons are
+  shared rather than privileged.
+- **✅ Detached, non-blocking, deduped via the unique index.** The fetch runs in a
+  `Task.detached` kicked off after the bookmark save responds, so it never blocks
+  creation (the same non-blocking philosophy as metadata fetching). Both create
+  controllers and the refresh endpoints funnel through one
+  `FaviconFetcher.enqueue(forURL:)` / `refresh(domain:)` pair so the URL→domain→
+  enqueue policy lives in a single place. `fetchAndCache` guards against duplicate
+  concurrent fetches for a brand-new domain by **inserting a `pending` row first**;
+  the `unique(on: "domain")` index makes the first writer win, and the insert
+  `catch` is **narrowed to `DatabaseError.isConstraintFailure`** (skip silently —
+  that is the dedup) while any other insert error is logged, so a transient DB
+  failure is no longer mistaken for "already in flight" and silently dropped. The
+  terminal `save` is likewise wrapped: on failure it logs and best-effort deletes
+  the row, so a failed write can't strand a permanent `pending` row that `serve`
+  would 404 forever (the unique index would otherwise block every future re-fetch).
+  This dedup is why two bookmarks on the same domain produce one row and one fetch.
+- **✅ `GET /api/v1/favicons/:domain` is unauthenticated.** Favicons are not
+  sensitive, and `<img>` tags can't easily attach Bearer tokens, so the serve
+  endpoint is open. A `cached` row returns the bytes with
+  `Cache-Control: public, max-age=2592000, immutable` (30 days) to push caching
+  out to the browser too; `failed`/`pending`/missing all return `404`, which the
+  web UI handles with an `onerror` handler that hides the `<img>` — graceful
+  degradation to no icon, never a broken-image glyph.
+- **✅ Bookmark `faviconURL` is no longer written, but the column stays.** New
+  bookmarks leave `favicon_url` `nil`; the web UI resolves favicons by domain at
+  render time instead (`AppBookmarkRow.faviconDomain`, computed via
+  `DomainExtractor`). Dropping the column would be a destructive migration for no
+  benefit this session, so existing values are simply left untouched and unread by
+  the web UI.
+- **⚠️ No rate limiting on the manual refresh endpoint.** It could be used to
+  hammer a domain's server or Google's service repeatedly. Accepted for a
+  self-hosted single/small-team tool; flagged here for future hardening if abuse
+  ever becomes a concern.
+- **⚠️ The detached fetch is skipped under the `.testing` environment.**
+  `FaviconFetcher.enqueue` returns early when `app.environment == .testing` so the
+  test suite never makes real network calls from the create/refresh paths (the
+  in-memory test app has no mock HTTP client wired into `app.client`). The fetcher
+  logic itself is exercised directly against a `MockClient` `Client` conformance
+  — including the three-tier order, content-type/size rejection, the failure path,
+  and the same-domain dedupe — so coverage doesn't depend on the detached path.
+- **Native apps unaffected.** iOS/macOS `FaviconView` continues to fetch directly
+  from Google client-side; moving them onto this cached endpoint is a candidate
+  for a future session.
+- **✅ Verified.** `swift build` clean, `swift test --no-parallel` green (128
+  tests incl. 18 new favicon tests across domain extraction, the fetcher, and the
+  serve/refresh endpoints); `swiftformat . --lint` idempotent and `swiftlint lint`
+  reports 0 violations.

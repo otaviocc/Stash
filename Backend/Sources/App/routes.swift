@@ -30,6 +30,9 @@ func routes(_ app: Application) throws {
 
     try api.register(collection: AuthController())
 
+    let favicons = FaviconController()
+    api.get("favicons", ":domain", use: favicons.serve)
+
     let protected = api.grouped(
         AccessTokenAuthenticator(),
         User.guardMiddleware(throwing: APIError.tokenInvalid)
@@ -39,6 +42,7 @@ func routes(_ app: Application) throws {
     try protected.register(collection: SmartViewController())
     try protected.register(collection: TagController())
     try protected.register(collection: MetadataController())
+    protected.post("favicons", ":domain", "refresh", use: favicons.refresh)
 
     let admin = protected.grouped("admin").grouped(AdminMiddleware())
     try admin.register(collection: AdminController())
