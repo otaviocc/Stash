@@ -2014,7 +2014,18 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
   render time instead (`AppBookmarkRow.faviconDomain`, computed via
   `DomainExtractor`). Dropping the column would be a destructive migration for no
   benefit this session, so existing values are simply left untouched and unread by
-  the web UI.
+  the web UI. The web row DTO's old `faviconURL` field was removed once nothing
+  read it, so the row carries only `faviconDomain`.
+- **✅ Imports backfill favicons.** The import path is web-only (the CLI imports
+  over the public API, where `BookmarkController.create` already enqueues), so a
+  successful web import calls `FaviconFetcher.enqueueBackfill(forUser:)`. That
+  spawns **one** detached task that walks the user's bookmark URLs, dedupes to
+  distinct domains, and calls `fetchAndCache` for each **sequentially**. A single
+  serial sweep — rather than one detached task per bookmark — bounds the outbound
+  fetch concurrency a bulk import would otherwise unleash, and the per-domain
+  `fetchAndCache` dedup means already-cached domains cost one rejected insert and
+  no HTTP. The sweep covers every domain the user owns, so re-importing also heals
+  any domain that previously failed or was never fetched.
 - **⚠️ No rate limiting on the manual refresh endpoint.** It could be used to
   hammer a domain's server or Google's service repeatedly. Accepted for a
   self-hosted single/small-team tool; flagged here for future hardening if abuse
@@ -2038,6 +2049,7 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
   app (StashKit, the shared layer, is deliberately logic-free) — the property
   carries a comment pointing at the server source of truth.
 - **✅ Verified.** Backend: `swift build` clean, `swift test --no-parallel` green
-  (132 tests incl. 22 favicon tests across domain extraction, the fetcher, and the
-  serve/refresh endpoints). Apps: `Stash` builds for both iOS and macOS. All:
-  `swiftformat . --lint` idempotent and `swiftlint lint` reports 0 violations.
+  (133 tests incl. 23 favicon tests across domain extraction, the fetcher, the
+  per-domain import backfill, and the serve/refresh endpoints). Apps: `Stash`
+  builds for both iOS and macOS. All: `swiftformat . --lint` idempotent and
+  `swiftlint lint` reports 0 violations.

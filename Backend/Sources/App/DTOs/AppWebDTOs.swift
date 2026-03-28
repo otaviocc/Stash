@@ -140,7 +140,6 @@ struct AppBookmarkRow: Content {
     let url: String
     let title: String
     let description: String?
-    let faviconURL: String?
     let faviconDomain: String?
     let tags: [TagLink]
     let isArchived: Bool

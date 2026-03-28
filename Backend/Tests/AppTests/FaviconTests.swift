@@ -369,6 +369,30 @@ struct FaviconFetcherTests {
             #expect(client.requestedURLs.count == afterFirst, "It should not fetch again for the second bookmark")
         }
     }
+
+    @Test("backfill caches one favicon per distinct domain across a user's bookmarks")
+    func backfillDistinctDomains() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            try await app.makeBookmark(for: user, url: "https://github.com/a")
+            try await app.makeBookmark(for: user, url: "https://github.com/b")
+            try await app.makeBookmark(for: user, url: "https://swift.org/x")
+            let client = MockClient(eventLoop: app.eventLoopGroup.any())
+            client.stub(contains: "/favicon.ico", status: .ok, contentType: "image/png", bytes: imageBytes)
+
+            // When
+            try await FaviconFetcher.backfill(forUser: user.requireID(), on: app.db, client: client)
+
+            // Then
+            let count = try await FaviconCache.query(on: app.db).count()
+            #expect(count == 2, "It should create one row per distinct domain (github.com, swift.org)")
+            #expect(
+                client.requestedURLs.count { $0.contains("/favicon.ico") } == 2,
+                "It should fetch once per distinct domain, not once per bookmark"
+            )
+        }
+    }
 }
 
 // MARK: - FaviconServeTests

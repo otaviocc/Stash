@@ -89,6 +89,27 @@ enum FaviconFetcher {
         spawn(domain: domain, originURL: nil, declaredIconURL: nil, on: app)
     }
 
+    static func enqueueBackfill(forUser userID: UUID, on app: Application) {
+        guard app.environment != .testing else { return }
+
+        let db = app.db
+        let client = app.client
+        Task.detached {
+            await backfill(forUser: userID, on: db, client: client)
+        }
+    }
+
+    static func backfill(forUser userID: UUID, on db: Database, client: Client) async {
+        let urls = await (try? Bookmark.query(on: db).filter(\.$user.$id == userID).all(\.$url)) ?? []
+
+        var seen = Set<String>()
+        for url in urls {
+            guard let domain = DomainExtractor.domain(from: url), seen.insert(domain).inserted else { continue }
+
+            await fetchAndCache(domain: domain, originURL: DomainExtractor.origin(from: url), on: db, client: client)
+        }
+    }
+
     // MARK: - Fetching
 
     private static func spawn(domain: String, originURL: String?, declaredIconURL: String?, on app: Application) {

@@ -130,7 +130,6 @@ struct AppWebController: RouteCollection {
             url: bookmark.url,
             title: bookmark.title,
             description: bookmark.description,
-            faviconURL: bookmark.faviconURL,
             faviconDomain: DomainExtractor.domain(from: bookmark.url),
             tags: bookmark.tags.map { TagLink(name: $0, display: display($0)) },
             isArchived: bookmark.isArchived,
@@ -1055,6 +1054,8 @@ struct AppWebController: RouteCollection {
         } catch let error as ImportError {
             return try await importError(error.description)
         }
+
+        try FaviconFetcher.enqueueBackfill(forUser: user.requireID(), on: req.application)
 
         if let data = try? JSONEncoder().encode(ImportSummaryContext(result)),
            let json = String(data: data, encoding: .utf8)

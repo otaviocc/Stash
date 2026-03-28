@@ -816,7 +816,8 @@ confirmation).
 - Import: file upload, format selector (Anybox JSON, Stash JSON), summary banner
   with imported/updated/skipped counts (plus a Smart Views count when the file
   carried any), collapsible error details. Upload body limit 16MB. A Stash JSON
-  file also restores Smart Views, matched by name.
+  file also restores Smart Views, matched by name. After a successful import a
+  detached backfill caches a favicon (§7.8) for each distinct imported domain.
 - Export: "Download your bookmarks" → Stash JSON file download (bookmarks and
   Smart Views).
 
