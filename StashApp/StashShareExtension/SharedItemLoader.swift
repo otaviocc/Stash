@@ -57,8 +57,25 @@ enum SharedItemLoader {
     private static func loadURL(from provider: NSItemProvider) async -> URL? {
         await withCheckedContinuation { continuation in
             provider.loadItem(forTypeIdentifier: UTType.url.identifier, options: nil) { item, _ in
-                continuation.resume(returning: item as? URL)
+                continuation.resume(returning: coerceURL(from: item))
             }
+        }
+    }
+
+    private nonisolated static func coerceURL(from item: (any NSSecureCoding)?) -> URL? {
+        switch item {
+        case let url as URL:
+            return url
+
+        case let string as String:
+            return URL(string: string)
+
+        case let data as Data:
+            return URL(dataRepresentation: data, relativeTo: nil)
+                ?? String(data: data, encoding: .utf8).flatMap { URL(string: $0) }
+
+        default:
+            return nil
         }
     }
 

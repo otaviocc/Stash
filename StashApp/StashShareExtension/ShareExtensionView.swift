@@ -90,6 +90,7 @@ struct ShareExtensionView: View {
                 initialURL: url.absoluteString,
                 isURLEditable: false,
                 autoFetchOnAppear: true,
+                usesInlineActionBar: true,
                 bookmarkStore: bookmarkRepository,
                 tagStore: tagRepository,
                 onSaved: { bookmark in

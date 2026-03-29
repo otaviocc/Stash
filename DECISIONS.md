@@ -2053,3 +2053,54 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
   per-domain import backfill, and the serve/refresh endpoints). Apps: `Stash`
   builds for both iOS and macOS. All: `swiftformat . --lint` idempotent and
   `swiftlint lint` reports 0 violations.
+
+---
+
+## macOS Share Extension — three platform-specific fixes
+
+The Share Extension worked on iOS but failed on macOS, always landing on the
+"Sign In to Stash" screen even with a signed-in app. Three separate, macOS-only
+defects were stacked behind that one symptom — each masked the next, so they
+were found and fixed in sequence. iOS was never affected by any of them.
+
+- **✅ Keychain sharing needs `kSecUseDataProtectionKeychain` on macOS.**
+  `KeychainStore` shares the token pair with the extension via an App-Group
+  access group (`kSecAttrAccessGroup`). On iOS that works because the
+  data-protection keychain is the *only* keychain; on macOS the default is the
+  legacy file-based keychain, which does **not** honor App-Group access-group
+  sharing — so the extension's read returned `errSecItemNotFound` and
+  `tokenManager.refreshToken` was `nil`. Adding `kSecUseDataProtectionKeychain:
+  true` to every query opts both processes into the modern keychain on macOS
+  (no-op on iOS, where it is already the default), so the extension reads the
+  tokens the app wrote. The `application-groups` entitlement already authorizes
+  the access group; **no `keychain-access-groups` entitlement is required**.
+  One-time cost: tokens previously written to the legacy keychain become
+  invisible, so existing users sign in once more after this change. Accepted for
+  a self-hosted app.
+- **✅ macOS Safari delivers `public.url` as `Data`/`String`, not `NSURL`.**
+  Even with auth fixed, the screen persisted because `bootstrap()` falls back to
+  the *same* `.signedOut` screen when `SharedItemLoader.loadURL` returns `nil`
+  (the screen conflates "not signed in" with "no shareable URL"). The attachment
+  *was* a `public.url` provider, but `provider.loadItem(...)` on macOS returns
+  the URL as `Data` (or a string), so the old `item as? URL` cast failed where
+  on iOS it succeeds (iOS hands back an `NSURL`). `SharedItemLoader.coerceURL`
+  now coerces `URL`/`String`/`Data` (the `URL` arm also catches the bridged
+  `NSURL`), keeping iOS unchanged. It is `nonisolated` so it runs synchronously
+  inside `loadItem`'s off-actor completion handler without sending the
+  non-`Sendable` item across the `@MainActor` boundary.
+- **✅ Toolbar actions don't render in the extension's hosting controller on
+  macOS.** With the URL loading, the form appeared but had no Save/Cancel — the
+  shared `AddBookmarkView` puts them in a `NavigationStack` `.toolbar`
+  (`.cancellationAction`/`.confirmationAction`), which the chrome-less
+  `NSHostingController` in the macOS share popover renders nowhere. The fix adds
+  a macOS-only bottom action bar via `.safeAreaInset(edge: .bottom)`, gated by a
+  new `usesInlineActionBar` flag (default `false`). Only the extension passes
+  `true`; the app's `AddBookmarkSheet` keeps its working toolbar buttons and the
+  `#if os(macOS)` guard keeps iOS on the toolbar. The flag — rather than a blanket
+  `#if os(macOS)` — is deliberate: the app's normal `.sheet` *does* render the
+  toolbar on macOS, so an unconditional bar would double the buttons there.
+- **✅ Verified.** Confirmed end-to-end via Safari → Share → Stash on macOS:
+  signs in from the shared session, extracts the page URL, and saves with the
+  inline Save button. Temporary on-screen diagnostics used to pinpoint the three
+  defects were removed before commit. iOS share flow unchanged. Style: American
+  English, `///` on types only, no inline comments.

@@ -55,6 +55,7 @@ struct AddBookmarkView: View {
     let tagStore: any TagAutocompleting
     let isURLEditable: Bool
     let autoFetchOnAppear: Bool
+    let usesInlineActionBar: Bool
     let onSaved: (Bookmark) -> Void
     let onCancel: () -> Void
 
@@ -79,6 +80,7 @@ struct AddBookmarkView: View {
         initialURL: String = "",
         isURLEditable: Bool,
         autoFetchOnAppear: Bool,
+        usesInlineActionBar: Bool = false,
         bookmarkStore: any BookmarkCreating,
         tagStore: any TagAutocompleting,
         onSaved: @escaping (Bookmark) -> Void,
@@ -87,6 +89,7 @@ struct AddBookmarkView: View {
         _urlText = State(initialValue: initialURL)
         self.isURLEditable = isURLEditable
         self.autoFetchOnAppear = autoFetchOnAppear
+        self.usesInlineActionBar = usesInlineActionBar
         self.bookmarkStore = bookmarkStore
         self.tagStore = tagStore
         self.onSaved = onSaved
@@ -138,11 +141,33 @@ struct AddBookmarkView: View {
                     fetchMetadata()
                 }
             }
+            #if os(macOS)
+            .safeAreaInset(edge: .bottom) {
+                if usesInlineActionBar {
+                    macActionBar
+                }
+            }
+            #endif
         }
         #if os(macOS)
         .frame(minWidth: 460, minHeight: 520)
         #endif
     }
+
+    #if os(macOS)
+        private var macActionBar: some View {
+            HStack {
+                Button("Cancel", action: onCancel)
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Save", action: save)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(parsedURL == nil || isSaving)
+            }
+            .padding()
+            .background(.bar)
+        }
+    #endif
 
     private var urlSection: some View {
         Section("URL") {

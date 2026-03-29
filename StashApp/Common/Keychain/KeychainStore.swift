@@ -40,7 +40,10 @@ protocol KeychainStoreProtocol: AnyObject, Sendable {
 /// framework calls are injected so the store can be exercised without touching the real Keychain.
 ///
 /// An optional `accessGroup` adds `kSecAttrAccessGroup` to every query so the item can be shared
-/// with an app extension over an App Group (used by the Share Extension in M9).
+/// with an app extension over an App Group (used by the Share Extension in M9). Every query also
+/// sets `kSecUseDataProtectionKeychain` so macOS uses the data-protection keychain (iOS's only
+/// keychain) rather than the legacy file-based one — without it, App-Group access-group sharing
+/// silently fails on macOS and the extension cannot read the tokens the app wrote.
 final class KeychainStore: KeychainStoreProtocol, @unchecked Sendable {
 
     // MARK: Nested Types
@@ -113,7 +116,8 @@ final class KeychainStore: KeychainStoreProtocol, @unchecked Sendable {
     private func baseQuery() -> [String: Any] {
         var query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key
+            kSecAttrAccount as String: key,
+            kSecUseDataProtectionKeychain as String: true
         ]
 
         if let accessGroup {
