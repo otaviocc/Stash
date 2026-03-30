@@ -65,17 +65,17 @@ enum SharedItemLoader {
     private nonisolated static func coerceURL(from item: (any NSSecureCoding)?) -> URL? {
         switch item {
         case let url as URL:
-            return url
+            url
 
         case let string as String:
-            return URL(string: string)
+            URL(string: string)
 
         case let data as Data:
-            return URL(dataRepresentation: data, relativeTo: nil)
+            URL(dataRepresentation: data, relativeTo: nil)
                 ?? String(data: data, encoding: .utf8).flatMap { URL(string: $0) }
 
         default:
-            return nil
+            nil
         }
     }
 
