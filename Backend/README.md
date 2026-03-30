@@ -15,6 +15,9 @@ REST API for Stash.
   seeding, and a `Makefile`.
 - **M5** — web admin dashboard: server-rendered Leaf pages at `/admin` (login, dashboard, user
   list, create user, user detail) with cookie-based session auth, separate from the JWT API.
+- **M11** — user-facing web frontend: server-rendered Leaf pages at `/app` (bookmark list with
+  search/tag-filter/pagination, add/detail/edit/delete/archive, tag browser, settings with
+  password change and TOTP enrolment) with its own `stash_session` cookie.
 
 ## Deployment (Docker)
 
@@ -110,6 +113,44 @@ Unversioned, mounted at `/admin`, separate from the API above.
   password reset both revoke the target's refresh tokens; self-deletion is blocked (returns 400).
 - **Templates** live in `Resources/Views` (one `layout.leaf` + five pages), copied into the Docker
   image by the Dockerfile. Plain HTML forms, inline CSS, no JS framework.
+
+## Web frontend (user-facing, server-rendered — PRD §5, P2)
+
+Unversioned, mounted at `/app`, separate from the API and the admin dashboard.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET`/`POST` | `/app/login` | Login (username + password + optional TOTP); any active role |
+| `POST` | `/app/logout` | Clear the session |
+| `GET`  | `/app` | Bookmark list; `?q=`, `?tag=` (prefix), `?archived=true`, `?page=` |
+| `GET`  | `/app/bookmarks/new` | Add bookmark form |
+| `POST` | `/app/bookmarks` | Create (`action=preview` fetches metadata; `action=save` persists) |
+| `GET`  | `/app/bookmarks/:id` | Detail |
+| `GET`  | `/app/bookmarks/:id/edit` | Edit form |
+| `POST` | `/app/bookmarks/:id` | Update (title, description, tags, archived) |
+| `POST` | `/app/bookmarks/:id/delete` · `/archive` · `/unarchive` | Actions |
+| `GET`  | `/app/tags` | Tag browser (counts, links to `/app?tag=…`) |
+| `GET`  | `/app/settings` | Settings |
+| `POST` | `/app/settings/password` | Change own password |
+| `GET`  | `/app/settings/totp` · `POST /verify` | 2FA enrolment + recovery codes (shown once) |
+
+### M11 notes
+
+- **Session auth** uses its own cookie (`stash_session`, path `/app`), distinct from the admin
+  dashboard's `stash_admin_session` but sharing the same in-memory store. `UserSessionMiddleware`
+  admits any **active** account regardless of role; suspended accounts are rejected at login and
+  on every request.
+- **Scoped to the user** — every bookmark/tag query filters on the authenticated user's ID, so one
+  user can never reach another's data (cross-user access redirects to the list).
+- **Same rules as the API**: tags normalised on write (trimmed, lowercased, de-duplicated);
+  duplicate URL on create shows an inline error linking to the existing bookmark (its `existingID`);
+  `?tag=swift` prefix-matches `swift/*`. Hierarchical tags display as `swift › vapor`, stored as
+  `swift/vapor`.
+- **Add flow** is two-button, no JS: "Fetch metadata" previews title/description via an inline
+  server-side fetch; "Save" persists (also auto-fetching any blank fields).
+- **Reuses `layout.leaf`** — same base template and inline CSS as the admin dashboard, with a
+  user nav. Nine `app-*.leaf` templates. 2FA setup shows the otpauth URI + setup key for manual
+  entry (a scannable QR image would need a QR-encoding dependency, omitted for the minimal build).
 
 ### M4 notes
 

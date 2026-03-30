@@ -1,0 +1,19 @@
+#extend("layout"):
+#export("content"):
+    <h1>Save your recovery codes</h1>
+
+    <p class="banner ok">Two-factor authentication is now enabled.</p>
+
+    <div class="card">
+        <p><strong>Store these codes somewhere safe.</strong> Each can be used once if you lose
+           access to your authenticator. They will not be shown again.</p>
+        <p class="codes">
+            #for(code in codes):#(code)<br>#endfor
+        </p>
+    </div>
+
+    <form method="get" action="/app/settings">
+        <button type="submit">I've saved my recovery codes</button>
+    </form>
+#endexport
+#endextend

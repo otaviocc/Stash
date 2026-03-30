@@ -1,0 +1,16 @@
+#extend("layout"):
+#export("content"):
+    <h1>Tags</h1>
+    #if(count(tags) > 0):
+    <div class="card">
+        <div class="tags">
+            #for(t in tags):
+            <a class="tag" href="/app?tag=#(t.name)">#(t.display) · #(t.count)</a>
+            #endfor
+        </div>
+    </div>
+    #else:
+    <div class="card"><p class="muted">No tags yet.</p></div>
+    #endif
+#endexport
+#endextend

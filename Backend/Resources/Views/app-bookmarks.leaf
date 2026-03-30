@@ -1,0 +1,50 @@
+#extend("layout"):
+#export("content"):
+    <h1>#(title)</h1>
+
+    <div class="toolbar">
+        <form method="get" action="/app">
+            <input type="search" name="q" value="#(q)" placeholder="Search…">
+            #if(tag):<input type="hidden" name="tag" value="#(tag)">#endif
+            #if(archived):<input type="hidden" name="archived" value="true">#endif
+            <button type="submit">Search</button>
+        </form>
+        #if(archived):
+        <a href="/app">← Active bookmarks</a>
+        #else:
+        <a href="/app?archived=true">View archived</a>
+        #endif
+    </div>
+
+    #if(tag):
+    <p>Filtered by tag <span class="tag">#(tagDisplay)</span> · <a href="/app">clear</a></p>
+    #endif
+
+    #if(count(bookmarks) > 0):
+    #for(bookmark in bookmarks):
+    <div class="list-item">
+        <h3><a href="/app/bookmarks/#(bookmark.id)">#(bookmark.title)</a></h3>
+        <div class="url"><a href="#(bookmark.url)" target="_blank" rel="noopener">#(bookmark.url)</a></div>
+        #if(bookmark.description):<p class="desc">#(bookmark.description)</p>#endif
+        #if(count(bookmark.tags) > 0):
+        <div class="tags">
+            #for(t in bookmark.tags):<a class="tag" href="/app?tag=#(t.name)">#(t.display)</a>#endfor
+        </div>
+        #endif
+        <div class="muted" style="margin-top:0.5rem; font-size:0.85rem;">#(bookmark.createdAt)</div>
+    </div>
+    #endfor
+
+    <div class="pagination">
+        <span>#if(prevURL):<a href="#(prevURL)">← Newer</a>#endif</span>
+        <span class="muted">Page #(page) of #(pageCount) · #(total) total</span>
+        <span>#if(nextURL):<a href="#(nextURL)">Older →</a>#endif</span>
+    </div>
+    #else:
+    <div class="card">
+        <p class="muted">No bookmarks found.</p>
+        <p><a href="/app/bookmarks/new">Add your first bookmark</a></p>
+    </div>
+    #endif
+#endexport
+#endextend
