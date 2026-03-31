@@ -25,9 +25,11 @@ import StashKit
 
 /// Provides access to the current user's tags with local caching.
 ///
-/// Tags are fetched once and cached in memory for synchronous, local autocomplete. A bookmark
-/// mutation that may change the tag set should call `invalidateCache()` so the next `load()`
-/// refetches.
+/// Tags are fetched once via `load()` and cached in memory for synchronous, local autocomplete.
+/// `reload()` forces a refetch (pull-to-refresh); `refresh()` does the same in the background after
+/// a bookmark mutation, leaving the current tags visible until the new set arrives — so observing
+/// views (notably the always-mounted macOS sidebar) never flash empty. `reset()` clears the cache on
+/// sign-out so the next user never sees the previous user's tags.
 @MainActor
 @Observable
 final class TagRepository: TagAutocompleting {
@@ -54,6 +56,29 @@ final class TagRepository: TagAutocompleting {
             return
         }
 
+        try await performLoad()
+    }
+
+    func reload() async throws {
+        try await performLoad()
+    }
+
+    func refresh() {
+        Task { try? await reload() }
+    }
+
+    func reset() {
+        hasLoaded = false
+        tags = []
+    }
+
+    /// Returns cached tags matching the given prefix (case-insensitive, per-segment). Synchronous
+    /// and local — it never performs a request.
+    func autocompleteTags(prefix: String) -> [Tag] {
+        tags.autocomplete(prefix: prefix)
+    }
+
+    private func performLoad() async throws {
         try await session.refreshIfNeeded()
 
         guard let client = clientProvider.client() else {
@@ -63,16 +88,5 @@ final class TagRepository: TagAutocompleting {
         let dtos = try await client.run(TagRequestFactory.makeListRequest()).value
         tags = dtos.map(Tag.init(dto:))
         hasLoaded = true
-    }
-
-    /// Returns cached tags matching the given prefix (case-insensitive, per-segment). Synchronous
-    /// and local — it never performs a request.
-    func autocompleteTags(prefix: String) -> [Tag] {
-        tags.autocomplete(prefix: prefix)
-    }
-
-    func invalidateCache() {
-        hasLoaded = false
-        tags = []
     }
 }

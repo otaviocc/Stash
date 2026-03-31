@@ -132,7 +132,7 @@ struct EditBookmarkView: View {
                     description: trimmedDescription.isEmpty ? nil : trimmedDescription,
                     tags: TagInputSection.tags(from: tagText)
                 )
-                environment.tagRepository.invalidateCache()
+                environment.tagRepository.refresh()
                 onSaved(updated)
                 dismiss()
             } catch {

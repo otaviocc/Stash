@@ -52,7 +52,7 @@ struct AddBookmarkSheet: View {
             bookmarkStore: repository,
             tagStore: environment.tagRepository,
             onSaved: { _ in
-                environment.tagRepository.invalidateCache()
+                environment.tagRepository.refresh()
                 dismiss()
             },
             onCancel: { dismiss() }

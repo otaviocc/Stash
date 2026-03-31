@@ -79,12 +79,12 @@ struct TagBrowserView: View {
     // MARK: Functions
 
     private func load(force: Bool) async {
-        if force {
-            environment.tagRepository.invalidateCache()
-        }
-
         do {
-            try await environment.tagRepository.load()
+            if force {
+                try await environment.tagRepository.reload()
+            } else {
+                try await environment.tagRepository.load()
+            }
         } catch {
             errorMessage = error.stashUserMessage
         }

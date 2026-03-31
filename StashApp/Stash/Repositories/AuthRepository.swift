@@ -42,6 +42,8 @@ final class AuthRepository: SessionRefreshing {
 
     private(set) var isAuthenticated: Bool
 
+    var onSessionCleared: (() -> Void)?
+
     private let clientProvider: StashClientProvider
     private let tokenManager: TokenManager
     private var inflightRefresh: Task<Void, Error>?
@@ -240,6 +242,7 @@ final class AuthRepository: SessionRefreshing {
     private func clearSession() {
         tokenManager.clearTokens()
         isAuthenticated = false
+        onSessionCleared?()
     }
 }
 

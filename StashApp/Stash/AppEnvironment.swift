@@ -77,6 +77,10 @@ final class AppEnvironment {
             clientProvider: clientProvider,
             session: authRepository
         )
+
+        authRepository.onSessionCleared = { [weak tagRepository] in
+            tagRepository?.reset()
+        }
     }
 
     // MARK: Functions
