@@ -26,11 +26,30 @@
     // MARK: - MacSettingsView
 
     /// The macOS `Settings` scene (⌘,): General and Account tabs.
+    ///
+    /// The signed-in/out switch lives here, above the `TabView`, not inside the tabs: `TabView`
+    /// caches its tab content, so a guard inside a tab would not re-render when `isAuthenticated`
+    /// flips (e.g. on sign-out). Swapping the whole `TabView` for the signed-out view — the way
+    /// `RootView` swaps its top-level content — re-evaluates reliably.
     struct MacSettingsView: View {
+
+        // MARK: SwiftUI Properties
+
+        @Environment(AppEnvironment.self) private var environment
+
+        // MARK: Content Properties
 
         // MARK: Content
 
         var body: some View {
+            if environment.authRepository.isAuthenticated {
+                settingsTabs
+            } else {
+                signedOutView
+            }
+        }
+
+        private var settingsTabs: some View {
             TabView {
                 Tab("General", systemImage: "gearshape") {
                     GeneralSettingsView()
@@ -39,6 +58,15 @@
                 Tab("Account", systemImage: "person.crop.circle") {
                     AccountSettingsView()
                 }
+            }
+            .frame(width: 460, height: 420)
+        }
+
+        private var signedOutView: some View {
+            ContentUnavailableView {
+                Label("Not Signed In", systemImage: "person.crop.circle.badge.exclamationmark")
+            } description: {
+                Text("Sign in from the main Stash window to manage your settings.")
             }
             .frame(width: 460, height: 420)
         }
