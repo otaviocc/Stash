@@ -129,4 +129,19 @@ extension View {
             autocorrectionDisabled()
         #endif
     }
+
+    /// Renders a `Button` inside a grouped `Form` as a full-width, borderless, tinted row on macOS so
+    /// it matches a `Link` row (and iOS's automatic row styling) instead of getting the default
+    /// bordered push-button chrome. A no-op on iOS, where the grouped form already renders buttons
+    /// this way. Pass `isDestructive: true` to tint the row red, matching a destructive `Link`/role.
+    func formButtonRowStyle(isDestructive: Bool = false) -> some View {
+        #if os(macOS)
+            buttonStyle(.plain)
+                .foregroundStyle(isDestructive ? AnyShapeStyle(.red) : AnyShapeStyle(Color.accentColor))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        #else
+            self
+        #endif
+    }
 }

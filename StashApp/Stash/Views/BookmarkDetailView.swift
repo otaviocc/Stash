@@ -34,6 +34,7 @@ struct BookmarkDetailView: View {
     // MARK: SwiftUI Properties
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     @State private var bookmark: Bookmark
     @State private var editingBookmark: Bookmark?
@@ -105,9 +106,12 @@ struct BookmarkDetailView: View {
             }
 
             Section {
-                Link(destination: bookmark.url) {
+                Button {
+                    openURL(bookmark.url)
+                } label: {
                     Label("Open in Browser", systemImage: "safari")
                 }
+                .formButtonRowStyle()
 
                 Button(action: toggleArchived) {
                     Label(
@@ -115,6 +119,7 @@ struct BookmarkDetailView: View {
                         systemImage: bookmark.isArchived ? "tray.and.arrow.up" : "archivebox"
                     )
                 }
+                .formButtonRowStyle()
                 .disabled(isWorking)
             }
 
@@ -124,6 +129,7 @@ struct BookmarkDetailView: View {
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+                .formButtonRowStyle(isDestructive: true)
                 .keyboardShortcut(.delete, modifiers: .command)
                 .disabled(isWorking)
             }

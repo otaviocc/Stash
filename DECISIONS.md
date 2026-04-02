@@ -2104,3 +2104,31 @@ were found and fixed in sequence. iOS was never affected by any of them.
   inline Save button. Temporary on-screen diagnostics used to pinpoint the three
   defects were removed before commit. iOS share flow unchanged. Style: American
   English, `///` on types only, no inline comments.
+
+---
+
+## Bookmark detail — consistent macOS Form action buttons
+
+On the macOS bookmark detail page the three action rows rendered with mismatched
+styles: "Open in Browser" (a `Link`) appeared as a borderless row in macOS's
+native system link blue, while "Archive" and "Delete" (`Button`s) picked up
+macOS's default bordered push-button chrome — a grey rounded rectangle sitting
+inside the grouped `Form` row. iOS was unaffected: a grouped `Form` there renders
+`Link` and `Button` rows identically (full-width, tinted, whole-row tappable).
+
+- **✅ All three rows are `Button`s sharing a macOS-only `formButtonRowStyle()`
+  helper.** The first attempt — keep the `Link` and restyle the two `Button`s to
+  match it — failed: macOS renders `Link` in its **native system link colour**,
+  which is not the app accent and cannot be overridden by `foregroundStyle`. So
+  "Open in Browser" was converted to a `Button` driving `@Environment(\.openURL)`
+  too, making all three the same control type. The helper (in `PlatformModifiers`)
+  applies `buttonStyle(.plain)`, a full-width leading frame,
+  `contentShape(Rectangle())` (whole-row tappable), and an explicit colour
+  (`Color.accentColor`, or `.red` when `isDestructive: true`) since `.plain`
+  otherwise drops to the primary label colour. It is a no-op on iOS, where the
+  grouped form already renders buttons this way — keeping the shared
+  `BookmarkDetailView` as plain SwiftUI with the platform divergence concentrated
+  in `PlatformModifiers`, per the M10 convention. (The separate URL-display
+  `Link` showing the bookmark's address is unchanged — only the action row
+  moved.) Verified: the macOS app builds, `swiftformat --lint` and `swiftlint
+  lint` are clean.
