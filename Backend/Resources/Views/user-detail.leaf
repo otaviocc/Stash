@@ -38,6 +38,13 @@
             <button class="secondary" type="submit">Reset password</button>
         </form>
 
+        #if(user.isTOTPEnabled):
+        <form method="post" action="/admin/users/#(user.id)/reset-totp"
+              onsubmit="return confirm('Reset 2FA for #(user.username)? They will be signed out and must set it up again.');">
+            <button class="secondary" type="submit">Reset two-factor authentication</button>
+        </form>
+        #endif
+
         #if(isSelf):
         <p class="muted">You cannot delete your own account.</p>
         #else:

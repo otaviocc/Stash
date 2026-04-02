@@ -31,6 +31,7 @@ struct AppWebController: RouteCollection {
         app.post("settings", "password", use: changePassword)
         app.get("settings", "totp", use: totpSetup)
         app.post("settings", "totp", "verify", use: totpVerify)
+        app.post("settings", "totp", "disable", use: totpDisable)
     }
 
     // MARK: - Login / logout
@@ -148,7 +149,8 @@ struct AppWebController: RouteCollection {
         let user = try req.auth.require(User.self)
         return try await req.view.render("app-bookmark-new", AppNewBookmarkContext(
             title: "Add bookmark", appUsername: user.username, error: nil, existingID: nil,
-            url: "", bookmarkTitle: "", description: "", tags: "", previewed: false
+            url: "", bookmarkTitle: "", description: "", tags: "", previewed: false,
+            knownTagsJSON: try await knownTagsJSON(req, user: user)
         ))
     }
 
@@ -161,12 +163,13 @@ struct AppWebController: RouteCollection {
         var title = form.title?.nonEmpty
         var description = form.description?.nonEmpty
         let tagsText = form.tags ?? ""
+        let tagsJSON = try await knownTagsJSON(req, user: user)
 
         func renderForm(error: String?, existingID: String? = nil, status: HTTPResponseStatus = .ok, previewed: Bool = false) async throws -> Response {
             try await render(req, "app-bookmark-new", AppNewBookmarkContext(
                 title: "Add bookmark", appUsername: user.username, error: error, existingID: existingID,
                 url: rawURL, bookmarkTitle: title ?? "", description: description ?? "",
-                tags: tagsText, previewed: previewed
+                tags: tagsText, previewed: previewed, knownTagsJSON: tagsJSON
             ), status: status)
         }
 
@@ -397,6 +400,30 @@ struct AppWebController: RouteCollection {
         ))
     }
 
+    // POST /app/settings/totp/disable — confirm with a current TOTP code, then turn 2FA off.
+    func totpDisable(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        let form = try req.content.decode(AppDisableTOTPForm.self)
+
+        // Nothing to disable.
+        guard user.isTOTPEnabled, let secret = user.totpSecret, let secretData = Base32.decode(secret) else {
+            return req.redirect(to: "/app/settings")
+        }
+        // Require a valid code so the user proves they still control the authenticator.
+        guard TOTP(secret: secretData).validate(form.totpCode) else {
+            return try await render(req, "app-settings", AppSettingsContext(
+                title: "Settings", appUsername: user.username, isTOTPEnabled: user.isTOTPEnabled,
+                error: "That code didn't match. Two-factor authentication was not disabled.", message: nil
+            ), status: .badRequest)
+        }
+
+        try await user.$recoveryCodes.query(on: req.db).delete()
+        user.totpSecret = nil
+        user.isTOTPEnabled = false
+        try await user.save(on: req.db)
+        return req.redirect(to: "/app/settings?ok=totp_disabled")
+    }
+
     // MARK: - Helpers
 
     /// Load a bookmark by id, scoped to the current user (cross-user access yields nil → 404/redirect).
@@ -416,17 +443,36 @@ struct AppWebController: RouteCollection {
             .first()
     }
 
+    /// The distinct tag names the user has used, sorted — backs the create/edit autocomplete
+    /// (same source as `GET /app/tags`).
+    private func knownTagsJSON(_ req: Request, user: User) async throws -> String {
+        let bookmarks = try await Bookmark.query(on: req.db)
+            .filter(\.$user.$id == user.requireID())
+            .all()
+        var names = Set<String>()
+        for bookmark in bookmarks { names.formUnion(bookmark.tags) }
+        return Self.jsonArray(names.sorted())
+    }
+
+    static func jsonArray(_ strings: [String]) -> String {
+        guard let data = try? JSONEncoder().encode(strings),
+              let json = String(data: data, encoding: .utf8) else { return "[]" }
+        return json
+    }
+
     private func renderEdit(_ req: Request, bookmark: Bookmark, error: String?) async throws -> Response {
-        try await render(req, "app-bookmark-edit", AppEditBookmarkContext(
+        let user = try req.auth.require(User.self)
+        return try await render(req, "app-bookmark-edit", AppEditBookmarkContext(
             title: "Edit",
-            appUsername: try req.auth.require(User.self).username,
+            appUsername: user.username,
             error: error,
             id: try bookmark.requireID().uuidString,
             url: bookmark.url,
             bookmarkTitle: bookmark.title,
             description: bookmark.description ?? "",
             tags: bookmark.tags.joined(separator: ", "),
-            isArchived: bookmark.isArchived
+            isArchived: bookmark.isArchived,
+            knownTagsJSON: try await knownTagsJSON(req, user: user)
         ))
     }
 
@@ -488,6 +534,7 @@ struct AppWebController: RouteCollection {
         case "archived": return "Bookmark archived."
         case "unarchived": return "Bookmark unarchived."
         case "password": return "Password changed."
+        case "totp_disabled": return "Two-factor authentication disabled."
         default: return nil
         }
     }

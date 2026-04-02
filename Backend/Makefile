@@ -5,7 +5,7 @@
 SERVICE := app
 
 .DEFAULT_GOAL := help
-.PHONY: help build test up down logs migrate
+.PHONY: help build build-up test up down logs migrate
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -16,6 +16,10 @@ build: ## Build the release binary locally
 
 test: ## Run the test suite
 	swift test
+
+build-up: ## Build the release in the container (docker compose up -d --build)
+	docker compose down
+	docker compose up -d --build
 
 up: ## Start the stack in the background (docker compose up -d)
 	docker compose up -d

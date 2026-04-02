@@ -63,6 +63,10 @@
         .toolbar input { display: inline-block; width: auto; margin: 0; }
         .codes { font-family: ui-monospace, monospace; font-size: 1.1rem; line-height: 1.9; }
         .key { font-family: ui-monospace, monospace; background: #e4e4e7; padding: 0.2rem 0.4rem; border-radius: 4px; word-break: break-all; }
+        .tag-field { position: relative; display: block; }
+        .tag-suggest { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; display: none; background: #fff; border: 1px solid #d4d4d8; border-radius: 6px; margin-top: 2px; max-height: 220px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+        .tag-suggest-item { padding: 0.4rem 0.6rem; cursor: pointer; font-size: 0.9rem; }
+        .tag-suggest-item:hover, .tag-suggest-item.active { background: #e4e4e7; }
     </style>
 </head>
 <body>
@@ -100,5 +104,53 @@
     <main>
         #import("content")
     </main>
+    <script>
+    // Dependency-free tag autocomplete for inputs carrying data-known-tags (a JSON array).
+    document.querySelectorAll('input[data-known-tags]').forEach(function (input) {
+        var known = [];
+        try { known = JSON.parse(input.getAttribute('data-known-tags')) || []; } catch (e) { return; }
+        if (!known.length) return;
+        var box = document.createElement('div');
+        box.className = 'tag-suggest';
+        input.insertAdjacentElement('afterend', box);
+        var active = -1;
+        function segIndex() { return input.value.slice(0, input.selectionStart).split(',').length - 1; }
+        function choose(tag) {
+            var segs = input.value.split(',');
+            segs[segIndex()] = (segIndex() > 0 ? ' ' : '') + tag;
+            input.value = segs.join(',') + ', ';
+            box.style.display = 'none';
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+        }
+        function render() {
+            var frag = (input.value.split(',')[segIndex()] || '').trim().toLowerCase();
+            box.innerHTML = ''; active = -1;
+            var hits = frag ? known.filter(function (t) { return t.indexOf(frag) === 0 && t !== frag; }).slice(0, 8) : [];
+            if (!hits.length) { box.style.display = 'none'; return; }
+            hits.forEach(function (t) {
+                var el = document.createElement('div');
+                el.className = 'tag-suggest-item';
+                el.textContent = t;
+                el.addEventListener('mousedown', function (e) { e.preventDefault(); choose(t); });
+                box.appendChild(el);
+            });
+            box.style.display = 'block';
+        }
+        input.addEventListener('input', render);
+        input.addEventListener('keydown', function (e) {
+            var items = box.querySelectorAll('.tag-suggest-item');
+            if (box.style.display === 'none' || !items.length) return;
+            if (e.key === 'ArrowDown') { active = Math.min(active + 1, items.length - 1); }
+            else if (e.key === 'ArrowUp') { active = Math.max(active - 1, 0); }
+            else if (e.key === 'Escape') { box.style.display = 'none'; return; }
+            else if ((e.key === 'Enter' || e.key === 'Tab') && active >= 0) { choose(items[active].textContent); e.preventDefault(); return; }
+            else return;
+            e.preventDefault();
+            items.forEach(function (it, j) { it.classList.toggle('active', j === active); });
+        });
+        input.addEventListener('blur', function () { setTimeout(function () { box.style.display = 'none'; }, 150); });
+    });
+    </script>
 </body>
 </html>

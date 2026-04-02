@@ -22,6 +22,7 @@ struct AdminWebController: RouteCollection {
         protected.post("users", ":userID", "suspend", use: suspend)
         protected.post("users", ":userID", "unsuspend", use: unsuspend)
         protected.post("users", ":userID", "reset-password", use: resetPassword)
+        protected.post("users", ":userID", "reset-totp", use: resetTOTP)
         protected.post("users", ":userID", "delete", use: deleteUser)
     }
 
@@ -202,6 +203,20 @@ struct AdminWebController: RouteCollection {
         return req.redirect(to: "/admin/users/\(try user.requireID())?ok=password-reset")
     }
 
+    // POST /admin/users/:id/reset-totp — disable the user's 2FA. Self-reset is allowed.
+    func resetTOTP(req: Request) async throws -> Response {
+        guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
+
+        try await user.$recoveryCodes.query(on: req.db).delete()
+        user.totpSecret = nil
+        user.isTOTPEnabled = false
+        try await user.save(on: req.db)
+        // Their session security level changed, so force re-login everywhere.
+        try await user.$refreshTokens.query(on: req.db).delete()
+
+        return req.redirect(to: "/admin/users/\(try user.requireID())?ok=totp_reset")
+    }
+
     // POST /admin/users/:id/delete
     func deleteUser(req: Request) async throws -> Response {
         let admin = try req.auth.require(User.self)
@@ -272,6 +287,7 @@ struct AdminWebController: RouteCollection {
         case "suspended": return "User suspended; their sessions were revoked."
         case "unsuspended": return "User reactivated."
         case "password-reset": return "Password reset; the user's sessions were revoked."
+        case "totp_reset": return "Two-factor authentication reset; the user must set it up again and was signed out."
         default: return nil
         }
     }
@@ -295,7 +311,8 @@ private extension User {
             username: username,
             role: role.rawValue,
             isActive: isActive,
-            bookmarkCount: bookmarkCount
+            bookmarkCount: bookmarkCount,
+            isTOTPEnabled: isTOTPEnabled
         )
     }
 }
