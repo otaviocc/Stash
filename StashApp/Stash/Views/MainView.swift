@@ -56,6 +56,7 @@ import SwiftUI
         @Environment(AppEnvironment.self) private var environment
 
         @State private var selection: SidebarItem? = .all
+        @State private var showingSettings = false
 
         // MARK: Content Properties
 
@@ -80,12 +81,31 @@ import SwiftUI
                     }
                 }
                 .navigationTitle("Stash")
+                .toolbar {
+                    ToolbarItem {
+                        Button {
+                            showingSettings = true
+                        } label: {
+                            Label("Settings", systemImage: "gearshape")
+                        }
+                    }
+                }
                 .task {
                     try? await environment.tagRepository.load()
                 }
             } detail: {
                 NavigationStack {
                     BookmarkListView(tag: selection?.tagName)
+                }
+            }
+            .sheet(isPresented: $showingSettings) {
+                NavigationStack {
+                    SettingsView()
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Done") { showingSettings = false }
+                            }
+                        }
                 }
             }
         }

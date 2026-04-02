@@ -2132,3 +2132,37 @@ inside the grouped `Form` row. iOS was unaffected: a grouped `Form` there render
   `Link` showing the bookmark's address is unchanged — only the action row
   moved.) Verified: the macOS app builds, `swiftformat --lint` and `swiftlint
   lint` are clean.
+
+---
+
+## iOS account settings — password change + 2FA at macOS parity
+
+`AccountSettingsView` (change password, enrol / disable two-factor) shipped with
+the macOS Settings window in M10 but was wrapped entirely in `#if os(macOS)`, so
+the iOS app's `SettingsView` was only Server URL + Sign Out. A parity audit across
+the clients flagged it as the highest-impact native gap — iOS users could not
+change their password or manage 2FA from the app at all, only from the web `/app`
+or macOS.
+
+- **✅ Un-gated the existing screen rather than writing a new one.** Every
+  dependency was already cross-platform: `AuthRepository`'s `changePassword` /
+  `beginTOTPSetup` / `completeTOTPSetup` / `disableTOTP` / `currentUser`, the
+  `TOTPSetup` model (`Common/Models`), and crucially `QRCodeView`, which renders a
+  `CGImage` via `CIContext` (no `UIImage`/`NSImage`), so the enrolment QR works on
+  iOS unchanged. Removing the `#if os(macOS)` wrapper from `AccountSettingsView`
+  and `TwoFactorEnrollView` was the bulk of the change.
+- **✅ Only window chrome stayed platform-specific.** The macOS-only bits — the
+  form's outer `.padding()` and the enrolment sheet's fixed
+  `.frame(width: 380, height: 460)` — moved behind two private
+  `formChromeStyle()` / `enrollSheetSize()` `View` helpers (`#if os(macOS)`, no-op
+  on iOS), keeping the divergence at the edges per the M10 convention. The two TOTP
+  code fields gained `.oneTimeCodeFieldStyle()` (from `PlatformModifiers`) for an
+  iOS numeric keyboard; it is already a no-op on macOS.
+- **✅ Entry points: a push on iPhone, a sheet on iPad.** iPhone's `SettingsView`
+  (inside the tab's `NavigationStack`) gains an Account `NavigationLink`. The
+  **iPad** `SidebarSplitView` previously had *no* Settings surface at all — not
+  even Sign Out — so it gains a sidebar toolbar gear that presents `SettingsView`
+  in a sheet, closing that gap too.
+- **✅ Verified.** Both platforms build (iOS Simulator + macOS), `swiftformat
+  --lint` idempotent, `swiftlint lint` 0 violations. Style: American English,
+  `///` on types only, no inline comments.

@@ -952,8 +952,8 @@ Extension reuse (deviation from original memory-only access token spec).
 
 `RootView` → `SetupView` / `LoginView` / `TOTPView` / `RecoveryCodeView` /
 `MainView` → `BookmarkListView` / `BookmarkDetailView` (stub) /
-`AddBookmarkSheet` / `TagBrowserView` (stub) / `SettingsView` (stub with Sign
-Out)
+`AddBookmarkSheet` / `TagBrowserView` (stub) / `SettingsView` (server URL, account
+settings, Sign Out) → `AccountSettingsView`
 
 Liquid Glass design adopted automatically — tab bar floats over content,
 toolbars and navigation bars gain glass background. No explicit `.liquidGlass`
@@ -973,10 +973,12 @@ comma-separated tag input with `TagSuggestionView` autocomplete chips.
 Context-aware empty states: `ContentUnavailableView.search` for active query,
 tag-specific, archived-specific, first-run.
 
-### Remaining for M10
+### Account settings (iOS)
 
-Full Settings (password change, 2FA management), edit/delete bookmark, tag
-rename/delete, macOS target.
+`SettingsView` reaches the shared `AccountSettingsView` (change password, enrol /
+disable 2FA — the same screen the macOS Settings window uses) via a navigation link
+on iPhone and a sidebar toolbar button on iPad. `AccountSettingsView` and
+`QRCodeView` are cross-platform; only window-chrome sizing is `#if os(macOS)`-guarded.
 
 ---
 

@@ -24,8 +24,8 @@ import SwiftUI
 
 // MARK: - SettingsView
 
-/// A minimal settings screen: the configured server URL and a sign-out action. Full settings
-/// (appearance, account, 2FA, import/export) arrive in a later session.
+/// The settings screen: the configured server URL, account management (password and 2FA), and a
+/// sign-out action.
 struct SettingsView: View {
 
     // MARK: SwiftUI Properties
@@ -43,6 +43,13 @@ struct SettingsView: View {
         Form {
             Section("Server") {
                 LabeledContent("URL", value: settings.serverURL)
+            }
+
+            Section("Account") {
+                NavigationLink("Account") {
+                    AccountSettingsView()
+                        .navigationTitle("Account")
+                }
             }
 
             Section {
