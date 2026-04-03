@@ -13,7 +13,6 @@ A self-hosted bookmark manager with native iOS, macOS, web, and browser-extensio
 - Multi-user with per-user 2FA (TOTP) and recovery codes
 - Admin dashboard for user management
 - Dark mode (Light / Dark / Auto)
-- Web Archive integration (Wayback Machine)
 - Self-hosted, fully private — your data stays on your infrastructure
 
 ## Quick start
