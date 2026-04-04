@@ -69,7 +69,9 @@ struct Bookmark: Identifiable, Hashable {
 
 extension Bookmark {
 
-    init(dto: BookmarkDTO) {
+    init(
+        dto: BookmarkDTO
+    ) {
         id = dto.id
         url = dto.url
         title = dto.title.isEmpty ? dto.url.absoluteString : dto.title
