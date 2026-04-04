@@ -67,6 +67,8 @@
         .tag-suggest { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; display: none; background: #fff; border: 1px solid #d4d4d8; border-radius: 6px; margin-top: 2px; max-height: 220px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
         .tag-suggest-item { padding: 0.4rem 0.6rem; cursor: pointer; font-size: 0.9rem; }
         .tag-suggest-item:hover, .tag-suggest-item.active { background: #e4e4e7; }
+        .danger-zone { border-color: #fecaca; background: #fff5f5; }
+        .danger-zone h2 { color: #b91c1c; margin-top: 0; }
     </style>
 </head>
 <body>

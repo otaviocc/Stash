@@ -133,6 +133,9 @@ Unversioned, mounted at `/app`, separate from the API and the admin dashboard.
 | `GET`  | `/app/settings` | Settings |
 | `POST` | `/app/settings/password` | Change own password |
 | `GET`  | `/app/settings/totp` · `POST /verify` · `POST /disable` | 2FA enrolment (recovery codes shown once) / disable (requires a current code) |
+| `POST` | `/app/import` | Import bookmarks from an uploaded file (multipart; format selector) |
+| `GET`  | `/app/export?format=…` | Download all bookmarks as a file (attachment) |
+| `POST` | `/app/settings/delete-all-bookmarks` | Danger zone: delete all of the user's bookmarks (typed-phrase confirmation) |
 
 ### M11 notes
 
@@ -160,6 +163,21 @@ Unversioned, mounted at `/app`, separate from the API and the admin dashboard.
   array in a `data-known-tags` attribute (no extra request), and a ~50-line dependency-free vanilla
   JS block in `layout.leaf` filters the comma-segment under the cursor and offers prefix matches
   (full hierarchical strings like `swift/vapor` included).
+
+### Import / export
+
+- **Pluggable formats** via `Sources/App/ImportExport/`: conform to `BookmarkImporter` /
+  `BookmarkExporter` and add a `register(...)` line in `ImportExportRegistry.init` — the settings
+  selectors and routes pick it up automatically. Ships with the **Anybox JSON** and **Stash JSON**
+  importers and the **Stash JSON** exporter (so a Stash export round-trips as a restore).
+- **Anybox import** is flat (folders ignored). Anybox stores `tags` as `[namespace, value]` pairs,
+  which are joined into hierarchical tags (`["status","paid"]` → `status/paid`) then normalised; the
+  ISO-8601 `dateAdded` becomes `createdAt`. Existing bookmarks (matched by URL) are updated in
+  place. Unparseable files show an inline error; bad records are counted and listed in a
+  `<details>` block. Settings shows the result after a Post/Redirect/Get with a session-flashed
+  summary.
+- **Stash export** emits the native `{ version, exportedAt, bookmarks[] }` format — all bookmarks
+  (archived included), sorted by `createdAt` — as an attachment download.
 
 ### M4 notes
 

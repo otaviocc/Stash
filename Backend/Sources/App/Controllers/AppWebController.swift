@@ -32,6 +32,11 @@ struct AppWebController: RouteCollection {
         app.get("settings", "totp", use: totpSetup)
         app.post("settings", "totp", "verify", use: totpVerify)
         app.post("settings", "totp", "disable", use: totpDisable)
+        app.post("settings", "delete-all-bookmarks", use: deleteAllBookmarks)
+
+        // Import (multipart upload — raise the body limit above the 16KB default) & export.
+        app.on(.POST, "import", body: .collect(maxSize: "16mb"), use: importBookmarks)
+        app.get("export", use: exportBookmarks)
     }
 
     // MARK: - Login / logout
@@ -138,7 +143,8 @@ struct AppWebController: RouteCollection {
             page: page,
             pageCount: pageCount,
             prevURL: page > 1 ? Self.listURL(query, page: page - 1) : nil,
-            nextURL: page < pageCount ? Self.listURL(query, page: page + 1) : nil
+            nextURL: page < pageCount ? Self.listURL(query, page: page + 1) : nil,
+            notice: Self.notice(for: req.query[String.self, at: "notice"])
         ))
     }
 
@@ -322,10 +328,42 @@ struct AppWebController: RouteCollection {
     // GET /app/settings
     func settings(req: Request) async throws -> View {
         let user = try req.auth.require(User.self)
-        return try await req.view.render("app-settings", AppSettingsContext(
-            title: "Settings", appUsername: user.username, isTOTPEnabled: user.isTOTPEnabled,
-            error: nil, message: Self.message(for: req.query[String.self, at: "ok"])
+
+        // Pull the import summary flashed across the post-import redirect, then clear it.
+        var importSummary: ImportSummaryContext?
+        if req.query[String.self, at: "imported"] == "1",
+           let stored = req.session.data["importSummary"],
+           let data = stored.data(using: .utf8) {
+            importSummary = try? JSONDecoder().decode(ImportSummaryContext.self, from: data)
+            req.session.data["importSummary"] = nil
+        }
+
+        return try await req.view.render("app-settings", settingsContext(
+            user,
+            message: Self.message(for: req.query[String.self, at: "ok"]),
+            importSummary: importSummary
         ))
+    }
+
+    /// Build the settings page context, always populating the available import/export formats.
+    private func settingsContext(
+        _ user: User,
+        error: String? = nil,
+        message: String? = nil,
+        importError: String? = nil,
+        importSummary: ImportSummaryContext? = nil
+    ) -> AppSettingsContext {
+        AppSettingsContext(
+            title: "Settings",
+            appUsername: user.username,
+            isTOTPEnabled: user.isTOTPEnabled,
+            error: error,
+            message: message,
+            importers: ImportExportRegistry.shared.importerOptions,
+            exporters: ImportExportRegistry.shared.exporterOptions,
+            importError: importError,
+            importSummary: importSummary
+        )
     }
 
     // POST /app/settings/password
@@ -334,10 +372,7 @@ struct AppWebController: RouteCollection {
         let form = try req.content.decode(AppChangePasswordForm.self)
 
         func settingsError(_ message: String) async throws -> Response {
-            try await render(req, "app-settings", AppSettingsContext(
-                title: "Settings", appUsername: user.username, isTOTPEnabled: user.isTOTPEnabled,
-                error: message, message: nil
-            ), status: .badRequest)
+            try await render(req, "app-settings", settingsContext(user, error: message), status: .badRequest)
         }
 
         guard try await req.password.async.verify(form.currentPassword, created: user.passwordHash) else {
@@ -411,9 +446,8 @@ struct AppWebController: RouteCollection {
         }
         // Require a valid code so the user proves they still control the authenticator.
         guard TOTP(secret: secretData).validate(form.totpCode) else {
-            return try await render(req, "app-settings", AppSettingsContext(
-                title: "Settings", appUsername: user.username, isTOTPEnabled: user.isTOTPEnabled,
-                error: "That code didn't match. Two-factor authentication was not disabled.", message: nil
+            return try await render(req, "app-settings", settingsContext(
+                user, error: "That code didn't match. Two-factor authentication was not disabled."
             ), status: .badRequest)
         }
 
@@ -422,6 +456,79 @@ struct AppWebController: RouteCollection {
         user.isTOTPEnabled = false
         try await user.save(on: req.db)
         return req.redirect(to: "/app/settings?ok=totp_disabled")
+    }
+
+    // MARK: - Import / export
+
+    // POST /app/import — parse the uploaded file with the selected importer (PRG on success).
+    func importBookmarks(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        let form = try req.content.decode(ImportForm.self)
+
+        func importError(_ message: String) async throws -> Response {
+            try await render(req, "app-settings", settingsContext(user, importError: message), status: .badRequest)
+        }
+
+        guard let importer = ImportExportRegistry.shared.importer(for: form.format) else {
+            return try await importError("Unknown import format.")
+        }
+        let data = Data(buffer: form.file.data)
+        guard !data.isEmpty else {
+            return try await importError("Please choose a file to import.")
+        }
+
+        let result: ImportResult
+        do {
+            result = try await importer.import(from: data, for: try user.requireID(), on: req.db)
+        } catch let error as ImportError {
+            return try await importError(error.description)
+        }
+
+        // Flash the summary across the redirect (counts + skipped descriptions).
+        if let data = try? JSONEncoder().encode(ImportSummaryContext(result)),
+           let json = String(data: data, encoding: .utf8) {
+            req.session.data["importSummary"] = json
+        }
+        return req.redirect(to: "/app/settings?imported=1")
+    }
+
+    // GET /app/export?format=… — stream the exported file as a download.
+    func exportBookmarks(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        let format = req.query[String.self, at: "format"] ?? StashJSONExporter.identifier
+        guard let exporter = ImportExportRegistry.shared.exporter(for: format) else {
+            return req.redirect(to: "/app/settings")
+        }
+
+        let data = try await exporter.export(for: try user.requireID(), on: req.db)
+        let filename = "stash-export-\(Self.fileDateFormatter.string(from: Date())).\(type(of: exporter).fileExtension)"
+
+        let response = Response(status: .ok)
+        response.headers.replaceOrAdd(name: .contentType, value: type(of: exporter).mimeType)
+        response.headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(filename)\"")
+        response.body = .init(data: data)
+        return response
+    }
+
+    // MARK: - Danger zone
+
+    // POST /app/settings/delete-all-bookmarks — delete every bookmark for the current user.
+    func deleteAllBookmarks(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        let form = try req.content.decode(DeleteAllBookmarksForm.self)
+
+        // Re-verify the confirmation phrase server-side (not only in the browser).
+        guard form.confirm.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "delete all" else {
+            return try await render(req, "app-settings", settingsContext(
+                user, error: "Type “delete all” to confirm — no bookmarks were deleted."
+            ), status: .badRequest)
+        }
+
+        try await user.$bookmarks.query(on: req.db).delete()
+        user.bookmarkCount = 0
+        try await user.save(on: req.db)
+
+        return req.redirect(to: "/app?notice=all_bookmarks_deleted")
     }
 
     // MARK: - Helpers
@@ -539,10 +646,25 @@ struct AppWebController: RouteCollection {
         }
     }
 
+    static func notice(for value: String?) -> String? {
+        switch value {
+        case "all_bookmarks_deleted": return "All your bookmarks were deleted."
+        default: return nil
+        }
+    }
+
     static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
+        return formatter
+    }()
+
+    /// `yyyy-MM-dd`, for export download filenames.
+    static let fileDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter
     }()
 

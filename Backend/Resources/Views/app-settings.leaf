@@ -43,5 +43,82 @@
         <p><a href="/app/settings/totp"><button type="button">Enable 2FA</button></a></p>
         #endif
     </div>
+
+    <div class="card">
+        <h2>Import &amp; export</h2>
+
+        #if(importError):
+        <p class="banner error">#(importError)</p>
+        #endif
+        #if(importSummary):
+        <p class="banner ok">
+            Import complete: #(importSummary.imported) added, #(importSummary.updated) updated,
+            #(importSummary.skipped) skipped.
+        </p>
+        #if(count(importSummary.errors) > 0):
+        <details>
+            <summary>#(importSummary.skipped) skipped record(s)</summary>
+            <ul>
+                #for(err in importSummary.errors):<li>#(err)</li>#endfor
+            </ul>
+        </details>
+        #endif
+        #endif
+
+        <h3>Import bookmarks</h3>
+        <form method="post" action="/app/import" enctype="multipart/form-data">
+            <label>Format
+                <select name="format">
+                    #for(fmt in importers):<option value="#(fmt.identifier)">#(fmt.displayName)</option>#endfor
+                </select>
+            </label>
+            <label>File
+                <input type="file" name="file" accept=".json" required>
+            </label>
+            <button type="submit">Import</button>
+        </form>
+        <p class="muted">Existing bookmarks with the same URL are updated in place.</p>
+
+        <h3>Export bookmarks</h3>
+        <form method="get" action="/app/export">
+            <label>Format
+                <select name="format">
+                    #for(fmt in exporters):<option value="#(fmt.identifier)">#(fmt.displayName)</option>#endfor
+                </select>
+            </label>
+            <button type="submit">Download your bookmarks</button>
+        </form>
+    </div>
+
+    <div class="card danger-zone">
+        <h2>Danger zone</h2>
+        <p class="muted">Permanently delete <strong>all</strong> of your bookmarks. Your account,
+            password, and two-factor settings are not affected. This cannot be undone.</p>
+        <button type="button" id="reveal-delete-all" class="danger">Delete all bookmarks</button>
+        <form method="post" action="/app/settings/delete-all-bookmarks" id="delete-all-form" style="display:none; margin-top:1rem;">
+            <label>Type <span class="key">delete all</span> to confirm
+                <input name="confirm" id="delete-all-input" autocomplete="off" autocapitalize="none">
+            </label>
+            <button type="submit" id="delete-all-submit" class="danger" disabled>Delete all bookmarks permanently</button>
+        </form>
+    </div>
+
+    <script>
+    (function () {
+        var reveal = document.getElementById('reveal-delete-all');
+        var form = document.getElementById('delete-all-form');
+        var input = document.getElementById('delete-all-input');
+        var submit = document.getElementById('delete-all-submit');
+        if (!reveal || !form || !input || !submit) return;
+        reveal.addEventListener('click', function () {
+            form.style.display = 'block';
+            reveal.style.display = 'none';
+            input.focus();
+        });
+        input.addEventListener('input', function () {
+            submit.disabled = input.value.trim().toLowerCase() !== 'delete all';
+        });
+    })();
+    </script>
 #endexport
 #endextend

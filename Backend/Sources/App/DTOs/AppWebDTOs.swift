@@ -38,6 +38,17 @@ struct AppDisableTOTPForm: Content {
     let totpCode: String
 }
 
+/// `POST /app/import` multipart form — the selected format and the uploaded file.
+struct ImportForm: Content {
+    let format: String
+    let file: File
+}
+
+/// `POST /app/settings/delete-all-bookmarks` form — the typed confirmation phrase.
+struct DeleteAllBookmarksForm: Content {
+    let confirm: String
+}
+
 // MARK: - Leaf view contexts
 
 /// A tag rendered both as it is stored (`swift/vapor`) and for display (`swift › vapor`).
@@ -70,6 +81,7 @@ struct AppBookmarksContext: Content {
     let pageCount: Int
     let prevURL: String?
     let nextURL: String?
+    let notice: String?
 }
 
 struct AppNewBookmarkContext: Content {
@@ -119,12 +131,35 @@ struct AppTagsContext: Content {
     let tags: [AppTagCount]
 }
 
+/// Summary of an import run, flashed across the post-import redirect.
+struct ImportSummaryContext: Content {
+    let imported: Int
+    let updated: Int
+    let skipped: Int
+    let errors: [String]
+
+    init(imported: Int, updated: Int, skipped: Int, errors: [String]) {
+        self.imported = imported
+        self.updated = updated
+        self.skipped = skipped
+        self.errors = errors
+    }
+
+    init(_ result: ImportResult) {
+        self.init(imported: result.imported, updated: result.updated, skipped: result.skipped, errors: result.errors)
+    }
+}
+
 struct AppSettingsContext: Content {
     let title: String
     let appUsername: String
     let isTOTPEnabled: Bool
     let error: String?
     let message: String?
+    let importers: [FormatOption]
+    let exporters: [FormatOption]
+    let importError: String?
+    let importSummary: ImportSummaryContext?
 }
 
 struct AppTOTPSetupContext: Content {
