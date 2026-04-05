@@ -65,18 +65,21 @@ import SwiftUI
         var body: some View {
             NavigationSplitView {
                 List(selection: $selection) {
-                    Label("All Bookmarks", systemImage: "bookmark")
-                        .tag(SidebarItem.all)
+                    Section("Views") {
+                        Label("All Bookmarks", systemImage: "bookmark")
+                            .tag(SidebarItem.all)
+                        Label("Untagged", systemImage: "tag.slash")
+                            .tag(SidebarItem.untagged)
+                        Label("Today", systemImage: "sun.max")
+                            .tag(SidebarItem.today)
+                        Label("This Week", systemImage: "calendar")
+                            .tag(SidebarItem.thisWeek)
+                    }
 
                     Section("Tags") {
-                        ForEach(environment.tagRepository.tags) { tag in
-                            HStack {
-                                Text(tag.name)
-                                Spacer()
-                                Text("\(tag.count)")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .tag(SidebarItem.tag(tag.name))
+                        OutlineGroup(environment.tagRepository.tags.hierarchy(), children: \.children) { node in
+                            TagTreeLabel(node: node)
+                                .tag(SidebarItem.tag(node.slug))
                         }
                     }
                 }
@@ -117,13 +120,21 @@ import SwiftUI
     private enum SidebarItem: Hashable {
 
         case all
+        case untagged
+        case today
+        case thisWeek
         case tag(String)
 
         // MARK: Computed Properties
 
+        /// The `tag` filter passed to `BookmarkListView`: `nil` for all, a Views sentinel, or the
+        /// literal tag.
         var tagName: String? {
             switch self {
             case .all: nil
+            case .untagged: Bookmark.untaggedSentinel
+            case .today: Bookmark.todaySentinel
+            case .thisWeek: Bookmark.thisWeekSentinel
             case let .tag(name): name
             }
         }

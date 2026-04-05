@@ -421,7 +421,7 @@ All API routes prefixed `/api/v1/`. Health check at `/health` (unversioned).
 | Parameter | Description |
 |-----------|-------------|
 | `q` | Full-text search (URL, title, description, tags). Case-insensitive on both SQLite and PostgreSQL via `lower(column) LIKE lower(term)`. |
-| `tag` | Prefix filter. `swift` matches `swift` and `swift/*` but not `swiftui`. Special value `__untagged__` returns bookmarks with no tags. |
+| `tag` | Prefix filter. `swift` matches `swift` and `swift/*` but not `swiftui`. Special values: `__untagged__` returns bookmarks with no tags; `__today__` / `__this_week__` return bookmarks created since the start of the day / the most recent Monday. |
 | `archived` | Default false. Pass `true` for archived bookmarks. |
 | `page` / `per` | Pagination. `per` clamped 1–100. |
 
@@ -939,11 +939,14 @@ Extension reuse (deviation from original memory-only access token spec).
 
 ### Navigation
 
-- **iPad:** `NavigationSplitView` — tag sidebar drives filtered
-  `BookmarkListView` in detail column
+- **iPad:** `NavigationSplitView` — a sidebar with a **Views** section (All,
+  Untagged, Today, This Week) over a **collapsible hierarchical tag tree**
+  (`OutlineGroup`, mirroring the web sidebar) drives the filtered
+  `BookmarkListView` in the detail column
 - **iPhone:** `TabContainerView` — Bookmarks / Tags / Settings tabs, each in its
-  own `NavigationStack`. Tab bar uses iOS 26 floating Liquid Glass style;
-  collapses on scroll via `tabBarMinimizeBehavior`
+  own `NavigationStack`. The Tags tab shows the same Views + collapsible tag
+  tree, drilling into a filtered list. Tab bar uses iOS 26 floating Liquid Glass
+  style; collapses on scroll via `tabBarMinimizeBehavior`
 - Bookmark rows use closure-based `NavigationLink` (not
   `navigationDestination(for:)`) to avoid multi-depth registration conflicts
 - Login uses typed `LoginRoute` enum for 2FA navigation
@@ -952,8 +955,14 @@ Extension reuse (deviation from original memory-only access token spec).
 
 `RootView` → `SetupView` / `LoginView` / `TOTPView` / `RecoveryCodeView` /
 `MainView` → `BookmarkListView` / `BookmarkDetailView` (stub) /
-`AddBookmarkSheet` / `TagBrowserView` (stub) / `SettingsView` (server URL, account
-settings, Sign Out) → `AccountSettingsView`
+`AddBookmarkSheet` / `TagBrowserView` (Views + collapsible hierarchical tag tree
+via `OutlineGroup`, rows shared with the iPad/macOS sidebars as `TagTreeLabel`) /
+`SettingsView` (server URL, account settings, Sign Out) → `AccountSettingsView`
+
+The tag tree is built client-side from the flat `GET /api/v1/tags` list by
+`[Tag].hierarchy()` → `[TagNode]`, a Swift port of the web's `buildSidebar`:
+every `/`-delimited ancestor becomes a node (synthetic parents carry no count),
+nested and alphabetical at each level.
 
 Liquid Glass design adopted automatically — tab bar floats over content,
 toolbars and navigation bars gain glass background. No explicit `.liquidGlass`
@@ -989,11 +998,12 @@ a separate target) — the one `@main App` branches per platform with `#if
 os(macOS)`. Adopts the macOS 26 design language (Liquid Glass) automatically by
 building against the SDK; no explicit modifiers.
 
-- **Navigation:** `NavigationSplitView` with a tag sidebar (All Bookmarks,
-  Untagged, the tag list) driving the shared `BookmarkListView` in the detail
-  column; selecting a bookmark pushes the shared `BookmarkDetailView`. The
-  optional inspector panel was not built (the shared list is reused as-is for
-  maximum code sharing).
+- **Navigation:** `NavigationSplitView` with a sidebar that has a **Views**
+  section (All Bookmarks, Untagged, Today, This Week) over a **collapsible
+  hierarchical tag tree** (`OutlineGroup`, mirroring the web sidebar) driving the
+  shared `BookmarkListView` in the detail column; selecting a bookmark pushes the
+  shared `BookmarkDetailView`. The optional inspector panel was not built (the
+  shared list is reused as-is for maximum code sharing).
 - **Window:** standard `WindowGroup`, 800×500 minimum
   (`windowResizability(.contentMinSize)`).
 - **Bookmarks:** shared list and rows; right-click context menu (Open in

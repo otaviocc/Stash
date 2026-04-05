@@ -707,7 +707,8 @@ Glass adopted automatically by building against the 26 SDKs).
   bespoke inspector.** The brief sketched a three-column layout with an optional
   inspector. To honor "maximum code sharing with minimal `#if`",
   `MacContentView` is a `NavigationSplitView` whose sidebar (All Bookmarks,
-  Untagged, then the tag list — flat, matching the iPad sidebar) drives the
+  Untagged, then the tag list — flat at M10, since made a collapsible hierarchical
+  tree at iPad parity; see "Native apps — hierarchical tag sidebar") drives the
   *same* shared `BookmarkListView` in the detail column inside a
   `NavigationStack`; selecting a bookmark pushes the shared `BookmarkDetailView`
   there, exactly as on iPad. The inspector panel (explicitly optional in the
@@ -1008,11 +1009,14 @@ Glass adopted automatically by building against the 26 SDKs).
   `dateInterval(of: .weekOfYear)`), using the server's `Calendar.current`
   timezone. The today/this-week counts are tallied in the same single pass over
   the user's bookmarks that already builds the sidebar
-  (no extra query), and the count badge is hidden when 0 like the others. ⚠️
-  Web-UI only — the JSON API does not (yet) honor these sentinels, consistent
-  with their nature as web-frontend conveniences. ⚠️ Like "Untagged", the filter
-  banner renders "Filtered by tag Today", a slight wording mismatch carried over
-  from the shared template path.
+  (no extra query), and the count badge is hidden when 0 like the others.
+  ✅ **The JSON API now honors these sentinels too** (see the app sidebar entry
+  below) — `BookmarkController.list` gained `__today__`/`__this_week__` branches
+  alongside the existing `__untagged__` one, and `dateBoundaries(now:)` moved from
+  `AppWebController` to `Bookmark` so both controllers share one source of truth
+  (the same single-source dedup the `untaggedSentinel` constant got earlier). ⚠️
+  Like "Untagged", the web filter banner renders "Filtered by tag Today", a slight
+  wording mismatch carried over from the shared template path.
 - **✅ Sidebar split into two labeled sections: Views + Tags.** The smart filters
   (All, Untagged, Today, This Week) and the hierarchical tag tree had grown into
   one undifferentiated list under a single "Tags" heading, which mislabeled the
@@ -2166,3 +2170,51 @@ or macOS.
 - **✅ Verified.** Both platforms build (iOS Simulator + macOS), `swiftformat
   --lint` idempotent, `swiftlint lint` 0 violations. Style: American English,
   `///` on types only, no inline comments.
+
+---
+
+## Native apps — hierarchical tag sidebar (iOS + macOS)
+
+The web sidebar had a nice nested tag tree (a Views section over a hierarchical,
+indented tag tree); the native apps showed a **flat** tag list (iPhone Tags tab,
+iPad sidebar, macOS sidebar) with at most an "All"/"Untagged" entry. This brought
+the apps to web parity.
+
+- **✅ Tree built client-side, ported from the web's `buildSidebar`.** StashKit's
+  `GET /api/v1/tags` returns the flat `[{name, count}]` list (no tree endpoint), so
+  `[Tag].hierarchy() -> [TagNode]` (in `Common/Models/Tag.swift`, beside the
+  existing per-segment `autocomplete`) reproduces the server algorithm: every
+  `/`-delimited ancestor becomes a node, **synthetic parents** that exist only to
+  nest children carry no count, and children are alphabetical at each level. The
+  one shape difference from the web's flattened `[SidebarTag]` (which carries a
+  `depth` for CSS indentation) is that `TagNode` is **genuinely nested**
+  (`children: [TagNode]?`) — SwiftUI's `OutlineGroup` wants a recursive structure,
+  not a pre-flattened one.
+- **✅ Collapsible, not flat-indented (the deliberate divergence from web).** The
+  web is always-expanded with `padding-left: calc(depth * 0.9rem)`; the apps use
+  `OutlineGroup(children: \.children)` so parents expand/collapse with native
+  disclosure triangles. Chosen over a faithful flat-indent port because it reads as
+  native on both platforms and `OutlineGroup` composes with `List(selection:)`
+  (iPad/macOS) and with `NavigationLink` leaves (iPhone Tags tab) for free.
+- **✅ `count: Int?`, nil for synthetic parents.** Modeling the hidden count as
+  `nil` rather than `0 + "hide when zero"` both reads cleaner (`if let count`) and
+  sidesteps SwiftLint's `empty_count` rule, which fires on any `.count > 0`.
+- **✅ One shared row, three call sites.** `TagTreeLabel` (label + optional count)
+  is reused by the iPhone `TagBrowserView`, the iPad `SidebarSplitView`, and the
+  macOS `MacContentView`. Each surface keeps its own `OutlineGroup` wrapper because
+  selection (sidebars) vs. navigation (Tags tab) differ.
+- **✅ Full Views parity required a backend change.** The web Views are All /
+  Untagged / Today / This Week, but the **JSON API only honored `__untagged__`** —
+  `__today__`/`__this_week__` were web-frontend-only (they had been deliberately
+  left out of the API as web conveniences). To expose Today/This Week in the apps,
+  `BookmarkController.list` gained the two recency branches mirroring
+  `AppWebController`, and `dateBoundaries(now:)` moved up to `Bookmark` (Monday week
+  start, server timezone) so both controllers share one definition. A
+  `BookmarkTests` case backdates a bookmark and asserts `?tag=__today__` /
+  `?tag=__this_week__` filter correctly. App-side sentinel strings live on the
+  app's `Bookmark` model (replacing the previously hardcoded `"__untagged__"`),
+  and `BookmarkListView` maps each sentinel to a friendly title and empty-state
+  message.
+- **✅ Verified.** Both platforms build (iOS Simulator + macOS), full backend suite
+  green (134 tests, incl. the new recency case), `swiftformat --lint` idempotent,
+  `swiftlint lint` 0 violations across app and backend.

@@ -164,6 +164,15 @@ extension Bookmark {
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             .replacingOccurrences(of: "|", with: "")
     }
+
+    static func dateBoundaries(now: Date = Date()) -> (today: Date, week: Date) {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2
+        let today = calendar.startOfDay(for: now)
+        let week = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? today
+
+        return (today, week)
+    }
 }
 
 extension String {

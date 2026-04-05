@@ -95,7 +95,12 @@ private struct BookmarkListContent: View {
 
     private var navigationTitle: String {
         if let tag {
-            return tag == "__untagged__" ? "Untagged" : tag
+            switch tag {
+            case Bookmark.untaggedSentinel: return "Untagged"
+            case Bookmark.todaySentinel: return "Today"
+            case Bookmark.thisWeekSentinel: return "This Week"
+            default: return tag
+            }
         }
 
         return showArchived ? "Archived" : "Bookmarks"
@@ -228,11 +233,11 @@ private struct BookmarkListContent: View {
 
         if !trimmedSearch.isEmpty {
             ContentUnavailableView.search(text: trimmedSearch)
-        } else if tag != nil {
+        } else if let tag {
             ContentUnavailableView(
                 "No Bookmarks",
                 systemImage: "bookmark",
-                description: Text("No bookmarks are tagged this way.")
+                description: Text(emptyDescription(for: tag))
             )
         } else if showArchived {
             ContentUnavailableView(
@@ -282,6 +287,15 @@ private struct BookmarkListContent: View {
     }
 
     // MARK: Functions
+
+    private func emptyDescription(for tag: String) -> String {
+        switch tag {
+        case Bookmark.untaggedSentinel: "Every bookmark here has at least one tag."
+        case Bookmark.todaySentinel: "No bookmarks were saved today."
+        case Bookmark.thisWeekSentinel: "No bookmarks were saved this week."
+        default: "No bookmarks are tagged this way."
+        }
+    }
 
     private func reload() {
         Task { await load() }

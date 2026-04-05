@@ -141,15 +141,6 @@ struct AppWebController: RouteCollection {
         tag.components(separatedBy: "/").joined(separator: " › ")
     }
 
-    static func dateBoundaries(now: Date = Date()) -> (today: Date, week: Date) {
-        var calendar = Calendar.current
-        calendar.firstWeekday = 2
-        let today = calendar.startOfDay(for: now)
-        let week = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? today
-
-        return (today, week)
-    }
-
     static func parseTags(_ raw: String) -> [String] {
         raw.components(separatedBy: CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines))
     }
@@ -391,7 +382,7 @@ struct AppWebController: RouteCollection {
         let page = max(query.page ?? 1, 1)
         let per = 20
         let archived = query.archived ?? false
-        let boundaries = Self.dateBoundaries()
+        let boundaries = Bookmark.dateBoundaries()
 
         let builder = try Bookmark.query(on: req.db)
             .filter(\.$user.$id == user.requireID())
@@ -658,7 +649,7 @@ struct AppWebController: RouteCollection {
         let archived = !overridesArchived && (req.query[Bool.self, at: "archived"] ?? false)
         let page = max(req.query[Int.self, at: "page"] ?? 1, 1)
         let per = 20
-        let boundaries = Self.dateBoundaries()
+        let boundaries = Bookmark.dateBoundaries()
 
         let builder = try Bookmark.query(on: req.db)
             .filter(\.$user.$id == user.requireID())

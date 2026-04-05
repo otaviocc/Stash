@@ -24,7 +24,8 @@ import SwiftUI
 
 // MARK: - TagBrowserView
 
-/// A read-only list of the user's tags with counts. Filtering and rename/delete arrive later.
+/// The Tags tab: the bookmark-list "Views" (All, Untagged, Today, This Week) over a collapsible,
+/// hierarchical tag tree mirroring the web sidebar. Each entry drills into a filtered bookmark list.
 struct TagBrowserView: View {
 
     // MARK: SwiftUI Properties
@@ -35,8 +36,8 @@ struct TagBrowserView: View {
 
     // MARK: Computed Properties
 
-    private var tags: [Tag] {
-        environment.tagRepository.tags
+    private var nodes: [TagNode] {
+        environment.tagRepository.tags.hierarchy()
     }
 
     // MARK: Content Properties
@@ -45,26 +46,23 @@ struct TagBrowserView: View {
 
     var body: some View {
         List {
-            ForEach(tags) { tag in
-                NavigationLink {
-                    BookmarkListView(tag: tag.name)
-                } label: {
-                    HStack {
-                        Text(tag.name)
-                        Spacer()
-                        Text("\(tag.count)")
-                            .foregroundStyle(.secondary)
+            Section("Views") {
+                viewLink("All Bookmarks", systemImage: "bookmark", tag: nil)
+                viewLink("Untagged", systemImage: "tag.slash", tag: Bookmark.untaggedSentinel)
+                viewLink("Today", systemImage: "sun.max", tag: Bookmark.todaySentinel)
+                viewLink("This Week", systemImage: "calendar", tag: Bookmark.thisWeekSentinel)
+            }
+
+            if !nodes.isEmpty {
+                Section("Tags") {
+                    OutlineGroup(nodes, children: \.children) { node in
+                        NavigationLink {
+                            BookmarkListView(tag: node.slug)
+                        } label: {
+                            TagTreeLabel(node: node)
+                        }
                     }
                 }
-            }
-        }
-        .overlay {
-            if tags.isEmpty {
-                ContentUnavailableView(
-                    "No Tags",
-                    systemImage: "tag",
-                    description: Text("Tags from your bookmarks appear here.")
-                )
             }
         }
         .navigationTitle("Tags")
@@ -73,6 +71,16 @@ struct TagBrowserView: View {
         }
         .task {
             await load(force: false)
+        }
+    }
+
+    // MARK: Content Methods
+
+    private func viewLink(_ title: String, systemImage: String, tag: String?) -> some View {
+        NavigationLink {
+            BookmarkListView(tag: tag)
+        } label: {
+            Label(title, systemImage: systemImage)
         }
     }
 

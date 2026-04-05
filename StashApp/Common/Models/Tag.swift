@@ -52,6 +52,28 @@ extension Tag {
     }
 }
 
+// MARK: - TagNode
+
+/// One node of the hierarchical tag tree shown in the sidebars. A `/`-delimited tag like
+/// `swift/vapor` becomes a `swift` node with a `vapor` child; `label` is the node's own path
+/// component, `slug` its full path (the value sent as the `tag` filter). `count` is `nil` for
+/// synthetic parents that exist only to nest their children, so no count is shown for them.
+struct TagNode: Identifiable, Hashable {
+
+    // MARK: Properties
+
+    let slug: String
+    let label: String
+    let count: Int?
+    let children: [TagNode]?
+
+    // MARK: Computed Properties
+
+    var id: String {
+        slug
+    }
+}
+
 // MARK: - Tag autocomplete
 
 extension [Tag] {
@@ -71,5 +93,42 @@ extension [Tag] {
                 .split(separator: "/", omittingEmptySubsequences: false)
                 .contains { $0.hasPrefix(needle) }
         }
+    }
+
+    /// Builds the hierarchical tag tree shown in the sidebars, mirroring the web frontend's
+    /// `buildSidebar`: every `/`-delimited ancestor becomes a node (synthetic parents that exist
+    /// only to nest their children carry no count), children nest under their parent, and siblings
+    /// are alphabetical at every level.
+    func hierarchy() -> [TagNode] {
+        let counts = Dictionary(map { ($0.name, $0.count) }) { lhs, _ in lhs }
+        var children: [String: [String]] = [:]
+        var seen = Set<String>()
+        for tag in self {
+            let parts = tag.name.split(separator: "/").map(String.init)
+            guard !parts.isEmpty else { continue }
+
+            for depth in 1...parts.count {
+                let slug = parts[0..<depth].joined(separator: "/")
+                guard seen.insert(slug).inserted else { continue }
+
+                let parent = depth == 1 ? "" : parts[0..<(depth - 1)].joined(separator: "/")
+                children[parent, default: []].append(slug)
+            }
+        }
+
+        func build(_ parent: String) -> [TagNode] {
+            (children[parent] ?? []).sorted().map { slug in
+                let label = slug.split(separator: "/").last.map(String.init) ?? slug
+                let kids = build(slug)
+                return TagNode(
+                    slug: slug,
+                    label: label,
+                    count: counts[slug],
+                    children: kids.isEmpty ? nil : kids
+                )
+            }
+        }
+
+        return build("")
     }
 }

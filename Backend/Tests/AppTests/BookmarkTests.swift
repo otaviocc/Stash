@@ -407,6 +407,43 @@ struct BookmarkTests {
         }
     }
 
+    @Test("the __today__ and __this_week__ sentinels filter by recency")
+    func recencyFilters() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://recent.com")
+            let old = try await app.makeBookmark(for: user, url: "https://old.com")
+            old.createdAt = Date(timeIntervalSinceNow: -10 * 24 * 60 * 60)
+            try await old.save(on: app.db)
+
+            // When
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks?tag=__today__",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://recent.com"],
+                    "It should return only bookmarks created since the start of today"
+                )
+            }
+
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks?tag=__this_week__",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://recent.com"],
+                    "It should return only bookmarks created since the start of this week"
+                )
+            }
+        }
+    }
+
     @Test("archived filter defaults to false and can be toggled")
     func archivedFilter() async throws {
         try await withTestApp { app in

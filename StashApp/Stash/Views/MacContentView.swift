@@ -44,20 +44,21 @@
         var body: some View {
             NavigationSplitView {
                 List(selection: $selection) {
-                    Label("All Bookmarks", systemImage: "bookmark")
-                        .tag(MacSidebarItem.all)
-                    Label("Untagged", systemImage: "tag.slash")
-                        .tag(MacSidebarItem.untagged)
+                    Section("Views") {
+                        Label("All Bookmarks", systemImage: "bookmark")
+                            .tag(MacSidebarItem.all)
+                        Label("Untagged", systemImage: "tag.slash")
+                            .tag(MacSidebarItem.untagged)
+                        Label("Today", systemImage: "sun.max")
+                            .tag(MacSidebarItem.today)
+                        Label("This Week", systemImage: "calendar")
+                            .tag(MacSidebarItem.thisWeek)
+                    }
 
                     Section("Tags") {
-                        ForEach(environment.tagRepository.tags) { tag in
-                            HStack {
-                                Text(tag.name)
-                                Spacer()
-                                Text("\(tag.count)")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .tag(MacSidebarItem.tag(tag.name))
+                        OutlineGroup(environment.tagRepository.tags.hierarchy(), children: \.children) { node in
+                            TagTreeLabel(node: node)
+                                .tag(MacSidebarItem.tag(node.slug))
                         }
                     }
                 }
@@ -81,16 +82,20 @@
 
         case all
         case untagged
+        case today
+        case thisWeek
         case tag(String)
 
         // MARK: Computed Properties
 
-        /// The `tag` filter passed to `BookmarkListView`: `nil` for all, the untagged sentinel, or the
+        /// The `tag` filter passed to `BookmarkListView`: `nil` for all, a Views sentinel, or the
         /// literal tag.
         var tagFilter: String? {
             switch self {
             case .all: nil
-            case .untagged: "__untagged__"
+            case .untagged: Bookmark.untaggedSentinel
+            case .today: Bookmark.todaySentinel
+            case .thisWeek: Bookmark.thisWeekSentinel
             case let .tag(name): name
             }
         }
