@@ -22,6 +22,7 @@
 
 import Fluent
 import FluentSQL
+import Foundation
 import SQLKit
 
 // MARK: - QueryBuilder + BookmarkSearch
@@ -53,6 +54,34 @@ extension QueryBuilder where Model == Bookmark {
     @discardableResult
     func filterColumn(_ column: String, contains value: String) -> Self {
         filter(.sql(likeContainsExpression(column: column, pattern: likeContainsPattern(value))))
+    }
+
+    /// Applies the bookmark-list `tag` filter, honoring the internal "Views" sentinels
+    /// (`__untagged__`, `__today__`, `__this_week__`) before falling back to a hierarchical prefix
+    /// match (`tag` matches the exact tag and its `tag/*` children). Shared by the JSON API
+    /// (`BookmarkController`) and the web frontend (`AppWebController`) so the two never diverge —
+    /// see `DECISIONS.md`. Pass `boundaries` to reuse a value already computed for sidebar counts.
+    @discardableResult
+    func filterByTag(
+        _ rawTag: String,
+        boundaries: (today: Date, week: Date) = Bookmark.dateBoundaries()
+    ) -> Self {
+        switch rawTag {
+        case Bookmark.untaggedSentinel:
+            return filter(\.$tagsSearch == "")
+        case Bookmark.todaySentinel:
+            return filter(\.$createdAt >= boundaries.today)
+        case Bookmark.thisWeekSentinel:
+            return filter(\.$createdAt >= boundaries.week)
+        default:
+            let tag = Bookmark.normalizeTagQuery(rawTag)
+            guard !tag.isEmpty else { return self }
+
+            return group(.or) { group in
+                group.filter(\.$tagsSearch ~~ "|\(tag)|")
+                group.filter(\.$tagsSearch ~~ "|\(tag)/")
+            }
+        }
     }
 }
 

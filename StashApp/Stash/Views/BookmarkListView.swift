@@ -20,6 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import StashKit
 import SwiftUI
 
 // MARK: - BookmarkListView
@@ -96,9 +97,9 @@ private struct BookmarkListContent: View {
     private var navigationTitle: String {
         if let tag {
             switch tag {
-            case Bookmark.untaggedSentinel: return "Untagged"
-            case Bookmark.todaySentinel: return "Today"
-            case Bookmark.thisWeekSentinel: return "This Week"
+            case BookmarkListQuery.untaggedTag: return "Untagged"
+            case BookmarkListQuery.todayTag: return "Today"
+            case BookmarkListQuery.thisWeekTag: return "This Week"
             default: return tag
             }
         }
@@ -290,9 +291,9 @@ private struct BookmarkListContent: View {
 
     private func emptyDescription(for tag: String) -> String {
         switch tag {
-        case Bookmark.untaggedSentinel: "Every bookmark here has at least one tag."
-        case Bookmark.todaySentinel: "No bookmarks were saved today."
-        case Bookmark.thisWeekSentinel: "No bookmarks were saved this week."
+        case BookmarkListQuery.untaggedTag: "Every bookmark here has at least one tag."
+        case BookmarkListQuery.todayTag: "No bookmarks were saved today."
+        case BookmarkListQuery.thisWeekTag: "No bookmarks were saved this week."
         default: "No bookmarks are tagged this way."
         }
     }

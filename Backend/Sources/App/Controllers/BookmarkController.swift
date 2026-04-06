@@ -53,23 +53,7 @@ struct BookmarkController: RouteCollection {
         }
 
         if let rawTag = query.tag?.nonEmpty {
-            let boundaries = Bookmark.dateBoundaries()
-
-            if rawTag == Bookmark.untaggedSentinel {
-                builder.filter(\.$tagsSearch == "")
-            } else if rawTag == Bookmark.todaySentinel {
-                builder.filter(\.$createdAt >= boundaries.today)
-            } else if rawTag == Bookmark.thisWeekSentinel {
-                builder.filter(\.$createdAt >= boundaries.week)
-            } else {
-                let tag = Bookmark.normalizeTagQuery(rawTag)
-                if !tag.isEmpty {
-                    builder.group(.or) { group in
-                        group.filter(\.$tagsSearch ~~ "|\(tag)|")
-                        group.filter(\.$tagsSearch ~~ "|\(tag)/")
-                    }
-                }
-            }
+            builder.filterByTag(rawTag)
         }
 
         let result = try await builder

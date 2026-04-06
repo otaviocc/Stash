@@ -20,6 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import StashKit
 import SwiftUI
 
 #if os(iOS)
@@ -77,7 +78,7 @@ import SwiftUI
                     }
 
                     Section("Tags") {
-                        OutlineGroup(environment.tagRepository.tags.hierarchy(), children: \.children) { node in
+                        OutlineGroup(environment.tagRepository.tagHierarchy, children: \.children) { node in
                             TagTreeLabel(node: node)
                                 .tag(SidebarItem.tag(node.slug))
                         }
@@ -132,9 +133,9 @@ import SwiftUI
         var tagName: String? {
             switch self {
             case .all: nil
-            case .untagged: Bookmark.untaggedSentinel
-            case .today: Bookmark.todaySentinel
-            case .thisWeek: Bookmark.thisWeekSentinel
+            case .untagged: BookmarkListQuery.untaggedTag
+            case .today: BookmarkListQuery.todayTag
+            case .thisWeek: BookmarkListQuery.thisWeekTag
             case let .tag(name): name
             }
         }

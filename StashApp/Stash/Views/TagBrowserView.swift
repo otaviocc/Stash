@@ -20,6 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import StashKit
 import SwiftUI
 
 // MARK: - TagBrowserView
@@ -37,7 +38,7 @@ struct TagBrowserView: View {
     // MARK: Computed Properties
 
     private var nodes: [TagNode] {
-        environment.tagRepository.tags.hierarchy()
+        environment.tagRepository.tagHierarchy
     }
 
     // MARK: Content Properties
@@ -48,9 +49,9 @@ struct TagBrowserView: View {
         List {
             Section("Views") {
                 viewLink("All Bookmarks", systemImage: "bookmark", tag: nil)
-                viewLink("Untagged", systemImage: "tag.slash", tag: Bookmark.untaggedSentinel)
-                viewLink("Today", systemImage: "sun.max", tag: Bookmark.todaySentinel)
-                viewLink("This Week", systemImage: "calendar", tag: Bookmark.thisWeekSentinel)
+                viewLink("Untagged", systemImage: "tag.slash", tag: BookmarkListQuery.untaggedTag)
+                viewLink("Today", systemImage: "sun.max", tag: BookmarkListQuery.todayTag)
+                viewLink("This Week", systemImage: "calendar", tag: BookmarkListQuery.thisWeekTag)
             }
 
             if !nodes.isEmpty {

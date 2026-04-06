@@ -38,6 +38,10 @@ final class TagRepository: TagAutocompleting {
 
     private(set) var tags: [Tag] = []
 
+    /// The hierarchical tag tree shown in the sidebars, derived from `tags`. Cached here and rebuilt
+    /// only when `tags` changes, so observing view bodies never rebuild the tree on every redraw.
+    private(set) var tagHierarchy: [TagNode] = []
+
     private let clientProvider: StashClientProvider
     private let session: SessionRefreshing
     private var hasLoaded = false
@@ -70,6 +74,7 @@ final class TagRepository: TagAutocompleting {
     func reset() {
         hasLoaded = false
         tags = []
+        tagHierarchy = []
     }
 
     /// Returns cached tags matching the given prefix (case-insensitive, per-segment). Synchronous
@@ -87,6 +92,7 @@ final class TagRepository: TagAutocompleting {
 
         let dtos = try await client.run(TagRequestFactory.makeListRequest()).value
         tags = dtos.map(Tag.init(dto:))
+        tagHierarchy = tags.hierarchy()
         hasLoaded = true
     }
 }

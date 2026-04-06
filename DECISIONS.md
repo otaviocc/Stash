@@ -989,9 +989,13 @@ Glass adopted automatically by building against the 26 SDKs).
   `AppWebController.untaggedSentinel` constant to `Bookmark.untaggedSentinel` so
   both controllers share one source of truth (the web controller's constant now
   aliases it). Locked in with a `BookmarkTests` case asserting
-  `?tag=__untagged__` returns only tagless bookmarks. ⚠️ The filter *expression*
-  is still written in both controllers — only the sentinel constant is shared;
-  this duplication is what let the API drift from the web UI in the first place.
+  `?tag=__untagged__` returns only tagless bookmarks. ⚠️ At the time, the filter
+  *expression* was still written out in both controllers — only the sentinel
+  constant was shared; this duplication is what let the API drift from the web UI
+  in the first place. ✅ **Resolved** when the recency sentinels were added: the
+  whole sentinel-plus-prefix filter now lives in one
+  `QueryBuilder<Bookmark>.filterByTag(_:boundaries:)` helper that both controllers
+  call, so there is no expression left to drift.
 - **✅ "Today" / "This Week" recency filters via the same sentinel pattern.** Two
   more sidebar helpers sit after "Untagged": `?tag=__today__` (bookmarks created
   since `Calendar.startOfDay`) and `?tag=__this_week__` (created since the most
@@ -1011,10 +1015,10 @@ Glass adopted automatically by building against the 26 SDKs).
   the user's bookmarks that already builds the sidebar
   (no extra query), and the count badge is hidden when 0 like the others.
   ✅ **The JSON API now honors these sentinels too** (see the app sidebar entry
-  below) — `BookmarkController.list` gained `__today__`/`__this_week__` branches
-  alongside the existing `__untagged__` one, and `dateBoundaries(now:)` moved from
-  `AppWebController` to `Bookmark` so both controllers share one source of truth
-  (the same single-source dedup the `untaggedSentinel` constant got earlier). ⚠️
+  below) — both controllers route the `tag` query through one shared
+  `QueryBuilder<Bookmark>.filterByTag(_:boundaries:)` helper, and
+  `dateBoundaries(now:)` moved from `AppWebController` to `Bookmark` so the date
+  math is also single-source. ⚠️
   Like "Untagged", the web filter banner renders "Filtered by tag Today", a slight
   wording mismatch carried over from the shared template path.
 - **✅ Sidebar split into two labeled sections: Views + Tags.** The smart filters
@@ -2207,14 +2211,25 @@ the apps to web parity.
   Untagged / Today / This Week, but the **JSON API only honored `__untagged__`** —
   `__today__`/`__this_week__` were web-frontend-only (they had been deliberately
   left out of the API as web conveniences). To expose Today/This Week in the apps,
-  `BookmarkController.list` gained the two recency branches mirroring
-  `AppWebController`, and `dateBoundaries(now:)` moved up to `Bookmark` (Monday week
-  start, server timezone) so both controllers share one definition. A
-  `BookmarkTests` case backdates a bookmark and asserts `?tag=__today__` /
-  `?tag=__this_week__` filter correctly. App-side sentinel strings live on the
-  app's `Bookmark` model (replacing the previously hardcoded `"__untagged__"`),
-  and `BookmarkListView` maps each sentinel to a friendly title and empty-state
-  message.
+  the `tag`-query filter (sentinels + the hierarchical prefix match) was extracted
+  into one shared `QueryBuilder<Bookmark>.filterByTag(_:boundaries:)` that both
+  `BookmarkController.list` and `AppWebController` call — no duplicated filter
+  expression to drift (it had drifted once before; see the Tag-sidebar section).
+  `dateBoundaries(now:)` likewise moved up to `Bookmark` (Monday week start, server
+  timezone). A `BookmarkTests` case backdates a bookmark and asserts
+  `?tag=__today__` / `?tag=__this_week__` filter correctly.
+- **✅ Sentinel constants single-sourced in StashKit.** The three `tag` sentinels
+  live on `BookmarkListQuery` (`untaggedTag` already existed; `todayTag`/
+  `thisWeekTag` were added beside it) and the app references those — rather than
+  re-declaring the `"__untagged__"` literal on the app's `Bookmark` model.
+  `BookmarkListView` maps each sentinel to a friendly title and empty-state message.
+  (The backend keeps its own `Bookmark` sentinels — a separate package that can't
+  depend on StashKit; the wire values are the shared contract.)
+- **✅ Tree cached on the repository, not rebuilt per redraw.** `[Tag].hierarchy()`
+  (Set + dict + recursion + per-level sort) is computed once in
+  `TagRepository.performLoad` and stored as `tagHierarchy`; the three sidebars read
+  the cached value. Calling `hierarchy()` inline in a view body rebuilt the whole
+  tree on every body evaluation — i.e. on every sidebar selection tap.
 - **✅ Verified.** Both platforms build (iOS Simulator + macOS), full backend suite
-  green (134 tests, incl. the new recency case), `swiftformat --lint` idempotent,
-  `swiftlint lint` 0 violations across app and backend.
+  green (134 tests, incl. the new recency case), all three components
+  `swiftformat --lint` idempotent and `swiftlint lint` 0 violations.

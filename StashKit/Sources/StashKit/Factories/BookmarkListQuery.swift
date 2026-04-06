@@ -32,6 +32,12 @@ public struct BookmarkListQuery: Sendable {
     /// The sentinel `tag` value that filters for bookmarks with no tags.
     public static let untaggedTag = "__untagged__"
 
+    /// The sentinel `tag` value that filters for bookmarks created since the start of today.
+    public static let todayTag = "__today__"
+
+    /// The sentinel `tag` value that filters for bookmarks created since the most recent Monday.
+    public static let thisWeekTag = "__this_week__"
+
     // MARK: Properties
 
     public let searchQuery: String?

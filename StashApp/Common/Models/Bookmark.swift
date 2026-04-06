@@ -28,14 +28,6 @@ import StashKit
 /// A bookmark belonging to the current user.
 struct Bookmark: Identifiable, Hashable {
 
-    // MARK: Static Properties
-
-    /// Internal `tag` query sentinels recognized by the backend (mirrors the server's `Bookmark`):
-    /// the bookmark-list "Views" filters that are not real tags. Sent as the `tag` query value.
-    static let untaggedSentinel = "__untagged__"
-    static let todaySentinel = "__today__"
-    static let thisWeekSentinel = "__this_week__"
-
     // MARK: Properties
 
     let id: UUID

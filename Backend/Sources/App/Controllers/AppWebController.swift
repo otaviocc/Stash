@@ -393,21 +393,7 @@ struct AppWebController: RouteCollection {
         }
 
         if let rawTag = query.tag?.nonEmpty {
-            if rawTag == Self.untaggedSentinel {
-                builder.filter(\.$tagsSearch == "")
-            } else if rawTag == Self.todaySentinel {
-                builder.filter(\.$createdAt >= boundaries.today)
-            } else if rawTag == Self.thisWeekSentinel {
-                builder.filter(\.$createdAt >= boundaries.week)
-            } else {
-                let tag = Bookmark.normalizeTagQuery(rawTag)
-                if !tag.isEmpty {
-                    builder.group(.or) { group in
-                        group.filter(\.$tagsSearch ~~ "|\(tag)|")
-                        group.filter(\.$tagsSearch ~~ "|\(tag)/")
-                    }
-                }
-            }
+            builder.filterByTag(rawTag, boundaries: boundaries)
         }
 
         let result = try await builder
