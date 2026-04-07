@@ -10,6 +10,22 @@
     #endif
 
     <div class="card">
+        <h2>Appearance</h2>
+        <form method="post" action="/app/settings/theme">
+            <label style="font-weight:400;">
+                <input type="radio" name="theme" value="light" style="display:inline; width:auto;"#if(theme == "light"): checked#endif> Light
+            </label>
+            <label style="font-weight:400;">
+                <input type="radio" name="theme" value="dark" style="display:inline; width:auto;"#if(theme == "dark"): checked#endif> Dark
+            </label>
+            <label style="font-weight:400;">
+                <input type="radio" name="theme" value="auto" style="display:inline; width:auto;"#if(theme == "auto"): checked#endif> Auto <span class="muted">(match device)</span>
+            </label>
+            <button type="submit">Save appearance</button>
+        </form>
+    </div>
+
+    <div class="card">
         <h2>Account</h2>
         <p><strong>Username:</strong> #(appUsername)</p>
     </div>

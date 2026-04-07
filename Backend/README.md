@@ -139,6 +139,12 @@ Unversioned, mounted at `/app`, separate from the API and the admin dashboard.
 
 ### M11 notes
 
+- **Dark mode** (light / dark / auto) is chosen in `/app/settings` and stored in a 1-year,
+  site-wide (`path=/`) `stash_theme` cookie that themes both `/app` and `/admin`. All colours are
+  CSS variables in `layout.leaf` (`:root` light, `[data-theme="dark"]` explicit, and a
+  `prefers-color-scheme` media query for auto); an inline script at the top of `<head>` applies the
+  saved theme before paint to avoid a flash. No DB change — it's a presentation cookie
+  (`HTTPOnly=false` so the script can read it).
 - **Session auth** uses its own cookie (`stash_session`, path `/app`), distinct from the admin
   dashboard's `stash_admin_session` but sharing the same in-memory store. `UserSessionMiddleware`
   admits any **active** account regardless of role; suspended accounts are rejected at login and

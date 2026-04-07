@@ -49,6 +49,11 @@ struct DeleteAllBookmarksForm: Content {
     let confirm: String
 }
 
+/// `POST /app/settings/theme` form — the selected theme (`light` / `dark` / `auto`).
+struct ThemeForm: Content {
+    let theme: String
+}
+
 // MARK: - Leaf view contexts
 
 /// A tag rendered both as it is stored (`swift/vapor`) and for display (`swift › vapor`).
@@ -160,6 +165,8 @@ struct AppSettingsContext: Content {
     let exporters: [FormatOption]
     let importError: String?
     let importSummary: ImportSummaryContext?
+    /// Current theme preference: `light`, `dark`, or `auto`.
+    let theme: String
 }
 
 struct AppTOTPSetupContext: Content {
