@@ -265,6 +265,13 @@ as full-text search. Multiple conditions of the same type are allowed (with
 both modes — results are limited to non-archived bookmarks unless an `isArchived`
 condition is present.
 
+**Client support.** The web frontend creates, edits, and browses Smart Views.
+The CLI and the native iOS/macOS apps are **consumption-only**: they list Smart
+Views and open their live results (the apps surface them as a Smart Views section
+in the sidebar; the CLI as `stash smart-views`), but creating and editing is done
+on the web or round-tripped through Stash JSON import/export. Creation/editing on
+the native clients is a possible later step.
+
 **Footer.** Shown on every `/app` and `/admin` page via `layout.leaf`. Fixed,
 non-configurable content: a Mastodon link (`https://social.lol/@otaviocc`), a
 Ko-fi link (`https://ko-fi.com/otaviocc`), and the version string (read from a
@@ -856,6 +863,8 @@ stash archive <id>
 stash tags [--json]
 stash tags rename --from <tag> --to <tag>
 stash tags delete <tag>
+stash smart-views [list] [--json]
+stash smart-views bookmarks <id> [--page] [--per] [--json]
 stash import <file> [--format anybox|stash-json]
 stash export [--format stash-json] [--output <path>]
 
@@ -872,6 +881,12 @@ stash admin stats [--json]
 Stash JSON file restores them (matched by name, via the Smart View REST API) — at parity with the
 web frontend. The CLI cannot preserve a Smart View's `createdAt` (no direct DB access), the same
 limitation already noted for bookmarks.
+
+**Smart Views are consumption-only on the CLI.** `stash smart-views` lists the user's Smart Views
+(name, match mode, a condition summary, and the full UUID); `stash smart-views bookmarks <id>` runs
+the saved query server-side and prints the matching bookmarks in the same table / `--json` shape as
+`stash list`. Creating and editing Smart Views is done in the web frontend (or round-tripped via
+import/export); a richer condition-builder CLI is a possible later step.
 
 ---
 
@@ -940,13 +955,15 @@ Extension reuse (deviation from original memory-only access token spec).
 ### Navigation
 
 - **iPad:** `NavigationSplitView` — a sidebar with a **Views** section (All,
-  Untagged, Today, This Week) over a **collapsible hierarchical tag tree**
-  (`OutlineGroup`, mirroring the web sidebar) drives the filtered
+  Untagged, Today, This Week), an optional **Smart Views** section (one entry per
+  Smart View, shown only when the user has any), and a **collapsible hierarchical
+  tag tree** (`OutlineGroup`, mirroring the web sidebar), all driving the filtered
   `BookmarkListView` in the detail column
 - **iPhone:** `TabContainerView` — Bookmarks / Tags / Settings tabs, each in its
-  own `NavigationStack`. The Tags tab shows the same Views + collapsible tag
-  tree, drilling into a filtered list. Tab bar uses iOS 26 floating Liquid Glass
-  style; collapses on scroll via `tabBarMinimizeBehavior`
+  own `NavigationStack`. The Tags tab shows the same Views, the optional Smart
+  Views section, and the collapsible tag tree, drilling into a filtered list. Tab
+  bar uses iOS 26 floating Liquid Glass style; collapses on scroll via
+  `tabBarMinimizeBehavior`
 - Bookmark rows use closure-based `NavigationLink` (not
   `navigationDestination(for:)`) to avoid multi-depth registration conflicts
 - Login uses typed `LoginRoute` enum for 2FA navigation
@@ -999,11 +1016,12 @@ os(macOS)`. Adopts the macOS 26 design language (Liquid Glass) automatically by
 building against the SDK; no explicit modifiers.
 
 - **Navigation:** `NavigationSplitView` with a sidebar that has a **Views**
-  section (All Bookmarks, Untagged, Today, This Week) over a **collapsible
-  hierarchical tag tree** (`OutlineGroup`, mirroring the web sidebar) driving the
-  shared `BookmarkListView` in the detail column; selecting a bookmark pushes the
-  shared `BookmarkDetailView`. The optional inspector panel was not built (the
-  shared list is reused as-is for maximum code sharing).
+  section (All Bookmarks, Untagged, Today, This Week), an optional **Smart Views**
+  section (one entry per Smart View, shown only when the user has any), and a
+  **collapsible hierarchical tag tree** (`OutlineGroup`, mirroring the web
+  sidebar) driving the shared `BookmarkListView` in the detail column; selecting a
+  bookmark pushes the shared `BookmarkDetailView`. The optional inspector panel
+  was not built (the shared list is reused as-is for maximum code sharing).
 - **Window:** standard `WindowGroup`, 800×500 minimum
   (`windowResizability(.contentMinSize)`).
 - **Bookmarks:** shared list and rows; right-click context menu (Open in
@@ -1330,6 +1348,7 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 | M10 | macOS app + Share Extension | ✅ Complete |
 | M4.1 | CI/CD: GitHub Actions, publish to ghcr.io | ✅ Complete |
 | M12 | Smart Views: saved AND-condition queries (backend, StashKit, web UI) | ✅ Complete |
+| M12.1 | Smart Views on the CLI and native apps (consumption-only: list + run) | ✅ Complete |
 
 ---
 

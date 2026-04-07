@@ -95,6 +95,45 @@ enum OutputFormatter {
         return lines.joined(separator: "\n")
     }
 
+    static func smartViewsTable(_ smartViews: [SmartViewDTO]) -> String {
+        guard !smartViews.isEmpty else {
+            return "No Smart Views found."
+        }
+
+        let nameWidth = 30
+        let matchWidth = 5
+        let conditionsWidth = 40
+
+        var rows = [
+            row(
+                "NAME".padded(to: nameWidth),
+                "MATCH".padded(to: matchWidth),
+                "CONDITIONS".padded(to: conditionsWidth),
+                "ID"
+            )
+        ]
+
+        for smartView in smartViews {
+            let name = smartView.name.truncated(to: nameWidth).padded(to: nameWidth)
+            let match = smartView.matchMode.padded(to: matchWidth)
+            let conditions = smartView.conditions
+                .map { "\($0.type)=\($0.value)" }
+                .joined(separator: ", ")
+                .truncated(to: conditionsWidth)
+                .padded(to: conditionsWidth)
+            rows.append(
+                row(
+                    name,
+                    match,
+                    conditions,
+                    smartView.id.uuidString
+                )
+            )
+        }
+
+        return rows.joined(separator: "\n")
+    }
+
     static func usersTable(_ users: [UserDTO]) -> String {
         guard !users.isEmpty else {
             return "No users found."

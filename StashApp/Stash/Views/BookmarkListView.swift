@@ -38,8 +38,19 @@ struct BookmarkListView: View {
 
     // MARK: Properties
 
-    /// An externally-supplied tag filter (the iPad sidebar selection / Tags tab); `nil` shows all.
-    let tag: String?
+    private let source: BookmarkListSource
+
+    // MARK: Lifecycle
+
+    /// A tag-filtered list (the iPad/macOS sidebar selection or the Tags tab); `nil` shows all.
+    init(tag: String?) {
+        source = .tag(tag)
+    }
+
+    /// A list backed by a Smart View's saved query, run live server-side.
+    init(smartView: SmartView) {
+        source = .smartView(smartView)
+    }
 
     // MARK: Content Properties
 
@@ -48,7 +59,7 @@ struct BookmarkListView: View {
     var body: some View {
         Group {
             if let repository {
-                BookmarkListContent(tag: tag, repository: repository)
+                BookmarkListContent(source: source, repository: repository)
             } else {
                 ProgressView()
             }
@@ -59,6 +70,15 @@ struct BookmarkListView: View {
             }
         }
     }
+}
+
+// MARK: - BookmarkListSource
+
+/// What a `BookmarkListView` shows: a tag filter (`nil` for all bookmarks) or a Smart View's query.
+enum BookmarkListSource: Hashable {
+
+    case tag(String?)
+    case smartView(SmartView)
 }
 
 // MARK: - BookmarkListContent
@@ -80,10 +100,29 @@ private struct BookmarkListContent: View {
 
     // MARK: Properties
 
-    let tag: String?
+    let source: BookmarkListSource
     let repository: BookmarkRepository
 
     // MARK: Computed Properties
+
+    /// The Smart View backing this list, if any. When set the list runs that saved query and hides the
+    /// search field, archived toggle, and add button (Smart Views are consumption-only on native).
+    private var smartView: SmartView? {
+        if case let .smartView(smartView) = source {
+            return smartView
+        }
+
+        return nil
+    }
+
+    /// The tag filter for a non-Smart-View list; `nil` for all bookmarks.
+    private var tag: String? {
+        if case let .tag(tag) = source {
+            return tag
+        }
+
+        return nil
+    }
 
     private var query: BookmarkQuery {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -95,6 +134,10 @@ private struct BookmarkListContent: View {
     }
 
     private var navigationTitle: String {
+        if let smartView {
+            return smartView.name
+        }
+
         if let tag {
             switch tag {
             case BookmarkListQuery.untaggedTag: return "Untagged"
@@ -149,17 +192,13 @@ private struct BookmarkListContent: View {
             }
         }
         .navigationTitle(navigationTitle)
-        .searchable(text: $searchText, prompt: "Search bookmarks")
-        .searchInputStyle()
-        .searchFocused($isSearchFocused)
-        .background {
-            Button("Find") {
-                isSearchFocused = true
-            }
-            .keyboardShortcut("f", modifiers: .command)
-            .opacity(0)
-            .accessibilityHidden(true)
-        }
+        .modifier(
+            SearchableIfNeeded(
+                isEnabled: smartView == nil,
+                text: $searchText,
+                isFocused: $isSearchFocused
+            )
+        )
         .onSubmit(of: .search) {
             reload()
         }
@@ -168,7 +207,7 @@ private struct BookmarkListContent: View {
                 reload()
             }
         }
-        .onChange(of: tag) {
+        .onChange(of: source) {
             reload()
         }
         .onChange(of: showArchived) {
@@ -178,19 +217,23 @@ private struct BookmarkListContent: View {
             await load()
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showingAddSheet = true
-                } label: {
-                    Label("Add Bookmark", systemImage: "plus")
+            if smartView == nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingAddSheet = true
+                    } label: {
+                        Label("Add Bookmark", systemImage: "plus")
+                    }
+                    .keyboardShortcut("n", modifiers: .command)
                 }
-                .keyboardShortcut("n", modifiers: .command)
             }
 
             ToolbarItem(placement: optionsPlacement) {
                 Menu {
-                    Toggle(isOn: $showArchived) {
-                        Label("Show Archived", systemImage: "archivebox")
+                    if smartView == nil {
+                        Toggle(isOn: $showArchived) {
+                            Label("Show Archived", systemImage: "archivebox")
+                        }
                     }
 
                     Button {
@@ -232,7 +275,13 @@ private struct BookmarkListContent: View {
     private var emptyState: some View {
         let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if !trimmedSearch.isEmpty {
+        if let smartView {
+            ContentUnavailableView(
+                "No Bookmarks",
+                systemImage: "line.3.horizontal.decrease.circle",
+                description: Text("No bookmarks match “\(smartView.name)”.")
+            )
+        } else if !trimmedSearch.isEmpty {
             ContentUnavailableView.search(text: trimmedSearch)
         } else if let tag {
             ContentUnavailableView(
@@ -324,7 +373,11 @@ private struct BookmarkListContent: View {
 
     private func load() async {
         do {
-            try await repository.load(query: query)
+            if let smartView {
+                try await repository.load(smartViewID: smartView.id)
+            } else {
+                try await repository.load(query: query)
+            }
         } catch {
             errorMessage = error.stashUserMessage
         }
@@ -341,6 +394,46 @@ private struct BookmarkListContent: View {
             } catch {
                 errorMessage = error.stashUserMessage
             }
+        }
+    }
+}
+
+// MARK: - SearchableIfNeeded
+
+/// Applies the search field (and its ⌘F shortcut) only when enabled. A Smart View list omits it, since
+/// its server-side query takes no free-text search term.
+private struct SearchableIfNeeded: ViewModifier {
+
+    // MARK: Properties
+
+    let isEnabled: Bool
+
+    // MARK: SwiftUI Properties
+
+    @Binding var text: String
+
+    var isFocused: FocusState<Bool>.Binding
+
+    // MARK: Content Methods
+
+    // MARK: Content
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content
+                .searchable(text: $text, prompt: "Search bookmarks")
+                .searchInputStyle()
+                .searchFocused(isFocused)
+                .background {
+                    Button("Find") {
+                        isFocused.wrappedValue = true
+                    }
+                    .keyboardShortcut("f", modifiers: .command)
+                    .opacity(0)
+                    .accessibilityHidden(true)
+                }
+        } else {
+            content
         }
     }
 }

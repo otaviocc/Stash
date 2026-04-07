@@ -32,6 +32,16 @@ import StashKit
 @Observable
 final class BookmarkRepository: BookmarkCreating {
 
+    // MARK: Nested Types
+
+    /// Where the current list of bookmarks comes from: a regular filtered query, or a Smart View's
+    /// saved query run server-side. The source is stored so `loadNextPage()` re-fetches consistently.
+    private enum Source: Equatable {
+
+        case query(BookmarkQuery)
+        case smartView(UUID)
+    }
+
     // MARK: Static Properties
 
     private static let perPage = 20
@@ -44,9 +54,21 @@ final class BookmarkRepository: BookmarkCreating {
 
     private let clientProvider: StashClientProvider
     private let session: SessionRefreshing
-    private var currentQuery = BookmarkQuery()
+    private var source: Source = .query(BookmarkQuery())
     private var currentPage = 1
     private var total = 0
+
+    // MARK: Computed Properties
+
+    /// The archived state the current source displays — a query's own flag, or `false` for a Smart
+    /// View (its results default to non-archived unless it carries an `isArchived` condition). Used to
+    /// decide whether a freshly created or archived bookmark belongs in the visible list.
+    private var displaysArchived: Bool {
+        switch source {
+        case let .query(query): query.archived
+        case .smartView: false
+        }
+    }
 
     // MARK: Lifecycle
 
@@ -58,16 +80,15 @@ final class BookmarkRepository: BookmarkCreating {
     // MARK: Functions
 
     func load(query: BookmarkQuery) async throws {
-        currentQuery = query
-        currentPage = 1
+        source = .query(query)
 
-        isLoading = true
-        defer { isLoading = false }
+        try await loadFirstPage()
+    }
 
-        let page = try await fetch(page: 1)
-        total = page.metadata.total
-        bookmarks = page.items.map(Bookmark.init(dto:))
-        updateHasMore()
+    func load(smartViewID: UUID) async throws {
+        source = .smartView(smartViewID)
+
+        try await loadFirstPage()
     }
 
     func loadNextPage() async throws {
@@ -100,7 +121,7 @@ final class BookmarkRepository: BookmarkCreating {
         let dto = try await client.run(request).value
         let bookmark = Bookmark(dto: dto)
 
-        if !bookmark.isArchived, currentQuery.archived == false {
+        if !bookmark.isArchived, displaysArchived == false {
             bookmarks.insert(bookmark, at: 0)
             total += 1
         }
@@ -140,7 +161,7 @@ final class BookmarkRepository: BookmarkCreating {
         )
         let bookmark = try await Bookmark(dto: client.run(request).value)
 
-        if bookmark.isArchived == currentQuery.archived {
+        if bookmark.isArchived == displaysArchived {
             if let index = bookmarks.firstIndex(where: { $0.id == id }) {
                 bookmarks[index] = bookmark
             }
@@ -171,17 +192,42 @@ final class BookmarkRepository: BookmarkCreating {
         return PageMetadata(dto: dto)
     }
 
+    private func loadFirstPage() async throws {
+        currentPage = 1
+
+        isLoading = true
+        defer { isLoading = false }
+
+        let page = try await fetch(page: 1)
+        total = page.metadata.total
+        bookmarks = page.items.map(Bookmark.init(dto:))
+        updateHasMore()
+    }
+
     private func fetch(page: Int) async throws -> BookmarkPageDTO {
         let client = try await authenticatedClient()
-        let listQuery = BookmarkListQuery(
-            searchQuery: currentQuery.searchQuery,
-            tag: currentQuery.tag,
-            archived: currentQuery.archived,
-            page: page,
-            perPage: Self.perPage
-        )
 
-        return try await client.run(BookmarkRequestFactory.makeListRequest(query: listQuery)).value
+        switch source {
+        case let .query(query):
+            let listQuery = BookmarkListQuery(
+                searchQuery: query.searchQuery,
+                tag: query.tag,
+                archived: query.archived,
+                page: page,
+                perPage: Self.perPage
+            )
+
+            return try await client.run(BookmarkRequestFactory.makeListRequest(query: listQuery)).value
+
+        case let .smartView(id):
+            let request = SmartViewRequestFactory.makeBookmarksRequest(
+                id: id,
+                page: page,
+                perPage: Self.perPage
+            )
+
+            return try await client.run(request).value
+        }
     }
 
     private func authenticatedClient() async throws -> StashClient {

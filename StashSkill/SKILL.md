@@ -1,9 +1,10 @@
 ---
 name: stash-cli description: Drive the `stash` command-line client for the
 self-hosted Stash bookmark manager. Use when the user wants to save, search,
-list, get, delete, or archive bookmarks; list, rename, or delete tags; import or
-export their bookmark collection; or (as an admin) manage users and view stats
-from the shell. Also use for intelligent tag suggestion when saving a bookmark.
+list, get, delete, or archive bookmarks; list, rename, or delete tags; browse
+Smart Views and the bookmarks they match; import or export their bookmark
+collection; or (as an admin) manage users and view stats from the shell. Also
+use for intelligent tag suggestion when saving a bookmark.
 Covers exact command syntax, flags, default/JSON output shapes, and error
 messages.
 ---
@@ -19,10 +20,10 @@ spec — where the two differ, this document follows the source.
 Stash is a self-hosted, multi-user bookmark manager. The `stash` CLI is its
 command-line client: it talks to a Stash backend over the public REST API
 (`/api/v1/`) and can list, search, add, get, delete, and archive bookmarks;
-list, rename, and delete tags; import and export bookmark collections; and — for
-admin accounts — manage users and view stats. Use it whenever the user wants to
-save, find, organize, back up, or migrate their bookmarks, or administer their
-Stash instance, from the shell.
+list, rename, and delete tags; browse Smart Views and run their saved queries;
+import and export bookmark collections; and — for admin accounts — manage users
+and view stats. Use it whenever the user wants to save, find, organize, back up,
+or migrate their bookmarks, or administer their Stash instance, from the shell.
 
 ---
 
@@ -246,6 +247,33 @@ updated).`
 > so a parent tag (`swift`) deletes `swift` and `swift/*`, but targeting a specific child like
 > `swift/vapor` is not supported over this client. Delete works reliably for flat tags and
 > whole subtrees.
+
+### `smart-views` (`smart-views list`)
+
+```bash
+stash smart-views [--json]                       # list all Smart Views
+stash smart-views list [--json]                  # same (default subcommand)
+stash smart-views bookmarks <id> [--page <n>] [--per <n>] [--json]
+```
+
+Smart Views are saved queries (a set of AND/OR conditions). The CLI is
+**consumption-only**: it lists Smart Views and runs them, but does not create or
+edit them — do that in the web frontend, or round-trip them through `stash
+export` / `stash import` (a `stash-json` file carries Smart Views, matched by
+name). `smart-views` with no subcommand lists (the default subcommand).
+
+- **`smart-views list`** default output: a table with columns NAME (30), MATCH
+  (`all`/`any`), CONDITIONS (a `type=value` summary), and the **full** Smart View
+  UUID in the last column (unlike the bookmark table, which truncates the ID).
+  Empty result prints `No Smart Views found.` With `--json`: an array of Smart
+  View objects (`{ id, name, matchMode, conditions: [{type, value}], createdAt,
+  updatedAt }`).
+- **`smart-views bookmarks <id>`** runs the Smart View's query server-side and
+  prints the matching bookmarks in the same table / `--json` page shape as `stash
+  list`. `<id>` must be a full UUID (copy it from `smart-views list`); a bad value
+  fails with `Error: Invalid Smart View ID: <value>` before any network call. A
+  missing/foreign Smart View surfaces `Error: Not found.` Results are non-archived
+  unless the Smart View carries an `isArchived` condition.
 
 ### `import`
 
@@ -565,6 +593,11 @@ take the matching action.
   themselves.
 - **There is no `unarchive` command.** The CLI only archives; unarchiving needs
   the app/web UI.
+- **Smart Views are consumption-only on the CLI.** You can list them and run
+  them (`smart-views bookmarks <id>`) but not create or edit them — use the web
+  frontend, or round-trip them via `stash export`/`import`. Unlike the bookmark
+  table, `smart-views list` prints the full UUID, so you can feed it straight to
+  `smart-views bookmarks`.
 
 ---
 

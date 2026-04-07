@@ -40,6 +40,7 @@ final class AppEnvironment {
 
     let authRepository: AuthRepository
     let tagRepository: TagRepository
+    let smartViewRepository: SmartViewRepository
 
     private let clientProvider: StashClientProvider
 
@@ -73,13 +74,21 @@ final class AppEnvironment {
         )
         self.authRepository = authRepository
 
-        tagRepository = TagRepository(
+        let tagRepository = TagRepository(
             clientProvider: clientProvider,
             session: authRepository
         )
+        self.tagRepository = tagRepository
 
-        authRepository.onSessionCleared = { [weak tagRepository] in
+        let smartViewRepository = SmartViewRepository(
+            clientProvider: clientProvider,
+            session: authRepository
+        )
+        self.smartViewRepository = smartViewRepository
+
+        authRepository.onSessionCleared = { [weak tagRepository, weak smartViewRepository] in
             tagRepository?.reset()
+            smartViewRepository?.reset()
         }
     }
 

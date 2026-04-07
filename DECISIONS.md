@@ -2233,3 +2233,67 @@ the apps to web parity.
 - **✅ Verified.** Both platforms build (iOS Simulator + macOS), full backend suite
   green (134 tests, incl. the new recency case), all three components
   `swiftformat --lint` idempotent and `swiftlint lint` 0 violations.
+
+---
+
+## Smart Views on the CLI and native apps (consumption-only)
+
+Smart Views existed on the backend, in StashKit, and on the web (M12). This pass
+brought them to the `stash` CLI and the iOS/macOS apps as a **consumption-only**
+first step — list Smart Views and open their live results — deliberately deferring
+create/edit to a later step (users who want to author a Smart View do it on the
+web, or round-trip it through Stash JSON import/export, which already carries
+Smart Views). No backend or StashKit change was needed: `SmartViewRequestFactory`
+(`makeListRequest` / `makeBookmarksRequest(id:page:perPage:)`) and the DTOs were
+already in place from M12.
+
+- **✅ CLI: a `smart-views` group, two read subcommands.** `stash smart-views`
+  (default subcommand `list`) prints a table — NAME, MATCH (`all`/`any`), a
+  `type=value` CONDITIONS summary, and the **full** UUID last (mirroring
+  `usersTable`, not the truncated bookmark table, because the id is the input to
+  the next command). `stash smart-views bookmarks <id>` runs the saved query via
+  `makeBookmarksRequest` and reuses `OutputFormatter.bookmarksTable` / the `--json`
+  page shape, so a Smart View's results look exactly like `stash list`. The id is
+  validated locally with the shared `requireUUID`; a foreign/missing view surfaces
+  the server's `Not found.` Both honor `--json`. No top-level alias (unlike
+  bookmarks) — `smart-views` is a less-frequent surface, so it stays under its
+  group.
+- **✅ App: a `SmartViewRepository` mirroring `TagRepository`.** Smart Views are a
+  small, per-user list browsed from the sidebar — not a paginated query — so the
+  repository is a shared `@Observable` singleton on `AppEnvironment` that loads
+  once and caches (`load`/`reload`/`reset`), reset on sign-out alongside the tag
+  cache. `SmartView` / `SmartViewCondition` domain models map from the DTOs in
+  `Common/` (compiled into both app and extension targets, consistent with the
+  other models), though the extension does not use them.
+- **✅ `BookmarkListView` reused via a `BookmarkListSource`, not a second list
+  screen.** Rather than duplicate the list (rows, pagination, context menu, detail
+  navigation, empty state), the existing view gained a `source` —
+  `.tag(String?)` or `.smartView(SmartView)` — with two initializers
+  (`init(tag:)` is unchanged, so every existing call site is untouched). In Smart
+  View mode the title is the view's name, and the search field, archived toggle,
+  and add button are hidden (the `:id/bookmarks` endpoint takes no `q`/archived,
+  and adding a bookmark to a saved query is meaningless). `BookmarkRepository`
+  gained a private `Source` enum (`.query` / `.smartView(UUID)`) stored so
+  `loadNextPage()` re-fetches the right endpoint; `fetch(page:)` switches on it.
+  The create/archive list-mutation guards that compared against the query's
+  `archived` flag now read a `displaysArchived` computed value (a Smart View
+  displays non-archived by default), so an archived bookmark still drops out of a
+  Smart View list.
+- **✅ Sidebars gained an optional Smart Views section.** The iPad
+  (`SidebarSplitView`), macOS (`MacContentView`), and iPhone (`TagBrowserView`)
+  sidebars show a **Smart Views** section between Views and Tags, only when the
+  user has at least one (matching the web's "section appears only when non-empty"
+  rule and its no-count choice). The two `List(selection:)` sidebars added a
+  `.smartView(SmartView)` case to their selection enum and branch the detail
+  between `BookmarkListView(tag:)` and `BookmarkListView(smartView:)`; the iPhone
+  Tags tab uses a `NavigationLink` to the Smart View list. Icon:
+  `line.3.horizontal.decrease.circle` (a saved-filter glyph), the native stand-in
+  for the web's `⊞`.
+- **✅ Search field made conditional via a small `SearchableIfNeeded`
+  `ViewModifier`.** `.searchable` can't be toggled in place, so the search field
+  (and its ⌘F shortcut) is applied through a modifier that no-ops in Smart View
+  mode — keeping one list body rather than forking it.
+- **✅ Verified.** CLI built and exercised live (`smart-views list` and
+  `smart-views bookmarks <id>` against a running backend); iOS Simulator and macOS
+  apps build clean; all three components `swiftformat --lint` idempotent and
+  `swiftlint lint` 0 violations. No app/CLI unit tests by design (§19.6).

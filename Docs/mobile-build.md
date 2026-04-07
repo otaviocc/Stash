@@ -3,8 +3,8 @@
 The native SwiftUI client for Stash. `Stash.xcodeproj` contains two
 multiplatform targets that build for **both iOS and macOS**:
 
-- **`Stash`** — the SwiftUI app (bookmark list, add/edit/detail, tags, search,
-  settings, 2FA).
+- **`Stash`** — the SwiftUI app (bookmark list, add/edit/detail, tags, Smart
+  Views, search, settings, 2FA).
 - **`StashShareExtension`** — a share extension for saving URLs from Safari and
   other apps.
 

@@ -77,6 +77,15 @@ import SwiftUI
                             .tag(SidebarItem.thisWeek)
                     }
 
+                    if !environment.smartViewRepository.smartViews.isEmpty {
+                        Section("Smart Views") {
+                            ForEach(environment.smartViewRepository.smartViews) { smartView in
+                                Label(smartView.name, systemImage: "line.3.horizontal.decrease.circle")
+                                    .tag(SidebarItem.smartView(smartView))
+                            }
+                        }
+                    }
+
                     Section("Tags") {
                         OutlineGroup(environment.tagRepository.tagHierarchy, children: \.children) { node in
                             TagTreeLabel(node: node)
@@ -97,9 +106,12 @@ import SwiftUI
                 .task {
                     try? await environment.tagRepository.load()
                 }
+                .task {
+                    try? await environment.smartViewRepository.load()
+                }
             } detail: {
                 NavigationStack {
-                    BookmarkListView(tag: selection?.tagName)
+                    detail
                 }
             }
             .sheet(isPresented: $showingSettings) {
@@ -111,6 +123,15 @@ import SwiftUI
                             }
                         }
                 }
+            }
+        }
+
+        @ViewBuilder
+        private var detail: some View {
+            if case let .smartView(smartView) = selection {
+                BookmarkListView(smartView: smartView)
+            } else {
+                BookmarkListView(tag: selection?.tagName)
             }
         }
     }
@@ -125,11 +146,12 @@ import SwiftUI
         case today
         case thisWeek
         case tag(String)
+        case smartView(SmartView)
 
         // MARK: Computed Properties
 
         /// The `tag` filter passed to `BookmarkListView`: `nil` for all, a Views sentinel, or the
-        /// literal tag.
+        /// literal tag. A Smart View selection is handled separately and returns `nil` here.
         var tagName: String? {
             switch self {
             case .all: nil
@@ -137,6 +159,7 @@ import SwiftUI
             case .today: BookmarkListQuery.todayTag
             case .thisWeek: BookmarkListQuery.thisWeekTag
             case let .tag(name): name
+            case .smartView: nil
             }
         }
     }

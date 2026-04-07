@@ -20,34 +20,53 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import ArgumentParser
+import Foundation
+import StashKit
 
-/// The `stash` command-line interface root command.
-///
-/// Bookmark and tag subcommands are also exposed as top-level aliases (`stash list`, `stash add`,
-/// `stash get`, `stash delete`, `stash archive`) for convenience, in addition to their grouped
-/// forms (`stash bookmarks list`, …).
-@main
-struct Stash: AsyncParsableCommand {
+// MARK: - SmartView
 
-    static let configuration = CommandConfiguration(
-        commandName: "stash",
-        abstract: "A command-line interface for the Stash bookmark manager.",
-        subcommands: [
-            Config.self,
-            Login.self,
-            Logout.self,
-            Bookmarks.self,
-            Tags.self,
-            SmartViews.self,
-            ImportCommand.self,
-            ExportCommand.self,
-            Admin.self,
-            BookmarksList.self,
-            BookmarksAdd.self,
-            BookmarksGet.self,
-            BookmarksDelete.self,
-            BookmarksArchive.self
-        ]
-    )
+/// A saved query owned by the user, shown in the sidebars and run live against the bookmarks. The
+/// native apps consume Smart Views (browse and open them); creating and editing them is done from the
+/// web frontend.
+struct SmartView: Identifiable, Hashable {
+
+    let id: UUID
+    let name: String
+    let matchMode: String
+    let conditions: [SmartViewCondition]
+}
+
+// MARK: - SmartView + DTO
+
+extension SmartView {
+
+    init(
+        dto: SmartViewDTO
+    ) {
+        id = dto.id
+        name = dto.name
+        matchMode = dto.matchMode
+        conditions = dto.conditions.map(SmartViewCondition.init(dto:))
+    }
+}
+
+// MARK: - SmartViewCondition
+
+/// One `{ type, value }` rule of a Smart View, kept verbatim from the wire shape.
+struct SmartViewCondition: Hashable {
+
+    let type: String
+    let value: String
+}
+
+// MARK: - SmartViewCondition + DTO
+
+extension SmartViewCondition {
+
+    init(
+        dto: SmartViewConditionDTO
+    ) {
+        type = dto.type
+        value = dto.value
+    }
 }

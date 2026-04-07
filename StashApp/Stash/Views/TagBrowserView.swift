@@ -41,6 +41,10 @@ struct TagBrowserView: View {
         environment.tagRepository.tagHierarchy
     }
 
+    private var smartViews: [SmartView] {
+        environment.smartViewRepository.smartViews
+    }
+
     // MARK: Content Properties
 
     // MARK: Content
@@ -52,6 +56,18 @@ struct TagBrowserView: View {
                 viewLink("Untagged", systemImage: "tag.slash", tag: BookmarkListQuery.untaggedTag)
                 viewLink("Today", systemImage: "sun.max", tag: BookmarkListQuery.todayTag)
                 viewLink("This Week", systemImage: "calendar", tag: BookmarkListQuery.thisWeekTag)
+            }
+
+            if !smartViews.isEmpty {
+                Section("Smart Views") {
+                    ForEach(smartViews) { smartView in
+                        NavigationLink {
+                            BookmarkListView(smartView: smartView)
+                        } label: {
+                            Label(smartView.name, systemImage: "line.3.horizontal.decrease.circle")
+                        }
+                    }
+                }
             }
 
             if !nodes.isEmpty {
@@ -91,8 +107,10 @@ struct TagBrowserView: View {
         do {
             if force {
                 try await environment.tagRepository.reload()
+                try await environment.smartViewRepository.reload()
             } else {
                 try await environment.tagRepository.load()
+                try await environment.smartViewRepository.load()
             }
         } catch {
             errorMessage = error.stashUserMessage

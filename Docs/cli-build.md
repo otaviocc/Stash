@@ -2,7 +2,7 @@
 
 The `stash` command-line client. It talks to the backend over the public REST
 API (`/api/v1/`) via the shared [StashKit](stashkit.md) package, and covers
-bookmarks, tags, import/export, and admin operations.
+bookmarks, tags, Smart Views, import/export, and admin operations.
 
 ## Prerequisites
 
@@ -59,6 +59,8 @@ stash archive <id>                  # Archive a bookmark
 stash tags                          # List all tags with counts
 stash tags rename --from foo --to bar
 stash tags delete foo
+stash smart-views                   # List Smart Views (consumption only)
+stash smart-views bookmarks <id>    # List the bookmarks a Smart View matches
 stash export                        # Export all bookmarks (native JSON)
 stash import file.json              # Import bookmarks (Anybox or Stash JSON)
 stash admin stats                   # Admin: show stats
