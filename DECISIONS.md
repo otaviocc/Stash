@@ -2297,3 +2297,63 @@ already in place from M12.
   `smart-views bookmarks <id>` against a running backend); iOS Simulator and macOS
   apps build clean; all three components `swiftformat --lint` idempotent and
   `swiftlint lint` 0 violations. No app/CLI unit tests by design (§19.6).
+
+---
+
+## Smart View create / edit / delete in the native apps
+
+The previous pass made Smart Views consumption-only on the apps. This pass adds
+authoring (create / edit / delete) to iOS and macOS. The CLI stays consumption-only
+(a condition-builder CLI is lower value — authoring there is covered by import/export).
+Still no backend or StashKit change: `SmartViewRequestFactory`'s create/update/delete
+and the `SmartViewRequest` body already existed.
+
+- **✅ Management lives in Settings, sidebar stays browse-only.** The user chose a
+  dedicated management screen over inline sidebar editing. A shared
+  `SmartViewManagementView` (a `List` with New / Edit / Delete) is reached from
+  Settings — a `NavigationLink` on iOS, a third `Settings` tab on macOS. The
+  sidebars (`MainView`, `MacContentView`, `TagBrowserView`) were **not** touched;
+  because the shared `SmartViewRepository` cache is updated on every write (see
+  below), the always-mounted sidebar Smart Views section reflects edits/deletes
+  live without any sidebar code.
+- **✅ Repository writes update the cache in place, no refetch.** `create` /
+  `update` / `delete` on `SmartViewRepository` map the domain
+  `[SmartViewCondition]` → `[SmartViewConditionDTO]`, run the factory, then
+  insert / replace-by-id / remove in the cached `smartViews` and re-sort by name
+  (`localizedCaseInsensitiveCompare`, matching the API's name-sorted list). Mirrors
+  `BookmarkRepository`'s optimistic list mutations; avoids a round-trip and keeps
+  the small per-user list authoritative. Conditions/matchMode cross the repository
+  boundary as **domain** types so the views never touch StashKit DTOs (consistent
+  layering).
+- **✅ One shared `SmartViewFormView` sheet for create and edit.** Two inits
+  (`init(repository:onSaved:)` and `init(editing:repository:onSaved:)`); the edit
+  init pre-fills name, match mode, and condition rows. Built like `EditBookmarkView`
+  (`NavigationStack { Form }.formStyle(.grouped)`, Cancel/Save toolbar, macOS min
+  frame, inline error via `stashUserMessage`). A segmented All / Any picker maps to
+  the wire `matchMode`.
+- **✅ Condition rows model every editor kind, switch by `valueKind`.** A
+  `SmartViewConditionType` enum (one case per wire type) carries a `title` and a
+  `valueKind` (`text` / `tag` / `date` / `boolean`); a `ConditionRow` struct holds
+  a value for each kind (`text` / `date` / `bool`) so switching a row's type
+  preserves what was typed in the others. `ConditionRowView` renders the editor for
+  the active kind: a text field, a tag field that reuses `TagSuggestionView` chips
+  (`tagRepository.autocompleteTags(prefix:)`, the same autocomplete as the bookmark
+  forms), a `DatePicker`, or a Yes/No segmented picker. Rows serialize to the domain
+  `SmartViewCondition` by reading the field the type selects.
+- **✅ Dates serialized to full ISO-8601 client-side.** The web form submits a bare
+  `YYYY-MM-DD` and the *web controller* appends `T00:00:00Z`; the JSON API does no
+  such normalization, so `SmartViewConditionDate` formats the picked day as
+  `yyyy-MM-dd` + `T00:00:00Z` (and parses it back for editing). This was the one
+  contract subtlety that would have produced a silent `422` if missed. Booleans go
+  as lowercase `"true"`/`"false"`.
+- **✅ Client-side validation pre-empts the generic 422.** `StashAPIError`
+  collapses `validation_failed` to a single generic string, so the form validates
+  locally (non-empty name ≤ 100, ≥ 1 condition, every text/tag row non-empty) and
+  disables Save until valid — the user rarely reaches the server error. Delete uses
+  the established `confirmationDialog` pattern; per-row swipe (iOS) + context menu
+  (both) expose Edit/Delete.
+- **✅ Verified.** iOS Simulator and macOS apps build clean; `swiftformat --lint`
+  idempotent and `swiftlint lint` 0 violations. New files
+  (`Common/Models/SmartView.swift` additions, `SmartViewFormView`,
+  `SmartViewManagementView`) sit in synchronized Xcode folder groups — no
+  `.xcodeproj` edit. No app unit tests by design (§19.6).

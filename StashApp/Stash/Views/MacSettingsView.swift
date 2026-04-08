@@ -25,7 +25,7 @@
 
     // MARK: - MacSettingsView
 
-    /// The macOS `Settings` scene (⌘,): General and Account tabs.
+    /// The macOS `Settings` scene (⌘,): General, Account, and Smart Views tabs.
     ///
     /// The signed-in/out switch lives here, above the `TabView`, not inside the tabs: `TabView`
     /// caches its tab content, so a guard inside a tab would not re-render when `isAuthenticated`
@@ -57,6 +57,10 @@
 
                 Tab("Account", systemImage: "person.crop.circle") {
                     AccountSettingsView()
+                }
+
+                Tab("Smart Views", systemImage: "line.3.horizontal.decrease.circle") {
+                    SmartViewManagementView()
                 }
             }
             .frame(width: 460, height: 420)

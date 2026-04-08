@@ -265,12 +265,12 @@ as full-text search. Multiple conditions of the same type are allowed (with
 both modes — results are limited to non-archived bookmarks unless an `isArchived`
 condition is present.
 
-**Client support.** The web frontend creates, edits, and browses Smart Views.
-The CLI and the native iOS/macOS apps are **consumption-only**: they list Smart
-Views and open their live results (the apps surface them as a Smart Views section
-in the sidebar; the CLI as `stash smart-views`), but creating and editing is done
-on the web or round-tripped through Stash JSON import/export. Creation/editing on
-the native clients is a possible later step.
+**Client support.** The web frontend and the native iOS/macOS apps create, edit,
+delete, and browse Smart Views. The apps surface them as a browse-only Smart Views
+section in the sidebar, and manage them (create / edit / delete) from a Settings →
+Smart Views screen. The **CLI is consumption-only**: it lists Smart Views and opens
+their live results (`stash smart-views`); authoring on the CLI is done on the web
+or round-tripped through Stash JSON import/export.
 
 **Footer.** Shown on every `/app` and `/admin` page via `layout.leaf`. Fixed,
 non-configurable content: a Mastodon link (`https://social.lol/@otaviocc`), a
@@ -1006,6 +1006,19 @@ disable 2FA — the same screen the macOS Settings window uses) via a navigation
 on iPhone and a sidebar toolbar button on iPad. `AccountSettingsView` and
 `QRCodeView` are cross-platform; only window-chrome sizing is `#if os(macOS)`-guarded.
 
+### Smart View management (iOS + macOS)
+
+`SettingsView` also links to a shared `SmartViewManagementView` (a macOS Settings
+tab) that lists the user's Smart Views with create / edit / delete. Creating and
+editing use a shared `SmartViewFormView` sheet — a name, an All / Any match-mode
+picker, and a list of condition rows whose value editor adapts to the condition
+type (text, a tag field with autocomplete chips, a date picker, or a Yes/No
+picker). Date conditions are serialized as full ISO-8601 (`…T00:00:00Z`), since the
+JSON API — unlike the web form — does no date normalization. Deletes confirm. The
+sidebar Smart Views section stays browse-only; because the shared
+`SmartViewRepository` cache updates on every write, sidebar entries reflect edits
+and deletes live.
+
 ---
 
 ## 17. macOS App ✅ Complete (M10)
@@ -1028,7 +1041,8 @@ building against the SDK; no explicit modifiers.
   Browser, Copy URL, Archive/Unarchive, Delete); add and edit via shared sheets;
   delete with confirmation.
 - **Settings scene (⌘,):** General (server URL, sign out), Account (change
-  password, 2FA enrol / disable), Appearance (Light / Dark / Auto, stored in
+  password, 2FA enrol / disable), Smart Views (create / edit / delete — the shared
+  `SmartViewManagementView`), Appearance (Light / Dark / Auto, stored in
   `UserDefaults` — no theme cookie on native).
 - **Keyboard shortcuts:** ⌘N new, ⌘E edit, ⌘R refresh, ⌘⌫ delete (with
   confirmation).
@@ -1349,6 +1363,7 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 | M4.1 | CI/CD: GitHub Actions, publish to ghcr.io | ✅ Complete |
 | M12 | Smart Views: saved AND-condition queries (backend, StashKit, web UI) | ✅ Complete |
 | M12.1 | Smart Views on the CLI and native apps (consumption-only: list + run) | ✅ Complete |
+| M12.2 | Smart View create / edit / delete in the iOS & macOS apps (Settings) | ✅ Complete |
 
 ---
 

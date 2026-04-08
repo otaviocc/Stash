@@ -52,6 +52,12 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Smart Views") {
+                NavigationLink("Smart Views") {
+                    SmartViewManagementView()
+                }
+            }
+
             Section {
                 Button(role: .destructive, action: signOut) {
                     if isSigningOut {
