@@ -20,6 +20,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import Foundation
 import SwiftUI
 
 // MARK: - SmartViewFormView
@@ -95,55 +96,46 @@ struct SmartViewFormView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Name") {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
                     TextField("Name", text: $name)
+                        .textFieldStyle(.roundedBorder)
+
+                    HStack(spacing: 6) {
+                        Text("Match")
+
+                        Picker("Match", selection: $matchMode) {
+                            ForEach(MatchMode.allCases) { mode in
+                                Text(mode.rawValue).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.menu)
                         .labelsHidden()
-                }
+                        .fixedSize()
 
-                Section {
-                    Picker("Match", selection: $matchMode) {
-                        ForEach(MatchMode.allCases) { mode in
-                            Text(mode.title).tag(mode)
-                        }
+                        Text("of the following rules:")
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                } header: {
-                    Text("Match")
-                } footer: {
-                    Text(matchMode == .all
-                        ? "A bookmark must match every condition."
-                        : "A bookmark must match at least one condition.")
-                }
 
-                Section("Conditions") {
-                    ForEach($rows) { $row in
-                        ConditionRowView(
-                            row: $row,
-                            tagStore: environment.tagRepository,
-                            canRemove: rows.count > 1
-                        ) {
-                            remove(row)
+                    VStack(spacing: 10) {
+                        ForEach($rows) { $row in
+                            ConditionRowView(
+                                row: $row,
+                                tagStore: environment.tagRepository,
+                                canRemove: rows.count > 1,
+                                onRemove: { remove(row) },
+                                onAdd: { addRow(after: row) }
+                            )
                         }
                     }
 
-                    Button {
-                        rows.append(ConditionRow())
-                    } label: {
-                        Label("Add Condition", systemImage: "plus")
-                    }
-                }
-
-                if let errorMessage {
-                    Section {
+                    if let errorMessage {
                         Text(errorMessage)
                             .foregroundStyle(.red)
                             .font(.footnote)
                     }
                 }
+                .padding()
             }
-            .formStyle(.grouped)
             .navigationTitle(isEditing ? "Edit Smart View" : "New Smart View")
             .inlineNavigationTitleStyle()
             .toolbar {
@@ -161,7 +153,7 @@ struct SmartViewFormView: View {
             }
         }
         #if os(macOS)
-        .frame(minWidth: 480, minHeight: 560)
+        .frame(minWidth: 540, minHeight: 480)
         #endif
     }
 
@@ -169,6 +161,16 @@ struct SmartViewFormView: View {
 
     private func remove(_ row: ConditionRow) {
         rows.removeAll { $0.id == row.id }
+    }
+
+    private func addRow(after row: ConditionRow) {
+        guard let index = rows.firstIndex(where: { $0.id == row.id }) else {
+            rows.append(ConditionRow())
+
+            return
+        }
+
+        rows.insert(ConditionRow(), at: index + 1)
     }
 
     private func save() {
@@ -208,7 +210,7 @@ struct SmartViewFormView: View {
 
 // MARK: - MatchMode
 
-/// The Smart View match mode bound to the segmented picker, mapping to the wire `all` / `any`.
+/// The Smart View match mode bound to the popup picker, mapping to the wire `all` / `any`.
 private enum MatchMode: String, CaseIterable, Identifiable {
 
     case all
@@ -218,13 +220,6 @@ private enum MatchMode: String, CaseIterable, Identifiable {
 
     var id: String {
         rawValue
-    }
-
-    var title: String {
-        switch self {
-        case .all: "All"
-        case .any: "Any"
-        }
     }
 }
 
@@ -281,19 +276,25 @@ private struct ConditionRow: Identifiable {
 
 // MARK: - ConditionRowView
 
-/// One condition row: a type picker over a value editor chosen by the type's `valueKind`, plus an
-/// optional remove control. The `tag` kind reuses the tag autocomplete chips the bookmark forms use.
+/// One condition row in the Music-style layout: a single horizontal line of a type popup, a value
+/// editor chosen by the type's `valueKind`, and trailing remove / add buttons. The `tag` kind shows
+/// the autocomplete chips the bookmark forms use beneath the row.
 private struct ConditionRowView: View {
 
     // MARK: SwiftUI Properties
 
     @Binding var row: ConditionRow
 
+    #if os(iOS)
+        @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
+
     // MARK: Properties
 
     let tagStore: any TagAutocompleting
     let canRemove: Bool
     let onRemove: () -> Void
+    let onAdd: () -> Void
 
     // MARK: Computed Properties
 
@@ -308,64 +309,110 @@ private struct ConditionRowView: View {
             .filter { $0.name != segment }
     }
 
+    /// Whether the row's controls fit on one line (regular width / macOS). A compact-width iPhone
+    /// stacks the value editor under the type popup so a long type label can't clip the value or
+    /// the remove / add buttons.
+    private var isSingleLine: Bool {
+        #if os(iOS)
+            horizontalSizeClass != .compact
+        #else
+            true
+        #endif
+    }
+
     // MARK: Content Properties
 
     // MARK: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Picker("Type", selection: $row.type) {
-                    ForEach(SmartViewConditionType.allCases) { type in
-                        Text(type.title).tag(type)
-                    }
-                }
-                .labelsHidden()
+        VStack(alignment: .leading, spacing: 6) {
+            if isSingleLine {
+                HStack(spacing: 8) {
+                    typePicker
 
-                Spacer()
+                    valueEditor
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                if canRemove {
-                    Button(role: .destructive, action: onRemove) {
-                        Image(systemName: "minus.circle.fill")
-                    }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.red)
-                    .accessibilityLabel("Remove Condition")
+                    rowButtons
                 }
+            } else {
+                HStack(spacing: 8) {
+                    typePicker
+
+                    Spacer(minLength: 0)
+
+                    rowButtons
+                }
+
+                valueEditor
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            valueEditor
+            if row.type.valueKind == .tag, !tagSuggestions.isEmpty {
+                TagSuggestionView(suggestions: tagSuggestions) { tag in
+                    row.text = tag.name
+                }
+            }
         }
+    }
+
+    private var typePicker: some View {
+        Picker("Type", selection: $row.type) {
+            ForEach(SmartViewConditionType.allCases) { type in
+                Text(type.title).tag(type)
+            }
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .fixedSize()
     }
 
     @ViewBuilder
     private var valueEditor: some View {
         switch row.type.valueKind {
-        case .text:
-            TextField("Value", text: $row.text)
+        case .text, .tag:
+            TextField(row.type.valueKind == .tag ? "tag" : "value", text: $row.text)
+                .textFieldStyle(.roundedBorder)
                 .lowercasedFieldStyle()
-
-        case .tag:
-            TextField("Tag", text: $row.text)
-                .lowercasedFieldStyle()
-
-            if !tagSuggestions.isEmpty {
-                TagSuggestionView(suggestions: tagSuggestions) { tag in
-                    row.text = tag.name
-                }
-            }
+                .accessibilityLabel(row.type.title)
 
         case .date:
-            DatePicker("Date", selection: $row.date, displayedComponents: .date)
+            DatePicker(row.type.title, selection: $row.date, displayedComponents: .date)
                 .labelsHidden()
 
         case .boolean:
-            Picker("Value", selection: $row.bool) {
+            Picker(row.type.title, selection: $row.bool) {
                 Text("Yes").tag(true)
                 Text("No").tag(false)
             }
-            .pickerStyle(.segmented)
+            .pickerStyle(.menu)
             .labelsHidden()
+            .fixedSize()
         }
     }
+
+    private var rowButtons: some View {
+        HStack(spacing: 4) {
+            Button(action: onRemove) {
+                Image(systemName: "minus")
+            }
+            .disabled(!canRemove)
+            .accessibilityLabel("Remove Condition")
+
+            Button(action: onAdd) {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("Add Condition")
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
 }
+
+#if DEBUG
+    #Preview {
+        SmartViewFormView(repository: AppEnvironment.preview.smartViewRepository) { _ in }
+            .environment(AppEnvironment.preview)
+            .environment(AppSettings.preview)
+    }
+#endif
