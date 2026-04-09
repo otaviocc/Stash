@@ -103,23 +103,12 @@ struct AddBookmarkView: View {
     var body: some View {
         NavigationStack {
             Form {
-                urlSection
-
-                Section("Details") {
-                    TextField("Title", text: $title)
-                        .labelsHidden()
-                    TextField("Description", text: $description, axis: .vertical)
-                        .labelsHidden()
-                        .lineLimit(2...5)
-                }
+                makeURLSection()
+                makeDetailsSection()
 
                 TagInputSection(tagText: $tagText, tagStore: tagStore)
 
-                if let errorMessage {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
-                        .font(.footnote)
-                }
+                makeErrorMessage()
             }
             .formStyle(.grouped)
             .navigationTitle("Add Bookmark")
@@ -144,7 +133,7 @@ struct AddBookmarkView: View {
             #if os(macOS)
             .safeAreaInset(edge: .bottom) {
                 if usesInlineActionBar {
-                    macActionBar
+                    makeMacActionBar()
                 }
             }
             #endif
@@ -154,8 +143,10 @@ struct AddBookmarkView: View {
         #endif
     }
 
+    // MARK: Content Methods
+
     #if os(macOS)
-        private var macActionBar: some View {
+        private func makeMacActionBar() -> some View {
             HStack {
                 Button("Cancel", action: onCancel)
                     .keyboardShortcut(.cancelAction)
@@ -169,7 +160,7 @@ struct AddBookmarkView: View {
         }
     #endif
 
-    private var urlSection: some View {
+    private func makeURLSection() -> some View {
         Section("URL") {
             if isURLEditable {
                 HStack {
@@ -200,6 +191,25 @@ struct AddBookmarkView: View {
                     .lineLimit(2)
                     .textSelection(.enabled)
             }
+        }
+    }
+
+    private func makeDetailsSection() -> some View {
+        Section("Details") {
+            TextField("Title", text: $title)
+                .labelsHidden()
+            TextField("Description", text: $description, axis: .vertical)
+                .labelsHidden()
+                .lineLimit(2...5)
+        }
+    }
+
+    @ViewBuilder
+    private func makeErrorMessage() -> some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
         }
     }
 

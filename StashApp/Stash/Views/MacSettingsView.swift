@@ -43,13 +43,15 @@
 
         var body: some View {
             if environment.authRepository.isAuthenticated {
-                settingsTabs
+                makeSettingsTabs()
             } else {
-                signedOutView
+                makeSignedOutView()
             }
         }
 
-        private var settingsTabs: some View {
+        // MARK: Content Methods
+
+        private func makeSettingsTabs() -> some View {
             TabView {
                 Tab("General", systemImage: "gearshape") {
                     GeneralSettingsView()
@@ -66,7 +68,7 @@
             .frame(width: 460, height: 420)
         }
 
-        private var signedOutView: some View {
+        private func makeSignedOutView() -> some View {
             ContentUnavailableView {
                 Label("Not Signed In", systemImage: "person.crop.circle.badge.exclamationmark")
             } description: {

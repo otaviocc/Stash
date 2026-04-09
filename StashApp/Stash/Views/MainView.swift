@@ -66,32 +66,9 @@ import SwiftUI
         var body: some View {
             NavigationSplitView {
                 List(selection: $selection) {
-                    Section("Views") {
-                        Label("All Bookmarks", systemImage: "bookmark")
-                            .tag(SidebarItem.all)
-                        Label("Untagged", systemImage: "tag.slash")
-                            .tag(SidebarItem.untagged)
-                        Label("Today", systemImage: "sun.max")
-                            .tag(SidebarItem.today)
-                        Label("This Week", systemImage: "calendar")
-                            .tag(SidebarItem.thisWeek)
-                    }
-
-                    if !environment.smartViewRepository.smartViews.isEmpty {
-                        Section("Smart Views") {
-                            ForEach(environment.smartViewRepository.smartViews) { smartView in
-                                Label(smartView.name, systemImage: "line.3.horizontal.decrease.circle")
-                                    .tag(SidebarItem.smartView(smartView))
-                            }
-                        }
-                    }
-
-                    Section("Tags") {
-                        OutlineGroup(environment.tagRepository.tagHierarchy, children: \.children) { node in
-                            TagTreeLabel(node: node)
-                                .tag(SidebarItem.tag(node.slug))
-                        }
-                    }
+                    makeViewsSection()
+                    makeSmartViewsSection()
+                    makeTagsSection()
                 }
                 .navigationTitle("Stash")
                 .toolbar {
@@ -111,27 +88,67 @@ import SwiftUI
                 }
             } detail: {
                 NavigationStack {
-                    detail
+                    makeDetail()
                 }
             }
             .sheet(isPresented: $showingSettings) {
-                NavigationStack {
-                    SettingsView()
-                        .toolbar {
-                            ToolbarItem(placement: .cancellationAction) {
-                                Button("Done") { showingSettings = false }
-                            }
-                        }
+                makeSettingsSheet()
+            }
+        }
+
+        // MARK: Content Methods
+
+        private func makeViewsSection() -> some View {
+            Section("Views") {
+                Label("All Bookmarks", systemImage: "bookmark")
+                    .tag(SidebarItem.all)
+                Label("Untagged", systemImage: "tag.slash")
+                    .tag(SidebarItem.untagged)
+                Label("Today", systemImage: "sun.max")
+                    .tag(SidebarItem.today)
+                Label("This Week", systemImage: "calendar")
+                    .tag(SidebarItem.thisWeek)
+            }
+        }
+
+        @ViewBuilder
+        private func makeSmartViewsSection() -> some View {
+            if !environment.smartViewRepository.smartViews.isEmpty {
+                Section("Smart Views") {
+                    ForEach(environment.smartViewRepository.smartViews) { smartView in
+                        Label(smartView.name, systemImage: "line.3.horizontal.decrease.circle")
+                            .tag(SidebarItem.smartView(smartView))
+                    }
+                }
+            }
+        }
+
+        private func makeTagsSection() -> some View {
+            Section("Tags") {
+                OutlineGroup(environment.tagRepository.tagHierarchy, children: \.children) { node in
+                    TagTreeLabel(node: node)
+                        .tag(SidebarItem.tag(node.slug))
                 }
             }
         }
 
         @ViewBuilder
-        private var detail: some View {
+        private func makeDetail() -> some View {
             if case let .smartView(smartView) = selection {
                 BookmarkListView(smartView: smartView)
             } else {
                 BookmarkListView(tag: selection?.tagName)
+            }
+        }
+
+        private func makeSettingsSheet() -> some View {
+            NavigationStack {
+                SettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showingSettings = false }
+                        }
+                    }
             }
         }
     }

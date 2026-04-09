@@ -163,116 +163,138 @@ private struct BookmarkListContent: View {
     // MARK: Content
 
     var body: some View {
+        makeList()
+            .overlay {
+                if repository.bookmarks.isEmpty, !repository.isLoading {
+                    makeEmptyState()
+                }
+            }
+            .navigationTitle(navigationTitle)
+            .modifier(
+                SearchableIfNeeded(
+                    isEnabled: smartView == nil,
+                    text: $searchText,
+                    isFocused: $isSearchFocused
+                )
+            )
+            .onSubmit(of: .search) {
+                reload()
+            }
+            .onChange(of: searchText) { _, newValue in
+                if newValue.isEmpty {
+                    reload()
+                }
+            }
+            .onChange(of: source) {
+                reload()
+            }
+            .onChange(of: showArchived) {
+                reload()
+            }
+            .refreshable {
+                await load()
+            }
+            .toolbar {
+                if smartView == nil {
+                    ToolbarItem(placement: .primaryAction) {
+                        makeAddButton()
+                    }
+                }
+
+                ToolbarItem(placement: optionsPlacement) {
+                    makeOptionsMenu()
+                }
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AddBookmarkSheet(repository: repository)
+            }
+            .task {
+                guard !didLoad else {
+                    return
+                }
+
+                didLoad = true
+                await load()
+            }
+            .alert(
+                "Error",
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage ?? "")
+            }
+    }
+
+    // MARK: Content Methods
+
+    private func makeList() -> some View {
         List {
             ForEach(repository.bookmarks) { bookmark in
-                NavigationLink {
-                    BookmarkDetailView(bookmark: bookmark, repository: repository)
-                } label: {
-                    BookmarkRowView(bookmark: bookmark)
-                }
-                .onAppear {
-                    loadMoreIfNeeded(currentItem: bookmark)
-                }
-                .contextMenu {
-                    rowContextMenu(for: bookmark)
-                }
+                makeBookmarkRow(bookmark)
             }
 
             if repository.isLoading, !repository.bookmarks.isEmpty {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                }
+                makeLoadingRow()
             }
         }
-        .overlay {
-            if repository.bookmarks.isEmpty, !repository.isLoading {
-                emptyState
-            }
+    }
+
+    private func makeBookmarkRow(_ bookmark: Bookmark) -> some View {
+        NavigationLink {
+            BookmarkDetailView(bookmark: bookmark, repository: repository)
+        } label: {
+            BookmarkRowView(bookmark: bookmark)
         }
-        .navigationTitle(navigationTitle)
-        .modifier(
-            SearchableIfNeeded(
-                isEnabled: smartView == nil,
-                text: $searchText,
-                isFocused: $isSearchFocused
-            )
-        )
-        .onSubmit(of: .search) {
-            reload()
+        .onAppear {
+            loadMoreIfNeeded(currentItem: bookmark)
         }
-        .onChange(of: searchText) { _, newValue in
-            if newValue.isEmpty {
-                reload()
-            }
+        .contextMenu {
+            makeRowContextMenu(for: bookmark)
         }
-        .onChange(of: source) {
-            reload()
+    }
+
+    private func makeLoadingRow() -> some View {
+        HStack {
+            Spacer()
+            ProgressView()
+            Spacer()
         }
-        .onChange(of: showArchived) {
-            reload()
+    }
+
+    private func makeAddButton() -> some View {
+        Button {
+            showingAddSheet = true
+        } label: {
+            Label("Add Bookmark", systemImage: "plus")
         }
-        .refreshable {
-            await load()
-        }
-        .toolbar {
+        .keyboardShortcut("n", modifiers: .command)
+    }
+
+    private func makeOptionsMenu() -> some View {
+        Menu {
             if smartView == nil {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingAddSheet = true
-                    } label: {
-                        Label("Add Bookmark", systemImage: "plus")
-                    }
-                    .keyboardShortcut("n", modifiers: .command)
+                Toggle(isOn: $showArchived) {
+                    Label("Show Archived", systemImage: "archivebox")
                 }
             }
 
-            ToolbarItem(placement: optionsPlacement) {
-                Menu {
-                    if smartView == nil {
-                        Toggle(isOn: $showArchived) {
-                            Label("Show Archived", systemImage: "archivebox")
-                        }
-                    }
-
-                    Button {
-                        reload()
-                    } label: {
-                        Label("Refresh", systemImage: "arrow.clockwise")
-                    }
-                    .keyboardShortcut("r", modifiers: .command)
-                } label: {
-                    Label("Options", systemImage: "ellipsis.circle")
-                }
+            Button {
+                reload()
+            } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
             }
-        }
-        .sheet(isPresented: $showingAddSheet) {
-            AddBookmarkSheet(repository: repository)
-        }
-        .task {
-            guard !didLoad else {
-                return
-            }
-
-            didLoad = true
-            await load()
-        }
-        .alert(
-            "Error",
-            isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage ?? "")
+            .keyboardShortcut("r", modifiers: .command)
+        } label: {
+            Label("Options", systemImage: "ellipsis.circle")
         }
     }
 
     @ViewBuilder
-    private var emptyState: some View {
+    private func makeEmptyState() -> some View {
         let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let smartView {
@@ -304,10 +326,8 @@ private struct BookmarkListContent: View {
         }
     }
 
-    // MARK: Content Methods
-
     @ViewBuilder
-    private func rowContextMenu(for bookmark: Bookmark) -> some View {
+    private func makeRowContextMenu(for bookmark: Bookmark) -> some View {
         Button {
             openURL(bookmark.url)
         } label: {

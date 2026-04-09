@@ -27,29 +27,45 @@ import SwiftUI
     /// The iPhone layout: Bookmarks, Tags, and Settings tabs, each in its own navigation stack.
     struct TabContainerView: View {
 
+        // MARK: Content Properties
+
         // MARK: Content
 
         var body: some View {
             TabView {
                 Tab("Bookmarks", systemImage: "bookmark") {
-                    NavigationStack {
-                        BookmarkListView(tag: nil)
-                    }
+                    makeBookmarksTab()
                 }
 
                 Tab("Tags", systemImage: "tag") {
-                    NavigationStack {
-                        TagBrowserView()
-                    }
+                    makeTagsTab()
                 }
 
                 Tab("Settings", systemImage: "gearshape") {
-                    NavigationStack {
-                        SettingsView()
-                    }
+                    makeSettingsTab()
                 }
             }
             .tabBarMinimizeBehavior(.onScrollDown)
+        }
+
+        // MARK: Content Methods
+
+        private func makeBookmarksTab() -> some View {
+            NavigationStack {
+                BookmarkListView(tag: nil)
+            }
+        }
+
+        private func makeTagsTab() -> some View {
+            NavigationStack {
+                TagBrowserView()
+            }
+        }
+
+        private func makeSettingsTab() -> some View {
+            NavigationStack {
+                SettingsView()
+            }
         }
     }
 

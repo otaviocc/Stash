@@ -61,36 +61,10 @@ struct LoginView: View {
     var body: some View {
         NavigationStack(path: $path) {
             Form {
-                Section {
-                    TextField("https://stash.example.com", text: $serverURL)
-                        .urlFieldStyle()
-                } header: {
-                    Text("Server")
-                } footer: {
-                    Text("The address of your Stash server, including http:// or https://.")
-                }
-
-                Section {
-                    TextField("Username", text: $username)
-                        .usernameFieldStyle()
-                    SecureField("Password", text: $password)
-                        .passwordFieldStyle()
-                }
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
-                        .font(.footnote)
-                }
-
-                Button(action: signIn) {
-                    if isSubmitting {
-                        ProgressView()
-                    } else {
-                        Text("Sign In")
-                    }
-                }
-                .disabled(!canSubmit)
+                makeServerSection()
+                makeCredentialsSection()
+                makeErrorMessage()
+                makeSignInButton()
             }
             .formStyle(.grouped)
             .navigationTitle("Sign In")
@@ -106,6 +80,48 @@ struct LoginView: View {
                 }
             }
         }
+    }
+
+    // MARK: Content Methods
+
+    private func makeServerSection() -> some View {
+        Section {
+            TextField("https://stash.example.com", text: $serverURL)
+                .urlFieldStyle()
+        } header: {
+            Text("Server")
+        } footer: {
+            Text("The address of your Stash server, including http:// or https://.")
+        }
+    }
+
+    private func makeCredentialsSection() -> some View {
+        Section {
+            TextField("Username", text: $username)
+                .usernameFieldStyle()
+            SecureField("Password", text: $password)
+                .passwordFieldStyle()
+        }
+    }
+
+    @ViewBuilder
+    private func makeErrorMessage() -> some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
+    }
+
+    private func makeSignInButton() -> some View {
+        Button(action: signIn) {
+            if isSubmitting {
+                ProgressView()
+            } else {
+                Text("Sign In")
+            }
+        }
+        .disabled(!canSubmit)
     }
 
     // MARK: Functions

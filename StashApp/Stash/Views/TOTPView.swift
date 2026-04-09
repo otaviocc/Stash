@@ -51,32 +51,9 @@ struct TOTPView: View {
 
     var body: some View {
         Form {
-            Section {
-                TextField("000000", text: $code)
-                    .oneTimeCodeFieldStyle()
-                    .onChange(of: code) { _, newValue in
-                        code = String(newValue.filter(\.isNumber).prefix(6))
-                    }
-            } header: {
-                Text("Authentication code")
-            } footer: {
-                Text("Enter the six-digit code from your authenticator app.")
-            }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.footnote)
-            }
-
-            Button(action: verify) {
-                if isSubmitting {
-                    ProgressView()
-                } else {
-                    Text("Verify")
-                }
-            }
-            .disabled(!canSubmit)
+            makeCodeSection()
+            makeErrorMessage()
+            makeVerifyButton()
 
             NavigationLink("Use a recovery code") {
                 RecoveryCodeView(tempToken: tempToken)
@@ -85,6 +62,42 @@ struct TOTPView: View {
         .formStyle(.grouped)
         .navigationTitle("Two-Factor")
         .inlineNavigationTitleStyle()
+    }
+
+    // MARK: Content Methods
+
+    private func makeCodeSection() -> some View {
+        Section {
+            TextField("000000", text: $code)
+                .oneTimeCodeFieldStyle()
+                .onChange(of: code) { _, newValue in
+                    code = String(newValue.filter(\.isNumber).prefix(6))
+                }
+        } header: {
+            Text("Authentication code")
+        } footer: {
+            Text("Enter the six-digit code from your authenticator app.")
+        }
+    }
+
+    @ViewBuilder
+    private func makeErrorMessage() -> some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
+    }
+
+    private func makeVerifyButton() -> some View {
+        Button(action: verify) {
+            if isSubmitting {
+                ProgressView()
+            } else {
+                Text("Verify")
+            }
+        }
+        .disabled(!canSubmit)
     }
 
     // MARK: Functions

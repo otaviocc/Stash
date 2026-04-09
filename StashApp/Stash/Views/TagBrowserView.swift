@@ -51,36 +51,9 @@ struct TagBrowserView: View {
 
     var body: some View {
         List {
-            Section("Views") {
-                viewLink("All Bookmarks", systemImage: "bookmark", tag: nil)
-                viewLink("Untagged", systemImage: "tag.slash", tag: BookmarkListQuery.untaggedTag)
-                viewLink("Today", systemImage: "sun.max", tag: BookmarkListQuery.todayTag)
-                viewLink("This Week", systemImage: "calendar", tag: BookmarkListQuery.thisWeekTag)
-            }
-
-            if !smartViews.isEmpty {
-                Section("Smart Views") {
-                    ForEach(smartViews) { smartView in
-                        NavigationLink {
-                            BookmarkListView(smartView: smartView)
-                        } label: {
-                            Label(smartView.name, systemImage: "line.3.horizontal.decrease.circle")
-                        }
-                    }
-                }
-            }
-
-            if !nodes.isEmpty {
-                Section("Tags") {
-                    OutlineGroup(nodes, children: \.children) { node in
-                        NavigationLink {
-                            BookmarkListView(tag: node.slug)
-                        } label: {
-                            TagTreeLabel(node: node)
-                        }
-                    }
-                }
-            }
+            makeViewsSection()
+            makeSmartViewsSection()
+            makeTagsSection()
         }
         .navigationTitle("Tags")
         .refreshable {
@@ -93,7 +66,46 @@ struct TagBrowserView: View {
 
     // MARK: Content Methods
 
-    private func viewLink(_ title: String, systemImage: String, tag: String?) -> some View {
+    private func makeViewsSection() -> some View {
+        Section("Views") {
+            makeViewLink("All Bookmarks", systemImage: "bookmark", tag: nil)
+            makeViewLink("Untagged", systemImage: "tag.slash", tag: BookmarkListQuery.untaggedTag)
+            makeViewLink("Today", systemImage: "sun.max", tag: BookmarkListQuery.todayTag)
+            makeViewLink("This Week", systemImage: "calendar", tag: BookmarkListQuery.thisWeekTag)
+        }
+    }
+
+    @ViewBuilder
+    private func makeSmartViewsSection() -> some View {
+        if !smartViews.isEmpty {
+            Section("Smart Views") {
+                ForEach(smartViews) { smartView in
+                    NavigationLink {
+                        BookmarkListView(smartView: smartView)
+                    } label: {
+                        Label(smartView.name, systemImage: "line.3.horizontal.decrease.circle")
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func makeTagsSection() -> some View {
+        if !nodes.isEmpty {
+            Section("Tags") {
+                OutlineGroup(nodes, children: \.children) { node in
+                    NavigationLink {
+                        BookmarkListView(tag: node.slug)
+                    } label: {
+                        TagTreeLabel(node: node)
+                    }
+                }
+            }
+        }
+    }
+
+    private func makeViewLink(_ title: String, systemImage: String, tag: String?) -> some View {
         NavigationLink {
             BookmarkListView(tag: tag)
         } label: {

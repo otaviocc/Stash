@@ -68,28 +68,12 @@ struct EditBookmarkView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("URL") {
-                    Text(bookmark.url.absoluteString)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .textSelection(.enabled)
-                }
-
-                Section("Details") {
-                    TextField("Title", text: $title)
-                        .labelsHidden()
-                    TextField("Description", text: $description, axis: .vertical)
-                        .labelsHidden()
-                        .lineLimit(2...5)
-                }
+                makeURLSection()
+                makeDetailsSection()
 
                 TagInputSection(tagText: $tagText, tagStore: environment.tagRepository)
 
-                if let errorMessage {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
-                        .font(.footnote)
-                }
+                makeErrorMessage()
             }
             .formStyle(.grouped)
             .navigationTitle("Edit Bookmark")
@@ -111,6 +95,36 @@ struct EditBookmarkView: View {
         #if os(macOS)
         .frame(minWidth: 460, minHeight: 520)
         #endif
+    }
+
+    // MARK: Content Methods
+
+    private func makeURLSection() -> some View {
+        Section("URL") {
+            Text(bookmark.url.absoluteString)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .textSelection(.enabled)
+        }
+    }
+
+    private func makeDetailsSection() -> some View {
+        Section("Details") {
+            TextField("Title", text: $title)
+                .labelsHidden()
+            TextField("Description", text: $description, axis: .vertical)
+                .labelsHidden()
+                .lineLimit(2...5)
+        }
+    }
+
+    @ViewBuilder
+    private func makeErrorMessage() -> some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
     }
 
     // MARK: Functions

@@ -2357,3 +2357,31 @@ and the `SmartViewRequest` body already existed.
   (`Common/Models/SmartView.swift` additions, `SmartViewFormView`,
   `SmartViewManagementView`) sit in synchronized Xcode folder groups — no
   `.xcodeproj` edit. No app unit tests by design (§19.6).
+
+---
+
+## SwiftUI view decomposition convention (native apps)
+
+- **✅ Subviews are `make…() -> some View` functions, not computed-`var` subviews.**
+  The owner's preferred style (used throughout the sibling project Triton): a view
+  sub-piece is a `private func makeXxx() -> some View`, named `make` + what it
+  produces (`makeEmptyState()`, `makeURLSection()`, `makeRowContextMenu(for:)`),
+  taking parameters when it needs data. `var body` stays a small composition of
+  `make…()` calls rather than one monolithic tree. `@ViewBuilder` is added only
+  when the function body branches (`if`/`switch`) or returns sibling views with no
+  single container; a function returning one container/modifier chain needs none.
+  Non-view computed properties (`isValid`, `navigationTitle: String`, …) stay
+  computed `var`s — only `some View`-returning members are functions.
+- **✅ Applied across all of `StashApp/` in one pass.** Converted the 14
+  computed-`var` subviews and renamed the 5 non-`make` view functions
+  (`row(for:)` → `makeRow(for:)`, `viewLink` → `makeViewLink`, `rowContextMenu` →
+  `makeRowContextMenu`, `setupView`/`recoveryCodesView` → `make…`), and sliced the
+  larger `body`s (bookmark detail, login, the auth screens, the Smart View form,
+  the sidebars) into `make…Section()` / `make…()` pieces. Purely structural — same
+  view trees, same modifier order, no behavior change. New views must follow this.
+- **✅ SwiftFormat places and marks them.** With `organizeDeclarations`
+  (`--organization-mode type`, SwiftUI-aware), view-returning functions are filed
+  under `// MARK: Content Methods` and re-sorted automatically — so we write the
+  functions and run `swiftformat .`; MARKs are never hand-placed. Verified: iOS +
+  macOS build clean, `swiftformat --lint` idempotent, `swiftlint lint` 0
+  violations. Recorded in `CLAUDE.md` → Code style.

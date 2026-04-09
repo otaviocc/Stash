@@ -49,27 +49,8 @@ struct SmartViewManagementView: View {
 
     var body: some View {
         List {
-            Section {
-                Button {
-                    presentedForm = .create
-                } label: {
-                    Label("New Smart View", systemImage: "plus")
-                }
-            }
-
-            if smartViews.isEmpty {
-                Section {
-                    Text("No Smart Views yet. Create one to save a query you use often.")
-                        .foregroundStyle(.secondary)
-                        .font(.footnote)
-                }
-            } else {
-                Section {
-                    ForEach(smartViews) { smartView in
-                        row(for: smartView)
-                    }
-                }
-            }
+            makeNewButtonRow()
+            makeContentSection()
         }
         .navigationTitle("Smart Views")
         .inlineNavigationTitleStyle()
@@ -120,7 +101,34 @@ struct SmartViewManagementView: View {
 
     // MARK: Content Methods
 
-    private func row(for smartView: SmartView) -> some View {
+    private func makeNewButtonRow() -> some View {
+        Section {
+            Button {
+                presentedForm = .create
+            } label: {
+                Label("New Smart View", systemImage: "plus")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func makeContentSection() -> some View {
+        if smartViews.isEmpty {
+            Section {
+                Text("No Smart Views yet. Create one to save a query you use often.")
+                    .foregroundStyle(.secondary)
+                    .font(.footnote)
+            }
+        } else {
+            Section {
+                ForEach(smartViews) { smartView in
+                    makeRow(for: smartView)
+                }
+            }
+        }
+    }
+
+    private func makeRow(for smartView: SmartView) -> some View {
         Button {
             presentedForm = .edit(smartView)
         } label: {

@@ -41,36 +41,51 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Server") {
-                LabeledContent("URL", value: settings.serverURL)
-            }
-
-            Section("Account") {
-                NavigationLink("Account") {
-                    AccountSettingsView()
-                        .navigationTitle("Account")
-                }
-            }
-
-            Section("Smart Views") {
-                NavigationLink("Smart Views") {
-                    SmartViewManagementView()
-                }
-            }
-
-            Section {
-                Button(role: .destructive, action: signOut) {
-                    if isSigningOut {
-                        ProgressView()
-                    } else {
-                        Text("Sign Out")
-                    }
-                }
-                .disabled(isSigningOut)
-            }
+            makeServerSection()
+            makeAccountSection()
+            makeSmartViewsSection()
+            makeSignOutSection()
         }
         .formStyle(.grouped)
         .navigationTitle("Settings")
+    }
+
+    // MARK: Content Methods
+
+    private func makeServerSection() -> some View {
+        Section("Server") {
+            LabeledContent("URL", value: settings.serverURL)
+        }
+    }
+
+    private func makeAccountSection() -> some View {
+        Section("Account") {
+            NavigationLink("Account") {
+                AccountSettingsView()
+                    .navigationTitle("Account")
+            }
+        }
+    }
+
+    private func makeSmartViewsSection() -> some View {
+        Section("Smart Views") {
+            NavigationLink("Smart Views") {
+                SmartViewManagementView()
+            }
+        }
+    }
+
+    private func makeSignOutSection() -> some View {
+        Section {
+            Button(role: .destructive, action: signOut) {
+                if isSigningOut {
+                    ProgressView()
+                } else {
+                    Text("Sign Out")
+                }
+            }
+            .disabled(isSigningOut)
+        }
     }
 
     // MARK: Functions

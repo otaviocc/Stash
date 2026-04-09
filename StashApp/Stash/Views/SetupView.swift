@@ -48,26 +48,36 @@ struct SetupView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("https://stash.example.com", text: $serverURL)
-                        .urlFieldStyle()
-                } header: {
-                    Text("Server URL")
-                } footer: {
-                    Text("Enter the address of your Stash server, including http:// or https://.")
-                }
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
-                        .font(.footnote)
-                }
+                makeServerSection()
+                makeErrorMessage()
 
                 Button("Continue", action: save)
                     .disabled(!isValid)
             }
             .formStyle(.grouped)
             .navigationTitle("Welcome to Stash")
+        }
+    }
+
+    // MARK: Content Methods
+
+    private func makeServerSection() -> some View {
+        Section {
+            TextField("https://stash.example.com", text: $serverURL)
+                .urlFieldStyle()
+        } header: {
+            Text("Server URL")
+        } footer: {
+            Text("Enter the address of your Stash server, including http:// or https://.")
+        }
+    }
+
+    @ViewBuilder
+    private func makeErrorMessage() -> some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
         }
     }
 

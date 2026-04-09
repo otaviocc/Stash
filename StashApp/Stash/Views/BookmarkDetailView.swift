@@ -65,93 +65,20 @@ struct BookmarkDetailView: View {
 
     var body: some View {
         Form {
-            Section {
-                HStack(spacing: 8) {
-                    FaviconView(domain: bookmark.faviconDomain)
-                    Text(bookmark.title)
-                        .font(.headline)
-                }
-
-                Link(destination: bookmark.url) {
-                    Text(bookmark.url.absoluteString)
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-
-            if let description = bookmark.description, !description.isEmpty {
-                Section("Description") {
-                    Text(description)
-                }
-            }
-
-            if !bookmark.tags.isEmpty {
-                Section("Tags") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(bookmark.tags, id: \.self) { tag in
-                                TagPill(name: tag)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Section {
-                LabeledContent("Added", value: bookmark.createdAt, format: .dateTime.day().month().year())
-                if bookmark.isArchived {
-                    LabeledContent("Status", value: "Archived")
-                }
-            }
-
-            Section {
-                Button {
-                    openURL(bookmark.url)
-                } label: {
-                    Label("Open in Browser", systemImage: "safari")
-                }
-                .formButtonRowStyle()
-
-                Button(action: toggleArchived) {
-                    Label(
-                        bookmark.isArchived ? "Unarchive" : "Archive",
-                        systemImage: bookmark.isArchived ? "tray.and.arrow.up" : "archivebox"
-                    )
-                }
-                .formButtonRowStyle()
-                .disabled(isWorking)
-            }
-
-            Section {
-                Button(role: .destructive) {
-                    showingDeleteConfirmation = true
-                } label: {
-                    Label("Delete", systemImage: "trash")
-                }
-                .formButtonRowStyle(isDestructive: true)
-                .keyboardShortcut(.delete, modifiers: .command)
-                .disabled(isWorking)
-            }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.footnote)
-            }
+            makeHeaderSection()
+            makeDescriptionSection()
+            makeTagsSection()
+            makeMetadataSection()
+            makeActionsSection()
+            makeDeleteSection()
+            makeErrorMessage()
         }
         .formStyle(.grouped)
         .navigationTitle("Bookmark")
         .inlineNavigationTitleStyle()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    editingBookmark = bookmark
-                } label: {
-                    Label("Edit", systemImage: "pencil")
-                }
-                .keyboardShortcut("e", modifiers: .command)
-                .disabled(isWorking)
+                makeEditButton()
             }
         }
         .sheet(item: $editingBookmark) { item in
@@ -169,6 +96,110 @@ struct BookmarkDetailView: View {
         } message: {
             Text(bookmark.title)
         }
+    }
+
+    // MARK: Content Methods
+
+    private func makeHeaderSection() -> some View {
+        Section {
+            HStack(spacing: 8) {
+                FaviconView(domain: bookmark.faviconDomain)
+                Text(bookmark.title)
+                    .font(.headline)
+            }
+
+            Link(destination: bookmark.url) {
+                Text(bookmark.url.absoluteString)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func makeDescriptionSection() -> some View {
+        if let description = bookmark.description, !description.isEmpty {
+            Section("Description") {
+                Text(description)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func makeTagsSection() -> some View {
+        if !bookmark.tags.isEmpty {
+            Section("Tags") {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(bookmark.tags, id: \.self) { tag in
+                            TagPill(name: tag)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func makeMetadataSection() -> some View {
+        Section {
+            LabeledContent("Added", value: bookmark.createdAt, format: .dateTime.day().month().year())
+            if bookmark.isArchived {
+                LabeledContent("Status", value: "Archived")
+            }
+        }
+    }
+
+    private func makeActionsSection() -> some View {
+        Section {
+            Button {
+                openURL(bookmark.url)
+            } label: {
+                Label("Open in Browser", systemImage: "safari")
+            }
+            .formButtonRowStyle()
+
+            Button(action: toggleArchived) {
+                Label(
+                    bookmark.isArchived ? "Unarchive" : "Archive",
+                    systemImage: bookmark.isArchived ? "tray.and.arrow.up" : "archivebox"
+                )
+            }
+            .formButtonRowStyle()
+            .disabled(isWorking)
+        }
+    }
+
+    private func makeDeleteSection() -> some View {
+        Section {
+            Button(role: .destructive) {
+                showingDeleteConfirmation = true
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+            .formButtonRowStyle(isDestructive: true)
+            .keyboardShortcut(.delete, modifiers: .command)
+            .disabled(isWorking)
+        }
+    }
+
+    @ViewBuilder
+    private func makeErrorMessage() -> some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
+    }
+
+    private func makeEditButton() -> some View {
+        Button {
+            editingBookmark = bookmark
+        } label: {
+            Label("Edit", systemImage: "pencil")
+        }
+        .keyboardShortcut("e", modifiers: .command)
+        .disabled(isWorking)
     }
 
     // MARK: Functions

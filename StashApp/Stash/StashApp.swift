@@ -42,7 +42,7 @@ struct StashApp: App {
     var body: some Scene {
         #if os(macOS)
             WindowGroup {
-                rootView
+                makeRootView()
                     .frame(minWidth: 800, minHeight: 500)
             }
             .defaultSize(width: 1000, height: 650)
@@ -59,7 +59,7 @@ struct StashApp: App {
             }
         #else
             WindowGroup {
-                rootView
+                makeRootView()
             }
         #endif
     }
@@ -72,9 +72,9 @@ struct StashApp: App {
         _appEnvironment = State(initialValue: AppEnvironment(defaults: defaults))
     }
 
-    // MARK: Content Properties
+    // MARK: Content Methods
 
-    private var rootView: some View {
+    private func makeRootView() -> some View {
         RootView()
             .environment(appSettings)
             .environment(appEnvironment)

@@ -63,30 +63,8 @@ struct AccountSettingsView: View {
 
     var body: some View {
         Form {
-            Section {
-                SecureField("Current password", text: $currentPassword)
-                SecureField("New password", text: $newPassword)
-                SecureField("Confirm new password", text: $confirmPassword)
-
-                if let passwordMessage {
-                    Text(passwordMessage)
-                        .font(.footnote)
-                        .foregroundStyle(passwordSucceeded ? .green : .red)
-                }
-
-                Button("Change Password", action: changePassword)
-                    .disabled(!canChangePassword)
-            } header: {
-                Text("Change Password")
-            } footer: {
-                Text("At least \(Self.minimumPasswordLength) characters.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Two-Factor Authentication") {
-                twoFactorContent
-            }
+            makeChangePasswordSection()
+            makeTwoFactorSection()
         }
         .formStyle(.grouped)
         .formChromeStyle()
@@ -100,7 +78,39 @@ struct AccountSettingsView: View {
         }
     }
 
-    @ViewBuilder private var twoFactorContent: some View {
+    // MARK: Content Methods
+
+    private func makeChangePasswordSection() -> some View {
+        Section {
+            SecureField("Current password", text: $currentPassword)
+            SecureField("New password", text: $newPassword)
+            SecureField("Confirm new password", text: $confirmPassword)
+
+            if let passwordMessage {
+                Text(passwordMessage)
+                    .font(.footnote)
+                    .foregroundStyle(passwordSucceeded ? .green : .red)
+            }
+
+            Button("Change Password", action: changePassword)
+                .disabled(!canChangePassword)
+        } header: {
+            Text("Change Password")
+        } footer: {
+            Text("At least \(Self.minimumPasswordLength) characters.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func makeTwoFactorSection() -> some View {
+        Section("Two-Factor Authentication") {
+            makeTwoFactorContent()
+        }
+    }
+
+    @ViewBuilder
+    private func makeTwoFactorContent() -> some View {
         if isLoadingUser {
             ProgressView()
         } else if user?.isTOTPEnabled == true {
@@ -204,34 +214,37 @@ private struct TwoFactorEnrollView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if let recoveryCodes {
-                    recoveryCodesView(recoveryCodes)
-                } else if let setup {
-                    setupView(setup)
-                } else {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+            makeContent()
+                .padding()
+                .enrollSheetSize()
+                .navigationTitle("Two-Factor Authentication")
+                .inlineNavigationTitleStyle()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                    }
                 }
-            }
-            .padding()
-            .enrollSheetSize()
-            .navigationTitle("Two-Factor Authentication")
-            .inlineNavigationTitleStyle()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                .task {
+                    await beginSetup()
                 }
-            }
-            .task {
-                await beginSetup()
-            }
         }
     }
 
     // MARK: Content Methods
 
-    private func setupView(_ setup: TOTPSetup) -> some View {
+    @ViewBuilder
+    private func makeContent() -> some View {
+        if let recoveryCodes {
+            makeRecoveryCodesView(recoveryCodes)
+        } else if let setup {
+            makeSetupView(setup)
+        } else {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func makeSetupView(_ setup: TOTPSetup) -> some View {
         VStack(spacing: 16) {
             Text("Scan this code with your authenticator app, or enter the key manually.")
                 .font(.callout)
@@ -272,7 +285,7 @@ private struct TwoFactorEnrollView: View {
         }
     }
 
-    private func recoveryCodesView(_ codes: [String]) -> some View {
+    private func makeRecoveryCodesView(_ codes: [String]) -> some View {
         VStack(spacing: 16) {
             Text("Save your recovery codes")
                 .font(.headline)

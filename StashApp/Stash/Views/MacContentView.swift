@@ -45,32 +45,9 @@
         var body: some View {
             NavigationSplitView {
                 List(selection: $selection) {
-                    Section("Views") {
-                        Label("All Bookmarks", systemImage: "bookmark")
-                            .tag(MacSidebarItem.all)
-                        Label("Untagged", systemImage: "tag.slash")
-                            .tag(MacSidebarItem.untagged)
-                        Label("Today", systemImage: "sun.max")
-                            .tag(MacSidebarItem.today)
-                        Label("This Week", systemImage: "calendar")
-                            .tag(MacSidebarItem.thisWeek)
-                    }
-
-                    if !environment.smartViewRepository.smartViews.isEmpty {
-                        Section("Smart Views") {
-                            ForEach(environment.smartViewRepository.smartViews) { smartView in
-                                Label(smartView.name, systemImage: "line.3.horizontal.decrease.circle")
-                                    .tag(MacSidebarItem.smartView(smartView))
-                            }
-                        }
-                    }
-
-                    Section("Tags") {
-                        OutlineGroup(environment.tagRepository.tagHierarchy, children: \.children) { node in
-                            TagTreeLabel(node: node)
-                                .tag(MacSidebarItem.tag(node.slug))
-                        }
-                    }
+                    makeViewsSection()
+                    makeSmartViewsSection()
+                    makeTagsSection()
                 }
                 .navigationTitle("Stash")
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240)
@@ -82,13 +59,49 @@
                 }
             } detail: {
                 NavigationStack {
-                    detail
+                    makeDetail()
+                }
+            }
+        }
+
+        // MARK: Content Methods
+
+        private func makeViewsSection() -> some View {
+            Section("Views") {
+                Label("All Bookmarks", systemImage: "bookmark")
+                    .tag(MacSidebarItem.all)
+                Label("Untagged", systemImage: "tag.slash")
+                    .tag(MacSidebarItem.untagged)
+                Label("Today", systemImage: "sun.max")
+                    .tag(MacSidebarItem.today)
+                Label("This Week", systemImage: "calendar")
+                    .tag(MacSidebarItem.thisWeek)
+            }
+        }
+
+        @ViewBuilder
+        private func makeSmartViewsSection() -> some View {
+            if !environment.smartViewRepository.smartViews.isEmpty {
+                Section("Smart Views") {
+                    ForEach(environment.smartViewRepository.smartViews) { smartView in
+                        Label(smartView.name, systemImage: "line.3.horizontal.decrease.circle")
+                            .tag(MacSidebarItem.smartView(smartView))
+                    }
+                }
+            }
+        }
+
+        private func makeTagsSection() -> some View {
+            Section("Tags") {
+                OutlineGroup(environment.tagRepository.tagHierarchy, children: \.children) { node in
+                    TagTreeLabel(node: node)
+                        .tag(MacSidebarItem.tag(node.slug))
                 }
             }
         }
 
         @ViewBuilder
-        private var detail: some View {
+        private func makeDetail() -> some View {
             if case let .smartView(smartView) = selection {
                 BookmarkListView(smartView: smartView)
             } else {

@@ -98,41 +98,10 @@ struct SmartViewFormView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    TextField("Name", text: $name)
-                        .textFieldStyle(.roundedBorder)
-
-                    HStack(spacing: 6) {
-                        Text("Match")
-
-                        Picker("Match", selection: $matchMode) {
-                            ForEach(MatchMode.allCases) { mode in
-                                Text(mode.rawValue).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        .labelsHidden()
-                        .fixedSize()
-
-                        Text("of the following rules:")
-                    }
-
-                    VStack(spacing: 10) {
-                        ForEach($rows) { $row in
-                            ConditionRowView(
-                                row: $row,
-                                tagStore: environment.tagRepository,
-                                canRemove: rows.count > 1,
-                                onRemove: { remove(row) },
-                                onAdd: { addRow(after: row) }
-                            )
-                        }
-                    }
-
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .foregroundStyle(.red)
-                            .font(.footnote)
-                    }
+                    makeNameField()
+                    makeMatchRow()
+                    makeConditionsList()
+                    makeErrorMessage()
                 }
                 .padding()
             }
@@ -155,6 +124,53 @@ struct SmartViewFormView: View {
         #if os(macOS)
         .frame(minWidth: 540, minHeight: 480)
         #endif
+    }
+
+    // MARK: Content Methods
+
+    private func makeNameField() -> some View {
+        TextField("Name", text: $name)
+            .textFieldStyle(.roundedBorder)
+    }
+
+    private func makeMatchRow() -> some View {
+        HStack(spacing: 6) {
+            Text("Match")
+
+            Picker("Match", selection: $matchMode) {
+                ForEach(MatchMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .fixedSize()
+
+            Text("of the following rules:")
+        }
+    }
+
+    private func makeConditionsList() -> some View {
+        VStack(spacing: 10) {
+            ForEach($rows) { $row in
+                ConditionRowView(
+                    row: $row,
+                    tagStore: environment.tagRepository,
+                    canRemove: rows.count > 1,
+                    onRemove: { remove(row) },
+                    onAdd: { addRow(after: row) }
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func makeErrorMessage() -> some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
     }
 
     // MARK: Functions
@@ -327,36 +343,44 @@ private struct ConditionRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if isSingleLine {
-                HStack(spacing: 8) {
-                    typePicker
-
-                    valueEditor
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    rowButtons
-                }
+                makeSingleLineLayout()
             } else {
-                HStack(spacing: 8) {
-                    typePicker
-
-                    Spacer(minLength: 0)
-
-                    rowButtons
-                }
-
-                valueEditor
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                makeStackedLayout()
             }
 
-            if row.type.valueKind == .tag, !tagSuggestions.isEmpty {
-                TagSuggestionView(suggestions: tagSuggestions) { tag in
-                    row.text = tag.name
-                }
-            }
+            makeTagSuggestions()
         }
     }
 
-    private var typePicker: some View {
+    // MARK: Content Methods
+
+    private func makeSingleLineLayout() -> some View {
+        HStack(spacing: 8) {
+            makeTypePicker()
+
+            makeValueEditor()
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            makeRowButtons()
+        }
+    }
+
+    private func makeStackedLayout() -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                makeTypePicker()
+
+                Spacer(minLength: 0)
+
+                makeRowButtons()
+            }
+
+            makeValueEditor()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func makeTypePicker() -> some View {
         Picker("Type", selection: $row.type) {
             ForEach(SmartViewConditionType.allCases) { type in
                 Text(type.title).tag(type)
@@ -368,7 +392,7 @@ private struct ConditionRowView: View {
     }
 
     @ViewBuilder
-    private var valueEditor: some View {
+    private func makeValueEditor() -> some View {
         switch row.type.valueKind {
         case .text, .tag:
             TextField(row.type.valueKind == .tag ? "tag" : "value", text: $row.text)
@@ -391,7 +415,7 @@ private struct ConditionRowView: View {
         }
     }
 
-    private var rowButtons: some View {
+    private func makeRowButtons() -> some View {
         HStack(spacing: 4) {
             Button(action: onRemove) {
                 Image(systemName: "minus")
@@ -406,6 +430,15 @@ private struct ConditionRowView: View {
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
+    }
+
+    @ViewBuilder
+    private func makeTagSuggestions() -> some View {
+        if row.type.valueKind == .tag, !tagSuggestions.isEmpty {
+            TagSuggestionView(suggestions: tagSuggestions) { tag in
+                row.text = tag.name
+            }
+        }
     }
 }
 

@@ -71,19 +71,22 @@ struct ShareExtensionView: View {
     // MARK: Content
 
     var body: some View {
-        content
+        makeContent()
             .task {
                 await bootstrap()
             }
     }
 
-    @ViewBuilder private var content: some View {
+    // MARK: Content Methods
+
+    @ViewBuilder
+    private func makeContent() -> some View {
         switch phase {
         case .loading:
-            loadingView
+            makeLoadingView()
 
         case .signedOut:
-            signedOutView
+            makeSignedOutView()
 
         case let .add(url):
             AddBookmarkView(
@@ -108,7 +111,7 @@ struct ShareExtensionView: View {
         }
     }
 
-    private var loadingView: some View {
+    private func makeLoadingView() -> some View {
         VStack(spacing: 16) {
             ProgressView()
             Text("Stash")
@@ -118,7 +121,7 @@ struct ShareExtensionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var signedOutView: some View {
+    private func makeSignedOutView() -> some View {
         NavigationStack {
             ContentUnavailableView {
                 Label("Sign In to Stash", systemImage: "person.crop.circle.badge.exclamationmark")

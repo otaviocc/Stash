@@ -51,33 +51,46 @@ struct RecoveryCodeView: View {
 
     var body: some View {
         Form {
-            Section {
-                TextField("XXXX-XXXX", text: $code)
-                    .uppercasedFieldStyle()
-            } header: {
-                Text("Recovery code")
-            } footer: {
-                Text("Enter one of the recovery codes you saved when enabling two-factor authentication.")
-            }
-
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-                    .font(.footnote)
-            }
-
-            Button(action: verify) {
-                if isSubmitting {
-                    ProgressView()
-                } else {
-                    Text("Verify")
-                }
-            }
-            .disabled(!canSubmit)
+            makeCodeSection()
+            makeErrorMessage()
+            makeVerifyButton()
         }
         .formStyle(.grouped)
         .navigationTitle("Recovery Code")
         .inlineNavigationTitleStyle()
+    }
+
+    // MARK: Content Methods
+
+    private func makeCodeSection() -> some View {
+        Section {
+            TextField("XXXX-XXXX", text: $code)
+                .uppercasedFieldStyle()
+        } header: {
+            Text("Recovery code")
+        } footer: {
+            Text("Enter one of the recovery codes you saved when enabling two-factor authentication.")
+        }
+    }
+
+    @ViewBuilder
+    private func makeErrorMessage() -> some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .foregroundStyle(.red)
+                .font(.footnote)
+        }
+    }
+
+    private func makeVerifyButton() -> some View {
+        Button(action: verify) {
+            if isSubmitting {
+                ProgressView()
+            } else {
+                Text("Verify")
+            }
+        }
+        .disabled(!canSubmit)
     }
 
     // MARK: Functions
