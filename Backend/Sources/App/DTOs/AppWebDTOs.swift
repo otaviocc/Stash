@@ -62,6 +62,22 @@ struct TagLink: Content {
     let display: String
 }
 
+/// One row of the flattened, pre-ordered tag tree shown in the bookmark-list sidebar.
+struct SidebarTag: Content {
+    /// Full slug, e.g. `swift/vapor`.
+    let name: String
+    /// Just this level's label, e.g. `vapor`.
+    let label: String
+    /// Pre-built, percent-encoded link, e.g. `/app?tag=swift%2Fvapor`.
+    let href: String
+    /// Exact bookmark count for this tag (0 for synthetic parents that aren't a tag themselves).
+    let count: Int
+    /// Nesting depth (0 = top level), for indentation.
+    let depth: Int
+    /// Whether this is the currently active `?tag=` filter.
+    let isActive: Bool
+}
+
 struct AppBookmarkRow: Content {
     let id: String
     let url: String
@@ -87,6 +103,11 @@ struct AppBookmarksContext: Content {
     let prevURL: String?
     let nextURL: String?
     let notice: String?
+    let sidebarTags: [SidebarTag]
+    /// Number of bookmarks with no tags (for the sidebar's "Untagged" item).
+    let untaggedCount: Int
+    /// Whether the current filter is the "Untagged" pseudo-tag.
+    let untaggedActive: Bool
 }
 
 struct AppNewBookmarkContext: Content {

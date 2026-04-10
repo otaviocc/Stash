@@ -139,6 +139,13 @@ Unversioned, mounted at `/app`, separate from the API and the admin dashboard.
 
 ### M11 notes
 
+- **Tag sidebar** on `/app`: a two-column layout adds a right-hand hierarchical tag tree (sorted,
+  indented by depth, counts shown, active tag + "All" highlighted) plus an **"Untagged"** filter
+  (`?tag=__untagged__`, an internal sentinel never shown as a label). The tree is built server-side
+  into a flattened pre-ordered list (`SidebarTag` with `depth`) since Leaf doesn't recurse; synthetic
+  parents are included for nesting. The sidebar is `position: sticky` (scrolls with the page, no own
+  scrollbar) and hidden below 768px (the on-list filter pills cover mobile). All colours use the
+  dark-mode CSS variables; `/app/tags` is unchanged.
 - **Dark mode** (light / dark / auto) is chosen in `/app/settings` and stored in a 1-year,
   site-wide (`path=/`) `stash_theme` cookie that themes both `/app` and `/admin`. All colours are
   CSS variables in `layout.leaf` (`:root` light, `[data-theme="dark"]` explicit, and a
