@@ -419,12 +419,14 @@ private struct ConditionRowView: View {
         HStack(spacing: 4) {
             Button(action: onRemove) {
                 Image(systemName: "minus")
+                    .frame(width: 16, height: 16)
             }
             .disabled(!canRemove)
             .accessibilityLabel("Remove Condition")
 
             Button(action: onAdd) {
                 Image(systemName: "plus")
+                    .frame(width: 16, height: 16)
             }
             .accessibilityLabel("Add Condition")
         }
