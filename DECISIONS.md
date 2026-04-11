@@ -2385,3 +2385,30 @@ and the `SmartViewRequest` body already existed.
   functions and run `swiftformat .`; MARKs are never hand-placed. Verified: iOS +
   macOS build clean, `swiftformat --lint` idempotent, `swiftlint lint` 0
   violations. Recorded in `CLAUDE.md` → Code style.
+
+---
+
+## App icon: the bookmark-ribbon mark (native apps)
+
+- **✅ The app now wears the same mark as the browser extension.** Replaced the
+  stock treasure-chest art with the Stash bookmark ribbon — the vertical ribbon
+  with a V-notch at the bottom that `Extension/icons/` already uses — so the app
+  and the extension share one identity.
+- **✅ Generated, not hand-drawn — mirroring the extension.** `StashApp/icon/`
+  `generate-app-icon.py` is the app-side twin of `Extension/icons/generate-icons.py`:
+  same ribbon polygon (rounded top corners + V-notch), same supersample-then-resize
+  approach. It renders the ribbon as a **white** glyph on a transparent 1024×1024
+  canvas and writes `AppIcon.icon/Assets/Ribbon.png`. Regenerate, don't hand-edit
+  the PNG. The folder lives outside the synchronized Xcode groups so the script is
+  never compiled into a target.
+- **✅ Icon Composer (`.icon`) supplies color and glass, the glyph stays flat.**
+  The app uses the Xcode 26 `AppIcon.icon` bundle, not an `.appiconset`. `icon.json`
+  keeps the single `glass: true` layer but now points at `Ribbon.png`, sets the
+  background `automatic-gradient` to the brand indigo `#231468`
+  (`extended-srgb:0.13725,0.07843,0.40784`), and resets the layer `scale`/
+  `translation` to `1`/`[0,0]` (the old `1.35` + offset were positioning the wide
+  chest art; the new glyph is already centered and sized in a square canvas). White
+  ribbon on indigo glass.
+- **✅ Renamed the layer asset `Foobar.png` → `Ribbon.png`** (and the layer `name`),
+  retiring the placeholder name. iOS Simulator build succeeds; no `.xcodeproj` edit
+  (the `.icon` bundle is referenced as-is).

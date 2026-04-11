@@ -1,6 +1,6 @@
 {
   "fill" : {
-    "automatic-gradient" : "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+    "automatic-gradient" : "extended-srgb:0.13725,0.07843,0.40784,1.00000"
   },
   "groups" : [
     {
@@ -9,13 +9,13 @@
           "blend-mode" : "normal",
           "fill" : "none",
           "glass" : true,
-          "image-name" : "Foobar.png",
-          "name" : "Foobar",
+          "image-name" : "Ribbon.png",
+          "name" : "Ribbon",
           "position" : {
-            "scale" : 1.35,
+            "scale" : 1,
             "translation-in-points" : [
-              -3.1435969561144788,
-              13.178072484479992
+              0,
+              0
             ]
           }
         }
