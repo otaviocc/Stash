@@ -64,8 +64,6 @@ struct TagLink: Content {
 
 /// One row of the flattened, pre-ordered tag tree shown in the bookmark-list sidebar.
 struct SidebarTag: Content {
-    /// Full slug, e.g. `swift/vapor`.
-    let name: String
     /// Just this level's label, e.g. `vapor`.
     let label: String
     /// Pre-built, percent-encoded link, e.g. `/app?tag=swift%2Fvapor`.

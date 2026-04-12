@@ -208,7 +208,6 @@ struct AppWebController: RouteCollection {
         return ordered.map { slug in
             let comps = slug.split(separator: "/").map(String.init)
             return SidebarTag(
-                name: slug,
                 label: comps.last ?? slug,
                 href: tagHref(slug),
                 count: counts[slug] ?? 0,
