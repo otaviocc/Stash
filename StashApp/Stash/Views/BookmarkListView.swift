@@ -341,6 +341,12 @@ private struct BookmarkListContent: View {
         }
 
         Button {
+            copyToPasteboard("[\(bookmark.title)](\(bookmark.url.absoluteString))")
+        } label: {
+            Label("Copy Markdown URL", systemImage: "doc.on.doc")
+        }
+
+        Button {
             setArchived(bookmark, archived: !bookmark.isArchived)
         } label: {
             Label(

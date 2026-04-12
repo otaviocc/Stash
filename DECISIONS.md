@@ -736,7 +736,9 @@ Glass adopted automatically by building against the 26 SDKs).
   delete-with-confirmation) and is shared by the iOS push and the macOS detail
   column; `EditBookmarkView` (URL fixed, like the web edit form) is shared. A
   right-click/long-press context menu on each `BookmarkListView` row (Open in
-  Browser, Copy URL, Archive/Unarchive, Delete) is also shared. Keyboard
+  Browser, Copy URL, Copy Markdown URL, Archive/Unarchive, Delete) is also
+  shared; the same copy actions (Copy URL + Copy Markdown URL — the latter emits
+  `[title](url)`) also live in `BookmarkDetailView`'s actions section. Keyboard
   shortcuts wired: ⌘N (new), ⌘E (edit), ⌘R (refresh), ⌘⌫ (delete the open
   bookmark, with confirmation). ⌘F is left to the system search field rather
   than custom-bound.

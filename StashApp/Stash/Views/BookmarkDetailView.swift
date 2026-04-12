@@ -159,6 +159,20 @@ struct BookmarkDetailView: View {
             }
             .formButtonRowStyle()
 
+            Button {
+                copyToPasteboard(bookmark.url.absoluteString)
+            } label: {
+                Label("Copy URL", systemImage: "doc.on.doc")
+            }
+            .formButtonRowStyle()
+
+            Button {
+                copyToPasteboard("[\(bookmark.title)](\(bookmark.url.absoluteString))")
+            } label: {
+                Label("Copy Markdown URL", systemImage: "doc.on.doc")
+            }
+            .formButtonRowStyle()
+
             Button(action: toggleArchived) {
                 Label(
                     bookmark.isArchived ? "Unarchive" : "Archive",
