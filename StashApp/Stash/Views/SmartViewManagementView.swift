@@ -52,6 +52,7 @@ struct SmartViewManagementView: View {
             makeNewButtonRow()
             makeContentSection()
         }
+        .settingsChromeStyle()
         .navigationTitle("Smart Views")
         .inlineNavigationTitleStyle()
         .sheet(item: $presentedForm) { presentation in

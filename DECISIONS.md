@@ -2163,11 +2163,15 @@ or macOS.
   and `TwoFactorEnrollView` was the bulk of the change.
 - **✅ Only window chrome stayed platform-specific.** The macOS-only bits — the
   form's outer `.padding()` and the enrolment sheet's fixed
-  `.frame(width: 380, height: 460)` — moved behind two private
-  `formChromeStyle()` / `enrollSheetSize()` `View` helpers (`#if os(macOS)`, no-op
-  on iOS), keeping the divergence at the edges per the M10 convention. The two TOTP
-  code fields gained `.oneTimeCodeFieldStyle()` (from `PlatformModifiers`) for an
-  iOS numeric keyboard; it is already a no-op on macOS.
+  `.frame(width: 380, height: 460)` — moved behind a shared `settingsChromeStyle()`
+  (in `PlatformModifiers`) and a private `enrollSheetSize()` `View` helper
+  (`#if os(macOS)`, no-op on iOS), keeping the divergence at the edges per the M10
+  convention. `settingsChromeStyle()` is shared because the **Smart Views** tab
+  (whose `SmartViewManagementView` is a `List`, not a grouped `Form`) needs the same
+  macOS padding to line up with the General and Account tabs — without it the tab
+  sat flush against the settings-window edges while the others were inset. The two
+  TOTP code fields gained `.oneTimeCodeFieldStyle()` (from `PlatformModifiers`) for
+  an iOS numeric keyboard; it is already a no-op on macOS.
 - **✅ Entry points: a push on iPhone, a sheet on iPad.** iPhone's `SettingsView`
   (inside the tab's `NavigationStack`) gains an Account `NavigationLink`. The
   **iPad** `SidebarSplitView` previously had *no* Settings surface at all — not

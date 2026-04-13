@@ -110,6 +110,17 @@ extension View {
         #endif
     }
 
+    /// Outer chrome for a Settings tab's content: macOS pads it inside the settings window so it
+    /// doesn't sit flush against the edges (matching the General and Account tabs); iOS, where the
+    /// same view is a pushed screen, lets the grouped `Form`/`List` provide its own insets.
+    func settingsChromeStyle() -> some View {
+        #if os(macOS)
+            padding()
+        #else
+            self
+        #endif
+    }
+
     /// Applies the inline navigation-title display mode on iOS; a no-op on macOS, which has no
     /// large-title concept.
     func inlineNavigationTitleStyle() -> some View {

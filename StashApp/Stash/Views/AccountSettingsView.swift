@@ -67,7 +67,7 @@ struct AccountSettingsView: View {
             makeTwoFactorSection()
         }
         .formStyle(.grouped)
-        .formChromeStyle()
+        .settingsChromeStyle()
         .task {
             await loadUser()
         }
@@ -361,17 +361,6 @@ private struct TwoFactorEnrollView: View {
 // MARK: - Platform Chrome
 
 private extension View {
-
-    /// The account form's outer chrome: macOS pads the form inside the settings window; iOS lets
-    /// the grouped `Form` provide its own insets.
-    @ViewBuilder
-    func formChromeStyle() -> some View {
-        #if os(macOS)
-            padding()
-        #else
-            self
-        #endif
-    }
 
     /// The 2FA enrollment sheet is fixed-size in the macOS settings window; on iOS it sizes itself
     /// as a standard sheet.
