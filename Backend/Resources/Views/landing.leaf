@@ -5,11 +5,18 @@
 #export("content"):
     <section class="landing-hero">
         <h1>Your bookmarks. Your server. Your data.</h1>
-        <p class="lead">Stash is a self-hosted bookmark manager with native iOS, macOS, and web clients.</p>
+        <p class="lead">Stash is a self-hosted, fully private bookmark manager — with native iOS and macOS apps, a full web interface, a command-line tool, and a browser extension.</p>
         <div class="landing-cta">
             <a class="primary" href="/app">Sign in &rarr;</a>
             <a class="secondary" href="/admin">Admin &rarr;</a>
         </div>
+        <ul class="platform-badges" aria-hidden="true">
+            <li class="badge">iOS</li>
+            <li class="badge">macOS</li>
+            <li class="badge">Web</li>
+            <li class="badge">CLI</li>
+            <li class="badge">Browser extension</li>
+        </ul>
     </section>
     #if(aboutText):
     <div class="card landing-about">
@@ -19,23 +26,33 @@
     <section class="features">
         <div class="feature">
             <div class="icon">🔒</div>
-            <h3>Self-hosted</h3>
-            <p>Your data lives on your infrastructure. No third-party cloud, no tracking, no ads.</p>
+            <h3>Self-hosted &amp; private</h3>
+            <p>Your data lives on your infrastructure — no third-party cloud, no tracking, no ads. Even favicons are cached and served by Stash, so your bookmarks never leak to an outside CDN.</p>
         </div>
         <div class="feature">
             <div class="icon">🖥️</div>
-            <h3>Multi-platform</h3>
-            <p>Native iOS and macOS apps, a full web interface, and a command-line tool.</p>
+            <h3>Every platform</h3>
+            <p>Native iOS and macOS apps with Share Extensions, a full web interface, the <code>stash</code> command-line tool, and a Firefox &amp; Chrome browser extension.</p>
         </div>
         <div class="feature">
             <div class="icon">🗂️</div>
             <h3>Organised</h3>
-            <p>Hierarchical tags, full-text search, bulk rename and delete, and Smart Views.</p>
+            <p>Flat and hierarchical tags, full-text search, bulk rename and delete, and saved Smart Views built from AND/OR condition queries.</p>
         </div>
         <div class="feature">
-            <div class="icon">👥</div>
-            <h3>Multi-user</h3>
-            <p>Invite others to your instance. Each user has their own private collection.</p>
+            <div class="icon">🔐</div>
+            <h3>Secure by default</h3>
+            <p>Optional two-factor authentication (TOTP) with single-use recovery codes, per-user isolation, and a separate admin role.</p>
+        </div>
+        <div class="feature">
+            <div class="icon">🔁</div>
+            <h3>Portable</h3>
+            <p>Import from Anybox or another Stash, and export everything — bookmarks and Smart Views — as JSON. No lock-in.</p>
+        </div>
+        <div class="feature">
+            <div class="icon">🎨</div>
+            <h3>Yours to theme</h3>
+            <p>Light, Dark, or Auto on every page, plus an admin-chosen accent theme for the instance.</p>
         </div>
     </section>
 #endexport

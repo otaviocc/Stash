@@ -1794,6 +1794,22 @@ Glass adopted automatically by building against the 26 SDKs).
   middleware. It is the sole unauthenticated web page besides the two login screens;
   no new tests beyond a throwaway Leaf smoke test (render + aboutText card — run
   then removed, per §19.6).
+- **✅ Copy and styling refreshed to match the shipped product.** The original 2×2
+  feature grid (self-hosted, multi-platform, organised, multi-user) had fallen behind:
+  it never mentioned the CLI or browser extension as clients, nor 2FA, import/export,
+  or theming. The grid is now **six cards** — *Self-hosted & private* (incl.
+  self-hosted favicons), *Every platform* (iOS/macOS/web/CLI/browser extension),
+  *Organised* (tags, search, Smart Views), *Secure by default* (TOTP + recovery
+  codes), *Portable* (Anybox/Stash JSON import-export), and *Yours to theme*
+  (Light/Dark/Auto + the admin accent theme). The hero subline now names every
+  client. The styling moved into the scoped `landing.css` (per the §1903 split): an
+  accent-tinted `color-mix` gradient hero panel, a decorative platform-badge row, and
+  card hover polish (shadow + lift + accent top-border, disabled under
+  `prefers-reduced-motion`). All still resolve from the existing CSS variables, so
+  dark mode and the admin accent theme apply for free; the grid steps 3→2→1 columns at
+  760px/520px. No controller or `LandingPageContext` change — the page still renders
+  from `chrome` + `aboutText` only. Markdown URL copy was deliberately **not**
+  advertised here: it is a native-app action, off-topic for the web landing page.
 
 ---
 

@@ -1,18 +1,25 @@
 .landing-hero {
     text-align: center;
-    padding: 2.5rem 0 1rem;
+    padding: 3.25rem 1.5rem 2.75rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background:
+        radial-gradient(120% 140% at 50% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+        var(--surface);
 }
 
 .landing-hero h1 {
-    font-size: 2.4rem;
-    line-height: 1.15;
+    font-size: 2.6rem;
+    line-height: 1.12;
+    letter-spacing: -0.01em;
     margin: 0 0 0.85rem;
 }
 
 .landing-hero .lead {
     font-size: 1.2rem;
-    color: var(--text-muted);
-    max-width: 38rem;
+    color: var(--text-2);
+    max-width: 40rem;
     margin: 0 auto 1.85rem;
 }
 
@@ -25,15 +32,22 @@
 
 .landing-cta a {
     display: inline-block;
-    padding: 0.6rem 1.4rem;
-    border-radius: 6px;
+    padding: 0.62rem 1.5rem;
+    border-radius: 8px;
     text-decoration: none;
     font-weight: 600;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .landing-cta a.primary {
     background: var(--accent);
     color: var(--btn-text);
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.landing-cta a.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .landing-cta a.secondary {
@@ -46,8 +60,28 @@
     background: var(--surface-2);
 }
 
+.platform-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    list-style: none;
+    margin: 1.85rem 0 0;
+    padding: 0;
+}
+
+.platform-badges .badge {
+    padding: 0.22rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
 .landing-about {
-    margin-top: 2.25rem;
+    margin-top: 1.75rem;
 }
 
 .landing-about .label {
@@ -56,26 +90,36 @@
 
 .features {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 1rem;
     margin-top: 2.5rem;
 }
 
 .feature {
+    position: relative;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 1.35rem;
+    border-top: 2px solid transparent;
+    border-radius: 10px;
+    padding: 1.45rem;
+    box-shadow: 0 1px 3px var(--shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-top-color 0.15s ease;
+}
+
+.feature:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px var(--shadow);
+    border-top-color: var(--accent);
 }
 
 .feature .icon {
-    font-size: 1.7rem;
+    font-size: 1.75rem;
     line-height: 1;
 }
 
 .feature h3 {
-    margin: 0.6rem 0 0.35rem;
-    font-size: 1.05rem;
+    margin: 0.65rem 0 0.4rem;
+    font-size: 1.08rem;
 }
 
 .feature p {
@@ -84,12 +128,42 @@
     font-size: 0.95rem;
 }
 
-@media (max-width: 600px) {
+.feature code {
+    font-size: 0.88em;
+    padding: 0.05rem 0.3rem;
+    border-radius: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+}
+
+@media (max-width: 760px) {
+    .features {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 520px) {
     .features {
         grid-template-columns: 1fr;
     }
 
+    .landing-hero {
+        padding: 2.25rem 1.1rem 2rem;
+    }
+
     .landing-hero h1 {
-        font-size: 1.9rem;
+        font-size: 1.95rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-cta a,
+    .feature {
+        transition: none;
+    }
+
+    .landing-cta a.primary:hover,
+    .feature:hover {
+        transform: none;
     }
 }
