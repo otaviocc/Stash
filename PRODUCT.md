@@ -201,14 +201,14 @@ database.
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | UUID | Primary key |
-| `accentTheme` | String | Default `"ocean"`. One of the nine theme identifiers. |
+| `accentTheme` | String | Default `"ocean"`. One of the ten theme identifiers. |
 | `aboutText` | String? | Optional. Short message shown in the footer. Max 280 chars. |
 | `footerCustomLabel` | String? | Display label for the admin's custom footer link. |
 | `footerCustomURL` | String? | URL for the custom footer link. Must be `https://`. |
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
-**Accent themes.** Nine named themes, each with a light-mode and a dark-mode hex
+**Accent themes.** Ten named themes, each with a light-mode and a dark-mode hex
 value; the active value is selected automatically from the `data-theme`
 attribute. `ocean` is the default and matches the app's original accent.
 
@@ -223,6 +223,7 @@ attribute. `ocean` is the default and matches the app's original accent.
 | `rose` | Rose | `#be185d` | `#f472b6` |
 | `dusk` | Dusk | `#b45309` | `#d97706` |
 | `slate` | Slate | `#475569` | `#94a3b8` |
+| `terracotta` | Terracotta | `#d17e4c` | `#d17e4c` |
 
 The selected theme's values are injected into `layout.leaf`'s `<head>` as a CSS
 block overriding `--accent`, from the app-level cache (no per-request query).
@@ -687,7 +688,7 @@ container restart.
 - Nav includes an "App" link to `/app` (always shown — every admin also has a
   regular bookmark collection, so it is never a dead end)
 - The Appearance page (`GET`/`POST /admin/appearance`) edits the instance
-  `SiteSettings` (§7.6): accent theme (nine circles, pure-HTML radios), the
+  `SiteSettings` (§7.6): accent theme (ten circles, pure-HTML radios), the
   about message (max 280 chars), and the custom footer link (URL must be
   `https://`). Each theme circle previews the colour for the active mode — its
   light value in light mode, its dark value in dark mode — matching what the app

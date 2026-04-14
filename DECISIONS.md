@@ -2434,3 +2434,18 @@ and the `SmartViewRequest` body already existed.
 - **✅ Renamed the layer asset `Foobar.png` → `Ribbon.png`** (and the layer `name`),
   retiring the placeholder name. iOS Simulator build succeeds; no `.xcodeproj` edit
   (the `.icon` bundle is referenced as-is).
+
+---
+
+## Accent palette: added the Terracotta theme
+
+- **✅ Added a tenth accent theme, `terracotta` (`#d17e4c`).** Appended to
+  `AccentTheme.all` after `slate`, keeping the existing nine untouched. It uses the
+  same hex for light and dark — a muted clay-orange that reads well on either
+  background — so unlike most themes its light and dark values are identical.
+- **✅ Name over hex.** "Terracotta" was chosen to match the palette's evocative
+  one-word style (Ocean, Aurora, Dusk, Slate) rather than a literal "Orange", since
+  the tone is a soft clay rather than a pure orange.
+- **✅ No other code changes.** `AccentTheme.validIdentifiers`, the admin picker, and
+  the swatch CSS all derive from `all`, so the new theme is selectable, validates,
+  and previews automatically. `PRODUCT.md` §7.6 (theme table + count) updated.

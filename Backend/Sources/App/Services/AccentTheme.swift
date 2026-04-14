@@ -24,7 +24,7 @@ import Foundation
 
 // MARK: - AccentTheme
 
-/// One of the nine named accent colour themes the admin can pick for the instance. Each theme
+/// One of the named accent colour themes the admin can pick for the instance. Each theme
 /// carries a light-mode and a dark-mode hex value; the active value is selected client-side via
 /// the `data-theme` attribute. `ocean` is the default and matches the app's original accent.
 struct AccentTheme: Equatable {
@@ -40,7 +40,8 @@ struct AccentTheme: Equatable {
         AccentTheme(id: "arctic", name: "Arctic", light: "#0891b2", dark: "#22d3ee"),
         AccentTheme(id: "rose", name: "Rose", light: "#be185d", dark: "#f472b6"),
         AccentTheme(id: "dusk", name: "Dusk", light: "#b45309", dark: "#d97706"),
-        AccentTheme(id: "slate", name: "Slate", light: "#475569", dark: "#94a3b8")
+        AccentTheme(id: "slate", name: "Slate", light: "#475569", dark: "#94a3b8"),
+        AccentTheme(id: "terracotta", name: "Terracotta", light: "#d17e4c", dark: "#d17e4c")
     ]
 
     static let `default` = all[0]
