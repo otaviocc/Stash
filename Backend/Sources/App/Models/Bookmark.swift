@@ -1,10 +1,39 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Fluent
 import Foundation
 import Vapor
 
+// MARK: - Bookmark
+
 /// A saved bookmark, scoped to a single user. See PRD §7.2.
 final class Bookmark: Model, Content, @unchecked Sendable {
+
+    // MARK: Static Properties
+
     static let schema = "bookmarks"
+
+    // MARK: Properties
 
     @ID(key: .id)
     var id: UUID?
@@ -43,6 +72,8 @@ final class Bookmark: Model, Content, @unchecked Sendable {
     @Timestamp(key: "updated_at", on: .update)
     var updatedAt: Date?
 
+    // MARK: Lifecycle
+
     init() {}
 
     init(
@@ -56,26 +87,30 @@ final class Bookmark: Model, Content, @unchecked Sendable {
         isArchived: Bool = false
     ) {
         self.id = id
-        self.$user.id = userID
+        $user.id = userID
         self.url = url
         self.title = title
         self.description = description
         self.faviconURL = faviconURL
         self.tags = tags
-        self.tagsSearch = Bookmark.searchString(for: tags)
+        tagsSearch = Bookmark.searchString(for: tags)
         self.isArchived = isArchived
     }
 
-    /// Set tags and keep the derived search string in sync.
-    func applyTags(_ tags: [String]) {
-        self.tags = tags
-        self.tagsSearch = Bookmark.searchString(for: tags)
-    }
+    // MARK: Static Functions
 
     /// Normalised, pipe-wrapped tag string used for portable prefix queries.
     /// e.g. `["swift", "swift/vapor"]` -> `"|swift|swift/vapor|"`.
     static func searchString(for tags: [String]) -> String {
         tags.isEmpty ? "" : "|" + tags.joined(separator: "|") + "|"
+    }
+
+    // MARK: Functions
+
+    /// Set tags and keep the derived search string in sync.
+    func applyTags(_ tags: [String]) {
+        self.tags = tags
+        tagsSearch = Bookmark.searchString(for: tags)
     }
 
     func asResponse() throws -> BookmarkResponse {
@@ -96,6 +131,7 @@ final class Bookmark: Model, Content, @unchecked Sendable {
 // MARK: - Validation & normalisation
 
 extension Bookmark {
+
     /// Validate and normalise a URL. Throws a 422 `validation_failed` on bad input (PRD §17.4).
     static func validatedURL(_ raw: String) throws -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -137,6 +173,7 @@ extension Bookmark {
 }
 
 extension String {
+
     /// The trimmed string, or nil if it is empty after trimming.
     var nonEmpty: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)

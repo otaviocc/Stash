@@ -18,7 +18,7 @@ let package = Package(
         // JWT signing + verification
         .package(url: "https://github.com/vapor/jwt.git", from: "4.0.0"),
         // Server-rendered HTML (admin dashboard — used from M5 onward)
-        .package(url: "https://github.com/vapor/leaf.git", from: "4.0.0"),
+        .package(url: "https://github.com/vapor/leaf.git", from: "4.0.0")
     ],
     targets: [
         .executableTarget(
@@ -29,7 +29,7 @@ let package = Package(
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
                 .product(name: "FluentSQLiteDriver", package: "fluent-sqlite-driver"),
                 .product(name: "JWT", package: "jwt"),
-                .product(name: "Leaf", package: "leaf"),
+                .product(name: "Leaf", package: "leaf")
             ],
             path: "Sources/App",
             swiftSettings: swiftSettings
@@ -38,16 +38,16 @@ let package = Package(
             name: "AppTests",
             dependencies: [
                 .target(name: "App"),
-                .product(name: "VaporTesting", package: "vapor"),
+                .product(name: "VaporTesting", package: "vapor")
             ],
             path: "Tests/AppTests",
             swiftSettings: swiftSettings
-        ),
+        )
     ]
 )
 
 var swiftSettings: [SwiftSetting] {
     [
-        .enableUpcomingFeature("DisableOutwardActorInference"),
+        .enableUpcomingFeature("DisableOutwardActorInference")
     ]
 }

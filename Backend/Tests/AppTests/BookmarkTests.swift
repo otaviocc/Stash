@@ -1,23 +1,33 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Fluent
 import Testing
 import Vapor
 import VaporTesting
-
 @testable import App
 
 @Suite("Bookmarks — CRUD, duplicates, search, isolation")
 struct BookmarkTests {
-    // Helper: a create body that never triggers a network metadata fetch.
-    private func createBody(
-        url: String,
-        title: String? = "Example",
-        description: String? = nil,
-        tags: [String]? = nil
-    ) -> CreateBookmarkInput {
-        CreateBookmarkInput(
-            url: url, title: title, description: description, tags: tags, fetchMetadata: false
-        )
-    }
 
     @Test("create returns 201 and the bookmark, and increments bookmarkCount")
     func create() async throws {
@@ -29,7 +39,11 @@ struct BookmarkTests {
                 .POST, "api/v1/bookmarks",
                 headers: bearer(pair.accessToken),
                 beforeRequest: { req in
-                    try req.content.encode(createBody(url: "https://example.com", title: "Example", tags: ["Swift", "swift/vapor"]))
+                    try req.content.encode(createBody(
+                        url: "https://example.com",
+                        title: "Example",
+                        tags: ["Swift", "swift/vapor"]
+                    ))
                 },
                 afterResponse: { res async throws in
                     #expect(res.status == .created)
@@ -43,12 +57,11 @@ struct BookmarkTests {
 
             try await app.testing().test(
                 .GET, "api/v1/me",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    let me = try res.content.decode(UserResponse.self)
-                    #expect(me.bookmarkCount == 1)
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let me = try res.content.decode(UserResponse.self)
+                #expect(me.bookmarkCount == 1)
+            }
         }
     }
 
@@ -106,12 +119,11 @@ struct BookmarkTests {
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/\(id)",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    #expect(res.status == .ok)
-                    #expect(try res.content.decode(BookmarkResponse.self).title == "A")
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                #expect(res.status == .ok)
+                #expect(try res.content.decode(BookmarkResponse.self).title == "A")
+            }
 
             try await app.testing().test(
                 .PUT, "api/v1/bookmarks/\(id)",
@@ -133,15 +145,13 @@ struct BookmarkTests {
 
             try await app.testing().test(
                 .DELETE, "api/v1/bookmarks/\(id)",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in #expect(res.status == .noContent) }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in #expect(res.status == .noContent) }
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/\(id)",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in #expect(res.status == .notFound) }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in #expect(res.status == .notFound) }
         }
     }
 
@@ -154,7 +164,7 @@ struct BookmarkTests {
             let second = try await app.makeBookmark(for: user, url: "https://two.com")
 
             try await app.testing().test(
-                .PUT, "api/v1/bookmarks/\(try second.requireID())",
+                .PUT, "api/v1/bookmarks/\(second.requireID())",
                 headers: bearer(pair.accessToken),
                 beforeRequest: { req in
                     try req.content.encode(UpdateBookmarkInput(
@@ -180,22 +190,20 @@ struct BookmarkTests {
 
             // Bob cannot GET Alice's bookmark.
             try await app.testing().test(
-                .GET, "api/v1/bookmarks/\(try aliceBookmark.requireID())",
-                headers: bearer(bob.accessToken),
-                afterResponse: { res async throws in #expect(res.status == .notFound) }
-            )
+                .GET, "api/v1/bookmarks/\(aliceBookmark.requireID())",
+                headers: bearer(bob.accessToken)
+            ) { res async throws in #expect(res.status == .notFound) }
 
             // Bob's list is empty.
             try await app.testing().test(
                 .GET, "api/v1/bookmarks",
-                headers: bearer(bob.accessToken),
-                afterResponse: { res async throws in
-                    #expect(res.status == .ok)
-                    let page = try res.content.decode(Page<BookmarkResponse>.self)
-                    #expect(page.items.isEmpty)
-                    #expect(page.metadata.total == 0)
-                }
-            )
+                headers: bearer(bob.accessToken)
+            ) { res async throws in
+                #expect(res.status == .ok)
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(page.items.isEmpty)
+                #expect(page.metadata.total == 0)
+            }
         }
     }
 
@@ -210,24 +218,22 @@ struct BookmarkTests {
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?page=1&per=10",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    let page = try res.content.decode(Page<BookmarkResponse>.self)
-                    #expect(page.items.count == 10)
-                    #expect(page.metadata.total == 25)
-                    #expect(page.metadata.per == 10)
-                    #expect(page.metadata.page == 1)
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(page.items.count == 10)
+                #expect(page.metadata.total == 25)
+                #expect(page.metadata.per == 10)
+                #expect(page.metadata.page == 1)
+            }
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?page=3&per=10",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    let page = try res.content.decode(Page<BookmarkResponse>.self)
-                    #expect(page.items.count == 5)
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(page.items.count == 5)
+            }
         }
     }
 
@@ -240,11 +246,10 @@ struct BookmarkTests {
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?per=9999",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    #expect(try res.content.decode(Page<BookmarkResponse>.self).metadata.per == 100)
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                #expect(try res.content.decode(Page<BookmarkResponse>.self).metadata.per == 100)
+            }
         }
     }
 
@@ -254,28 +259,31 @@ struct BookmarkTests {
             let user = try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
             try await app.makeBookmark(for: user, url: "https://vapor.codes", title: "Vapor framework")
-            try await app.makeBookmark(for: user, url: "https://apple.com", title: "Apple", description: "Makes the iPhone")
+            try await app.makeBookmark(
+                for: user,
+                url: "https://apple.com",
+                title: "Apple",
+                description: "Makes the iPhone"
+            )
             try await app.makeBookmark(for: user, url: "https://example.com", title: "Nothing relevant")
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?q=vapor",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    let page = try res.content.decode(Page<BookmarkResponse>.self)
-                    #expect(page.items.count == 1)
-                    #expect(page.items.first?.url == "https://vapor.codes")
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(page.items.count == 1)
+                #expect(page.items.first?.url == "https://vapor.codes")
+            }
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?q=iPhone",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    let page = try res.content.decode(Page<BookmarkResponse>.self)
-                    #expect(page.items.count == 1)
-                    #expect(page.items.first?.url == "https://apple.com")
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(page.items.count == 1)
+                #expect(page.items.first?.url == "https://apple.com")
+            }
         }
     }
 
@@ -291,14 +299,13 @@ struct BookmarkTests {
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?tag=swift",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    let page = try res.content.decode(Page<BookmarkResponse>.self)
-                    let urls = Set(page.items.map(\.url))
-                    // swift and swift/vapor match; swiftui and music/jazz do NOT.
-                    #expect(urls == ["https://1.com", "https://2.com"])
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                let urls = Set(page.items.map(\.url))
+                // swift and swift/vapor match; swiftui and music/jazz do NOT.
+                #expect(urls == ["https://1.com", "https://2.com"])
+            }
         }
     }
 
@@ -312,21 +319,19 @@ struct BookmarkTests {
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    let page = try res.content.decode(Page<BookmarkResponse>.self)
-                    #expect(page.items.map(\.url) == ["https://active.com"])
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(page.items.map(\.url) == ["https://active.com"])
+            }
 
             try await app.testing().test(
                 .GET, "api/v1/bookmarks?archived=true",
-                headers: bearer(pair.accessToken),
-                afterResponse: { res async throws in
-                    let page = try res.content.decode(Page<BookmarkResponse>.self)
-                    #expect(page.items.map(\.url) == ["https://archived.com"])
-                }
-            )
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(page.items.map(\.url) == ["https://archived.com"])
+            }
         }
     }
 
@@ -339,5 +344,17 @@ struct BookmarkTests {
                 afterResponse: { res async throws in #expect(res.status == .unauthorized) }
             )
         }
+    }
+
+    // Helper: a create body that never triggers a network metadata fetch.
+    private func createBody(
+        url: String,
+        title: String? = "Example",
+        description: String? = nil,
+        tags: [String]? = nil
+    ) -> CreateBookmarkInput {
+        CreateBookmarkInput(
+            url: url, title: title, description: description, tags: tags, fetchMetadata: false
+        )
     }
 }

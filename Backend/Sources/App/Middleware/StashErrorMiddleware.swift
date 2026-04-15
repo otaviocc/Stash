@@ -1,23 +1,71 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Vapor
+
+// MARK: - ErrorResponse
 
 /// The single error envelope returned for every API error (PRD §17.4).
 struct ErrorResponse: Content {
+
     let error: Bool
     let code: String
     let message: String
 }
 
+// MARK: - DuplicateURLErrorResponse
+
 /// The duplicate-URL envelope, which additionally carries the existing bookmark's ID (PRD §17.4).
 struct DuplicateURLErrorResponse: Content {
+
     let error: Bool
     let code: String
     let message: String
     let existingID: UUID
 }
 
+// MARK: - StashErrorMiddleware
+
 /// Replaces Vapor's default error middleware so *all* errors — including 404s from
 /// unmatched routes and validation failures — serialise to the standard envelope.
 struct StashErrorMiddleware: AsyncMiddleware {
+
+    // MARK: Static Functions
+
+    /// Map bare HTTP statuses (e.g. routing 404s) onto the standard code table.
+    private static func code(for status: HTTPResponseStatus) -> String {
+        switch status {
+        case .badRequest: "bad_request"
+        case .unauthorized: "token_invalid"
+        case .forbidden: "forbidden"
+        case .notFound: "not_found"
+        case .conflict: "duplicate_url"
+        case .unprocessableEntity: "validation_failed"
+        default: status.code >= 500 ? "internal_error" : "error"
+        }
+    }
+
+    // MARK: Functions
+
     func respond(to request: Request, chainingTo next: AsyncResponder) async throws -> Response {
         do {
             return try await next.respond(to: request)
@@ -71,21 +119,10 @@ struct StashErrorMiddleware: AsyncMiddleware {
                 ))
             }
         } catch {
-            response.body = .init(string: #"{"error":true,"code":"internal_error","message":"An unexpected error occurred."}"#)
+            response
+                .body =
+                .init(string: #"{"error":true,"code":"internal_error","message":"An unexpected error occurred."}"#)
         }
         return response
-    }
-
-    /// Map bare HTTP statuses (e.g. routing 404s) onto the standard code table.
-    private static func code(for status: HTTPResponseStatus) -> String {
-        switch status {
-        case .badRequest: return "bad_request"
-        case .unauthorized: return "token_invalid"
-        case .forbidden: return "forbidden"
-        case .notFound: return "not_found"
-        case .conflict: return "duplicate_url"
-        case .unprocessableEntity: return "validation_failed"
-        default: return status.code >= 500 ? "internal_error" : "error"
-        }
     }
 }

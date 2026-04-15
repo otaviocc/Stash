@@ -1,8 +1,31 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Fluent
 import Vapor
 
 /// Authenticated endpoints for the current user (PRD §9.2).
 struct UserController: RouteCollection {
+
     func boot(routes: RoutesBuilder) throws {
         routes.get("me", use: me)
         routes.put("me", "password", use: changePassword)
@@ -12,13 +35,13 @@ struct UserController: RouteCollection {
         totp.post("verify-setup", use: verifyTOTPSetup)
     }
 
-    // GET /me
+    /// GET /me
     func me(req: Request) async throws -> UserResponse {
         let user = try req.auth.require(User.self)
         return try user.asResponse()
     }
 
-    // PUT /me/password
+    /// PUT /me/password
     func changePassword(req: Request) async throws -> Response {
         try ChangePasswordRequest.validate(content: req)
         let input = try req.content.decode(ChangePasswordRequest.self)
@@ -33,7 +56,7 @@ struct UserController: RouteCollection {
         return Response(status: .noContent)
     }
 
-    // GET /auth/totp/setup — begin enrolment (PRD §8.3).
+    /// GET /auth/totp/setup — begin enrolment (PRD §8.3).
     func setupTOTP(req: Request) async throws -> TOTPSetupResponse {
         let user = try req.auth.require(User.self)
 
@@ -48,7 +71,7 @@ struct UserController: RouteCollection {
         )
     }
 
-    // POST /auth/totp/verify-setup — confirm enrolment, return recovery codes once (PRD §8.3).
+    /// POST /auth/totp/verify-setup — confirm enrolment, return recovery codes once (PRD §8.3).
     func verifyTOTPSetup(req: Request) async throws -> RecoveryCodesResponse {
         let input = try req.content.decode(VerifySetupRequest.self)
         let user = try req.auth.require(User.self)

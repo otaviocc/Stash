@@ -1,8 +1,29 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Fluent
 import Testing
 import Vapor
 import VaporTesting
-
 @testable import App
 
 /// Boot a fully-configured app against an in-memory SQLite database, run the test, tear down.
@@ -25,6 +46,7 @@ func withTestApp(_ test: (Application) async throws -> Void) async throws {
 }
 
 extension Application {
+
     /// Insert a user directly (bypassing the admin-create flow, which is a later milestone).
     @discardableResult
     func makeUser(
@@ -44,12 +66,13 @@ extension Application {
             isTOTPEnabled: isTOTPEnabled,
             totpSecret: totpSecret
         )
-        try await user.save(on: self.db)
+        try await user.save(on: db)
         return user
     }
 }
 
 extension Application {
+
     /// Insert a bookmark directly (bypassing metadata fetch / the create endpoint).
     @discardableResult
     func makeBookmark(
@@ -68,10 +91,10 @@ extension Application {
             tags: tags,
             isArchived: isArchived
         )
-        try await bookmark.save(on: self.db)
+        try await bookmark.save(on: db)
         // Keep the denormalised count in sync, mirroring BookmarkController.create (PRD §7.1).
         user.bookmarkCount += 1
-        try await user.save(on: self.db)
+        try await user.save(on: db)
         return bookmark
     }
 }
@@ -82,6 +105,7 @@ func bearer(_ token: String) -> HTTPHeaders {
 }
 
 extension Application {
+
     /// Perform a full password login and return the issued token pair (2FA must be disabled).
     func login(username: String, password: String) async throws -> TokenPair {
         var pair: TokenPair?
@@ -119,15 +143,21 @@ extension Application {
     }
 }
 
+// MARK: - TestError
+
 /// Decode an error envelope from a test response body.
 struct TestError: Content {
+
     let error: Bool
     let code: String
     let message: String
 }
 
+// MARK: - TestDuplicateError
+
 /// Decode the duplicate-URL error envelope (includes `existingID`).
 struct TestDuplicateError: Content {
+
     let error: Bool
     let code: String
     let message: String

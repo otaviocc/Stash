@@ -1,41 +1,31 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Testing
 import VaporTesting
-
 @testable import App
 
 @Suite("Auth — TOTP 2FA enrolment and login")
 struct TwoFactorTests {
-    /// Enrol the user in 2FA via the API; returns (secret, recoveryCodes).
-    private func enrol(_ app: Application, accessToken: String) async throws -> (secret: String, codes: [String]) {
-        var secret: String?
-        try await app.testing().test(
-            .GET, "api/v1/auth/totp/setup",
-            headers: ["Authorization": "Bearer \(accessToken)"],
-            afterResponse: { res async throws in
-                #expect(res.status == .ok)
-                let setup = try res.content.decode(TOTPSetupResponse.self)
-                #expect(!setup.secret.isEmpty)
-                #expect(setup.otpauthURI.hasPrefix("otpauth://totp/"))
-                secret = setup.secret
-            }
-        )
-
-        let code = TOTP(secret: Base32.decode(secret!)!).generate()
-        var codes: [String] = []
-        try await app.testing().test(
-            .POST, "api/v1/auth/totp/verify-setup",
-            headers: ["Authorization": "Bearer \(accessToken)"],
-            beforeRequest: { req in
-                try req.content.encode(VerifySetupRequest(totpCode: code))
-            },
-            afterResponse: { res async throws in
-                #expect(res.status == .ok)
-                codes = try res.content.decode(RecoveryCodesResponse.self).recoveryCodes
-                #expect(codes.count == 8)
-            }
-        )
-        return (secret!, codes)
-    }
 
     @Test("enrolment returns 8 recovery codes and enables 2FA")
     func enrolment() async throws {
@@ -70,9 +60,8 @@ struct TwoFactorTests {
             // begin setup
             try await app.testing().test(
                 .GET, "api/v1/auth/totp/setup",
-                headers: ["Authorization": "Bearer \(pair.accessToken)"],
-                afterResponse: { res async throws in #expect(res.status == .ok) }
-            )
+                headers: ["Authorization": "Bearer \(pair.accessToken)"]
+            ) { res async throws in #expect(res.status == .ok) }
             try await app.testing().test(
                 .POST, "api/v1/auth/totp/verify-setup",
                 headers: ["Authorization": "Bearer \(pair.accessToken)"],
@@ -188,5 +177,36 @@ struct TwoFactorTests {
                 }
             )
         }
+    }
+
+    /// Enrol the user in 2FA via the API; returns (secret, recoveryCodes).
+    private func enrol(_ app: Application, accessToken: String) async throws -> (secret: String, codes: [String]) {
+        var secret: String?
+        try await app.testing().test(
+            .GET, "api/v1/auth/totp/setup",
+            headers: ["Authorization": "Bearer \(accessToken)"]
+        ) { res async throws in
+            #expect(res.status == .ok)
+            let setup = try res.content.decode(TOTPSetupResponse.self)
+            #expect(!setup.secret.isEmpty)
+            #expect(setup.otpauthURI.hasPrefix("otpauth://totp/"))
+            secret = setup.secret
+        }
+
+        let code = TOTP(secret: Base32.decode(secret!)!).generate()
+        var codes: [String] = []
+        try await app.testing().test(
+            .POST, "api/v1/auth/totp/verify-setup",
+            headers: ["Authorization": "Bearer \(accessToken)"],
+            beforeRequest: { req in
+                try req.content.encode(VerifySetupRequest(totpCode: code))
+            },
+            afterResponse: { res async throws in
+                #expect(res.status == .ok)
+                codes = try res.content.decode(RecoveryCodesResponse.self).recoveryCodes
+                #expect(codes.count == 8)
+            }
+        )
+        return (secret!, codes)
     }
 }

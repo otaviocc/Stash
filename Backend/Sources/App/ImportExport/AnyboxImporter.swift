@@ -1,3 +1,25 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Fluent
 import Foundation
 
@@ -18,13 +40,18 @@ import Foundation
 /// A duplicate URL updates the existing bookmark in place (title/description/tags overwritten,
 /// `createdAt` left untouched).
 struct AnyboxImporter: BookmarkImporter {
-    static let identifier = "anybox"
-    static let displayName = "Anybox JSON"
-    static let fileExtension = "json"
+
+    // MARK: Nested Types
 
     /// A tag entry that may be a string or an array of strings (Anybox uses the latter).
     private struct FlexibleTag: Decodable {
+
+        // MARK: Properties
+
         let value: String?
+
+        // MARK: Lifecycle
+
         init(from decoder: any Decoder) throws {
             let container = try decoder.singleValueContainer()
             if let single = try? container.decode(String.self) {
@@ -38,33 +65,45 @@ struct AnyboxImporter: BookmarkImporter {
     }
 
     private struct Record: Decodable {
+
+        // MARK: Nested Types
+
+        enum CodingKeys: String, CodingKey {
+
+            case url, title, description, tags, dateAdded, date_added
+        }
+
+        // MARK: Static Properties
+
+        private static let iso = ISO8601DateFormatter()
+
+        // MARK: Properties
+
         let url: String?
         let title: String?
         let description: String?
         let tags: [String]
         let createdAt: Date?
 
-        enum CodingKeys: String, CodingKey {
-            case url, title, description, tags, dateAdded, date_added
-        }
-
-        private static let iso = ISO8601DateFormatter()
+        // MARK: Lifecycle
 
         init(from decoder: any Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
-            url = (try? c.decodeIfPresent(String.self, forKey: .url)) ?? nil
-            title = (try? c.decodeIfPresent(String.self, forKey: .title)) ?? nil
-            description = (try? c.decodeIfPresent(String.self, forKey: .description)) ?? nil
+            url = (try? c.decodeIfPresent(String.self, forKey: .url))
+            title = (try? c.decodeIfPresent(String.self, forKey: .title))
+            description = (try? c.decodeIfPresent(String.self, forKey: .description))
 
-            let rawTags = ((try? c.decodeIfPresent([FlexibleTag].self, forKey: .tags)) ?? nil) ?? []
-            tags = rawTags.compactMap { $0.value }
+            let rawTags = (try? c.decodeIfPresent([FlexibleTag].self, forKey: .tags)) ?? []
+            tags = rawTags.compactMap(\.value)
 
             // Prefer an ISO-8601 string (current Anybox); fall back to a numeric Unix timestamp.
-            if let iso = ((try? c.decodeIfPresent(String.self, forKey: .dateAdded)) ?? nil),
-               let date = Record.iso.date(from: iso) {
+            if let iso = (try? c.decodeIfPresent(String.self, forKey: .dateAdded)),
+               let date = Record.iso.date(from: iso)
+            {
                 createdAt = date
-            } else if let ts = ((try? c.decodeIfPresent(Double.self, forKey: .date_added)) ?? nil)
-                        ?? ((try? c.decodeIfPresent(Double.self, forKey: .dateAdded)) ?? nil) {
+            } else if let ts = (try? c.decodeIfPresent(Double.self, forKey: .date_added))
+                ?? (try? c.decodeIfPresent(Double.self, forKey: .dateAdded))
+            {
                 createdAt = Date(timeIntervalSince1970: ts)
             } else {
                 createdAt = nil
@@ -72,12 +111,21 @@ struct AnyboxImporter: BookmarkImporter {
         }
     }
 
+    // MARK: Static Properties
+
+    static let identifier = "anybox"
+    static let displayName = "Anybox JSON"
+    static let fileExtension = "json"
+
+    // MARK: Functions
+
     func `import`(from data: Data, for userID: UUID, on db: any Database) async throws -> ImportResult {
         let records: [Record]
         do {
             records = try JSONDecoder().decode([Record].self, from: data)
         } catch {
-            throw ImportError.invalidFormat("This doesn't look like an Anybox JSON export (expected a JSON array of bookmarks).")
+            throw ImportError
+                .invalidFormat("This doesn't look like an Anybox JSON export (expected a JSON array of bookmarks).")
         }
 
         var imported = 0

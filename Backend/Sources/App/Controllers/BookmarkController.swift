@@ -1,8 +1,31 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Fluent
 import Vapor
 
 /// Bookmark CRUD, scoped to the authenticated user (PRD §9.3).
 struct BookmarkController: RouteCollection {
+
     func boot(routes: RoutesBuilder) throws {
         let bookmarks = routes.grouped("bookmarks")
         bookmarks.get(use: list)
@@ -14,7 +37,7 @@ struct BookmarkController: RouteCollection {
         }
     }
 
-    // GET /bookmarks
+    /// GET /bookmarks
     func list(req: Request) async throws -> Page<BookmarkResponse> {
         let user = try req.auth.require(User.self)
         let query = try req.query.decode(BookmarkListQuery.self)
@@ -55,15 +78,15 @@ struct BookmarkController: RouteCollection {
         return Page(items: items, metadata: result.metadata)
     }
 
-    // POST /bookmarks
+    /// POST /bookmarks
     func create(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let input = try req.content.decode(CreateBookmarkInput.self)
         let url = try Bookmark.validatedURL(input.url)
         let userID = try user.requireID()
 
-        if let existing = try await self.existingBookmark(url: url, userID: userID, on: req.db) {
-            throw APIError.duplicateURL(existingID: try existing.requireID())
+        if let existing = try await existingBookmark(url: url, userID: userID, on: req.db) {
+            throw try APIError.duplicateURL(existingID: existing.requireID())
         }
 
         // Client-supplied values take precedence over fetched ones (PRD §10).
@@ -92,8 +115,8 @@ struct BookmarkController: RouteCollection {
             try await bookmark.save(on: req.db)
         } catch {
             // Unique-index backstop in case of a race between the check above and the insert.
-            if let existing = try await self.existingBookmark(url: url, userID: userID, on: req.db) {
-                throw APIError.duplicateURL(existingID: try existing.requireID())
+            if let existing = try await existingBookmark(url: url, userID: userID, on: req.db) {
+                throw try APIError.duplicateURL(existingID: existing.requireID())
             }
             throw error
         }
@@ -102,27 +125,28 @@ struct BookmarkController: RouteCollection {
         try await user.save(on: req.db)
 
         let response = Response(status: .created)
-        try response.content.encode(try bookmark.asResponse())
+        try response.content.encode(bookmark.asResponse())
         return response
     }
 
-    // GET /bookmarks/:id
+    /// GET /bookmarks/:id
     func get(req: Request) async throws -> BookmarkResponse {
-        try await self.requireBookmark(req).asResponse()
+        try await requireBookmark(req).asResponse()
     }
 
-    // PUT /bookmarks/:id
+    /// PUT /bookmarks/:id
     func update(req: Request) async throws -> BookmarkResponse {
         let user = try req.auth.require(User.self)
-        let bookmark = try await self.requireBookmark(req)
+        let bookmark = try await requireBookmark(req)
         let input = try req.content.decode(UpdateBookmarkInput.self)
 
         if let rawURL = input.url {
             let url = try Bookmark.validatedURL(rawURL)
             if url != bookmark.url {
-                if let existing = try await self.existingBookmark(url: url, userID: user.requireID(), on: req.db),
-                   try existing.requireID() != bookmark.requireID() {
-                    throw APIError.duplicateURL(existingID: try existing.requireID())
+                if let existing = try await existingBookmark(url: url, userID: user.requireID(), on: req.db),
+                   try existing.requireID() != bookmark.requireID()
+                {
+                    throw try APIError.duplicateURL(existingID: existing.requireID())
                 }
                 bookmark.url = url
             }
@@ -136,10 +160,10 @@ struct BookmarkController: RouteCollection {
         return try bookmark.asResponse()
     }
 
-    // DELETE /bookmarks/:id
+    /// DELETE /bookmarks/:id
     func delete(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
-        let bookmark = try await self.requireBookmark(req)
+        let bookmark = try await requireBookmark(req)
         try await bookmark.delete(on: req.db)
 
         user.bookmarkCount = max(user.bookmarkCount - 1, 0)

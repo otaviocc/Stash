@@ -1,11 +1,64 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Fluent
 import Vapor
+
+// MARK: - AdminWebController
 
 /// Server-rendered web admin dashboard (PRD §11). Session-cookie auth, mounted at `/admin`,
 /// entirely separate from the JSON `/api/v1/*` endpoints. Enforces the same business rules as
 /// the admin API: accounts are always created as `user`, self-deletion is blocked, and a
 /// password reset (or suspension) invalidates the target's refresh tokens.
 struct AdminWebController: RouteCollection {
+
+    // MARK: Static Properties
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    /// A valid bcrypt hash used to equalise timing for unknown usernames.
+    private static let dummyHash =
+        "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
+
+    // MARK: Static Functions
+
+    private static func message(for ok: String?) -> String? {
+        switch ok {
+        case "created": "User created."
+        case "suspended": "User suspended; their sessions were revoked."
+        case "unsuspended": "User reactivated."
+        case "password-reset": "Password reset; the user's sessions were revoked."
+        case "totp_reset": "Two-factor authentication reset; the user must set it up again and was signed out."
+        default: nil
+        }
+    }
+
+    // MARK: Functions
+
     func boot(routes: RoutesBuilder) throws {
         // Public — login / logout.
         routes.get("login", use: loginPage)
@@ -28,12 +81,12 @@ struct AdminWebController: RouteCollection {
 
     // MARK: - Login / logout
 
-    // GET /admin/login
+    /// GET /admin/login
     func loginPage(req: Request) async throws -> View {
         try await req.view.render("login", LoginPageContext(title: "Sign in", error: nil))
     }
 
-    // POST /admin/login
+    /// POST /admin/login
     func login(req: Request) async throws -> Response {
         let form = try req.content.decode(LoginForm.self)
         let username = form.username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -73,7 +126,7 @@ struct AdminWebController: RouteCollection {
         return req.redirect(to: "/admin")
     }
 
-    // POST /admin/logout
+    /// POST /admin/logout
     func logout(req: Request) async throws -> Response {
         req.session.destroy()
         return req.redirect(to: "/admin/login")
@@ -81,7 +134,7 @@ struct AdminWebController: RouteCollection {
 
     // MARK: - Dashboard
 
-    // GET /admin
+    /// GET /admin
     func dashboard(req: Request) async throws -> View {
         let admin = try req.auth.require(User.self)
         let users = try await User.query(on: req.db).sort(\.$username).all()
@@ -99,18 +152,18 @@ struct AdminWebController: RouteCollection {
 
     // MARK: - User list & create
 
-    // GET /admin/users
+    /// GET /admin/users
     func userList(req: Request) async throws -> View {
         let admin = try req.auth.require(User.self)
         let users = try await User.query(on: req.db).sort(\.$username).all()
         return try await req.view.render("users", UsersContext(
             title: "Users",
             adminUsername: admin.username,
-            users: try users.map { try $0.asRow() }
+            users: users.map { try $0.asRow() }
         ))
     }
 
-    // GET /admin/users/new
+    /// GET /admin/users/new
     func newUserForm(req: Request) async throws -> View {
         let admin = try req.auth.require(User.self)
         return try await req.view.render("user-new", NewUserContext(
@@ -118,7 +171,7 @@ struct AdminWebController: RouteCollection {
         ))
     }
 
-    // POST /admin/users/new
+    /// POST /admin/users/new
     func createUser(req: Request) async throws -> Response {
         let admin = try req.auth.require(User.self)
         let form = try req.content.decode(CreateUserForm.self)
@@ -141,9 +194,9 @@ struct AdminWebController: RouteCollection {
         }
 
         // Role is never accepted here — dashboard-created accounts are always regular users.
-        let user = User(
+        let user = try await User(
             username: username,
-            passwordHash: try await req.password.async.hash(form.password),
+            passwordHash: req.password.async.hash(form.password),
             role: .user
         )
         do {
@@ -152,12 +205,12 @@ struct AdminWebController: RouteCollection {
             return try await formError("That username is already taken.")
         }
 
-        return req.redirect(to: "/admin/users/\(try user.requireID())?ok=created")
+        return try req.redirect(to: "/admin/users/\(user.requireID())?ok=created")
     }
 
     // MARK: - User detail & actions
 
-    // GET /admin/users/:id
+    /// GET /admin/users/:id
     func userDetail(req: Request) async throws -> Response {
         guard let user = try await loadUser(req) else {
             return req.redirect(to: "/admin/users")
@@ -166,25 +219,25 @@ struct AdminWebController: RouteCollection {
         return try await renderDetail(req, user: user, error: nil, message: message)
     }
 
-    // POST /admin/users/:id/suspend
+    /// POST /admin/users/:id/suspend
     func suspend(req: Request) async throws -> Response {
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
         user.isActive = false
         try await user.save(on: req.db)
         // Suspension immediately invalidates all refresh tokens (PRD §8.6).
         try await user.$refreshTokens.query(on: req.db).delete()
-        return req.redirect(to: "/admin/users/\(try user.requireID())?ok=suspended")
+        return try req.redirect(to: "/admin/users/\(user.requireID())?ok=suspended")
     }
 
-    // POST /admin/users/:id/unsuspend
+    /// POST /admin/users/:id/unsuspend
     func unsuspend(req: Request) async throws -> Response {
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
         user.isActive = true
         try await user.save(on: req.db)
-        return req.redirect(to: "/admin/users/\(try user.requireID())?ok=unsuspended")
+        return try req.redirect(to: "/admin/users/\(user.requireID())?ok=unsuspended")
     }
 
-    // POST /admin/users/:id/reset-password
+    /// POST /admin/users/:id/reset-password
     func resetPassword(req: Request) async throws -> Response {
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
         let form = try req.content.decode(ResetPasswordForm.self)
@@ -200,10 +253,10 @@ struct AdminWebController: RouteCollection {
         try await user.save(on: req.db)
         // A password reset forces re-authentication everywhere (PRD §8.6).
         try await user.$refreshTokens.query(on: req.db).delete()
-        return req.redirect(to: "/admin/users/\(try user.requireID())?ok=password-reset")
+        return try req.redirect(to: "/admin/users/\(user.requireID())?ok=password-reset")
     }
 
-    // POST /admin/users/:id/reset-totp — disable the user's 2FA. Self-reset is allowed.
+    /// POST /admin/users/:id/reset-totp — disable the user's 2FA. Self-reset is allowed.
     func resetTOTP(req: Request) async throws -> Response {
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
 
@@ -214,10 +267,10 @@ struct AdminWebController: RouteCollection {
         // Their session security level changed, so force re-login everywhere.
         try await user.$refreshTokens.query(on: req.db).delete()
 
-        return req.redirect(to: "/admin/users/\(try user.requireID())?ok=totp_reset")
+        return try req.redirect(to: "/admin/users/\(user.requireID())?ok=totp_reset")
     }
 
-    // POST /admin/users/:id/delete
+    /// POST /admin/users/:id/delete
     func deleteUser(req: Request) async throws -> Response {
         let admin = try req.auth.require(User.self)
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
@@ -255,10 +308,10 @@ struct AdminWebController: RouteCollection {
     ) async throws -> Response {
         let admin = try req.auth.require(User.self)
         let isSelf = try user.requireID() == admin.requireID()
-        let context = UserDetailContext(
+        let context = try UserDetailContext(
             title: user.username,
             adminUsername: admin.username,
-            user: try user.asRow(),
+            user: user.asRow(),
             createdAt: Self.dateFormatter.string(from: user.createdAt ?? Date()),
             isSelf: isSelf,
             error: error,
@@ -280,31 +333,10 @@ struct AdminWebController: RouteCollection {
         response.body = .init(buffer: view.data)
         return response
     }
-
-    private static func message(for ok: String?) -> String? {
-        switch ok {
-        case "created": return "User created."
-        case "suspended": return "User suspended; their sessions were revoked."
-        case "unsuspended": return "User reactivated."
-        case "password-reset": return "Password reset; the user's sessions were revoked."
-        case "totp_reset": return "Two-factor authentication reset; the user must set it up again and was signed out."
-        default: return nil
-        }
-    }
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }()
-
-    /// A valid bcrypt hash used to equalise timing for unknown usernames.
-    private static let dummyHash =
-        "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
 }
 
 private extension User {
+
     func asRow() throws -> UserRowContext {
         try UserRowContext(
             id: requireID().uuidString,

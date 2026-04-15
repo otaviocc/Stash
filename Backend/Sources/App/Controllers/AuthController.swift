@@ -1,9 +1,61 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Fluent
 import JWT
 import Vapor
 
 /// Unauthenticated auth endpoints (PRD §9.1).
 struct AuthController: RouteCollection {
+
+    // MARK: Static Properties
+
+    /// A valid bcrypt hash used to equalise timing for unknown usernames.
+    private static let dummyHash =
+        "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
+
+    // MARK: Static Functions
+
+    // MARK: - Helpers
+
+    /// Verify a temp (2FA) token and load the still-active user it refers to.
+    private static func userFromTempToken(_ token: String, req: Request) async throws -> User {
+        let payload: TempTokenPayload
+        do {
+            payload = try req.jwt.verify(token, as: TempTokenPayload.self)
+        } catch {
+            throw APIError.tokenInvalid
+        }
+        guard let userID = payload.userID,
+              let user = try await User.find(userID, on: req.db)
+        else {
+            throw APIError.tokenInvalid
+        }
+        guard user.isActive else { throw APIError.accountSuspended }
+        return user
+    }
+
+    // MARK: Functions
+
     func boot(routes: RoutesBuilder) throws {
         let auth = routes.grouped("auth")
         auth.post("login", use: login)
@@ -13,7 +65,7 @@ struct AuthController: RouteCollection {
         auth.post("logout", use: logout)
     }
 
-    // POST /auth/login
+    /// POST /auth/login
     func login(req: Request) async throws -> Response {
         try LoginRequest.validate(content: req)
         let input = try req.content.decode(LoginRequest.self)
@@ -44,21 +96,22 @@ struct AuthController: RouteCollection {
         return try await pair.encodeResponse(for: req)
     }
 
-    // POST /auth/totp
+    /// POST /auth/totp
     func totp(req: Request) async throws -> TokenPair {
         let input = try req.content.decode(TOTPRequest.self)
         let user = try await Self.userFromTempToken(input.tempToken, req: req)
 
         guard let secret = user.totpSecret, user.isTOTPEnabled,
               let secretData = Base32.decode(secret),
-              TOTP(secret: secretData).validate(input.totpCode) else {
+              TOTP(secret: secretData).validate(input.totpCode)
+        else {
             throw APIError.totpInvalid
         }
 
         return try await TokenService.issuePair(for: user, on: req)
     }
 
-    // POST /auth/recovery
+    /// POST /auth/recovery
     func recovery(req: Request) async throws -> TokenPair {
         let input = try req.content.decode(RecoveryRequest.self)
         let user = try await Self.userFromTempToken(input.tempToken, req: req)
@@ -69,6 +122,7 @@ struct AuthController: RouteCollection {
             .all()
 
         for code in codes {
+            // swiftlint:disable:next for_where - async predicate; a `where` clause can't hold `try await`.
             if try await req.password.async.verify(normalized, created: code.codeHash) {
                 code.usedAt = Date()
                 try await code.save(on: req.db)
@@ -78,7 +132,7 @@ struct AuthController: RouteCollection {
         throw APIError.totpInvalid
     }
 
-    // POST /auth/refresh — rotation: invalidate the presented token, issue a fresh one.
+    /// POST /auth/refresh — rotation: invalidate the presented token, issue a fresh one.
     func refresh(req: Request) async throws -> TokenPair {
         let input = try req.content.decode(RefreshRequest.self)
         let tokenHash = TokenService.hash(input.refreshToken)
@@ -105,7 +159,7 @@ struct AuthController: RouteCollection {
         return try await TokenService.issuePair(for: user, on: req)
     }
 
-    // POST /auth/logout — delete the refresh token; always 204.
+    /// POST /auth/logout — delete the refresh token; always 204.
     func logout(req: Request) async throws -> Response {
         let input = try req.content.decode(LogoutRequest.self)
         let tokenHash = TokenService.hash(input.refreshToken)
@@ -114,26 +168,4 @@ struct AuthController: RouteCollection {
             .delete()
         return Response(status: .noContent)
     }
-
-    // MARK: - Helpers
-
-    /// Verify a temp (2FA) token and load the still-active user it refers to.
-    private static func userFromTempToken(_ token: String, req: Request) async throws -> User {
-        let payload: TempTokenPayload
-        do {
-            payload = try req.jwt.verify(token, as: TempTokenPayload.self)
-        } catch {
-            throw APIError.tokenInvalid
-        }
-        guard let userID = payload.userID,
-              let user = try await User.find(userID, on: req.db) else {
-            throw APIError.tokenInvalid
-        }
-        guard user.isActive else { throw APIError.accountSuspended }
-        return user
-    }
-
-    /// A valid bcrypt hash used to equalise timing for unknown usernames.
-    private static let dummyHash =
-        "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
 }

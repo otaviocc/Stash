@@ -1,5 +1,29 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 import Crypto
 import Foundation
+
+// MARK: - TOTP
 
 /// RFC 6238 Time-based One-Time Password generator/validator (HMAC-SHA1, 6 digits, 30s step).
 ///
@@ -7,9 +31,14 @@ import Foundation
 /// pulling in a third-party TOTP package — keeps the backend dependency-light per the PRD's
 /// data-ownership philosophy.
 struct TOTP {
+
+    // MARK: Properties
+
     let secret: Data
-    var digits: Int = 6
-    var period: Int = 30
+    var digits = 6
+    var period = 30
+
+    // MARK: Functions
 
     /// Generate the code for a given moment.
     func generate(at date: Date = Date()) -> String {
@@ -49,10 +78,13 @@ struct TOTP {
 }
 
 extension TOTP {
+
     /// Generate a fresh random 20-byte secret, Base32-encoded for storage/display.
     static func generateSecret() -> String {
         var bytes = [UInt8](repeating: 0, count: 20)
-        for i in bytes.indices { bytes[i] = UInt8.random(in: .min ... .max) }
+        for i in bytes.indices {
+            bytes[i] = UInt8.random(in: .min ... .max)
+        }
         return Base32.encode(Data(bytes))
     }
 
@@ -67,7 +99,7 @@ extension TOTP {
             URLQueryItem(name: "issuer", value: issuer),
             URLQueryItem(name: "algorithm", value: "SHA1"),
             URLQueryItem(name: "digits", value: "6"),
-            URLQueryItem(name: "period", value: "30"),
+            URLQueryItem(name: "period", value: "30")
         ]
         return components.string ?? "otpauth://totp/\(issuer):\(username)?secret=\(secret)&issuer=\(issuer)"
     }
