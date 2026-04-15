@@ -71,6 +71,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateSmartViews())
     app.migrations.add(AddSmartViewMatchMode())
     app.migrations.add(CreateFaviconCache())
+    app.migrations.add(CreateDeletedBookmarks())
 
     // MARK: Version
 

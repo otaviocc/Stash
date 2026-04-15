@@ -2449,3 +2449,58 @@ and the `SmartViewRequest` body already existed.
 - **✅ No other code changes.** `AccentTheme.validIdentifiers`, the admin picker, and
   the swatch CSS all derive from `all`, so the new theme is selectable, validates,
   and previews automatically. `PRODUCT.md` §7.6 (theme table + count) updated.
+
+---
+
+## Offline Sync — Phase 1 (backend sync endpoints + StashKit)
+
+Phase 1 of the native-app offline-sync feature: the **two backend endpoints** and
+the **StashKit additions** a sync engine will need, with no client behaviour change
+yet. The native apps, web frontend, CLI, and browser extension are untouched.
+
+- **✅ Tombstones for server-side deletions (`deleted_bookmarks` table).** A hard
+  delete removes the row from `bookmarks`, so a `changes?since=` query can never
+  report it — a client offline during the delete would keep the bookmark forever.
+  The new `DeletedBookmark` model records every hard delete (`user_id`,
+  `bookmark_id`, `deleted_at`), kept indefinitely (no cleanup this version). It is a
+  plain table with no FK to `users` — when a user is deleted the account is gone and
+  its tombstones are irrelevant, so a cascade buys nothing.
+- **✅ Tombstones written on *every* hard-delete path, not just the API.** Recorded
+  in `BookmarkController.delete` (JSON API), `AppWebController.deleteBookmark` (web
+  single delete), and `AppWebController.deleteAllBookmarks` (web bulk delete) — any
+  of which a synced user can trigger. A shared `DeletedBookmark.record(bookmarkID:
+  userID:on:)` helper keeps the call site one line; it runs *after* the row is
+  removed. The admin "delete user" cascade is intentionally excluded (see above).
+- **✅ `GET /bookmarks/changes?since=&page=&per=`** returns a `Page<BookmarkResponse>`
+  of all bookmarks — **archived included** — with `updated_at > since`, sorted
+  ascending by `(updated_at, id)` so incremental pagination is stable. Default
+  `per` 100, max 500 (higher than the 100-cap list endpoint, since this is a bulk
+  sync read). Omitting `since` returns everything (the initial full sync). Unlike
+  the list endpoint it does **not** split on `archived` — a sync needs both halves
+  in one stream.
+- **✅ `GET /bookmarks/deleted?since=`** returns a flat `[DeletedBookmarkResponse]`
+  (no pagination — tombstones are tiny), sorted ascending by `deleted_at`. The
+  response `id` is the **deleted bookmark's** ID (not the tombstone's own row id),
+  so a client matches it straight against a local copy. Omitting `since` returns all
+  tombstones.
+- **✅ `since` parsed as a string, not a `Content` `Date`.** Vapor's
+  `URLEncodedFormDecoder` date strategy is ambiguous for query params, so `since` is
+  read as a raw string and parsed with `ISO8601DateFormatter`, trying the
+  fractional-seconds variant first and plain internet-date-time second — matching
+  StashKit's `.iso8601` JSON strategy. A malformed value is a `validation_failed`
+  422 rather than a silent "no filter".
+- **✅ StashKit stays thin.** Added `DeletedBookmarkDTO { id, deletedAt }` and
+  `BookmarkRequestFactory.makeChangesRequest(since:page:perPage:)` /
+  `makeDeletedRequest(since:)`. The factories format `since` as
+  `[.withInternetDateTime]` ISO-8601. No formatter is held as a `static let` —
+  `ISO8601DateFormatter` isn't `Sendable` under StashKit's strict-concurrency
+  (swift-tools 6.2), so a tiny `iso8601String(from:)` builds one per call.
+- **✅ Tests.** `BookmarkSyncTests` covers changes-since (archived included),
+  changes-no-since, the delete→tombstone path, deleted-since, deleted-no-since, and
+  per-user isolation for both endpoints. Deterministic timestamps are set with a
+  query-builder `.set(\.$updatedAt, to:).update()` — a bulk update bypasses the
+  `@Timestamp(on: .update)` auto-touch that a model `save()` would apply, so the
+  controlled value persists. StashKit factory tests assert the paths, paging, and
+  ISO-8601 `since` items (and their omission when `since` is nil).
+- **Boundary.** No SwiftData, `SyncEngine`, connectivity monitoring, or UI — those
+  are Phases 2–4. The backend is deployable; the apps behave exactly as before.

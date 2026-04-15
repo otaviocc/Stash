@@ -423,6 +423,8 @@ All API routes prefixed `/api/v1/`. Health check at `/health` (unversioned).
 | `GET` | `/api/v1/bookmarks/:id` | Get bookmark |
 | `PUT` | `/api/v1/bookmarks/:id` | Update bookmark |
 | `DELETE` | `/api/v1/bookmarks/:id` | Delete bookmark |
+| `GET` | `/api/v1/bookmarks/changes` | Bookmarks changed since a timestamp (offline sync) |
+| `GET` | `/api/v1/bookmarks/deleted` | Tombstones for deleted bookmarks (offline sync) |
 
 **`GET /api/v1/bookmarks` query parameters:**
 
@@ -432,6 +434,21 @@ All API routes prefixed `/api/v1/`. Health check at `/health` (unversioned).
 | `tag` | Prefix filter. `swift` matches `swift` and `swift/*` but not `swiftui`. Special values: `__untagged__` returns bookmarks with no tags; `__today__` / `__this_week__` return bookmarks created since the start of the day / the most recent Monday. |
 | `archived` | Default false. Pass `true` for archived bookmarks. |
 | `page` / `per` | Pagination. `per` clamped 1–100. |
+
+**Offline-sync endpoints** (consumed by the native apps; see `DECISIONS.md` →
+Offline Sync):
+
+- **`GET /api/v1/bookmarks/changes?since=<ISO8601>&page=&per=`** — a
+  `Page<Bookmark>` of all bookmarks (**archived included**) with `updatedAt >
+  since`, sorted ascending by `updatedAt`. `per` defaults to 100, clamped 1–500.
+  Omitting `since` returns every bookmark (initial full sync). A malformed `since`
+  is a `validation_failed` 422.
+- **`GET /api/v1/bookmarks/deleted?since=<ISO8601>`** — a flat array of tombstones
+  `[{ "id": "<deleted bookmark id>", "deletedAt": "<ISO8601>" }]` for bookmarks
+  hard-deleted after `since`, sorted ascending by `deletedAt` (no pagination).
+  Omitting `since` returns all tombstones. Every hard delete — via the API or the
+  web frontend, single or bulk — records a tombstone so an offline client learns
+  what to remove locally.
 
 ### 9.4 Tags (authenticated, scoped to current user)
 

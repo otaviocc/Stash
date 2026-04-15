@@ -80,4 +80,61 @@ struct BookmarkRequestFactoryTests {
         #expect(request.path == "/api/v1/bookmarks/\(id.uuidString)", "It should target the bookmark by id")
         #expect(request.method == .delete, "It should use DELETE")
     }
+
+    @Test("builds a GET changes request with paging and an ISO-8601 since")
+    func changesRequest() {
+        // Given
+        let since = Date(timeIntervalSince1970: 1_700_000_000)
+
+        // When
+        let request = BookmarkRequestFactory.makeChangesRequest(since: since, page: 2, perPage: 200)
+
+        // Then
+        #expect(request.path == "/api/v1/bookmarks/changes", "It should target the changes endpoint")
+        #expect(request.method == .get, "It should use GET")
+        #expect(request.queryItems.contains(URLQueryItem(name: "page", value: "2")), "It should carry the page")
+        #expect(request.queryItems.contains(URLQueryItem(name: "per", value: "200")), "It should carry the page size")
+        #expect(
+            request.queryItems.contains(URLQueryItem(name: "since", value: "2023-11-14T22:13:20Z")),
+            "It should carry the since timestamp as an ISO-8601 string"
+        )
+    }
+
+    @Test("omits the since query item when no since is given")
+    func changesRequestWithoutSince() {
+        // When
+        let request = BookmarkRequestFactory.makeChangesRequest(since: nil, page: 1, perPage: 100)
+
+        // Then
+        #expect(
+            !request.queryItems.contains { $0.name == "since" },
+            "It should omit the since item for an initial full sync"
+        )
+    }
+
+    @Test("builds a GET deleted request carrying an ISO-8601 since")
+    func deletedRequest() {
+        // Given
+        let since = Date(timeIntervalSince1970: 1_700_000_000)
+
+        // When
+        let request = BookmarkRequestFactory.makeDeletedRequest(since: since)
+
+        // Then
+        #expect(request.path == "/api/v1/bookmarks/deleted", "It should target the deleted endpoint")
+        #expect(request.method == .get, "It should use GET")
+        #expect(
+            request.queryItems.contains(URLQueryItem(name: "since", value: "2023-11-14T22:13:20Z")),
+            "It should carry the since timestamp as an ISO-8601 string"
+        )
+    }
+
+    @Test("builds a GET deleted request with no query items when no since is given")
+    func deletedRequestWithoutSince() {
+        // When
+        let request = BookmarkRequestFactory.makeDeletedRequest(since: nil)
+
+        // Then
+        #expect(request.queryItems.isEmpty, "It should send no query items for an initial full sync")
+    }
 }

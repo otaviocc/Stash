@@ -20,33 +20,29 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import Foundation
+import Fluent
+import SQLKit
 
-// MARK: - BookmarkDTO
+/// Migration that creates the `deleted_bookmarks` tombstone table.
+struct CreateDeletedBookmarks: AsyncMigration {
 
-/// A saved bookmark as returned by the API.
-public struct BookmarkDTO: Codable, Identifiable, Sendable {
+    func prepare(on database: Database) async throws {
+        try await database.schema("deleted_bookmarks")
+            .id()
+            .field("user_id", .uuid, .required)
+            .field("bookmark_id", .uuid, .required)
+            .field("deleted_at", .datetime)
+            .create()
 
-    public let id: UUID
-    public let url: URL
-    public let title: String
-    public let description: String?
-    public let faviconURL: URL?
-    public let tags: [String]
-    public let isArchived: Bool
-    public let createdAt: Date
-    public let updatedAt: Date
-}
+        try await (database as? SQLDatabase)?.create(index: "deleted_bookmarks_user_deleted_at")
+            .on("deleted_bookmarks")
+            .column("user_id")
+            .column("deleted_at")
+            .run()
+    }
 
-/// A paginated list of bookmarks.
-public typealias BookmarkPageDTO = PageDTO<BookmarkDTO>
-
-// MARK: - DeletedBookmarkDTO
-
-/// A tombstone record for a server-side bookmark deletion. `id` is the deleted
-/// bookmark's ID, so a client can match it against its local copy and remove it.
-public struct DeletedBookmarkDTO: Codable, Identifiable, Sendable {
-
-    public let id: UUID
-    public let deletedAt: Date
+    func revert(on database: Database) async throws {
+        try await (database as? SQLDatabase)?.drop(index: "deleted_bookmarks_user_deleted_at").run()
+        try await database.schema("deleted_bookmarks").delete()
+    }
 }

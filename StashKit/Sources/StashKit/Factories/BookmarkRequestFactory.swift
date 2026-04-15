@@ -76,4 +76,53 @@ public enum BookmarkRequestFactory {
             method: .delete
         )
     }
+
+    /// Requests all bookmarks (archived included) updated after `since`, for offline
+    /// sync. Omitting `since` returns every bookmark — the initial full sync.
+    public static func makeChangesRequest(
+        since: Date?,
+        page: Int,
+        perPage: Int
+    ) -> NetworkRequest<VoidRequest, BookmarkPageDTO> {
+        var queryItems: [URLQueryItem] = [
+            URLQueryItem(name: "page", value: String(page)),
+            URLQueryItem(name: "per", value: String(perPage))
+        ]
+
+        if let since {
+            queryItems.append(URLQueryItem(name: "since", value: iso8601String(from: since)))
+        }
+
+        return .init(
+            path: "/api/v1/bookmarks/changes",
+            method: .get,
+            queryItems: queryItems
+        )
+    }
+
+    /// Requests tombstones for bookmarks hard-deleted after `since`, for offline sync.
+    /// Omitting `since` returns every tombstone — the initial full sync.
+    public static func makeDeletedRequest(
+        since: Date?
+    ) -> NetworkRequest<VoidRequest, [DeletedBookmarkDTO]> {
+        var queryItems: [URLQueryItem] = []
+
+        if let since {
+            queryItems.append(URLQueryItem(name: "since", value: iso8601String(from: since)))
+        }
+
+        return .init(
+            path: "/api/v1/bookmarks/deleted",
+            method: .get,
+            queryItems: queryItems
+        )
+    }
+
+    // MARK: Private
+
+    private static func iso8601String(from date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.string(from: date)
+    }
 }

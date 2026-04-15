@@ -21,14 +21,48 @@
 // SOFTWARE.
 
 import Fluent
+import Foundation
 import Vapor
 
 /// Bookmark CRUD, scoped to the authenticated user (PRD §9.3).
 struct BookmarkController: RouteCollection {
 
+    // MARK: Static Properties
+
+    private static let iso8601: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private static let iso8601Fractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    // MARK: Static Functions
+
+    // MARK: - Helpers
+
+    private static func parseSince(_ req: Request) throws -> Date? {
+        guard let raw = req.query[String.self, at: "since"]?.nonEmpty else {
+            return nil
+        }
+        guard let date = iso8601Fractional.date(from: raw) ?? iso8601.date(from: raw) else {
+            throw APIError.validationFailed("The 'since' parameter must be a valid ISO-8601 date.")
+        }
+
+        return date
+    }
+
+    // MARK: Functions
+
     func boot(routes: RoutesBuilder) throws {
         let bookmarks = routes.grouped("bookmarks")
         bookmarks.get(use: list)
+        bookmarks.get("changes", use: changes)
+        bookmarks.get("deleted", use: deleted)
         bookmarks.post(use: create)
         bookmarks.group(":bookmarkID") { bookmark in
             bookmark.get(use: get)
@@ -63,6 +97,49 @@ struct BookmarkController: RouteCollection {
 
         let items = try result.items.map { try $0.asResponse() }
         return Page(items: items, metadata: result.metadata)
+    }
+
+    func changes(req: Request) async throws -> Page<BookmarkResponse> {
+        let user = try req.auth.require(User.self)
+        let since = try Self.parseSince(req)
+
+        let page = max(req.query[Int.self, at: "page"] ?? 1, 1)
+        let per = min(max(req.query[Int.self, at: "per"] ?? 100, 1), 500)
+
+        let builder = try Bookmark.query(on: req.db)
+            .filter(\.$user.$id == user.requireID())
+
+        if let since {
+            builder.filter(\.$updatedAt > since)
+        }
+
+        let result = try await builder
+            .sort(\.$updatedAt, .ascending)
+            .sort(\.$id, .ascending)
+            .paginate(PageRequest(page: page, per: per))
+
+        let items = try result.items.map { try $0.asResponse() }
+        return Page(items: items, metadata: result.metadata)
+    }
+
+    func deleted(req: Request) async throws -> [DeletedBookmarkResponse] {
+        let user = try req.auth.require(User.self)
+        let since = try Self.parseSince(req)
+
+        let builder = try DeletedBookmark.query(on: req.db)
+            .filter(\.$userID == user.requireID())
+
+        if let since {
+            builder.filter(\.$deletedAt > since)
+        }
+
+        let records = try await builder
+            .sort(\.$deletedAt, .ascending)
+            .all()
+
+        return records.map {
+            DeletedBookmarkResponse(id: $0.bookmarkID, deletedAt: $0.deletedAt ?? Date())
+        }
     }
 
     func create(req: Request) async throws -> Response {
@@ -146,14 +223,16 @@ struct BookmarkController: RouteCollection {
     func delete(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let bookmark = try await requireBookmark(req)
+        let bookmarkID = try bookmark.requireID()
+        let userID = try user.requireID()
+
         try await bookmark.delete(on: req.db)
+        try await DeletedBookmark.record(bookmarkID: bookmarkID, userID: userID, on: req.db)
 
         user.bookmarkCount = max(user.bookmarkCount - 1, 0)
         try await user.save(on: req.db)
         return Response(status: .noContent)
     }
-
-    // MARK: - Helpers
 
     private func requireBookmark(_ req: Request) async throws -> Bookmark {
         let user = try req.auth.require(User.self)

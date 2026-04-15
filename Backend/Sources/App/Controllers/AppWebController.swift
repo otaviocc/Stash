@@ -600,7 +600,11 @@ struct AppWebController: RouteCollection {
         let user = try req.auth.require(User.self)
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
 
+        let bookmarkID = try bookmark.requireID()
+        let userID = try user.requireID()
+
         try await bookmark.delete(on: req.db)
+        try await DeletedBookmark.record(bookmarkID: bookmarkID, userID: userID, on: req.db)
         user.bookmarkCount = max(user.bookmarkCount - 1, 0)
         try await user.save(on: req.db)
         return req.redirect(to: "/app")
@@ -1071,7 +1075,13 @@ struct AppWebController: RouteCollection {
             ), status: .badRequest)
         }
 
+        let userID = try user.requireID()
+        let bookmarkIDs = try await user.$bookmarks.query(on: req.db).all().map { try $0.requireID() }
+
         try await user.$bookmarks.query(on: req.db).delete()
+        for bookmarkID in bookmarkIDs {
+            try await DeletedBookmark.record(bookmarkID: bookmarkID, userID: userID, on: req.db)
+        }
         user.bookmarkCount = 0
         try await user.save(on: req.db)
 

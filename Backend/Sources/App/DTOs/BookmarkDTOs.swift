@@ -83,6 +83,17 @@ struct BookmarkResponse: Content {
     let updatedAt: Date
 }
 
+// MARK: - DeletedBookmarkResponse
+
+/// A tombstone record for a server-side bookmark deletion, returned by
+/// `GET /bookmarks/deleted`. `id` is the deleted bookmark's ID (not the
+/// tombstone's own ID), so a client can match it against a local copy.
+struct DeletedBookmarkResponse: Content {
+
+    let id: UUID
+    let deletedAt: Date
+}
+
 // MARK: - TagCount
 
 /// A tag with its bookmark count (PRD §9.4).
