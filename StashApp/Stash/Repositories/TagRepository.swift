@@ -23,13 +23,14 @@
 import Foundation
 import StashKit
 
-/// Provides access to the current user's tags with local caching.
+/// Provides access to the current user's tags, derived from the local bookmark store.
 ///
-/// Tags are fetched once via `load()` and cached in memory for synchronous, local autocomplete.
-/// `reload()` forces a refetch (pull-to-refresh); `refresh()` does the same in the background after
-/// a bookmark mutation, leaving the current tags visible until the new set arrives — so observing
-/// views (notably the always-mounted macOS sidebar) never flash empty. `reset()` clears the cache on
-/// sign-out so the next user never sees the previous user's tags.
+/// Tags are computed by counting each tag across the locally stored bookmarks — the same aggregation
+/// the backend's `/tags` endpoint performs — and cached for synchronous, local autocomplete. `load()`
+/// derives once; `reload()` recomputes (pull-to-refresh); `refresh()` recomputes after a bookmark
+/// mutation, leaving the current tags visible until the new set is ready — so observing views (notably
+/// the always-mounted macOS sidebar) never flash empty. `reset()` clears the cache on sign-out so the
+/// next user never sees the previous user's tags.
 @MainActor
 @Observable
 final class TagRepository: TagAutocompleting {
@@ -42,15 +43,13 @@ final class TagRepository: TagAutocompleting {
     /// only when `tags` changes, so observing view bodies never rebuild the tree on every redraw.
     private(set) var tagHierarchy: [TagNode] = []
 
-    private let clientProvider: StashClientProvider
-    private let session: SessionRefreshing
+    private let localStore: LocalStore
     private var hasLoaded = false
 
     // MARK: Lifecycle
 
-    init(clientProvider: StashClientProvider, session: SessionRefreshing) {
-        self.clientProvider = clientProvider
-        self.session = session
+    init(localStore: LocalStore) {
+        self.localStore = localStore
     }
 
     // MARK: Functions
@@ -60,15 +59,15 @@ final class TagRepository: TagAutocompleting {
             return
         }
 
-        try await performLoad()
+        derive()
     }
 
     func reload() async throws {
-        try await performLoad()
+        derive()
     }
 
     func refresh() {
-        Task { try? await reload() }
+        derive()
     }
 
     func reset() {
@@ -83,15 +82,17 @@ final class TagRepository: TagAutocompleting {
         tags.autocomplete(prefix: prefix)
     }
 
-    private func performLoad() async throws {
-        try await session.refreshIfNeeded()
-
-        guard let client = clientProvider.client() else {
-            throw AppError.notConfigured
+    private func derive() {
+        var counts: [String: Int] = [:]
+        for bookmark in localStore.fetchActive() {
+            for tag in bookmark.tags {
+                counts[tag, default: 0] += 1
+            }
         }
 
-        let dtos = try await client.run(TagRequestFactory.makeListRequest()).value
-        tags = dtos.map(Tag.init(dto:))
+        tags = counts
+            .map { Tag(name: $0.key, count: $0.value) }
+            .sorted { $0.name < $1.name }
         tagHierarchy = tags.hierarchy()
         hasLoaded = true
     }

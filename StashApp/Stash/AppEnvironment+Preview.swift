@@ -29,9 +29,13 @@
         /// network at init); any auto-load fails fast to an empty state since no server is configured.
         @MainActor
         static var preview: AppEnvironment {
-            AppEnvironment(
-                defaults: UserDefaults(suiteName: "preview.cc.otavio.stash") ?? .standard
+            let environment = AppEnvironment(
+                defaults: UserDefaults(suiteName: "preview.cc.otavio.stash") ?? .standard,
+                inMemory: true
             )
+            environment.seedPreviewData(Bookmark.samples)
+
+            return environment
         }
     }
 #endif

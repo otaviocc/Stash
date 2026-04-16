@@ -23,23 +23,25 @@
 import Foundation
 import StashKit
 
-/// Provides access to the current user's bookmarks.
+/// Provides access to the current user's bookmarks, reading from the local SwiftData store.
 ///
-/// Maps StashKit's `BookmarkDTO` to the local `Bookmark` model and tracks pagination state so the
-/// list view can load further pages and pull to refresh. Every request is preceded by a silent
-/// token refresh via the injected session.
+/// Reads come entirely from `LocalStore` — the query, search, tag, recency, and Smart View filters all
+/// run in memory against the local copy, so browsing works offline. Writes are write-through: each
+/// create/update/delete calls the API first (the server stays authoritative) and then mirrors the
+/// result into the local store. The local store is populated by the one-time full fetch in
+/// `AppEnvironment`; this repository never fetches the list itself. Each visible list owns its own
+/// instance so their pagination windows stay independent.
 @MainActor
 @Observable
 final class BookmarkRepository: BookmarkCreating {
 
     // MARK: Nested Types
 
-    /// Where the current list of bookmarks comes from: a regular filtered query, or a Smart View's
-    /// saved query run server-side. The source is stored so `loadNextPage()` re-fetches consistently.
+    /// What the current list shows: a filtered query, or a Smart View's saved rules evaluated locally.
     private enum Source: Equatable {
 
         case query(BookmarkQuery)
-        case smartView(UUID)
+        case smartView(SmartView)
     }
 
     // MARK: Static Properties
@@ -54,41 +56,29 @@ final class BookmarkRepository: BookmarkCreating {
 
     private let clientProvider: StashClientProvider
     private let session: SessionRefreshing
+    private let localStore: LocalStore
     private var source: Source = .query(BookmarkQuery())
-    private var currentPage = 1
-    private var total = 0
-
-    // MARK: Computed Properties
-
-    /// The archived state the current source displays — a query's own flag, or `false` for a Smart
-    /// View (its results default to non-archived unless it carries an `isArchived` condition). Used to
-    /// decide whether a freshly created or archived bookmark belongs in the visible list.
-    private var displaysArchived: Bool {
-        switch source {
-        case let .query(query): query.archived
-        case .smartView: false
-        }
-    }
+    private var filtered: [Bookmark] = []
+    private var shownCount = 0
 
     // MARK: Lifecycle
 
-    init(clientProvider: StashClientProvider, session: SessionRefreshing) {
+    init(clientProvider: StashClientProvider, session: SessionRefreshing, localStore: LocalStore) {
         self.clientProvider = clientProvider
         self.session = session
+        self.localStore = localStore
     }
 
     // MARK: Functions
 
     func load(query: BookmarkQuery) async throws {
         source = .query(query)
-
-        try await loadFirstPage()
+        loadFirstPage()
     }
 
-    func load(smartViewID: UUID) async throws {
-        source = .smartView(smartViewID)
-
-        try await loadFirstPage()
+    func load(smartView: SmartView) async throws {
+        source = .smartView(smartView)
+        loadFirstPage()
     }
 
     func loadNextPage() async throws {
@@ -96,15 +86,8 @@ final class BookmarkRepository: BookmarkCreating {
             return
         }
 
-        isLoading = true
-        defer { isLoading = false }
-
-        let nextPage = currentPage + 1
-        let page = try await fetch(page: nextPage)
-        currentPage = nextPage
-        total = page.metadata.total
-        bookmarks.append(contentsOf: page.items.map(Bookmark.init(dto:)))
-        updateHasMore()
+        shownCount = min(shownCount + Self.perPage, filtered.count)
+        publish()
     }
 
     func create(_ input: CreateBookmarkInput) async throws -> Bookmark {
@@ -119,14 +102,9 @@ final class BookmarkRepository: BookmarkCreating {
             )
         )
         let dto = try await client.run(request).value
-        let bookmark = Bookmark(dto: dto)
+        mirror(dto)
 
-        if !bookmark.isArchived, displaysArchived == false {
-            bookmarks.insert(bookmark, at: 0)
-            total += 1
-        }
-
-        return bookmark
+        return Bookmark(dto: dto)
     }
 
     func update(
@@ -144,13 +122,10 @@ final class BookmarkRepository: BookmarkCreating {
                 tags: tags
             )
         )
-        let bookmark = try await Bookmark(dto: client.run(request).value)
+        let dto = try await client.run(request).value
+        mirror(dto)
 
-        if let index = bookmarks.firstIndex(where: { $0.id == id }) {
-            bookmarks[index] = bookmark
-        }
-
-        return bookmark
+        return Bookmark(dto: dto)
     }
 
     func setArchived(id: UUID, archived: Bool) async throws -> Bookmark {
@@ -159,30 +134,18 @@ final class BookmarkRepository: BookmarkCreating {
             id: id,
             body: UpdateBookmarkRequest(isArchived: archived)
         )
-        let bookmark = try await Bookmark(dto: client.run(request).value)
+        let dto = try await client.run(request).value
+        mirror(dto)
 
-        if bookmark.isArchived == displaysArchived {
-            if let index = bookmarks.firstIndex(where: { $0.id == id }) {
-                bookmarks[index] = bookmark
-            }
-        } else if let index = bookmarks.firstIndex(where: { $0.id == id }) {
-            bookmarks.remove(at: index)
-            total = max(0, total - 1)
-            updateHasMore()
-        }
-
-        return bookmark
+        return Bookmark(dto: dto)
     }
 
     func delete(id: UUID) async throws {
         let client = try await authenticatedClient()
         _ = try await client.run(BookmarkRequestFactory.makeDeleteRequest(id: id))
-
-        if let index = bookmarks.firstIndex(where: { $0.id == id }) {
-            bookmarks.remove(at: index)
-            total = max(0, total - 1)
-            updateHasMore()
-        }
+        localStore.remove(serverID: id)
+        localStore.save()
+        refreshVisible()
     }
 
     func fetchMetadata(for url: URL) async throws -> PageMetadata {
@@ -192,42 +155,48 @@ final class BookmarkRepository: BookmarkCreating {
         return PageMetadata(dto: dto)
     }
 
-    private func loadFirstPage() async throws {
-        currentPage = 1
+    // MARK: - Reads
 
+    private func loadFirstPage() {
         isLoading = true
         defer { isLoading = false }
 
-        let page = try await fetch(page: 1)
-        total = page.metadata.total
-        bookmarks = page.items.map(Bookmark.init(dto:))
-        updateHasMore()
+        recomputeFiltered()
+        shownCount = min(Self.perPage, filtered.count)
+        publish()
     }
 
-    private func fetch(page: Int) async throws -> BookmarkPageDTO {
-        let client = try await authenticatedClient()
+    private func refreshVisible() {
+        recomputeFiltered()
+        shownCount = min(max(shownCount, Self.perPage), filtered.count)
+        publish()
+    }
 
-        switch source {
+    private func recomputeFiltered() {
+        let boundaries = BookmarkFilter.dateBoundaries()
+        let active = localStore.fetchActive().compactMap(Bookmark.init(local:))
+
+        let matched: [Bookmark] = switch source {
         case let .query(query):
-            let listQuery = BookmarkListQuery(
-                searchQuery: query.searchQuery,
-                tag: query.tag,
-                archived: query.archived,
-                page: page,
-                perPage: Self.perPage
-            )
-
-            return try await client.run(BookmarkRequestFactory.makeListRequest(query: listQuery)).value
-
-        case let .smartView(id):
-            let request = SmartViewRequestFactory.makeBookmarksRequest(
-                id: id,
-                page: page,
-                perPage: Self.perPage
-            )
-
-            return try await client.run(request).value
+            active.filter { BookmarkFilter.matches($0, query: query, boundaries: boundaries) }
+        case let .smartView(smartView):
+            active.filter { BookmarkFilter.matches($0, smartView: smartView, boundaries: boundaries) }
         }
+
+        filtered = matched.sorted(by: BookmarkFilter.newestFirst)
+    }
+
+    private func publish() {
+        bookmarks = Array(filtered.prefix(shownCount))
+        hasMore = shownCount < filtered.count
+    }
+
+    // MARK: - Writes
+
+    private func mirror(_ dto: BookmarkDTO) {
+        localStore.upsert(dto)
+        localStore.save()
+        refreshVisible()
     }
 
     private func authenticatedClient() async throws -> StashClient {
@@ -238,9 +207,5 @@ final class BookmarkRepository: BookmarkCreating {
         }
 
         return client
-    }
-
-    private func updateHasMore() {
-        hasMore = bookmarks.count < total
     }
 }

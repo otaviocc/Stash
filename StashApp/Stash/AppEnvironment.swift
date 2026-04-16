@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 import Foundation
+import StashKit
 
 /// Holds all app-wide dependencies.
 ///
@@ -31,7 +32,8 @@ import Foundation
 /// `authRepository` and `tagRepository` are shared singletons (auth state and the tag cache are
 /// global), but bookmark-list state is *not*: each independent list (the Bookmarks tab, a tag drill-in
 /// in the Tags tab, the iPad detail column) gets its own `BookmarkRepository` via
-/// `makeBookmarkRepository()`, so browsing in one does not mutate the others.
+/// `makeBookmarkRepository()`, so browsing in one does not mutate the others. All of them read from
+/// the one shared `LocalStore`.
 @MainActor
 @Observable
 final class AppEnvironment {
@@ -43,10 +45,14 @@ final class AppEnvironment {
     let smartViewRepository: SmartViewRepository
 
     private let clientProvider: StashClientProvider
+    private let localStore: LocalStore
+    private let defaults: UserDefaults
 
     // MARK: Lifecycle
 
-    init(defaults: UserDefaults) {
+    init(defaults: UserDefaults, inMemory: Bool = false) {
+        self.defaults = defaults
+
         let accessTokenStore = KeychainStore(
             AppGroup.accessTokenKey,
             accessGroup: AppGroup.identifier
@@ -68,16 +74,16 @@ final class AppEnvironment {
         )
         self.clientProvider = clientProvider
 
+        let localStore = LocalStore(inMemory: inMemory)
+        self.localStore = localStore
+
         let authRepository = AuthRepository(
             clientProvider: clientProvider,
             tokenManager: tokenManager
         )
         self.authRepository = authRepository
 
-        let tagRepository = TagRepository(
-            clientProvider: clientProvider,
-            session: authRepository
-        )
+        let tagRepository = TagRepository(localStore: localStore)
         self.tagRepository = tagRepository
 
         let smartViewRepository = SmartViewRepository(
@@ -86,20 +92,76 @@ final class AppEnvironment {
         )
         self.smartViewRepository = smartViewRepository
 
-        authRepository.onSessionCleared = { [weak tagRepository, weak smartViewRepository] in
+        authRepository.onSessionCleared = { [weak tagRepository, weak smartViewRepository, weak localStore, defaults] in
             tagRepository?.reset()
             smartViewRepository?.reset()
+            localStore?.wipe()
+            defaults.set(false, forKey: AppGroup.localStoreSyncedKey)
         }
     }
 
     // MARK: Functions
 
-    /// Builds a fresh `BookmarkRepository` with its own list state, sharing the app's client and
-    /// session. Each bookmark list owns one so their contents stay independent.
+    /// Builds a fresh `BookmarkRepository` with its own list state, sharing the app's client, session,
+    /// and the one local store. Each bookmark list owns one so their contents stay independent.
     func makeBookmarkRepository() -> BookmarkRepository {
         BookmarkRepository(
             clientProvider: clientProvider,
-            session: authRepository
+            session: authRepository,
+            localStore: localStore
         )
+    }
+
+    /// Performs the one-time full fetch that seeds the local store on first launch (or after a
+    /// sign-out wiped it). Subsequent launches return immediately and read straight from the store.
+    /// On failure (e.g. offline) the synced flag is left unset so the next launch retries.
+    func bootstrapLocalStore() async {
+        guard !defaults.bool(forKey: AppGroup.localStoreSyncedKey) else {
+            return
+        }
+
+        do {
+            try await fetchAllBookmarks()
+            defaults.set(true, forKey: AppGroup.localStoreSyncedKey)
+        } catch {
+            return
+        }
+    }
+
+    #if DEBUG
+        func seedPreviewData(_ bookmarks: [Bookmark]) {
+            localStore.insertPreviewSamples(bookmarks)
+            tagRepository.refresh()
+        }
+    #endif
+
+    // MARK: Private
+
+    private func fetchAllBookmarks() async throws {
+        try await authRepository.refreshIfNeeded()
+
+        guard let client = clientProvider.client() else {
+            throw AppError.notConfigured
+        }
+
+        let perPage = 200
+        var page = 1
+
+        while true {
+            let request = BookmarkRequestFactory.makeChangesRequest(since: nil, page: page, perPage: perPage)
+            let result = try await client.run(request).value
+            for dto in result.items {
+                localStore.upsert(dto)
+            }
+
+            guard result.items.count == perPage, page * perPage < result.metadata.total else {
+                break
+            }
+
+            page += 1
+        }
+
+        localStore.save()
+        tagRepository.refresh()
     }
 }

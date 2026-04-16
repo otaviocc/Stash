@@ -36,6 +36,10 @@ enum AppGroup {
     static let refreshTokenKey = "cc.otavio.stash.refreshToken"
     static let serverURLKey = "serverURL"
 
+    /// Marks that the one-time full fetch seeding the local bookmark store has succeeded. Reset on
+    /// sign-out so the next user re-fetches. App-only; the Share Extension does not read it.
+    static let localStoreSyncedKey = "cc.otavio.stash.localStoreSynced"
+
     // MARK: Static Functions
 
     /// Builds the `UserDefaults` suite backed by the App Group, so the server URL is visible to both

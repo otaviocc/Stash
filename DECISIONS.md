@@ -2504,3 +2504,61 @@ yet. The native apps, web frontend, CLI, and browser extension are untouched.
   ISO-8601 `since` items (and their omission when `since` is nil).
 - **Boundary.** No SwiftData, `SyncEngine`, connectivity monitoring, or UI — those
   are Phases 2–4. The backend is deployable; the apps behave exactly as before.
+
+## Offline Sync — Phase 2 (SwiftData local store)
+
+Phase 2 gives the native apps a persistent local copy of the user's bookmarks and
+makes `BookmarkRepository` read from it. There is still no delta sync or offline
+write queue (Phase 3) and no sync UI (Phase 4) — but the app now survives being
+killed and reads entirely from disk.
+
+- **✅ `LocalBookmark` (`@Model`) + `LocalStore`, app-only.** `LocalStore` owns the
+  `ModelContainer` (configuration `"StashLocal"`, schema `[LocalBookmark]`) and is
+  created once by `AppEnvironment`; every per-list `BookmarkRepository` and the
+  `TagRepository` share its `mainContext`. Both files live under `Stash/` (the
+  app-only group) — **not** `Common/` — so the Share Extension never links SwiftData
+  and stays online-only. `LocalBookmark` carries a unique local `id` (stable SwiftUI
+  identity) plus `serverID` (the sync match key) and the sync-metadata fields
+  (`pendingSyncAt`, `locallyDeletedAt`, `isLocalOnly`) that Phase 3 will drive.
+- **✅ Write-through, not local-only (deviation from the brief's literal write path).**
+  The brief sketched Phase 2 writes as local-only (`pendingSyncAt = now`, no API
+  call), with the offline queue arriving in Phase 3. Because each phase is deployed,
+  shipping that would mean creates/edits/deletes silently never reach the server
+  until Phase 3. Instead, every write calls the API first (exactly as before) and
+  then mirrors the authoritative server result into the store (`upsert`/`remove`),
+  leaving the sync-metadata fields clean. The local store stays consistent with the
+  server, and no write is lost. Confirmed with the product owner. Phase 3 replaces
+  this with the real offline queue that sets and pushes `pendingSyncAt`.
+- **✅ Reads filter in memory, not via `#Predicate`.** `BookmarkRepository` fetches
+  the active records (`locallyDeletedAt == nil`), maps them to domain `Bookmark`s,
+  and filters/sorts/paginates in Swift via `BookmarkFilter`. SwiftData `#Predicate`
+  can't express the hierarchical tag-prefix match (`swift` matches `swift/*`), the
+  multi-column case-insensitive search, the recency sentinels, or the Smart View
+  rule set; the dataset is one user's bookmarks, so an in-memory pass is simpler and
+  exact. `BookmarkFilter` deliberately mirrors the backend (`QueryBuilder+Search`,
+  `SmartView.applyConditions`): pipe-wrapped `tags_search`, `__untagged__` /
+  `__today__` / `__this_week__`, `createdAt`-desc-then-`id` ordering, archived
+  default, match-any/all. Smart Views are evaluated locally (the repository now takes
+  the full `SmartView`, not just its id); their **definitions** still load from the
+  API via `SmartViewRepository`.
+- **✅ Pagination is a window over the filtered array.** `loadNextPage()` grows a
+  `shownCount` slice of the in-memory result instead of fetching a page; writes
+  recompute the filtered set and clamp the window, so a create/delete updates the
+  visible list without resetting scroll depth or re-hitting the network.
+- **✅ `TagRepository` derives from the store.** It counts each raw tag across the
+  active local bookmarks — the same aggregation `GET /tags` performs (all bookmarks,
+  archived included, no prefix expansion) — instead of calling the API. `refresh()`
+  recomputes after a mutation.
+- **✅ One-time full fetch, gated on first launch.** `AppEnvironment.bootstrapLocalStore()`
+  seeds the store via `GET /bookmarks/changes` (no `since`, paginated at 200,
+  archived included), guarded by a `localStoreSynced` flag in the App Group defaults.
+  `MainFlowView` shows a brief `ProgressView` until it completes so lists read a
+  populated store rather than flashing empty. On failure (offline) the flag is left
+  unset and the next launch retries; the app still opens (empty) rather than hanging.
+  Sign-out wipes the store and clears the flag so the next user re-fetches clean.
+- **✅ Previews seed an in-memory store.** `AppEnvironment(inMemory:)` builds the
+  container with `isStoredInMemoryOnly`; `AppEnvironment.preview` inserts
+  `Bookmark.samples` so sidebars and lists still render in Xcode previews.
+- **Boundary.** No `SyncEngine`, `NWPathMonitor`, `BGAppRefreshTask`, or sync UI —
+  Phases 3–4. The Share Extension, web frontend, CLI, and browser extension are
+  untouched. Both platforms build; lints clean.

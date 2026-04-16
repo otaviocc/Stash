@@ -400,7 +400,7 @@ private struct BookmarkListContent: View {
     private func load() async {
         do {
             if let smartView {
-                try await repository.load(smartViewID: smartView.id)
+                try await repository.load(smartView: smartView)
             } else {
                 try await repository.load(query: query)
             }

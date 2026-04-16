@@ -957,6 +957,18 @@ are `@MainActor @Observable`. Silent refresh centralised in
 `AuthRepository.refreshIfNeeded()` behind a `SessionRefreshing` protocol to
 avoid reference cycles.
 
+**Local store (offline sync, Phase 2):** the apps keep a full SwiftData copy of
+the user's bookmarks (`LocalStore` + `LocalBookmark`, owned by `AppEnvironment`).
+`BookmarkRepository` reads entirely from this store — search, tag, recency, and
+Smart View filters run in memory, mirroring the backend's SQL semantics — so
+browsing works without the network. Writes are write-through: each create/update/
+delete calls the API first (the server stays authoritative) and then mirrors the
+result locally. `TagRepository` derives the tag list from the store. The store is
+seeded by a one-time full fetch (`GET /bookmarks/changes`) on first launch, gated
+behind a brief loading state, and wiped on sign-out. Delta pull, an offline write
+queue, and background refresh are forthcoming (Phase 3–4); the Share Extension
+stays online-only. See `DECISIONS.md` → Offline Sync.
+
 **`StashClientProvider`** — rebuilds `StashClient` only when the server URL
 changes. `tokenProvider` closure reads from `TokenManager` at request time.
 

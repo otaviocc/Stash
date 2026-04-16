@@ -42,12 +42,52 @@ struct RootView: View {
         } else if !environment.authRepository.isAuthenticated {
             LoginView()
         } else {
-            #if os(macOS)
-                MacContentView()
-            #else
-                MainView()
-            #endif
+            MainFlowView()
         }
+    }
+}
+
+// MARK: - MainFlowView
+
+/// The authenticated app, gated behind the one-time local-store seed. On first launch (or after a
+/// sign-out wiped the store) it runs the full fetch before showing the bookmark lists, so they read a
+/// populated store rather than flashing empty; on later launches the fetch is a no-op and the content
+/// appears immediately.
+private struct MainFlowView: View {
+
+    // MARK: SwiftUI Properties
+
+    @Environment(AppEnvironment.self) private var environment
+    @State private var didBootstrap = false
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        Group {
+            if didBootstrap {
+                makeContent()
+            } else {
+                ProgressView()
+                    .controlSize(.large)
+            }
+        }
+        .task {
+            await environment.bootstrapLocalStore()
+            didBootstrap = true
+        }
+    }
+
+    // MARK: Content Methods
+
+    @ViewBuilder
+    private func makeContent() -> some View {
+        #if os(macOS)
+            MacContentView()
+        #else
+            MainView()
+        #endif
     }
 }
 
