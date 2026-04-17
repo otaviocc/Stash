@@ -71,6 +71,40 @@ final class LocalStore {
         return (try? mainContext.fetch(descriptor)) ?? []
     }
 
+    /// Every record with a queued offline change waiting to be pushed.
+    func fetchPending() -> [LocalBookmark] {
+        let descriptor = FetchDescriptor<LocalBookmark>(
+            predicate: #Predicate { $0.pendingSyncAt != nil }
+        )
+
+        return (try? mainContext.fetch(descriptor)) ?? []
+    }
+
+    /// The number of records waiting to be pushed.
+    func pendingCount() -> Int {
+        let descriptor = FetchDescriptor<LocalBookmark>(
+            predicate: #Predicate { $0.pendingSyncAt != nil }
+        )
+
+        return (try? mainContext.fetchCount(descriptor)) ?? 0
+    }
+
+    func record(forServerID serverID: UUID) -> LocalBookmark? {
+        let descriptor = FetchDescriptor<LocalBookmark>(
+            predicate: #Predicate { $0.serverID == serverID }
+        )
+
+        return try? mainContext.fetch(descriptor).first
+    }
+
+    func insert(_ record: LocalBookmark) {
+        mainContext.insert(record)
+    }
+
+    func delete(_ record: LocalBookmark) {
+        mainContext.delete(record)
+    }
+
     /// Inserts the bookmark, or applies the DTO to the existing record with the same `serverID`.
     func upsert(_ dto: BookmarkDTO) {
         if let existing = record(forServerID: dto.id) {
@@ -108,14 +142,4 @@ final class LocalStore {
             save()
         }
     #endif
-
-    // MARK: Private
-
-    private func record(forServerID serverID: UUID) -> LocalBookmark? {
-        let descriptor = FetchDescriptor<LocalBookmark>(
-            predicate: #Predicate { $0.serverID == serverID }
-        )
-
-        return try? mainContext.fetch(descriptor).first
-    }
 }

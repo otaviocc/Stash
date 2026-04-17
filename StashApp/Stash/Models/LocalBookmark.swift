@@ -77,6 +77,26 @@ final class LocalBookmark {
         isLocalOnly = false
     }
 
+    /// Builds a brand-new record from an offline create. It carries a temporary `serverID` and is
+    /// flagged `isLocalOnly` + `pendingSyncAt` until the push assigns a real server ID.
+    init(localCreate input: CreateBookmarkInput, now: Date) {
+        let trimmedTitle = input.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        id = UUID()
+        serverID = UUID()
+        url = input.url.absoluteString
+        title = (trimmedTitle?.isEmpty == false ? trimmedTitle : nil) ?? input.url.absoluteString
+        bookmarkDescription = input.description
+        tags = input.tags
+        isArchived = false
+        faviconDomain = Self.faviconDomain(for: input.url)
+        serverCreatedAt = now
+        serverUpdatedAt = now
+        pendingSyncAt = now
+        locallyDeletedAt = nil
+        isLocalOnly = true
+    }
+
     #if DEBUG
         /// Builds a record from a domain `Bookmark` for seeding the in-memory preview store.
         init(previewBookmark bookmark: Bookmark) {

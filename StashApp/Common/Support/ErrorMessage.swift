@@ -39,6 +39,18 @@ extension Error {
 
         return "Something went wrong. Please try again."
     }
+
+    /// Whether the error is a transport/connectivity failure (the server could not be reached) rather
+    /// than a response the server actually returned. `StashClient` maps unreachable-host, timeout, and
+    /// other transport failures to `StashAPIError.unknown`, so that case stands in for "offline". Used
+    /// to route a failed write to the offline queue instead of surfacing an error.
+    var isConnectivityError: Bool {
+        if let error = self as? StashAPIError, case .unknown = error {
+            return true
+        }
+
+        return false
+    }
 }
 
 // MARK: - StashAPIError + UserMessage

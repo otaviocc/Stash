@@ -36,9 +36,10 @@ enum AppGroup {
     static let refreshTokenKey = "cc.otavio.stash.refreshToken"
     static let serverURLKey = "serverURL"
 
-    /// Marks that the one-time full fetch seeding the local bookmark store has succeeded. Reset on
-    /// sign-out so the next user re-fetches. App-only; the Share Extension does not read it.
-    static let localStoreSyncedKey = "cc.otavio.stash.localStoreSynced"
+    /// The `SyncEngine` delta cursor — the start time of the last successful sync, used as `since=` on
+    /// the next pull. Absent until the first full sync completes; reset on sign-out. App-only; the
+    /// Share Extension does not read it.
+    static let lastSyncedAtKey = "cc.otavio.stash.lastSyncedAt"
 
     // MARK: Static Functions
 

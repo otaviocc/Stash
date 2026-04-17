@@ -21,7 +21,6 @@
 // SOFTWARE.
 
 import Foundation
-import StashKit
 
 /// Holds all app-wide dependencies.
 ///
@@ -43,6 +42,8 @@ final class AppEnvironment {
     let authRepository: AuthRepository
     let tagRepository: TagRepository
     let smartViewRepository: SmartViewRepository
+    let connectivityMonitor: ConnectivityMonitor
+    let syncEngine: SyncEngine
 
     private let clientProvider: StashClientProvider
     private let localStore: LocalStore
@@ -77,6 +78,9 @@ final class AppEnvironment {
         let localStore = LocalStore(inMemory: inMemory)
         self.localStore = localStore
 
+        let connectivityMonitor = ConnectivityMonitor()
+        self.connectivityMonitor = connectivityMonitor
+
         let authRepository = AuthRepository(
             clientProvider: clientProvider,
             tokenManager: tokenManager
@@ -92,40 +96,39 @@ final class AppEnvironment {
         )
         self.smartViewRepository = smartViewRepository
 
-        authRepository.onSessionCleared = { [weak tagRepository, weak smartViewRepository, weak localStore, defaults] in
-            tagRepository?.reset()
-            smartViewRepository?.reset()
-            localStore?.wipe()
-            defaults.set(false, forKey: AppGroup.localStoreSyncedKey)
+        let syncEngine = SyncEngine(
+            clientProvider: clientProvider,
+            session: authRepository,
+            localStore: localStore,
+            connectivity: connectivityMonitor,
+            defaults: defaults
+        )
+        self.syncEngine = syncEngine
+
+        authRepository.onSessionCleared = { [weak self] in
+            self?.tagRepository.reset()
+            self?.smartViewRepository.reset()
+            self?.localStore.wipe()
+            self?.syncEngine.reset()
+        }
+
+        connectivityMonitor.onReconnect = { [weak self] in
+            Task { await self?.syncEngine.sync() }
         }
     }
 
     // MARK: Functions
 
     /// Builds a fresh `BookmarkRepository` with its own list state, sharing the app's client, session,
-    /// and the one local store. Each bookmark list owns one so their contents stay independent.
+    /// local store, and connectivity monitor. Each bookmark list owns one so their contents stay
+    /// independent.
     func makeBookmarkRepository() -> BookmarkRepository {
         BookmarkRepository(
             clientProvider: clientProvider,
             session: authRepository,
-            localStore: localStore
+            localStore: localStore,
+            connectivity: connectivityMonitor
         )
-    }
-
-    /// Performs the one-time full fetch that seeds the local store on first launch (or after a
-    /// sign-out wiped it). Subsequent launches return immediately and read straight from the store.
-    /// On failure (e.g. offline) the synced flag is left unset so the next launch retries.
-    func bootstrapLocalStore() async {
-        guard !defaults.bool(forKey: AppGroup.localStoreSyncedKey) else {
-            return
-        }
-
-        do {
-            try await fetchAllBookmarks()
-            defaults.set(true, forKey: AppGroup.localStoreSyncedKey)
-        } catch {
-            return
-        }
     }
 
     #if DEBUG
@@ -134,34 +137,4 @@ final class AppEnvironment {
             tagRepository.refresh()
         }
     #endif
-
-    // MARK: Private
-
-    private func fetchAllBookmarks() async throws {
-        try await authRepository.refreshIfNeeded()
-
-        guard let client = clientProvider.client() else {
-            throw AppError.notConfigured
-        }
-
-        let perPage = 200
-        var page = 1
-
-        while true {
-            let request = BookmarkRequestFactory.makeChangesRequest(since: nil, page: page, perPage: perPage)
-            let result = try await client.run(request).value
-            for dto in result.items {
-                localStore.upsert(dto)
-            }
-
-            guard result.items.count == perPage, page * perPage < result.metadata.total else {
-                break
-            }
-
-            page += 1
-        }
-
-        localStore.save()
-        tagRepository.refresh()
-    }
 }

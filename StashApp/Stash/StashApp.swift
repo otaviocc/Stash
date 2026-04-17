@@ -34,6 +34,7 @@ struct StashApp: App {
 
     @State private var appSettings: AppSettings
     @State private var appEnvironment: AppEnvironment
+    @Environment(\.scenePhase) private var scenePhase
 
     // MARK: Computed Properties
 
@@ -61,6 +62,9 @@ struct StashApp: App {
             WindowGroup {
                 makeRootView()
             }
+            .backgroundTask(.appRefresh(BackgroundSyncScheduler.taskIdentifier)) {
+                await appEnvironment.syncEngine.syncInBackground()
+            }
         #endif
     }
 
@@ -78,5 +82,23 @@ struct StashApp: App {
         RootView()
             .environment(appSettings)
             .environment(appEnvironment)
+            .onChange(of: scenePhase) { oldPhase, newPhase in
+                handleScenePhase(from: oldPhase, to: newPhase)
+            }
+    }
+
+    // MARK: Functions
+
+    private func handleScenePhase(from oldPhase: ScenePhase, to newPhase: ScenePhase) {
+        switch newPhase {
+        case .active where oldPhase == .background:
+            guard appEnvironment.authRepository.isAuthenticated else { return }
+
+            Task { await appEnvironment.syncEngine.sync() }
+        case .background:
+            appEnvironment.syncEngine.scheduleBackgroundRefresh()
+        default:
+            break
+        }
     }
 }

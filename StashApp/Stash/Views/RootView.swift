@@ -50,15 +50,15 @@ struct RootView: View {
 // MARK: - MainFlowView
 
 /// The authenticated app, gated behind the one-time local-store seed. On first launch (or after a
-/// sign-out wiped the store) it runs the full fetch before showing the bookmark lists, so they read a
-/// populated store rather than flashing empty; on later launches the fetch is a no-op and the content
-/// appears immediately.
+/// sign-out reset the cursor) it blocks on the full pull so the bookmark lists read a populated store
+/// rather than flashing empty; on later launches the store is already populated, so content shows
+/// immediately while a delta sync runs in the background.
 private struct MainFlowView: View {
 
     // MARK: SwiftUI Properties
 
     @Environment(AppEnvironment.self) private var environment
-    @State private var didBootstrap = false
+    @State private var isReady = false
 
     // MARK: Content Properties
 
@@ -66,7 +66,7 @@ private struct MainFlowView: View {
 
     var body: some View {
         Group {
-            if didBootstrap {
+            if isReady {
                 makeContent()
             } else {
                 ProgressView()
@@ -74,8 +74,13 @@ private struct MainFlowView: View {
             }
         }
         .task {
-            await environment.bootstrapLocalStore()
-            didBootstrap = true
+            if environment.syncEngine.hasSyncedBefore {
+                isReady = true
+                await environment.syncEngine.sync()
+            } else {
+                await environment.syncEngine.sync()
+                isReady = true
+            }
         }
     }
 

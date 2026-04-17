@@ -2562,3 +2562,75 @@ killed and reads entirely from disk.
 - **Boundary.** No `SyncEngine`, `NWPathMonitor`, `BGAppRefreshTask`, or sync UI —
   Phases 3–4. The Share Extension, web frontend, CLI, and browser extension are
   untouched. Both platforms build; lints clean.
+
+## Offline Sync — Phase 3 (SyncEngine, connectivity, background refresh)
+
+Phase 3 adds the real sync: a delta pull + push cycle with last-write-wins, an
+offline write queue, connectivity-triggered sync, and iOS background refresh. The
+sync state (`isSyncing`, `lastSyncedAt`, `lastSyncError`, `pendingCount`) is
+published but **not yet consumed by any view** — that is Phase 4.
+
+- **✅ `SyncEngine` (`@MainActor @Observable`), pull-then-push, last-write-wins.**
+  Pull pages `GET /bookmarks/changes?since=` (per 500) and applies each DTO by
+  `serverID`: insert if new; if the server's `updatedAt` is newer than the local
+  `serverUpdatedAt`, apply it unless a local pending edit is newer (then keep local
+  for the push). Then `GET /bookmarks/deleted?since=` removes tombstoned records.
+  Push sweeps every `pendingSyncAt != nil` record — create (`POST`), update
+  (`PUT`), or delete (`DELETE`) — clearing the metadata on success. Single-flight
+  via an `inflightSync: Task` (same pattern as `AuthRepository.refreshIfNeeded`).
+- **✅ The cursor subsumes the Phase 2 seed (supersedes `localStoreSyncedKey`).**
+  `lastSyncedAt` (persisted in App Group defaults) is the delta cursor; when it is
+  `nil` the pull omits `since` and fetches the whole library — exactly the Phase 2
+  one-time seed. So Phase 2's `bootstrapLocalStore()` and the `localStoreSyncedKey`
+  flag were removed in favor of `SyncEngine.sync()`. `RootView`'s `MainFlowView`
+  now blocks on the first cycle (`hasSyncedBefore == false`) and otherwise shows
+  content immediately while a delta sync runs in the background.
+- **✅ The cursor is the cycle's *start* time, not its end.** Set to the timestamp
+  captured before the pull, only after pull **and** push succeed. Using the start
+  (rather than `Date()` at the end) means any change racing the cycle is re-pulled
+  next time — `upsert` is idempotent, so over-fetching the boundary is harmless,
+  whereas using the end could skip it. Client-vs-server clock skew is accepted under
+  the last-write-wins simplicity.
+- **✅ Offline write queue replaces Phase 2's pure write-through (per the brief's
+  Phase 3 directive).** `BookmarkRepository` routes on `ConnectivityMonitor.isOnline`:
+  online it stays write-through (API first, then mirror — instantaneous and
+  conflict-free); offline (or when the API call fails with a transport error,
+  `StashAPIError.unknown`, surfaced as `Error.isConnectivityError`) it queues
+  locally — create inserts an `isLocalOnly` record with a temp `serverID`, update/
+  archive mutate the record, delete soft-deletes — all stamping `pendingSyncAt`, and
+  returns optimistically. The push drains the queue on the next cycle.
+- **✅ Push conflict handling.** Create `409 duplicate_url` → the URL exists
+  server-side (saved on another device); local content wins, so `PUT` the local
+  title/description/tags onto the existing record and collapse onto whichever local
+  copy holds that id. Update/delete `404` → the bookmark is gone server-side, so the
+  local record is removed. A connectivity error mid-push aborts the cycle (cursor
+  not advanced, `lastSyncError` set); other per-record errors are skipped so one bad
+  record can't wedge the sweep. Push is a full sweep, never paginated (per the
+  stopping rules).
+- **✅ `ConnectivityMonitor` (`NWPathMonitor`).** Publishes `isOnline` and fires
+  `onReconnect` on an unsatisfied→satisfied transition, wired to `syncEngine.sync()`.
+  Starts optimistically online; the first path update corrects it.
+- **✅ Sync triggers.** First launch / post-login (`MainFlowView.task`), reconnect
+  (`onReconnect`), and return-from-background (`scenePhase` `.background → .active`,
+  authenticated only). Single-flight coalesces overlaps.
+- **✅ Background refresh is iOS-only this phase; `.backgroundTask(.appRefresh)`
+  over raw `BGTaskScheduler.register`.** The SwiftUI scene modifier registers the
+  handler and signals completion automatically — cleaner than an `AppDelegate` in a
+  multiplatform SwiftUI app, and it sidesteps the launch-time `register` crash if the
+  identifier is missing. `syncInBackground()` syncs then reschedules; the identifier
+  `cc.otavio.stash.backgroundSync` is in both `Info.plist`s (`BGTaskSchedulerPermitted`
+  `Identifiers`), with `UIBackgroundModes: [fetch]` on iOS. macOS `.appRefresh` is
+  unavailable and needs the `background-task-scheduler` entitlement — deferred to
+  Phase 4 — so `BackgroundSyncScheduler` is `#if os(iOS)` and the modifier is on the
+  iOS scene only.
+- **✅ Client provisioning via `StashClientProvider` + `SessionRefreshing`.** The
+  brief's `init(client:context:)` is adapted to the app's pattern so a silent token
+  refresh runs before each cycle and the engine always uses the configured server.
+- **Known Phase 3 limitations (no UI yet).** A reconnect/background sync that
+  changes the store does not live-refresh an already-visible list (lists refresh on
+  their own triggers); `pendingCount` updates per sync cycle, not the instant an
+  offline write is queued. Both are intentional — Phase 4 surfaces sync state and
+  can wire live refresh.
+- **Boundary.** No offline banner, pending row indicator, Settings sync section, or
+  the macOS background entitlement — Phase 4. The Share Extension, web frontend,
+  CLI, and browser extension are untouched. Both platforms build; lints clean.
