@@ -354,7 +354,8 @@ code, the deviations from the PRD, and the trade-offs accepted.
   `first(where:) != nil`, `\.$field == ""`) — these are database builders, not `Sequence` ops, and
   rewriting them would break compilation.
 - **✅ `identifier_name` exclusions** for idiomatic short names (`db`, `q`, `i`, `a`, `b`, `c`, `s`,
-  `v`, `ok`, `ts`, `me`) and the `date_added` Anybox `CodingKey` (which must match the JSON key).
+  `v`, `ok`, `ts`, `me`). The Anybox snake_case JSON key is handled with a proper Swift identifier
+  instead of a lint exception: `case dateAddedUnix = "date_added"` in the `CodingKeys` enum.
 - **⚠️ Disabled `file_length` / `type_body_length` / `function_body_length`** for consistency with
   the complexity family already disabled in the config (`line_length`, `nesting`,
   `cyclomatic_complexity`, `function_parameter_count`, `large_tuple`) — the web controllers and test
