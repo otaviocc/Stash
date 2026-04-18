@@ -173,5 +173,6 @@ extension Bookmark {
         isArchived = local.isArchived
         createdAt = local.serverCreatedAt
         updatedAt = local.serverUpdatedAt
+        isPendingSync = local.pendingSyncAt != nil
     }
 }

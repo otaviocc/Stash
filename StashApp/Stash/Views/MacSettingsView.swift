@@ -103,6 +103,8 @@
                         .urlFieldStyle()
                 }
 
+                SyncStatusSection()
+
                 Section {
                     Button(role: .destructive, action: signOut) {
                         Text("Sign Out")

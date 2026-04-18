@@ -42,6 +42,11 @@ struct BookmarkRowView: View {
                 Text(bookmark.title)
                     .font(.headline)
                     .lineLimit(2)
+
+                if bookmark.isPendingSync {
+                    Spacer(minLength: 8)
+                    PendingSyncBadge()
+                }
             }
 
             Text(bookmark.hostname)

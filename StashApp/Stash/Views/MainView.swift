@@ -33,12 +33,27 @@ import SwiftUI
         // MARK: SwiftUI Properties
 
         @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+        @Environment(AppEnvironment.self) private var environment
 
         // MARK: Content Properties
 
         // MARK: Content
 
         var body: some View {
+            makeContent()
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    if !environment.connectivityMonitor.isOnline {
+                        OfflineBanner()
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
+                .animation(.default, value: environment.connectivityMonitor.isOnline)
+        }
+
+        // MARK: Content Methods
+
+        @ViewBuilder
+        private func makeContent() -> some View {
             if horizontalSizeClass == .regular {
                 SidebarSplitView()
             } else {

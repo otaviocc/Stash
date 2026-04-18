@@ -110,6 +110,17 @@ final class SyncEngine {
         BackgroundSyncScheduler.schedule()
     }
 
+    /// Recomputes the queued-change count from the store. Called when the sync status UI appears, so
+    /// it reflects offline writes made since the last cycle.
+    func refreshPendingCount() {
+        pendingCount = localStore.pendingCount()
+    }
+
+    /// Dismisses the last sync error (the inline Settings alert). The next cycle also clears it.
+    func dismissError() {
+        lastSyncError = nil
+    }
+
     /// Clears the sync cursor and pending count on sign-out so the next user starts from a full pull.
     func reset() {
         lastSyncedAt = nil

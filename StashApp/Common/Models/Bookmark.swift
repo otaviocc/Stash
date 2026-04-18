@@ -40,6 +40,11 @@ struct Bookmark: Identifiable, Hashable {
     let createdAt: Date
     let updatedAt: Date
 
+    /// True when this bookmark has a local change still waiting to be pushed to the server. Surfaced
+    /// from the local store's sync metadata (`pendingSyncAt`); always `false` for a server-sourced
+    /// bookmark. Drives the pending indicator in the list and detail views.
+    var isPendingSync = false
+
     // MARK: Computed Properties
 
     /// The URL's host, suitable for a compact subtitle in a list row.

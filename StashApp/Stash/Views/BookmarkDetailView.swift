@@ -106,6 +106,11 @@ struct BookmarkDetailView: View {
                 FaviconView(domain: bookmark.faviconDomain)
                 Text(bookmark.title)
                     .font(.headline)
+
+                if bookmark.isPendingSync {
+                    Spacer(minLength: 8)
+                    PendingSyncBadge()
+                }
             }
 
             Link(destination: bookmark.url) {

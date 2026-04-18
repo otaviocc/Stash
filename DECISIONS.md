@@ -2634,3 +2634,61 @@ published but **not yet consumed by any view** — that is Phase 4.
 - **Boundary.** No offline banner, pending row indicator, Settings sync section, or
   the macOS background entitlement — Phase 4. The Share Extension, web frontend,
   CLI, and browser extension are untouched. Both platforms build; lints clean.
+
+## Offline Sync — Phase 4 (sync status UI) — feature complete
+
+Phase 4 surfaces the sync state Phase 3 published. No new sync behavior — only the
+banner, the pending indicator, the Settings section, and the macOS entitlement.
+This completes the offline-sync feature.
+
+- **✅ Offline banner as `.safeAreaInset(edge: .top)` on `MainView` / `MacContentView`.**
+  Chosen over a toolbar item (would shift toolbar content inconsistently and compete
+  with existing buttons) and a modal (far too intrusive for an informational, fully
+  supported state). `OfflineBanner` is a slim, muted (`.secondary` on `.bar`) strip —
+  "Working offline — changes will sync when reconnected" — shown only while
+  `connectivityMonitor.isOnline == false`, animating in/out with a top move +
+  opacity transition driven by `.animation(_:value:)` on `isOnline`.
+- **✅ Pending indicator on the row/detail, not a count badge.** A trailing muted
+  `arrow.triangle.2.circlepath` (`PendingSyncBadge`) appears in `BookmarkRowView` and
+  the `BookmarkDetailView` header when a bookmark has unpushed local changes. A badge
+  with a number would imply *action required*; a row indicator is purely
+  informational and clears itself once the change syncs. It never blocks
+  interaction — a pending bookmark can still be opened, edited, archived, or deleted.
+- **✅ Pending state rides the domain model (`Bookmark.isPendingSync`).** The views
+  render the domain `Bookmark`, not `LocalBookmark`, so the badge needs the flag on
+  the domain type. `Bookmark(local:)` sets `isPendingSync = (pendingSyncAt != nil)`;
+  `Bookmark(dto:)` leaves it `false`. So list rows (built from local records) show
+  the badge and reflect it the instant an offline write re-runs the owning
+  repository's `refreshVisible()`. A reconnect/background sync that clears pending in
+  the store updates a *visible* list on its next refresh trigger (the Phase 3
+  cross-repository-refresh limitation stands — deliberately not widened here).
+- **✅ Sync status in Settings, not a persistent toolbar item.** Sync is a background
+  concern, not a primary action, so it lives where users look for it. A shared
+  `SyncStatusSection` (used by the iOS `SettingsView` and the macOS General tab)
+  shows "Last synced" (`RelativeDateTimeFormatter`, or "Never"), "Pending changes"
+  (only when `pendingCount > 0`), and a "Sync Now" button (disabled with a spinner
+  while syncing). It calls `refreshPendingCount()` on appear so the count reflects
+  offline writes queued since the last cycle (`pendingCount` otherwise updates only
+  per cycle, per Phase 3).
+- **✅ Sync errors are a dismissible inline notice, never a modal.** When
+  `lastSyncError != nil`, the Sync section shows a muted "Sync failed — tap Sync Now
+  to retry" row with an `xmark` dismiss button (`SyncEngine.dismissError()`); the
+  next cycle also clears it. Sync failures are non-blocking — the user keeps working
+  offline — so a modal alert would be wrong.
+- **✅ `BGAppRefreshTask`, not `BGProcessingTask`** (carried from Phase 3): the delta
+  sync is short and network-bound, which is exactly what app-refresh tasks are for;
+  processing tasks are for long CPU-bound work.
+- **⚠️ macOS background-task entitlement added, but macOS background refresh stays
+  inert.** Per the brief, `com.apple.developer.background-task-scheduler` is added to
+  `Config/App-macOS.entitlements`; iOS needs no entitlement (granted via the
+  Info.plist identifier). But macOS background scheduling is still not wired —
+  SwiftUI's `.backgroundTask(.appRefresh)` is iOS-only and `BackgroundSyncScheduler`
+  is `#if os(iOS)` (the Phase 3 deviation). So on macOS the entitlement is a
+  forward-looking placeholder; macOS still syncs on launch, reconnect, and
+  foreground, just not via a background task. Note for signed builds: this is a
+  managed entitlement and must be present in the provisioning profile, or remove it
+  until macOS background refresh is actually implemented.
+- **Scope.** Only the four specified surfaces plus the entitlement. No new sync
+  logic, no cross-repository live-refresh-on-sync, no macOS background scheduler. The
+  Share Extension, web frontend, CLI, and browser extension are untouched. Both
+  platforms build; lints clean. **Offline sync is feature complete.**

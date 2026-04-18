@@ -957,12 +957,12 @@ are `@MainActor @Observable`. Silent refresh centralised in
 `AuthRepository.refreshIfNeeded()` behind a `SessionRefreshing` protocol to
 avoid reference cycles.
 
-**Local store + sync (offline sync, Phases 2–3):** the apps keep a full SwiftData
-copy of the user's bookmarks (`LocalStore` + `LocalBookmark`, owned by
-`AppEnvironment`). `BookmarkRepository` reads entirely from this store — search,
-tag, recency, and Smart View filters run in memory, mirroring the backend's SQL
-semantics — so browsing works without the network. `TagRepository` derives the tag
-list from the store.
+**Offline sync (complete):** the apps keep a full SwiftData copy of the user's
+bookmarks (`LocalStore` + `LocalBookmark`, owned by `AppEnvironment`).
+`BookmarkRepository` reads entirely from this store — search, tag, recency, and
+Smart View filters run in memory, mirroring the backend's SQL semantics — so
+browsing works without the network. `TagRepository` derives the tag list from the
+store.
 
 `SyncEngine` runs a pull-then-push cycle with last-write-wins: it pulls
 `GET /bookmarks/changes?since=` and `GET /bookmarks/deleted?since=` (the `since`
@@ -972,10 +972,15 @@ write-through (API first, then mirror — instantaneous and conflict-free); offl
 they are queued locally (`pendingSyncAt`/`isLocalOnly`/`locallyDeletedAt`) and
 pushed on reconnect. A `ConnectivityMonitor` (`NWPathMonitor`) triggers a sync when
 connectivity returns; sync also runs on launch/login and on returning from the
-background. iOS schedules a background-refresh sync (`BGAppRefreshTask`); macOS
-background refresh and all sync-status UI (offline banner, pending indicators,
-Settings sync section) are forthcoming in Phase 4. The Share Extension stays
-online-only. See `DECISIONS.md` → Offline Sync.
+background, and iOS schedules a background-refresh sync (`BGAppRefreshTask`).
+
+Sync state is surfaced in the UI: a slim offline banner across the top of the app
+shell while disconnected, a muted pending indicator on rows and the detail header
+for bookmarks with unpushed changes, and a Settings "Sync" section showing the last
+sync time and pending count with a "Sync Now" button and a dismissible failure
+notice. The Share Extension stays online-only; macOS background-task scheduling is a
+known follow-up (the entitlement is in place, the scheduler is not yet wired). See
+`DECISIONS.md` → Offline Sync.
 
 **`StashClientProvider`** — rebuilds `StashClient` only when the server URL
 changes. `tokenProvider` closure reads from `TokenManager` at request time.

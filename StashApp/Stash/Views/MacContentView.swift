@@ -43,6 +43,19 @@
         // MARK: Content
 
         var body: some View {
+            makeSplit()
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    if !environment.connectivityMonitor.isOnline {
+                        OfflineBanner()
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
+                .animation(.default, value: environment.connectivityMonitor.isOnline)
+        }
+
+        // MARK: Content Methods
+
+        private func makeSplit() -> some View {
             NavigationSplitView {
                 List(selection: $selection) {
                     makeViewsSection()
@@ -63,8 +76,6 @@
                 }
             }
         }
-
-        // MARK: Content Methods
 
         private func makeViewsSection() -> some View {
             Section("Views") {
