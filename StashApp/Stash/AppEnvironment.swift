@@ -78,6 +78,10 @@ final class AppEnvironment {
         let localStore = LocalStore(inMemory: inMemory)
         self.localStore = localStore
 
+        if localStore.didResetOnInit {
+            defaults.removeObject(forKey: AppGroup.lastSyncedAtKey)
+        }
+
         let connectivityMonitor = ConnectivityMonitor()
         self.connectivityMonitor = connectivityMonitor
 

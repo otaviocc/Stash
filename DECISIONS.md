@@ -2692,3 +2692,58 @@ This completes the offline-sync feature.
   logic, no cross-repository live-refresh-on-sync, no macOS background scheduler. The
   Share Extension, web frontend, CLI, and browser extension are untouched. Both
   platforms build; lints clean. **Offline sync is feature complete.**
+
+## Offline Sync — Code review fixes
+
+Three issues from the post-feature code review, fixed in a targeted pass (no
+refactoring beyond the fixes).
+
+- **✅ [High] Involuntary auth failure no longer wipes pending offline writes.**
+  `clearSession()` (on an involuntary `tokenExpired` / `tokenInvalid` /
+  `invalidCredentials` / `accountSuspended` during a refresh) calls
+  `onSessionCleared` → `LocalStore.wipe()`, which previously deleted **all** local
+  bookmarks. `wipe()` now deletes only the clean rows
+  (`#Predicate { $0.pendingSyncAt == nil }`), preserving every record with a queued
+  offline change (`pendingSyncAt != nil`, which also covers offline soft-deletes).
+  On the next sign-in the cursor-less pull repopulates the store; preserved records
+  survive it — `mergePulled` only applies a server DTO when it is newer than the
+  local pending edit (last-write-wins), and `isLocalOnly` records carry a temporary
+  `serverID` the server never returns, so a pull never touches them. They push on
+  the first sync cycle after re-login.
+- **✅ `SyncEngine.reset()` intentionally still clears `lastSyncedAt` (audit
+  outcome).** The review fix suggested preserving the cursor so re-login is a delta
+  "that would not stomp pending writes." On inspection, a full (cursor-less) pull
+  does **not** stomp pending writes — the `mergePulled` LWW guard protects pending
+  edits and `isLocalOnly` records never match a pulled DTO — so the premise does not
+  hold. Preserving the cursor would instead break the explicit sign-out → *different
+  user* login path: the new user would inherit the previous user's cursor and get a
+  delta pull, leaving their library incomplete. So `reset()` keeps clearing the
+  cursor; a full pull on re-login is correct and safe for pending writes.
+  ⚠️ **Residual, not addressed here:** `wipe()` preserving pending records helps a
+  same-user involuntary expiry, but on an *explicit* sign-out followed by a
+  *different* user signing in, the previous user's `isLocalOnly` records would
+  remain and be pushed into the new user's account. `onSessionCleared` cannot today
+  tell an involuntary expiry from a deliberate logout. A future refinement should
+  distinguish the two (preserve the queue only on involuntary expiry, fully wipe on
+  explicit logout). Acceptable for now given a single account per device in practice.
+- **✅ [Medium] Pull results are saved before the push begins.** `performSync()` now
+  calls `localStore.save()` immediately after `pull()` and before `push()`, so
+  server changes (inserts, merges, tombstone removes) are durable even if the push
+  later fails or the app is killed mid-cycle. The cursor is still advanced
+  (`setLastSyncedAt`) only after the push succeeds, so a push failure still re-pulls
+  the same delta next time — just without re-fetching a large initial pull from
+  scratch.
+- **✅ [Medium] `LocalStore` wipe-and-retries instead of crashing on container
+  failure.** A corrupt or schema-incompatible on-disk store previously hit a
+  `fatalError` on every launch. `init` now deletes the store file (and its
+  `-wal` / `-shm` sidecars) and recreates the container once; only a second failure
+  on a fresh store still traps. Because the recovery leaves the store empty,
+  `AppEnvironment` clears `lastSyncedAt` from the App Group defaults when
+  `LocalStore.didResetOnInit` is set, so the next sync is a **full** cursor-less pull
+  (a complete rebuild) rather than a delta that would leave the store partial — and
+  `RootView` blocks on that first pull as it does on a fresh install. The local store
+  is a disposable cache, so degrading to a re-seed beats crashing.
+- **Scope.** Only the three review fixes. The [Low] findings (clock-skew cursor,
+  `serverID` uniqueness, `serverUpdatedAt` client-clock semantics, sign-out race)
+  and the missing backend tests are deliberately left for later. No view, web, CLI,
+  or extension changes. Both platforms build; lints clean.

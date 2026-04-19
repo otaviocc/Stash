@@ -37,6 +37,11 @@ final class LocalStore {
 
     let container: ModelContainer
 
+    /// True when the on-disk store was corrupt/incompatible and had to be deleted and recreated during
+    /// `init`. `AppEnvironment` reads this to drop the sync cursor so the next sync is a full pull that
+    /// rebuilds the now-empty store, rather than a delta that would leave it incomplete.
+    private(set) var didResetOnInit = false
+
     // MARK: Computed Properties
 
     var mainContext: ModelContext {
@@ -45,6 +50,12 @@ final class LocalStore {
 
     // MARK: Lifecycle
 
+    /// Initialises the SwiftData container for the local bookmark store.
+    ///
+    /// If container creation fails (corrupt file, incompatible schema), the store is deleted and
+    /// recreated from scratch and `didResetOnInit` is set. The `SyncEngine` re-seeds from the server on
+    /// the next sync cycle. This is preferable to crashing, since the local store is a disposable cache;
+    /// a `fatalError` remains only for the case where even a fresh store cannot be created.
     init(inMemory: Bool = false) {
         let schema = Schema([LocalBookmark.self])
         let configuration = ModelConfiguration(
@@ -56,7 +67,28 @@ final class LocalStore {
         do {
             container = try ModelContainer(for: schema, configurations: [configuration])
         } catch {
-            fatalError("Failed to create the local bookmark store: \(error)")
+            Self.removeStoreFiles(at: configuration.url)
+            didResetOnInit = true
+
+            do {
+                container = try ModelContainer(for: schema, configurations: [configuration])
+            } catch {
+                fatalError("LocalStore: failed to create ModelContainer even after wipe: \(error)")
+            }
+        }
+    }
+
+    // MARK: Static Functions
+
+    /// Removes the SQLite store file and its `-wal` / `-shm` sidecars, so a retry starts clean.
+    private static func removeStoreFiles(at url: URL?) {
+        guard let url else { return }
+
+        let manager = FileManager.default
+        for suffix in ["", "-wal", "-shm"] {
+            let sidecar = url.deletingLastPathComponent()
+                .appendingPathComponent(url.lastPathComponent + suffix)
+            try? manager.removeItem(at: sidecar)
         }
     }
 
@@ -124,9 +156,15 @@ final class LocalStore {
         }
     }
 
-    /// Deletes every local bookmark — used on sign-out so the next user starts clean.
+    /// Deletes the already-synced local bookmarks, used on sign-out so the next sign-in starts from a
+    /// fresh copy — but **preserves any record with a queued offline change** (`pendingSyncAt != nil`,
+    /// which also covers offline soft-deletes). Unpushed writes therefore survive a forced logout from
+    /// an involuntary session expiry and push on the next sign-in, rather than being silently lost.
     func wipe() {
-        try? mainContext.delete(model: LocalBookmark.self)
+        try? mainContext.delete(
+            model: LocalBookmark.self,
+            where: #Predicate { $0.pendingSyncAt == nil }
+        )
         try? mainContext.save()
     }
 

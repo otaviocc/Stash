@@ -143,6 +143,7 @@ final class SyncEngine {
         do {
             let client = try await authenticatedClient()
             try await pull(client: client, since: lastSyncedAt)
+            localStore.save()
             try await push(client: client)
             localStore.save()
             setLastSyncedAt(cycleStart)
