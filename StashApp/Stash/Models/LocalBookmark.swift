@@ -40,7 +40,7 @@ final class LocalBookmark {
 
     @Attribute(.unique) var id: UUID
 
-    var serverID: UUID
+    @Attribute(.unique) var serverID: UUID
     var url: String
     var title: String
     var bookmarkDescription: String?

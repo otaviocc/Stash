@@ -221,7 +221,187 @@ struct BookmarkSyncTests {
         }
     }
 
+    @Test("a web single delete records a tombstone")
+    func webDeleteRecordsTombstone() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            let session = try await webSession(app, username: "otavio", password: "correct-horse-battery")
+            let bookmark = try await app.makeBookmark(for: user, url: "https://web-gone.com")
+            let bookmarkID = try bookmark.requireID()
+
+            // When
+            try await app.testing().test(
+                .POST, "app/bookmarks/\(bookmarkID)/delete",
+                headers: session
+            ) { res async throws in
+                #expect(res.status == .seeOther, "It should redirect after the web delete")
+            }
+
+            // Then
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks/deleted",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let tombstones = try res.content.decode([DeletedBookmarkResponse].self)
+                #expect(
+                    tombstones.map(\.id) == [bookmarkID],
+                    "It should record a tombstone for the web-deleted bookmark"
+                )
+            }
+        }
+    }
+
+    @Test("a web bulk delete records a tombstone for every bookmark")
+    func webBulkDeleteRecordsTombstones() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            let session = try await webSession(app, username: "otavio", password: "correct-horse-battery")
+            let first = try await app.makeBookmark(for: user, url: "https://one.com").requireID()
+            let second = try await app.makeBookmark(for: user, url: "https://two.com").requireID()
+            let third = try await app.makeBookmark(for: user, url: "https://three.com").requireID()
+
+            // When
+            try await app.testing().test(
+                .POST, "app/settings/delete-all-bookmarks",
+                headers: session,
+                beforeRequest: { req in
+                    try req.content.encode(DeleteAllBookmarksForm(confirm: "delete all"), as: .urlEncodedForm)
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .seeOther, "It should redirect after the bulk delete")
+                }
+            )
+
+            // Then
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks/deleted",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let tombstones = try res.content.decode([DeletedBookmarkResponse].self)
+                #expect(
+                    Set(tombstones.map(\.id)) == [first, second, third],
+                    "It should record a tombstone for every bulk-deleted bookmark"
+                )
+            }
+        }
+    }
+
+    @Test("changes returns bookmarks sorted ascending by updatedAt")
+    func changesSortedAscending() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            let reference = Date(timeIntervalSince1970: 1_700_000_000)
+            let oldest = try await app.makeBookmark(for: user, url: "https://oldest.com")
+            let middle = try await app.makeBookmark(for: user, url: "https://middle.com")
+            let newest = try await app.makeBookmark(for: user, url: "https://newest.com")
+            try await setUpdatedAt(reference.addingTimeInterval(-20), id: oldest.requireID(), on: app.db)
+            try await setUpdatedAt(reference.addingTimeInterval(-10), id: middle.requireID(), on: app.db)
+            try await setUpdatedAt(reference, id: newest.requireID(), on: app.db)
+
+            // When
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks/changes",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                let timestamps = page.items.map(\.updatedAt)
+                #expect(
+                    timestamps == timestamps.sorted(),
+                    "It should return changes oldest-first for stable cursor pagination"
+                )
+                #expect(
+                    page.items.map(\.url) == ["https://oldest.com", "https://middle.com", "https://newest.com"],
+                    "It should order the bookmarks by ascending updatedAt"
+                )
+            }
+        }
+    }
+
+    @Test("changes clamps per to the 1...500 range")
+    func changesClampsPer() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://a.com")
+            try await app.makeBookmark(for: user, url: "https://b.com")
+
+            // When / Then — above the ceiling
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks/changes?per=1000",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                #expect(res.status == .ok, "It should accept an oversized per without erroring")
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(page.metadata.per <= 500, "It should clamp per to a maximum of 500")
+            }
+
+            // When / Then — below the floor
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks/changes?per=0",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                #expect(res.status == .ok, "It should accept a zero per without erroring")
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(page.metadata.per >= 1, "It should clamp per to a minimum of 1")
+            }
+        }
+    }
+
+    @Test("changes with a malformed since returns 422")
+    func changesMalformedSince() async throws {
+        try await withTestApp { app in
+            // Given
+            try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            // When
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks/changes?since=not-a-date",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                #expect(res.status == .unprocessableEntity, "It should reject a non-ISO-8601 since")
+                let err = try res.content.decode(TestError.self)
+                #expect(err.code == "validation_failed", "It should return the validation_failed error code")
+            }
+        }
+    }
+
     // MARK: - Helpers
+
+    private func webSession(
+        _ app: Application,
+        username: String,
+        password: String
+    ) async throws -> HTTPHeaders {
+        var cookie: String?
+        try await app.testing().test(
+            .POST, "app/login",
+            beforeRequest: { req in
+                try req.content.encode(
+                    LoginForm(username: username, password: password, totpCode: nil),
+                    as: .urlEncodedForm
+                )
+            },
+            afterResponse: { res async throws in
+                cookie = res.headers.setCookie?["stash_session"]?.string
+            }
+        )
+        guard let cookie else {
+            throw Abort(.internalServerError, reason: "app web login did not set a session cookie")
+        }
+
+        return ["Cookie": "stash_session=\(cookie)"]
+    }
 
     private func setUpdatedAt(_ date: Date, id: UUID, on db: Database) async throws {
         try await Bookmark.query(on: db)

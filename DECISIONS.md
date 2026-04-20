@@ -2773,3 +2773,26 @@ user's unpushed writes in the store (they would push into the next user's accoun
 | Token expired/revoked | `onSessionCleared` | `wipe()` | Pending writes survive, push on next login |
 | Account suspended | `onSessionCleared` | `wipe()` | Pending writes survive, push when unsuspended |
 | User taps "Sign Out" | `onExplicitLogout` | `wipeAll()` | Complete clean slate, no pending records left |
+
+### Follow-up: serverID uniqueness + backend sync tests
+
+- **✅ `LocalBookmark.serverID` is now `@Attribute(.unique)`.** `serverID` is the
+  sync match key for `upsert`/`record(forServerID:)`; the constraint makes the model
+  self-enforcing rather than relying solely on fetch-before-insert under `@MainActor`.
+  Adding `.unique` to an existing attribute is a non-additive schema change that
+  SwiftData will not auto-migrate, but no `VersionedSchema`/`SchemaMigrationPlan` is
+  needed: `ModelContainer` creation throws on the incompatible store, and
+  `LocalStore.init()`'s existing wipe-and-retry deletes the store and recreates it,
+  setting `didResetOnInit` → `AppEnvironment` clears `lastSyncedAt` → the next sync is
+  a full cursor-less re-seed. The store is a disposable cache, so this one-time
+  rebuild on upgrade is acceptable (already-decided recovery strategy).
+- **✅ Backend sync test gaps from the review are closed.** `BookmarkSyncTests` now
+  also verifies: the **web single delete** (`POST /app/bookmarks/:id/delete`) and
+  **web bulk delete** (`POST /app/settings/delete-all-bookmarks`) each record
+  tombstones — so "tombstone on every hard-delete path" is covered for all three
+  user-facing paths, not just the JSON API; `/changes` returns results **ascending by
+  `updatedAt`** (the ordering the sync cursor pagination depends on); `/changes`
+  **clamps `per` to 1…500** (oversized and zero both 200, not 422); and a **malformed
+  `since` returns 422 `validation_failed`**. Web routes authenticate via a
+  `stash_session` cookie helper mirroring the existing `adminWebSession` pattern.
+  145 backend tests pass.
