@@ -267,9 +267,13 @@ code, the deviations from the PRD, and the trade-offs accepted.
   sticky/scrollable); hidden under 768px (the on-list filter pills cover mobile). All colours use
   existing variables — active tag is `--accent`, counts are `--text-muted`. `/app/tags` is
   unchanged.
-- **⚠️ Leaf gotcha (extends the earlier ones).** `#if(cond):#else: X #endif` with an **empty
-  then-branch** mis-parses (the else content is dropped). Use a positive single-branch test instead
-  — the "All" active state uses `#if(tag == ""): class="active"#endif`.
+- **⚠️ Leaf gotcha — a non-nil empty `String` is truthy in `#if`.** A *non-optional* `String` field
+  that is `""` makes `#if(field)` evaluate **true** (unlike a `String?` field, which is `nil` when
+  absent and therefore falsy — which is why `#if(error)`/`#if(notice)` work). The `tag` context
+  field is `query.tag?.nonEmpty ?? ""`, so guards on it must be explicit: `#if(tag != "")` for the
+  "Filtered by tag" line and the hidden form input, and `#if(tag == "")` for the "All" active state.
+  (This is also why `#if(cond):#else: X #endif` with an empty then-branch misbehaved earlier — the
+  same empty-string-is-truthy quirk; prefer positive single-branch tests.)
 - **✅ Sidebar positioning: just two flex columns (final).** Both `sticky` and `fixed` were tried
   and rejected — `sticky` scrolled away once past the parent's height, and `fixed` (viewport-
   anchored with magic `top`/`right` offsets) was brittle and detached from the content. The desired
