@@ -2719,13 +2719,8 @@ refactoring beyond the fixes).
   user* login path: the new user would inherit the previous user's cursor and get a
   delta pull, leaving their library incomplete. So `reset()` keeps clearing the
   cursor; a full pull on re-login is correct and safe for pending writes.
-  ⚠️ **Residual, not addressed here:** `wipe()` preserving pending records helps a
-  same-user involuntary expiry, but on an *explicit* sign-out followed by a
-  *different* user signing in, the previous user's `isLocalOnly` records would
-  remain and be pushed into the new user's account. `onSessionCleared` cannot today
-  tell an involuntary expiry from a deliberate logout. A future refinement should
-  distinguish the two (preserve the queue only on involuntary expiry, fully wipe on
-  explicit logout). Acceptable for now given a single account per device in practice.
+  The explicit-logout case is handled separately — see "Explicit logout vs
+  involuntary expiry" below.
 - **✅ [Medium] Pull results are saved before the push begins.** `performSync()` now
   calls `localStore.save()` immediately after `pull()` and before `push()`, so
   server changes (inserts, merges, tombstone removes) are durable even if the push
@@ -2747,3 +2742,34 @@ refactoring beyond the fixes).
   `serverID` uniqueness, `serverUpdatedAt` client-clock semantics, sign-out race)
   and the missing backend tests are deliberately left for later. No view, web, CLI,
   or extension changes. Both platforms build; lints clean.
+
+### Explicit logout vs involuntary expiry
+
+Resolves the residual from Fix 1: an explicit sign-out must not leave the previous
+user's unpushed writes in the store (they would push into the next user's account).
+
+- **✅ Two teardown callbacks on `AuthRepository`.** `clearSession(explicit:)` now
+  routes to one of two closures. **Involuntary expiry** (the `clearSession()` calls
+  in `performRefresh()` — token expired/revoked, account suspended) fires
+  `onSessionCleared`, wired in `AppEnvironment` to the preserving `LocalStore.wipe()`
+  (keeps `pendingSyncAt != nil` records). **Explicit logout** (`logout()`, via
+  `defer { clearSession(explicit: true) }`) fires the new `onExplicitLogout`, wired
+  to `LocalStore.wipeAll()` (deletes every record, including pending). Both paths
+  also reset the tag/Smart View caches and the sync cursor.
+- **✅ No new public method, no view changes.** `logout()` was already the only
+  user-initiated sign-out (both the iOS `SettingsView` and the macOS General tab
+  call `authRepository.logout()`), so the explicit/involuntary split lives entirely
+  inside `clearSession(explicit:)` plus the new `wipeAll()` — the cleanest fit for
+  the existing funnel. The Settings views are unchanged; they already call
+  `logout()`, which now takes the full-wipe path. Chosen over adding a separate
+  `logoutExplicitly()` method, which would have duplicated `logout()`.
+- **Trade-off (intended).** A user who signs out explicitly with pending offline
+  writes loses them. This is correct: the next user must not inherit another user's
+  unsynced data. Involuntary expiry still preserves the queue, since it is the same
+  user whose session will resume.
+
+| Scenario | Path | Wipe | Result |
+|----------|------|------|--------|
+| Token expired/revoked | `onSessionCleared` | `wipe()` | Pending writes survive, push on next login |
+| Account suspended | `onSessionCleared` | `wipe()` | Pending writes survive, push when unsuspended |
+| User taps "Sign Out" | `onExplicitLogout` | `wipeAll()` | Complete clean slate, no pending records left |

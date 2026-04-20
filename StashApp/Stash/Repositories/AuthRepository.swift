@@ -42,7 +42,13 @@ final class AuthRepository: SessionRefreshing {
 
     private(set) var isAuthenticated: Bool
 
+    /// Invoked when the session is cleared by an **involuntary** expiry (token expired/revoked,
+    /// account suspended). Pending offline writes are preserved by this path.
     var onSessionCleared: (() -> Void)?
+
+    /// Invoked when the user **explicitly** signs out. A full clean slate — pending offline writes are
+    /// discarded so the next user inherits nothing.
+    var onExplicitLogout: (() -> Void)?
 
     private let clientProvider: StashClientProvider
     private let tokenManager: TokenManager
@@ -135,7 +141,7 @@ final class AuthRepository: SessionRefreshing {
     }
 
     func logout() async throws {
-        defer { clearSession() }
+        defer { clearSession(explicit: true) }
 
         if let client = clientProvider.client(), let refreshToken = tokenManager.refreshToken {
             _ = try? await client.run(AuthRequestFactory.makeLogoutRequest(refreshToken: refreshToken))
@@ -239,10 +245,15 @@ final class AuthRepository: SessionRefreshing {
         isAuthenticated = true
     }
 
-    private func clearSession() {
+    private func clearSession(explicit: Bool = false) {
         tokenManager.clearTokens()
         isAuthenticated = false
-        onSessionCleared?()
+
+        if explicit {
+            onExplicitLogout?()
+        } else {
+            onSessionCleared?()
+        }
     }
 }
 

@@ -116,6 +116,13 @@ final class AppEnvironment {
             self?.syncEngine.reset()
         }
 
+        authRepository.onExplicitLogout = { [weak self] in
+            self?.tagRepository.reset()
+            self?.smartViewRepository.reset()
+            self?.localStore.wipeAll()
+            self?.syncEngine.reset()
+        }
+
         connectivityMonitor.onReconnect = { [weak self] in
             Task { await self?.syncEngine.sync() }
         }

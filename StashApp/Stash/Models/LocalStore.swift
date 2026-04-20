@@ -168,6 +168,13 @@ final class LocalStore {
         try? mainContext.save()
     }
 
+    /// Deletes every local bookmark unconditionally, including records with pending offline writes.
+    /// Used on explicit sign-out so the next user starts from a complete clean slate.
+    func wipeAll() {
+        try? mainContext.delete(model: LocalBookmark.self)
+        try? mainContext.save()
+    }
+
     func save() {
         try? mainContext.save()
     }
