@@ -2620,9 +2620,9 @@ published but **not yet consumed by any view** — that is Phase 4.
   identifier is missing. `syncInBackground()` syncs then reschedules; the identifier
   `cc.otavio.stash.backgroundSync` is in both `Info.plist`s (`BGTaskSchedulerPermitted`
   `Identifiers`), with `UIBackgroundModes: [fetch]` on iOS. macOS `.appRefresh` is
-  unavailable and needs the `background-task-scheduler` entitlement — deferred to
-  Phase 4 — so `BackgroundSyncScheduler` is `#if os(iOS)` and the modifier is on the
-  iOS scene only.
+  unavailable (`BackgroundTasks.framework` is iOS-only), so `BackgroundSyncScheduler`
+  is `#if os(iOS)` and the modifier is on the iOS scene only; macOS needs no
+  background entitlement (see the Phase 4 entry).
 - **✅ Client provisioning via `StashClientProvider` + `SessionRefreshing`.** The
   brief's `init(client:context:)` is adapted to the app's pattern so a silent token
   refresh runs before each cycle and the engine always uses the configured server.
@@ -2638,8 +2638,8 @@ published but **not yet consumed by any view** — that is Phase 4.
 ## Offline Sync — Phase 4 (sync status UI) — feature complete
 
 Phase 4 surfaces the sync state Phase 3 published. No new sync behavior — only the
-banner, the pending indicator, the Settings section, and the macOS entitlement.
-This completes the offline-sync feature.
+banner, the pending indicator, and the Settings section. This completes the
+offline-sync feature.
 
 - **✅ Offline banner as `.safeAreaInset(edge: .top)` on `MainView` / `MacContentView`.**
   Chosen over a toolbar item (would shift toolbar content inconsistently and compete
@@ -2678,20 +2678,24 @@ This completes the offline-sync feature.
 - **✅ `BGAppRefreshTask`, not `BGProcessingTask`** (carried from Phase 3): the delta
   sync is short and network-bound, which is exactly what app-refresh tasks are for;
   processing tasks are for long CPU-bound work.
-- **⚠️ macOS background-task entitlement added, but macOS background refresh stays
-  inert.** Per the brief, `com.apple.developer.background-task-scheduler` is added to
-  `Config/App-macOS.entitlements`; iOS needs no entitlement (granted via the
-  Info.plist identifier). But macOS background scheduling is still not wired —
-  SwiftUI's `.backgroundTask(.appRefresh)` is iOS-only and `BackgroundSyncScheduler`
-  is `#if os(iOS)` (the Phase 3 deviation). So on macOS the entitlement is a
-  forward-looking placeholder; macOS still syncs on launch, reconnect, and
-  foreground, just not via a background task. Note for signed builds: this is a
-  managed entitlement and must be present in the provisioning profile, or remove it
-  until macOS background refresh is actually implemented.
-- **Scope.** Only the four specified surfaces plus the entitlement. No new sync
-  logic, no cross-repository live-refresh-on-sync, no macOS background scheduler. The
-  Share Extension, web frontend, CLI, and browser extension are untouched. Both
-  platforms build; lints clean. **Offline sync is feature complete.**
+- **✅ Background refresh is iOS-only, and macOS needs no entitlement.**
+  `BGTaskScheduler` / `BGAppRefreshTask` / SwiftUI's `.backgroundTask(.appRefresh)`
+  live in `BackgroundTasks.framework`, which **does not exist on macOS**, so
+  `BackgroundSyncScheduler` and the scene modifier are correctly `#if os(iOS)`
+  guarded. The `com.apple.developer.background-task-scheduler` entitlement is for
+  that iOS framework; it was briefly added to `Config/App-macOS.entitlements` by
+  mistake (it has no effect on macOS and is noise during provisioning / App Store
+  review) and has since been **removed**. `NSBackgroundActivityScheduler` — the
+  macOS mechanism for scheduling work while the app is running — was evaluated and
+  deliberately **not** added: macOS apps are rarely fully quit, and the existing
+  launch/sign-in, return-from-background (`scenePhase → .active`), and reconnect
+  (`ConnectivityMonitor.onReconnect`) triggers cover all practical sync needs. macOS
+  background sync is therefore **complete as-is** — no additional mechanism is needed
+  or planned.
+- **Scope.** Only the four specified surfaces. No new sync logic, no
+  cross-repository live-refresh-on-sync, no macOS background scheduler. The Share
+  Extension, web frontend, CLI, and browser extension are untouched. Both platforms
+  build; lints clean. **Offline sync is feature complete.**
 
 ## Offline Sync — Code review fixes
 
