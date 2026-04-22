@@ -30,10 +30,10 @@ import Foundation
 /// Schedules the recurring background-refresh sync. The matching handler is registered by the
 /// `.backgroundTask(.appRefresh:)` scene modifier in `StashApp`.
 ///
-/// iOS-only for now: `BGAppRefreshTask` and SwiftUI's `.appRefresh` background task are unavailable
-/// on macOS, where background refresh needs the `background-task-scheduler` entitlement — deferred to
-/// Phase 4. `taskIdentifier` is declared in both `Info.plist`s under
-/// `BGTaskSchedulerPermittedIdentifiers`.
+/// iOS-only by design: `BGAppRefreshTask` and SwiftUI's `.appRefresh` background task live in
+/// `BackgroundTasks.framework`, which does not exist on macOS. macOS instead syncs on launch,
+/// reconnect, and foreground — no background mechanism is needed or planned there. `taskIdentifier`
+/// is declared in both `Info.plist`s under `BGTaskSchedulerPermittedIdentifiers`.
 enum BackgroundSyncScheduler {
 
     // MARK: Static Properties
