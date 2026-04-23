@@ -2800,3 +2800,43 @@ user's unpushed writes in the store (they would push into the next user's accoun
   `since` returns 422 `validation_failed`**. Web routes authenticate via a
   `stash_session` cookie helper mirroring the existing `adminWebSession` pattern.
   145 backend tests pass.
+
+## Offline Sync — Optimistic writes (supersedes write-through)
+
+🔁 **Supersedes the Phase 2/3 write-through write path.** Write-through awaited the
+API on the UI path whenever `ConnectivityMonitor.isOnline` was true. But
+`NWPathMonitor` reports the *network path*, not *server reachability* — with the
+server down but Wi-Fi up, `isOnline` stays true, so a create/delete blocked on the
+URLSession timeout (tens of seconds) before the offline-queue fallback ran. Result:
+the Add sheet didn't dismiss and the row appeared/disappeared only after the
+timeout, instead of instantly. The connectivity-based routing could not fix this —
+the only way to be instant regardless of server state is to not await the network on
+the UI path.
+
+- **✅ Writes are now optimistic-first.** `create`/`update`/`setArchived`/`delete`
+  apply to the local store and return immediately (the UI updates instantly, online
+  or off), then call `scheduleSync()` — a detached `SyncEngine.sync()` followed by
+  `refreshVisible()` — to push the queued change and reconcile this list with the
+  server's authoritative result (real `serverID`, normalized tags, fetched metadata).
+  The `isOnline` write routing and the per-write API calls are gone from
+  `BookmarkRepository`; pushing is entirely the sync engine's job. `BookmarkRepository`
+  now holds the `SyncEngine` (injected via `makeBookmarkRepository`) instead of the
+  `ConnectivityMonitor`.
+- **✅ Metadata fetch preserved across the optimistic path.** An online create still
+  gets server-fetched title/description: `LocalBookmark.wantsMetadataFetch` records
+  the create's `fetchMetadata` flag, and `SyncEngine.pushCreate` sends it on the
+  `POST` (replacing the previous hard-coded `false`). The row first shows the local
+  values, then updates to the server's when the push reconciles.
+- **Trade-offs (accepted, per product owner).** An online create briefly shows local
+  data before the background push replaces it with the server's normalized version (a
+  short flicker; the optimistic record's `serverID` also changes from a temp UUID to
+  the real one, so the list row re-identifies). When the server is unreachable but the
+  network is up, the background push still wastes one request timeout — but off the UI
+  path, so writes stay instant; the pending change pushes on the next sync trigger
+  (foreground, reconnect, manual "Sync Now", or the next write). The pending badge on
+  the detail view clears on the next list refresh, not instantly (the standing
+  cross-repository-refresh limitation).
+- **Scope.** `BookmarkRepository`, `LocalBookmark` (+`wantsMetadataFetch`),
+  `SyncEngine.pushCreate`, and the `AppEnvironment` wiring. No `SyncEngine` algorithm
+  change, no view changes, no backend/CLI/extension changes. Both platforms build;
+  lints clean.

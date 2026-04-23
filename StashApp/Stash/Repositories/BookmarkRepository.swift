@@ -26,11 +26,12 @@ import StashKit
 /// Provides access to the current user's bookmarks, reading from the local SwiftData store.
 ///
 /// Reads come entirely from `LocalStore` — the query, search, tag, recency, and Smart View filters all
-/// run in memory against the local copy, so browsing works offline. Writes are write-through: each
-/// create/update/delete calls the API first (the server stays authoritative) and then mirrors the
-/// result into the local store. The local store is populated by the one-time full fetch in
-/// `AppEnvironment`; this repository never fetches the list itself. Each visible list owns its own
-/// instance so their pagination windows stay independent.
+/// run in memory against the local copy, so browsing works offline. Writes are optimistic: each
+/// create/update/delete applies to the local store and returns immediately (so the UI updates
+/// instantly, online or off), then triggers a background `SyncEngine` cycle that pushes the queued
+/// change and reconciles this list with the server's authoritative result. The local store is
+/// populated by the sync engine's first full pull; this repository never fetches the list itself.
+/// Each visible list owns its own instance so their pagination windows stay independent.
 @MainActor
 @Observable
 final class BookmarkRepository: BookmarkCreating {
@@ -57,7 +58,7 @@ final class BookmarkRepository: BookmarkCreating {
     private let clientProvider: StashClientProvider
     private let session: SessionRefreshing
     private let localStore: LocalStore
-    private let connectivity: ConnectivityMonitor
+    private let syncEngine: SyncEngine
     private var source: Source = .query(BookmarkQuery())
     private var filtered: [Bookmark] = []
     private var shownCount = 0
@@ -68,12 +69,12 @@ final class BookmarkRepository: BookmarkCreating {
         clientProvider: StashClientProvider,
         session: SessionRefreshing,
         localStore: LocalStore,
-        connectivity: ConnectivityMonitor
+        syncEngine: SyncEngine
     ) {
         self.clientProvider = clientProvider
         self.session = session
         self.localStore = localStore
-        self.connectivity = connectivity
+        self.syncEngine = syncEngine
     }
 
     // MARK: Functions
@@ -98,28 +99,10 @@ final class BookmarkRepository: BookmarkCreating {
     }
 
     func create(_ input: CreateBookmarkInput) async throws -> Bookmark {
-        if connectivity.isOnline {
-            do {
-                let client = try await authenticatedClient()
-                let request = BookmarkRequestFactory.makeCreateRequest(
-                    CreateBookmarkRequest(
-                        url: input.url.absoluteString,
-                        title: input.title,
-                        description: input.description,
-                        tags: input.tags.isEmpty ? nil : input.tags,
-                        fetchMetadata: input.fetchMetadata
-                    )
-                )
-                let dto = try await client.run(request).value
-                mirror(dto)
+        let bookmark = try queueCreate(input)
+        scheduleSync()
 
-                return Bookmark(dto: dto)
-            } catch let error where error.isConnectivityError {
-                return try queueCreate(input)
-            }
-        }
-
-        return try queueCreate(input)
+        return bookmark
     }
 
     func update(
@@ -128,67 +111,22 @@ final class BookmarkRepository: BookmarkCreating {
         description: String?,
         tags: [String]
     ) async throws -> Bookmark {
-        if connectivity.isOnline {
-            do {
-                let client = try await authenticatedClient()
-                let request = BookmarkRequestFactory.makeUpdateRequest(
-                    id: id,
-                    body: UpdateBookmarkRequest(
-                        title: title,
-                        description: description,
-                        tags: tags
-                    )
-                )
-                let dto = try await client.run(request).value
-                mirror(dto)
+        let bookmark = try queueUpdate(id: id, title: title, description: description, tags: tags)
+        scheduleSync()
 
-                return Bookmark(dto: dto)
-            } catch let error where error.isConnectivityError {
-                return try queueUpdate(id: id, title: title, description: description, tags: tags)
-            }
-        }
-
-        return try queueUpdate(id: id, title: title, description: description, tags: tags)
+        return bookmark
     }
 
     func setArchived(id: UUID, archived: Bool) async throws -> Bookmark {
-        if connectivity.isOnline {
-            do {
-                let client = try await authenticatedClient()
-                let request = BookmarkRequestFactory.makeUpdateRequest(
-                    id: id,
-                    body: UpdateBookmarkRequest(isArchived: archived)
-                )
-                let dto = try await client.run(request).value
-                mirror(dto)
+        let bookmark = try queueArchived(id: id, archived: archived)
+        scheduleSync()
 
-                return Bookmark(dto: dto)
-            } catch let error where error.isConnectivityError {
-                return try queueArchived(id: id, archived: archived)
-            }
-        }
-
-        return try queueArchived(id: id, archived: archived)
+        return bookmark
     }
 
     func delete(id: UUID) async throws {
-        if connectivity.isOnline {
-            do {
-                let client = try await authenticatedClient()
-                _ = try await client.run(BookmarkRequestFactory.makeDeleteRequest(id: id))
-                localStore.remove(serverID: id)
-                localStore.save()
-                refreshVisible()
-
-                return
-            } catch let error where error.isConnectivityError {
-                queueDelete(id: id)
-
-                return
-            }
-        }
-
         queueDelete(id: id)
+        scheduleSync()
     }
 
     func fetchMetadata(for url: URL) async throws -> PageMetadata {
@@ -236,10 +174,14 @@ final class BookmarkRepository: BookmarkCreating {
 
     // MARK: - Writes
 
-    private func mirror(_ dto: BookmarkDTO) {
-        localStore.upsert(dto)
-        localStore.save()
-        refreshVisible()
+    /// Pushes the queued change in the background and refreshes this list when the cycle finishes, so
+    /// the optimistic local row is reconciled with the server's authoritative result (real ID,
+    /// normalized tags, fetched metadata) without blocking the caller on the network.
+    private func scheduleSync() {
+        Task {
+            await syncEngine.sync()
+            refreshVisible()
+        }
     }
 
     private func queueCreate(_ input: CreateBookmarkInput) throws -> Bookmark {

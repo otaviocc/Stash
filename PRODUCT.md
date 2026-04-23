@@ -967,12 +967,14 @@ store.
 `SyncEngine` runs a pull-then-push cycle with last-write-wins: it pulls
 `GET /bookmarks/changes?since=` and `GET /bookmarks/deleted?since=` (the `since`
 cursor is persisted; the first, cursor-less pull seeds the whole library), then
-pushes every queued local change. Writes are connectivity-aware: online they are
-write-through (API first, then mirror — instantaneous and conflict-free); offline
-they are queued locally (`pendingSyncAt`/`isLocalOnly`/`locallyDeletedAt`) and
-pushed on reconnect. A `ConnectivityMonitor` (`NWPathMonitor`) triggers a sync when
-connectivity returns; sync also runs on launch/login and on returning from the
-background, and iOS schedules a background-refresh sync (`BGAppRefreshTask`).
+pushes every queued local change. Writes are optimistic: a create, edit, or delete
+applies to the local store and returns immediately (`pendingSyncAt`/`isLocalOnly`/
+`locallyDeletedAt`), so the UI updates instantly whether online or off, then a
+background sync pushes the change and reconciles the list with the server's
+authoritative result. A `ConnectivityMonitor` (`NWPathMonitor`) triggers a sync when
+connectivity returns; sync also runs on launch/login, after each write, and on
+returning from the background, and iOS schedules a background-refresh sync
+(`BGAppRefreshTask`).
 
 Sync state is surfaced in the UI: a slim offline banner across the top of the app
 shell while disconnected, a muted pending indicator on rows and the detail header

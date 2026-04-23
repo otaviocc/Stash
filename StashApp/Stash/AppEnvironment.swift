@@ -131,14 +131,13 @@ final class AppEnvironment {
     // MARK: Functions
 
     /// Builds a fresh `BookmarkRepository` with its own list state, sharing the app's client, session,
-    /// local store, and connectivity monitor. Each bookmark list owns one so their contents stay
-    /// independent.
+    /// local store, and sync engine. Each bookmark list owns one so their contents stay independent.
     func makeBookmarkRepository() -> BookmarkRepository {
         BookmarkRepository(
             clientProvider: clientProvider,
             session: authRepository,
             localStore: localStore,
-            connectivity: connectivityMonitor
+            syncEngine: syncEngine
         )
     }
 

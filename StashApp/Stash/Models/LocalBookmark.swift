@@ -59,6 +59,10 @@ final class LocalBookmark {
     /// True until the first successful push assigns a real server ID.
     var isLocalOnly: Bool
 
+    /// Whether a server-side metadata fetch was requested for this optimistically-created bookmark.
+    /// Honored when the create is pushed (`POST` with `fetchMetadata`); meaningless once synced.
+    var wantsMetadataFetch = false
+
     // MARK: Lifecycle
 
     init(from dto: BookmarkDTO) {
@@ -75,6 +79,7 @@ final class LocalBookmark {
         pendingSyncAt = nil
         locallyDeletedAt = nil
         isLocalOnly = false
+        wantsMetadataFetch = false
     }
 
     /// Builds a brand-new record from an offline create. It carries a temporary `serverID` and is
@@ -95,6 +100,7 @@ final class LocalBookmark {
         pendingSyncAt = now
         locallyDeletedAt = nil
         isLocalOnly = true
+        wantsMetadataFetch = input.fetchMetadata
     }
 
     #if DEBUG
@@ -152,6 +158,7 @@ final class LocalBookmark {
         pendingSyncAt = nil
         locallyDeletedAt = nil
         isLocalOnly = false
+        wantsMetadataFetch = false
     }
 }
 

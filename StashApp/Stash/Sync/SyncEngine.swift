@@ -237,7 +237,7 @@ final class SyncEngine {
                 title: record.title,
                 description: record.bookmarkDescription,
                 tags: record.tags.isEmpty ? nil : record.tags,
-                fetchMetadata: false
+                fetchMetadata: record.wantsMetadataFetch
             )
         )
 
