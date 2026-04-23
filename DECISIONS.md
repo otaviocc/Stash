@@ -81,9 +81,11 @@ code, the deviations from the PRD, and the trade-offs accepted.
   library. Fetching runs inline server-side (no internal HTTP round-trip). On any failure the save
   proceeds with whatever the client supplied; client-supplied title/description always win over
   fetched values. Title falls back to the URL when otherwise blank.
-- **✅ Full-text `q` uses `LIKE` (`~~`).** Behaviour is **case-insensitive on SQLite,
-  case-sensitive on Postgres** — the PRD doesn't specify, and this is left as a documented nuance
-  rather than adding a normalised search column.
+- **✅ Full-text `q` uses `LIKE` (`~~`)** across URL, title, description, and tags (the latter via
+  the existing `tags_search` column). Behaviour is **case-insensitive on SQLite, case-sensitive on
+  Postgres** — the PRD doesn't specify, and this is left as a documented nuance rather than adding a
+  normalised search column. (Tags in `q` go beyond the PRD's "URL, title, description" — added on
+  request; same change applied to both the API and web list handlers so they stay consistent.)
 - **✅ `bookmarkCount` is a denormalised counter** on `User`, maintained on create/delete (§7.1);
   the `makeBookmark` test helper maintains it too so it reflects reality in tests.
 - **✅ Pagination** uses Vapor's `Page<T>` (§17.5); `per` is clamped to 1–100.

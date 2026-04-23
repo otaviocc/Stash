@@ -49,12 +49,13 @@ struct BookmarkController: RouteCollection {
             .filter(\.$user.$id == user.requireID())
             .filter(\.$isArchived == (query.archived ?? false))
 
-        // Full-text search across URL, title, description.
+        // Full-text search across URL, title, description, and tags.
         if let term = query.q?.nonEmpty {
             builder.group(.or) { group in
                 group.filter(\.$url ~~ term)
                 group.filter(\.$title ~~ term)
                 group.filter(\.$description ~~ term)
+                group.filter(\.$tagsSearch ~~ term)
             }
         }
 
