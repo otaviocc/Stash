@@ -2840,3 +2840,25 @@ the UI path.
   `SyncEngine.pushCreate`, and the `AppEnvironment` wiring. No `SyncEngine` algorithm
   change, no view changes, no backend/CLI/extension changes. Both platforms build;
   lints clean.
+
+## Offline Sync — Live list refresh after an external sync
+
+Resolves the standing cross-repository-refresh limitation (flagged since Phase 3).
+
+- **Problem.** Each visible list owns its own `BookmarkRepository`, refreshed only by
+  its own triggers and its own writes' `scheduleSync()`. A sync started **elsewhere**
+  — the Settings "Sync Now", a reconnect, foreground, or background refresh — mutates
+  the shared store (clears pending flags, applies server data) but left the visible
+  list's published `bookmarks` stale. Repro: add a bookmark while the server is down,
+  bring it back, tap "Sync Now" — the row kept its pending badge even though the push
+  succeeded.
+- **✅ The list observes sync completion.** `BookmarkListContent` now has
+  `.onChange(of: environment.syncEngine.isSyncing)`; when it goes `true → false` (any
+  cycle finished) it calls a new `BookmarkRepository.refresh()`. This covers every
+  externally-triggered sync, not just the list's own writes.
+- **✅ `refresh()` preserves the pagination window.** It calls the private
+  `refreshVisible()` (re-read + re-filter, clamping the existing `shownCount`), unlike
+  `reload()`/`load()` which reset to the first page. So a background sync reconciles
+  the visible rows in place without snapping a scrolled list back to the top.
+- **Scope.** `BookmarkRepository.refresh()` and one `.onChange` in
+  `BookmarkListContent`. No `SyncEngine` change. Both platforms build; lints clean.

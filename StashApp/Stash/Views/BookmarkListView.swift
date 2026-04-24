@@ -89,6 +89,7 @@ private struct BookmarkListContent: View {
     // MARK: SwiftUI Properties
 
     @Environment(\.openURL) private var openURL
+    @Environment(AppEnvironment.self) private var environment
 
     @FocusState private var isSearchFocused: Bool
 
@@ -190,6 +191,11 @@ private struct BookmarkListContent: View {
             }
             .onChange(of: showArchived) {
                 reload()
+            }
+            .onChange(of: environment.syncEngine.isSyncing) { _, isSyncing in
+                if !isSyncing {
+                    repository.refresh()
+                }
             }
             .refreshable {
                 await load()

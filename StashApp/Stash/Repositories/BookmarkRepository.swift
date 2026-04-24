@@ -98,6 +98,13 @@ final class BookmarkRepository: BookmarkCreating {
         publish()
     }
 
+    /// Re-reads the store into the current visible window, preserving the pagination depth. Used to
+    /// reflect a sync that ran outside this repository (the Settings "Sync Now", a reconnect, or a
+    /// background refresh), which clears pending flags and applies server data the list still shows.
+    func refresh() {
+        refreshVisible()
+    }
+
     func create(_ input: CreateBookmarkInput) async throws -> Bookmark {
         let bookmark = try queueCreate(input)
         scheduleSync()
