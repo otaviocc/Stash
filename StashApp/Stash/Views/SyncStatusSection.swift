@@ -45,14 +45,6 @@ struct SyncStatusSection: View {
 
     // MARK: Computed Properties
 
-    private var lastSyncedText: String {
-        guard let lastSyncedAt = environment.syncEngine.lastSyncedAt else {
-            return "Never"
-        }
-
-        return Self.relativeFormatter.localizedString(for: lastSyncedAt, relativeTo: Date())
-    }
-
     private var pendingChangesText: String {
         let count = environment.syncEngine.pendingCount
 
@@ -65,7 +57,9 @@ struct SyncStatusSection: View {
 
     var body: some View {
         Section("Sync") {
-            LabeledContent("Last synced", value: lastSyncedText)
+            LabeledContent("Last synced") {
+                makeLastSyncedValue()
+            }
 
             if environment.syncEngine.pendingCount > 0 {
                 LabeledContent("Pending changes", value: pendingChangesText)
@@ -83,6 +77,19 @@ struct SyncStatusSection: View {
     }
 
     // MARK: Content Methods
+
+    /// The "Last synced" value, refreshed once a second by a `TimelineView` so the relative phrasing
+    /// ("5 seconds ago" → "2 minutes ago") advances on screen instead of freezing at render time.
+    @ViewBuilder
+    private func makeLastSyncedValue() -> some View {
+        if let lastSyncedAt = environment.syncEngine.lastSyncedAt {
+            TimelineView(.periodic(from: lastSyncedAt, by: 1)) { context in
+                Text(Self.relativeFormatter.localizedString(for: lastSyncedAt, relativeTo: context.date))
+            }
+        } else {
+            Text("Never")
+        }
+    }
 
     private func makeErrorNotice() -> some View {
         HStack(spacing: 8) {
