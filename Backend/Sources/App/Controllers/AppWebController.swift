@@ -89,10 +89,14 @@ struct AppWebController: RouteCollection {
 
     /// `/app?tag=…` with the slug percent-encoded (so `/` becomes `%2F`).
     static func tagHref(_ slug: String) -> String {
+        "/app?tag=\(queryValue(slug))"
+    }
+
+    /// Percent-encode a string for safe use as a query-string value (encodes `/`, `&`, `=`, …).
+    static func queryValue(_ value: String) -> String {
         var allowed = CharacterSet.urlQueryAllowed
         allowed.remove(charactersIn: "/?&=#+%")
-        let encoded = slug.addingPercentEncoding(withAllowedCharacters: allowed) ?? slug
-        return "/app?tag=\(encoded)"
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
     /// The theme preference from the `stash_theme` cookie (`auto` when missing/invalid).
@@ -191,6 +195,7 @@ struct AppWebController: RouteCollection {
         bookmarks.post(":bookmarkID", "unarchive", use: unarchiveBookmark)
 
         app.get("tags", use: tagBrowser)
+        app.post("tags", "rename", use: renameTag)
 
         app.get("settings", use: settings)
         app.post("settings", "password", use: changePassword)
@@ -500,9 +505,39 @@ struct AppWebController: RouteCollection {
             .map { AppTagCount(name: $0.key, display: Self.display($0.key), count: $0.value) }
             .sorted { $0.name < $1.name }
 
+        var message: String?
+        if req.query[String.self, at: "ok"] == "renamed" {
+            let from = req.query[String.self, at: "from"] ?? ""
+            let to = req.query[String.self, at: "to"] ?? ""
+            let count = req.query[Int.self, at: "n"] ?? 0
+            message = "Renamed \(from) to \(to) (\(count) bookmark\(count == 1 ? "" : "s") updated)."
+        }
+        let error = req.query[String.self, at: "error"] == "rename"
+            ? "Couldn't rename the tag — both names must be non-empty."
+            : nil
+
         return try await req.view.render("app-tags", AppTagsContext(
-            title: "Tags", appUsername: user.username, tags: tags
+            title: "Tags", appUsername: user.username, tags: tags, message: message, error: error
         ))
+    }
+
+    /// POST /app/tags/rename — rename a tag via the shared logic, then PRG back to the browser.
+    func renameTag(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        let form = try req.content.decode(TagRenameForm.self)
+        do {
+            let result = try await TagRenamer.rename(
+                rawFrom: form.from,
+                rawTo: form.to,
+                for: user.requireID(),
+                on: req.db
+            )
+            let from = Self.queryValue(result.from)
+            let to = Self.queryValue(result.to)
+            return req.redirect(to: "/app/tags?ok=renamed&from=\(from)&to=\(to)&n=\(result.affectedBookmarks)")
+        } catch is APIError {
+            return req.redirect(to: "/app/tags?error=rename")
+        }
     }
 
     // MARK: - Settings & 2FA

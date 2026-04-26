@@ -1,0 +1,84 @@
+import Fluent
+import Foundation
+
+/// Renames a tag (and its hierarchical children) across a single user's bookmarks. Shared by the
+/// JSON API (`POST /api/v1/tags/rename`) and the web tag browser so both behave identically.
+enum TagRenamer {
+
+    // MARK: Nested Types
+
+    struct Result {
+        let from: String
+        let to: String
+        let affectedBookmarks: Int
+    }
+
+    // MARK: Static Functions
+
+    /// Normalise, validate, and rename `from` → `to` for the user's bookmarks.
+    ///
+    /// - Both names are normalised the same way as every other tag write (`normalizeTagQuery`).
+    /// - Throws `APIError.validationFailed` if either is empty after normalisation.
+    /// - A no-op (`from == to`, or `from` unused) returns a zero count — it's idempotent, not an error.
+    static func rename(
+        rawFrom: String,
+        rawTo: String,
+        for userID: UUID,
+        on db: any Database
+    ) async throws -> Result {
+        let from = Bookmark.normalizeTagQuery(rawFrom)
+        let to = Bookmark.normalizeTagQuery(rawTo)
+
+        guard !from.isEmpty, !to.isEmpty else {
+            throw APIError.validationFailed("Both 'from' and 'to' must be non-empty tag names.")
+        }
+        guard from != to else {
+            return Result(from: from, to: to, affectedBookmarks: 0)
+        }
+
+        // Candidates: bookmarks whose tag string contains the exact tag (`|from|`) or a child
+        // (`|from/`). Same portable prefix match used for tag filtering; the pure transform below
+        // makes the final decision, so any over-match is simply left unchanged.
+        let candidates = try await Bookmark.query(on: db)
+            .filter(\.$user.$id == userID)
+            .group(.or) { group in
+                group.filter(\.$tagsSearch ~~ "|\(from)|")
+                group.filter(\.$tagsSearch ~~ "|\(from)/")
+            }
+            .all()
+
+        var affected = 0
+        for bookmark in candidates {
+            let renamed = renameTags(bookmark.tags, from: from, to: to)
+            if renamed != bookmark.tags {
+                bookmark.applyTags(renamed)
+                try await bookmark.save(on: db)
+                affected += 1
+            }
+        }
+
+        return Result(from: from, to: to, affectedBookmarks: affected)
+    }
+
+    /// Pure transform: rename the exact tag `from` → `to` and any child `from/x` → `to/x`,
+    /// de-duplicating (so a merge into an existing `to` never stores a tag twice) while preserving
+    /// order.
+    static func renameTags(_ tags: [String], from: String, to: String) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for tag in tags {
+            let renamed: String
+            if tag == from {
+                renamed = to
+            } else if tag.hasPrefix(from + "/") {
+                renamed = to + String(tag.dropFirst(from.count)) // keeps the "/child" suffix
+            } else {
+                renamed = tag
+            }
+            if seen.insert(renamed).inserted {
+                result.append(renamed)
+            }
+        }
+        return result
+    }
+}

@@ -28,6 +28,7 @@ struct TagController: RouteCollection {
 
     func boot(routes: RoutesBuilder) throws {
         routes.get("tags", use: list)
+        routes.post("tags", "rename", use: rename)
     }
 
     /// GET /tags — every distinct tag with its count, scoped to the current user.
@@ -48,5 +49,18 @@ struct TagController: RouteCollection {
         return counts
             .map { TagCount(name: $0.key, count: $0.value) }
             .sorted { $0.name < $1.name }
+    }
+
+    /// POST /tags/rename — rename a tag (and its children) across the current user's bookmarks.
+    func rename(req: Request) async throws -> TagRenameResponse {
+        let user = try req.auth.require(User.self)
+        let input = try req.content.decode(TagRenameRequest.self)
+        let result = try await TagRenamer.rename(
+            rawFrom: input.from,
+            rawTo: input.to,
+            for: user.requireID(),
+            on: req.db
+        )
+        return TagRenameResponse(from: result.from, to: result.to, affectedBookmarks: result.affectedBookmarks)
     }
 }

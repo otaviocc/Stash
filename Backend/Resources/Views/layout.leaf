@@ -187,6 +187,13 @@
         .tag-tree a.active { font-weight: 700; color: var(--accent); }
         .tag-tree .count { color: var(--text-muted); font-size: 0.85rem; }
         @media (max-width: 767px) { .tag-sidebar { display: none; } }
+        .tag-list { list-style: none; margin: 0; padding: 0; }
+        .tag-row { padding: 0.35rem 0; border-bottom: 1px solid var(--border); }
+        .tag-row:last-child { border-bottom: 0; }
+        .tag-row-view { display: flex; align-items: center; gap: 0.6rem; }
+        .tag-row-view .rename-toggle { margin-left: auto; padding: 0.2rem 0.6rem; font-size: 0.85rem; }
+        .tag-row-edit { display: flex; gap: 0.5rem; align-items: center; }
+        .tag-row-edit input[name="to"] { display: inline-block; width: auto; flex: 1; margin: 0; }
     </style>
 </head>
 <body>
