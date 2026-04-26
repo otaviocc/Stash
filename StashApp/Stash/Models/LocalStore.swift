@@ -103,19 +103,20 @@ final class LocalStore {
         return (try? mainContext.fetch(descriptor)) ?? []
     }
 
-    /// Every record with a queued offline change waiting to be pushed.
-    func fetchPending() -> [LocalBookmark] {
+    /// The given user's records with a queued offline change waiting to be pushed. Scoped by `userID`
+    /// so a previous user's preserved writes are never pushed under the current user's token.
+    func fetchPending(userID: String) -> [LocalBookmark] {
         let descriptor = FetchDescriptor<LocalBookmark>(
-            predicate: #Predicate { $0.pendingSyncAt != nil }
+            predicate: #Predicate { $0.pendingSyncAt != nil && $0.userID == userID }
         )
 
         return (try? mainContext.fetch(descriptor)) ?? []
     }
 
-    /// The number of records waiting to be pushed.
-    func pendingCount() -> Int {
+    /// The number of the given user's records waiting to be pushed.
+    func pendingCount(userID: String) -> Int {
         let descriptor = FetchDescriptor<LocalBookmark>(
-            predicate: #Predicate { $0.pendingSyncAt != nil }
+            predicate: #Predicate { $0.pendingSyncAt != nil && $0.userID == userID }
         )
 
         return (try? mainContext.fetchCount(descriptor)) ?? 0
@@ -137,15 +138,6 @@ final class LocalStore {
         mainContext.delete(record)
     }
 
-    /// Inserts the bookmark, or applies the DTO to the existing record with the same `serverID`.
-    func upsert(_ dto: BookmarkDTO) {
-        if let existing = record(forServerID: dto.id) {
-            existing.apply(dto)
-        } else {
-            mainContext.insert(LocalBookmark(from: dto))
-        }
-    }
-
     /// Removes every record matching `serverID` (the server confirmed the deletion).
     func remove(serverID: UUID) {
         let descriptor = FetchDescriptor<LocalBookmark>(
@@ -160,11 +152,23 @@ final class LocalStore {
     /// fresh copy — but **preserves any record with a queued offline change** (`pendingSyncAt != nil`,
     /// which also covers offline soft-deletes). Unpushed writes therefore survive a forced logout from
     /// an involuntary session expiry and push on the next sign-in, rather than being silently lost.
-    func wipe() {
-        try? mainContext.delete(
-            model: LocalBookmark.self,
-            where: #Predicate { $0.pendingSyncAt == nil }
-        )
+    ///
+    /// When `currentUserID` is known, only that user's pending records are preserved — any other user's
+    /// leftover pending records are also dropped. When it is `nil` (the usual case at involuntary
+    /// expiry, where tokens are already cleared), it conservatively preserves all pending records; the
+    /// per-user push filter (`fetchPending(userID:)`) still prevents pushing them under the wrong user.
+    func wipe(currentUserID: String?) {
+        if let currentUserID {
+            try? mainContext.delete(
+                model: LocalBookmark.self,
+                where: #Predicate { $0.pendingSyncAt == nil || $0.userID != currentUserID }
+            )
+        } else {
+            try? mainContext.delete(
+                model: LocalBookmark.self,
+                where: #Predicate { $0.pendingSyncAt == nil }
+            )
+        }
         try? mainContext.save()
     }
 

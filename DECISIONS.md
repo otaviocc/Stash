@@ -2879,3 +2879,53 @@ Resolves the standing cross-repository-refresh limitation (flagged since Phase 3
   against the timeline's `context.date`, so it advances once a second on screen
   ("5 seconds ago" → "2 minutes ago"). "Never" still shows when there is no
   `lastSyncedAt`. One view method; no other changes.
+
+## Offline Sync — Cross-user data integrity fixes
+
+Two cross-user bugs from the full-feature code review (findings #1 and #2).
+
+- **✅ [Critical] `LocalBookmark.userID` stops one user's pending writes pushing into
+  another's account.** `LocalBookmark` gained a non-optional `userID: String` (the
+  owner's server ID), set at every insert from the authenticated session and never
+  changed (`apply(dto)` leaves it alone). Source: the access token's `sub` claim —
+  `TokenManager.currentUserID` decodes it (reusing the existing base64url JWT
+  parsing), exposed as `StashClientProvider.currentUserID()`. This is synchronous and
+  offline-safe (no `/me` round-trip), so it's available both in `SyncEngine` (tagging
+  pulled records) and in `BookmarkRepository.queueCreate` (tagging optimistic
+  creates). `String` not `UUID` to keep the model free of a Foundation-UUID Codable
+  dependency.
+- **✅ Push is scoped to the current user.** `LocalStore.fetchPending(userID:)` (and
+  `pendingCount(userID:)`) filter on `pendingSyncAt != nil && userID == current`.
+  `SyncEngine.performSync` captures the user ID once per cycle and threads it into
+  `pull` (inserts) and `push` (the pending sweep), so even when a previous user's
+  pending records are preserved in the store, they are never fetched for push under a
+  different user's token. This is the airtight guard for the Critical bug.
+- **✅ Schema migration via the existing wipe-and-retry.** Adding a required `userID`
+  is a non-additive change; `ModelContainer` creation throws on the old store,
+  `LocalStore.init()` deletes and recreates it, sets `didResetOnInit`, and
+  `AppEnvironment` clears `lastSyncedAt` so the next launch does a full re-seed that
+  re-tags every record. No `VersionedSchema` needed (same strategy as the `serverID`
+  uniqueness change).
+- **✅ `wipe()` userID predicate — filter-if-known, else conservative.**
+  `LocalStore.wipe(currentUserID:)` preserves only the current user's pending records
+  when an ID is given (dropping any other user's leftovers), and falls back to
+  preserving all pending records when it is `nil`. In practice `onSessionCleared`
+  fires *after* `AuthRepository.clearSession()` has already cleared the tokens, so
+  `currentUserID()` is `nil` there and the conservative branch runs — which is safe
+  because the `fetchPending(userID:)` filter, not the wipe, is what prevents a
+  wrong-user push. `wipeAll()` (explicit logout) is unchanged.
+- **✅ [High] `SyncEngine.reset()` cancels the in-flight cycle.** `reset()` now calls
+  `inflightSync?.cancel()` first. Previously a cycle racing a sign-out would resume,
+  `save()` the rows the wipe just deleted, and `setLastSyncedAt()` re-persist the
+  cursor — so the next user skipped the blocking full pull and browsed the previous
+  user's bookmarks. `SyncEngine` is `@MainActor`, so the cancel and the caller's wipe
+  do not interleave; `pull()` and `push()` each call `try Task.checkCancellation()` at
+  entry (plus the cancellation-aware `URLSession` awaits), so a cancelled cycle aborts
+  before `save()`/`setLastSyncedAt` rather than completing.
+- **Residual (not in scope here).** Reads (`LocalStore.fetchActive`, used by
+  `BookmarkRepository` and `TagRepository`) are still **not** user-scoped, so a
+  previous user's preserved/pulled records could be *visible* in a new user's list
+  until they are cleared. The push leak (writing to the wrong account) is fully
+  closed; fully closing the read-side visibility would need user-scoped reads or a
+  different-user-login wipe, which touches `TagRepository`/read paths excluded from
+  this change. Logged as a follow-up.

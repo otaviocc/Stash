@@ -63,6 +63,12 @@ final class SyncEngine {
         lastSyncedAt != nil
     }
 
+    /// The signed-in user's server ID, or `""` when unauthenticated. Used to tag pulled records and to
+    /// scope the push/pending queries so a previous user's writes are never pushed under this user.
+    private var currentUserID: String {
+        clientProvider.currentUserID() ?? ""
+    }
+
     // MARK: Lifecycle
 
     init(
@@ -78,7 +84,7 @@ final class SyncEngine {
         self.connectivity = connectivity
         self.defaults = defaults
         lastSyncedAt = defaults.object(forKey: AppGroup.lastSyncedAtKey) as? Date
-        pendingCount = localStore.pendingCount()
+        pendingCount = localStore.pendingCount(userID: clientProvider.currentUserID() ?? "")
     }
 
     // MARK: Functions
@@ -113,7 +119,7 @@ final class SyncEngine {
     /// Recomputes the queued-change count from the store. Called when the sync status UI appears, so
     /// it reflects offline writes made since the last cycle.
     func refreshPendingCount() {
-        pendingCount = localStore.pendingCount()
+        pendingCount = localStore.pendingCount(userID: currentUserID)
     }
 
     /// Dismisses the last sync error (the inline Settings alert). The next cycle also clears it.
@@ -122,7 +128,15 @@ final class SyncEngine {
     }
 
     /// Clears the sync cursor and pending count on sign-out so the next user starts from a full pull.
+    ///
+    /// Cancels any in-flight cycle first: without this, a cycle racing the sign-out wipe would resume,
+    /// `save()` the records the wipe just deleted, and re-persist the cursor — leaving the next user
+    /// browsing the previous user's bookmarks. `SyncEngine` is `@MainActor`, so the cancel and the
+    /// caller's subsequent wipe run without interleaving, and the cancelled cycle aborts at its next
+    /// `pull()`/`push()` cancellation check rather than completing.
     func reset() {
+        inflightSync?.cancel()
+        inflightSync = nil
         lastSyncedAt = nil
         lastSyncError = nil
         pendingCount = 0
@@ -140,31 +154,35 @@ final class SyncEngine {
         lastSyncError = nil
         let cycleStart = Date()
 
+        let userID = currentUserID
+
         do {
             let client = try await authenticatedClient()
-            try await pull(client: client, since: lastSyncedAt)
+            try await pull(client: client, since: lastSyncedAt, userID: userID)
             localStore.save()
-            try await push(client: client)
+            try await push(client: client, userID: userID)
             localStore.save()
             setLastSyncedAt(cycleStart)
         } catch {
             lastSyncError = error
         }
 
-        pendingCount = localStore.pendingCount()
+        pendingCount = localStore.pendingCount(userID: currentUserID)
         isSyncing = false
     }
 
     // MARK: - Pull
 
-    private func pull(client: StashClient, since: Date?) async throws {
+    private func pull(client: StashClient, since: Date?, userID: String) async throws {
+        try Task.checkCancellation()
+
         var page = 1
 
         while true {
             let request = BookmarkRequestFactory.makeChangesRequest(since: since, page: page, perPage: Self.perPage)
             let result = try await client.run(request).value
             for dto in result.items {
-                mergePulled(dto)
+                mergePulled(dto, userID: userID)
             }
 
             guard result.items.count == Self.perPage, page * Self.perPage < result.metadata.total else {
@@ -180,9 +198,9 @@ final class SyncEngine {
         }
     }
 
-    private func mergePulled(_ dto: BookmarkDTO) {
+    private func mergePulled(_ dto: BookmarkDTO, userID: String) {
         guard let local = localStore.record(forServerID: dto.id) else {
-            localStore.insert(LocalBookmark(from: dto))
+            localStore.insert(LocalBookmark(from: dto, userID: userID))
             return
         }
         guard dto.updatedAt > local.serverUpdatedAt else {
@@ -208,8 +226,10 @@ final class SyncEngine {
 
     // MARK: - Push
 
-    private func push(client: StashClient) async throws {
-        for record in localStore.fetchPending() {
+    private func push(client: StashClient, userID: String) async throws {
+        try Task.checkCancellation()
+
+        for record in localStore.fetchPending(userID: userID) {
             try await push(record, client: client)
         }
     }

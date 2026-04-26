@@ -49,6 +49,17 @@ final class TokenManager: Sendable {
         refreshTokenStore.wrappedValue
     }
 
+    /// The signed-in user's server ID, read synchronously from the access token's `sub` claim (the
+    /// backend sets it to the user's UUID string). `nil` when there is no token or it cannot be
+    /// parsed. Used to tag and filter local records by owner without a network round-trip.
+    var currentUserID: String? {
+        guard let accessToken else {
+            return nil
+        }
+
+        return subject(of: accessToken)
+    }
+
     // MARK: Lifecycle
 
     init(
@@ -96,6 +107,20 @@ final class TokenManager: Sendable {
         }
 
         return Date(timeIntervalSince1970: exp)
+    }
+
+    private func subject(of token: String) -> String? {
+        let segments = token.split(separator: ".")
+        guard
+            segments.count >= 2,
+            let payload = base64URLDecode(String(segments[1])),
+            let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+            let subject = object["sub"] as? String
+        else {
+            return nil
+        }
+
+        return subject
     }
 
     private func base64URLDecode(_ string: String) -> Data? {

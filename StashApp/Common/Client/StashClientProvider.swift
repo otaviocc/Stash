@@ -53,6 +53,12 @@ final class StashClientProvider: @unchecked Sendable {
 
     // MARK: Functions
 
+    /// The signed-in user's server ID (from the access token), or `nil` when unauthenticated. Lets
+    /// the repositories and sync engine tag and filter local records by owner synchronously.
+    func currentUserID() -> String? {
+        tokenManager.currentUserID
+    }
+
     /// Returns a client for the current server URL, or `nil` if no valid URL is configured.
     func client() -> StashClient? {
         let urlString = defaults.string(forKey: AppGroup.serverURLKey) ?? ""

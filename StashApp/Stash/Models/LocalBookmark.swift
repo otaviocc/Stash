@@ -41,6 +41,12 @@ final class LocalBookmark {
     @Attribute(.unique) var id: UUID
 
     @Attribute(.unique) var serverID: UUID
+
+    /// The server ID of the user who owns this record. Set at insert time from the authenticated
+    /// session and never changed, so a pending offline write is only ever pushed by — and a wipe only
+    /// preserves it for — the user it belongs to. Prevents one user's queued writes from syncing into
+    /// another user's account on a shared device.
+    var userID: String
     var url: String
     var title: String
     var bookmarkDescription: String?
@@ -65,9 +71,10 @@ final class LocalBookmark {
 
     // MARK: Lifecycle
 
-    init(from dto: BookmarkDTO) {
+    init(from dto: BookmarkDTO, userID: String) {
         id = UUID()
         serverID = dto.id
+        self.userID = userID
         url = dto.url.absoluteString
         title = dto.title
         bookmarkDescription = dto.description
@@ -84,11 +91,12 @@ final class LocalBookmark {
 
     /// Builds a brand-new record from an offline create. It carries a temporary `serverID` and is
     /// flagged `isLocalOnly` + `pendingSyncAt` until the push assigns a real server ID.
-    init(localCreate input: CreateBookmarkInput, now: Date) {
+    init(localCreate input: CreateBookmarkInput, now: Date, userID: String) {
         let trimmedTitle = input.title?.trimmingCharacters(in: .whitespacesAndNewlines)
 
         id = UUID()
         serverID = UUID()
+        self.userID = userID
         url = input.url.absoluteString
         title = (trimmedTitle?.isEmpty == false ? trimmedTitle : nil) ?? input.url.absoluteString
         bookmarkDescription = input.description
@@ -108,6 +116,7 @@ final class LocalBookmark {
         init(previewBookmark bookmark: Bookmark) {
             id = UUID()
             serverID = bookmark.id
+            userID = "preview"
             url = bookmark.url.absoluteString
             title = bookmark.title
             bookmarkDescription = bookmark.description

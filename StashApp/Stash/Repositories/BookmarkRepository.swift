@@ -192,7 +192,7 @@ final class BookmarkRepository: BookmarkCreating {
     }
 
     private func queueCreate(_ input: CreateBookmarkInput) throws -> Bookmark {
-        let record = LocalBookmark(localCreate: input, now: Date())
+        let record = LocalBookmark(localCreate: input, now: Date(), userID: clientProvider.currentUserID() ?? "")
         localStore.insert(record)
         localStore.save()
         refreshVisible()

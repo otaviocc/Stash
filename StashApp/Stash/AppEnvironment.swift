@@ -112,7 +112,7 @@ final class AppEnvironment {
         authRepository.onSessionCleared = { [weak self] in
             self?.tagRepository.reset()
             self?.smartViewRepository.reset()
-            self?.localStore.wipe()
+            self?.localStore.wipe(currentUserID: self?.clientProvider.currentUserID())
             self?.syncEngine.reset()
         }
 
