@@ -49,7 +49,8 @@ The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 
 - Public or open registration
 - Cross-user bookmark visibility or sharing
-- Page content archiving or offline reading
+- Page content archiving (saving article text/HTML for offline reading) — distinct
+  from the native apps' offline access to their own bookmark data, which is supported
 - Public or shared collections
 - Read-later / queue functionality
 - SSO or OAuth
@@ -1409,6 +1410,7 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 | M12 | Smart Views: saved AND-condition queries (backend, StashKit, web UI) | ✅ Complete |
 | M12.1 | Smart Views on the CLI and native apps (consumption-only: list + run) | ✅ Complete |
 | M12.2 | Smart View create / edit / delete in the iOS & macOS apps (Settings) | ✅ Complete |
+| M13 | Offline sync (iOS & macOS): SwiftData local store, `SyncEngine` (pull/push, last-write-wins), optimistic writes, connectivity + background refresh, sync-status UI | ✅ Complete |
 
 ---
 
@@ -1428,7 +1430,8 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 
 - Open/public registration
 - Cross-user bookmark visibility or sharing
-- Page archiving or offline reading
+- Page content archiving (article text for offline reading) — the native apps do
+  sync bookmark data for offline access; saving page contents is out of scope
 - Read-later queue or unread state
 - Annotations or highlights
 - SSO / OAuth

@@ -2529,6 +2529,8 @@ killed and reads entirely from disk.
   leaving the sync-metadata fields clean. The local store stays consistent with the
   server, and no write is lost. Confirmed with the product owner. Phase 3 replaces
   this with the real offline queue that sets and pushes `pendingSyncAt`.
+  🔁 Superseded: the write path is now optimistic-first for every write — see
+  *Offline Sync — Optimistic writes*.
 - **✅ Reads filter in memory, not via `#Predicate`.** `BookmarkRepository` fetches
   the active records (`locallyDeletedAt == nil`), maps them to domain `Bookmark`s,
   and filters/sorts/paginates in Swift via `BookmarkFilter`. SwiftData `#Predicate`
@@ -2599,6 +2601,9 @@ published but **not yet consumed by any view** — that is Phase 4.
   locally — create inserts an `isLocalOnly` record with a temp `serverID`, update/
   archive mutate the record, delete soft-deletes — all stamping `pendingSyncAt`, and
   returns optimistically. The push drains the queue on the next cycle.
+  🔁 Superseded: the `isOnline`-routed write-through online path was later dropped —
+  all writes are now optimistic-first (apply locally, push in the background). See
+  *Offline Sync — Optimistic writes*.
 - **✅ Push conflict handling.** Create `409 duplicate_url` → the URL exists
   server-side (saved on another device); local content wins, so `PUT` the local
   title/description/tags onto the existing record and collapse onto whichever local
@@ -2862,3 +2867,15 @@ Resolves the standing cross-repository-refresh limitation (flagged since Phase 3
   the visible rows in place without snapping a scrolled list back to the top.
 - **Scope.** `BookmarkRepository.refresh()` and one `.onChange` in
   `BookmarkListContent`. No `SyncEngine` change. Both platforms build; lints clean.
+
+## Offline Sync — "Last synced" ticks live
+
+- **Problem.** The Settings "Last synced" value was computed with
+  `RelativeDateTimeFormatter` against `Date()` only when the view body re-evaluated.
+  With the Settings view mounted and no observed value changing, it froze (e.g. stuck
+  at "5 seconds ago") even as time passed or the user navigated between screens.
+- **✅ Fix.** `SyncStatusSection` renders the value inside
+  `TimelineView(.periodic(from: lastSyncedAt, by: 1))`, computing the relative string
+  against the timeline's `context.date`, so it advances once a second on screen
+  ("5 seconds ago" → "2 minutes ago"). "Never" still shows when there is no
+  `lastSyncedAt`. One view method; no other changes.
