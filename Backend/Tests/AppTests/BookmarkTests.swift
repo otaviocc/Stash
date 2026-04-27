@@ -503,7 +503,7 @@ struct BookmarkTests {
         tags: [String]? = nil
     ) -> CreateBookmarkInput {
         CreateBookmarkInput(
-            url: url, title: title, description: description, tags: tags, fetchMetadata: false
+            url: url, title: title, description: description, tags: tags, fetchMetadata: false, isArchived: nil
         )
     }
 }

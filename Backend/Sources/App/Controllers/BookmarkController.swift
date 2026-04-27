@@ -45,15 +45,37 @@ struct BookmarkController: RouteCollection {
 
     // MARK: - Helpers
 
+    private static func parseISO8601(_ raw: String) -> Date? {
+        iso8601Fractional.date(from: raw) ?? iso8601.date(from: raw)
+    }
+
     private static func parseSince(_ req: Request) throws -> Date? {
         guard let raw = req.query[String.self, at: "since"]?.nonEmpty else {
             return nil
         }
-        guard let date = iso8601Fractional.date(from: raw) ?? iso8601.date(from: raw) else {
+        guard let date = parseISO8601(raw) else {
             throw APIError.validationFailed("The 'since' parameter must be a valid ISO-8601 date.")
         }
 
         return date
+    }
+
+    /// Parses the `(afterUpdatedAt, afterId)` keyset continuation. Both must be present together;
+    /// absent → first page. `afterUpdatedAt` is parsed with fractional precision so the keyset
+    /// boundary round-trips exactly (the response emits it fractional too).
+    private static func parseAfter(_ req: Request) throws -> (updatedAt: Date, id: UUID)? {
+        let rawDate = req.query[String.self, at: "afterUpdatedAt"]?.nonEmpty
+        let rawID = req.query[String.self, at: "afterId"]?.nonEmpty
+
+        guard rawDate != nil || rawID != nil else {
+            return nil
+        }
+        guard let rawDate, let rawID, let date = parseISO8601(rawDate), let id = UUID(uuidString: rawID) else {
+            throw APIError
+                .validationFailed("'afterUpdatedAt' and 'afterId' must both be a valid ISO-8601 date and UUID.")
+        }
+
+        return (date, id)
     }
 
     // MARK: Functions
@@ -99,11 +121,10 @@ struct BookmarkController: RouteCollection {
         return Page(items: items, metadata: result.metadata)
     }
 
-    func changes(req: Request) async throws -> Page<BookmarkResponse> {
+    func changes(req: Request) async throws -> ChangesPage<BookmarkResponse> {
         let user = try req.auth.require(User.self)
         let since = try Self.parseSince(req)
-
-        let page = max(req.query[Int.self, at: "page"] ?? 1, 1)
+        let after = try Self.parseAfter(req)
         let per = min(max(req.query[Int.self, at: "per"] ?? 100, 1), 500)
 
         let builder = try Bookmark.query(on: req.db)
@@ -113,13 +134,33 @@ struct BookmarkController: RouteCollection {
             builder.filter(\.$updatedAt > since)
         }
 
-        let result = try await builder
+        if let after {
+            builder.group(.or) { group in
+                group.filter(\.$updatedAt > after.updatedAt)
+                group.group(.and) { tie in
+                    tie.filter(\.$updatedAt == after.updatedAt)
+                    tie.filter(\.$id > after.id)
+                }
+            }
+        }
+
+        let fetched = try await builder
             .sort(\.$updatedAt, .ascending)
             .sort(\.$id, .ascending)
-            .paginate(PageRequest(page: page, per: per))
+            .range(..<(per + 1))
+            .all()
 
-        let items = try result.items.map { try $0.asResponse() }
-        return Page(items: items, metadata: result.metadata)
+        let hasMore = fetched.count > per
+        let page = hasMore ? Array(fetched.prefix(per)) : fetched
+        let items = try page.map { try $0.asResponse() }
+        let last = hasMore ? page.last : nil
+
+        return try ChangesPage(
+            items: items,
+            hasMore: hasMore,
+            nextAfterUpdatedAt: last.map { Self.iso8601Fractional.string(from: $0.updatedAt ?? Date()) },
+            nextAfterId: last.map { try $0.requireID() }
+        )
     }
 
     func deleted(req: Request) async throws -> [DeletedBookmarkResponse] {
@@ -169,7 +210,7 @@ struct BookmarkController: RouteCollection {
             title: title ?? url,
             description: description,
             tags: Bookmark.normalizeTags(input.tags ?? []),
-            isArchived: false
+            isArchived: input.isArchived ?? false
         )
 
         do {

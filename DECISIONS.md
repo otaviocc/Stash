@@ -2929,3 +2929,46 @@ Two cross-user bugs from the full-feature code review (findings #1 and #2).
   closed; fully closing the read-side visibility would need user-scoped reads or a
   different-user-login wipe, which touches `TagRepository`/read paths excluded from
   this change. Logged as a follow-up.
+
+## Offline Sync — Sync correctness fixes (#4 + #8)
+
+Two correctness bugs from the full-feature review.
+
+- **✅ [#4] `isArchived` is preserved on offline-created bookmarks.** A bookmark
+  created offline then archived offline (still `isLocalOnly`) lost its archive state
+  on push: `pushCreate`'s `CreateBookmarkRequest` had no `isArchived`, the backend
+  always created unarchived, and `apply(dto)` then reset the local flag. Added
+  `isArchived` to the backend's `CreateBookmarkInput` and StashKit's
+  `CreateBookmarkRequest` as `Optional<Bool>` (default `nil` ⇒ `false`), so existing
+  clients (CLI, web, extension) that send no field are unaffected;
+  `BookmarkController.create` applies `input.isArchived ?? false`. `SyncEngine.pushCreate`
+  now sends `record.isArchived`, and `resolveDuplicate` (the 409 path) adds
+  `isArchived` to its `PUT` so the merge keeps the local archive state too.
+- **✅ [#8] `/changes` uses keyset, not offset, pagination — no row can be silently
+  skipped.** Offset `.paginate()` over the mutable `updatedAt` sort key could skip a
+  row when a concurrent edit shifted the offsets mid-pagination, and the
+  `cycleStart` cursor never re-fetched it. Replaced with a `(updatedAt, id)` keyset:
+  the query filters `updatedAt > since AND (updatedAt > afterUpdatedAt OR (updatedAt
+  == afterUpdatedAt AND id > afterId))`, sorts `updatedAt, id` ascending, and fetches
+  `per + 1` to compute `hasMore`. `id` (a UUID) breaks ties deterministically, so a
+  bumped row simply re-appears on a later page (idempotent upsert) rather than being
+  skipped. The `Page<T>` envelope is replaced by `ChangesPage<T>` (`items`,
+  `hasMore`, `nextAfterUpdatedAt`, `nextAfterId`); `SyncEngine.pull()` now loops on
+  `hasMore`, carrying the cursor forward, instead of a page counter.
+- **⚠️ The keyset timestamp cursor is an opaque string, not a `Date` (deviation from
+  the task's typing).** The API serializes timestamps at second precision (the
+  StashKit decoder is non-fractional), so round-tripping the cursor as a `Date` would
+  truncate it — and a same-second cluster larger than `per` (e.g. a tag rename
+  touching hundreds of bookmarks at once) would make `updatedAt > afterUpdatedAt`
+  perpetually true, never advancing: an infinite pull loop. Instead the server emits
+  `nextAfterUpdatedAt` formatted with **fractional** precision and parses
+  `afterUpdatedAt` fractionally; the client (`ChangesPageDTO.nextAfterUpdatedAt: String`)
+  treats it as an opaque continuation token echoed back verbatim, never interpreting
+  it — so no precision is lost and the keyset stays exact. `nextAfterId` stays a
+  `UUID` (round-trips exactly).
+- **Tests.** Backend `BookmarkSyncTests`: the existing `/changes` tests now decode
+  `ChangesPage`; `changesClampsPer` asserts via `hasMore`/`items.count` (no
+  `metadata`); a new `changesKeysetStable` proves a row bumped after page 1 reappears
+  on page 2 with nothing skipped; `createArchived` proves `isArchived: true` on
+  create persists. StashKit factory tests cover the new keyset parameters. 147
+  backend tests pass; StashKit 23; both app platforms build; all lints clean.

@@ -63,7 +63,7 @@ struct BookmarkSyncTests {
             ) { res async throws in
                 // Then
                 #expect(res.status == .ok, "It should return 200 OK")
-                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                let page = try res.content.decode(ChangesPage<BookmarkResponse>.self)
                 #expect(
                     page.items.map(\.url) == ["https://recent.com"],
                     "It should return only bookmarks updated after `since`, including archived ones"
@@ -87,7 +87,7 @@ struct BookmarkSyncTests {
                 headers: bearer(pair.accessToken)
             ) { res async throws in
                 // Then
-                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                let page = try res.content.decode(ChangesPage<BookmarkResponse>.self)
                 #expect(
                     Set(page.items.map(\.url)) == ["https://a.com", "https://b.com"],
                     "It should return every bookmark when `since` is omitted"
@@ -206,7 +206,7 @@ struct BookmarkSyncTests {
                 .GET, "api/v1/bookmarks/changes",
                 headers: bearer(otherPair.accessToken)
             ) { res async throws in
-                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                let page = try res.content.decode(ChangesPage<BookmarkResponse>.self)
                 #expect(page.items.isEmpty, "It should not surface another user's changed bookmarks")
             }
 
@@ -311,7 +311,7 @@ struct BookmarkSyncTests {
                 headers: bearer(pair.accessToken)
             ) { res async throws in
                 // Then
-                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                let page = try res.content.decode(ChangesPage<BookmarkResponse>.self)
                 let timestamps = page.items.map(\.updatedAt)
                 #expect(
                     timestamps == timestamps.sorted(),
@@ -334,24 +334,26 @@ struct BookmarkSyncTests {
             try await app.makeBookmark(for: user, url: "https://a.com")
             try await app.makeBookmark(for: user, url: "https://b.com")
 
-            // When / Then — above the ceiling
+            // When / Then — above the ceiling: no error, both returned, no further pages
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/changes?per=1000",
                 headers: bearer(pair.accessToken)
             ) { res async throws in
                 #expect(res.status == .ok, "It should accept an oversized per without erroring")
-                let page = try res.content.decode(Page<BookmarkResponse>.self)
-                #expect(page.metadata.per <= 500, "It should clamp per to a maximum of 500")
+                let page = try res.content.decode(ChangesPage<BookmarkResponse>.self)
+                #expect(page.items.count == 2, "It should return both bookmarks under the clamped ceiling")
+                #expect(page.hasMore == false, "It should report no further pages")
             }
 
-            // When / Then — below the floor
+            // When / Then — below the floor: per clamps to 1, so only one item and more remain
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/changes?per=0",
                 headers: bearer(pair.accessToken)
             ) { res async throws in
                 #expect(res.status == .ok, "It should accept a zero per without erroring")
-                let page = try res.content.decode(Page<BookmarkResponse>.self)
-                #expect(page.metadata.per >= 1, "It should clamp per to a minimum of 1")
+                let page = try res.content.decode(ChangesPage<BookmarkResponse>.self)
+                #expect(page.items.count == 1, "It should clamp per to a minimum of 1, returning one item")
+                #expect(page.hasMore == true, "It should report a further page when per is clamped to 1")
             }
         }
     }
@@ -372,6 +374,99 @@ struct BookmarkSyncTests {
                 #expect(res.status == .unprocessableEntity, "It should reject a non-ISO-8601 since")
                 let err = try res.content.decode(TestError.self)
                 #expect(err.code == "validation_failed", "It should return the validation_failed error code")
+            }
+        }
+    }
+
+    @Test("changes keyset pagination is stable under a concurrent edit")
+    func changesKeysetStable() async throws {
+        try await withTestApp { app in
+            // Given — three bookmarks at t1 < t2 < t3
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            let reference = Date(timeIntervalSince1970: 1_700_000_000)
+            let first = try await app.makeBookmark(for: user, url: "https://t1.com")
+            let second = try await app.makeBookmark(for: user, url: "https://t2.com")
+            let third = try await app.makeBookmark(for: user, url: "https://t3.com")
+            try await setUpdatedAt(reference.addingTimeInterval(-30), id: first.requireID(), on: app.db)
+            try await setUpdatedAt(reference.addingTimeInterval(-20), id: second.requireID(), on: app.db)
+            try await setUpdatedAt(reference.addingTimeInterval(-10), id: third.requireID(), on: app.db)
+
+            // When — page 1 (per=2) returns the two oldest and a keyset cursor
+            var nextAfterUpdatedAt: String?
+            var nextAfterId: UUID?
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks/changes?per=2",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(ChangesPage<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://t1.com", "https://t2.com"],
+                    "Page 1 should hold the two oldest bookmarks"
+                )
+                #expect(page.hasMore, "There should be a further page")
+                nextAfterUpdatedAt = page.nextAfterUpdatedAt
+                nextAfterId = page.nextAfterId
+            }
+
+            // A concurrent edit bumps the already-paged t1 to t4 (now the newest)
+            try await setUpdatedAt(reference.addingTimeInterval(60), id: first.requireID(), on: app.db)
+
+            // Then — page 2, continuing from the page-1 cursor, contains t3 AND the bumped t1; nothing skipped
+            let afterUpdatedAt = try #require(nextAfterUpdatedAt)
+            let afterId = try #require(nextAfterId)
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks/changes?per=2&afterUpdatedAt=\(afterUpdatedAt)&afterId=\(afterId)",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(ChangesPage<BookmarkResponse>.self)
+                #expect(
+                    Set(page.items.map(\.url)) == ["https://t3.com", "https://t1.com"],
+                    "Page 2 should contain the untouched t3 and the bumped t1 — the keyset skips nothing"
+                )
+            }
+        }
+    }
+
+    @Test("create honors isArchived")
+    func createArchived() async throws {
+        try await withTestApp { app in
+            // Given
+            try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            // When
+            var createdID: UUID?
+            try await app.testing().test(
+                .POST, "api/v1/bookmarks",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(CreateBookmarkInput(
+                        url: "https://archived.com",
+                        title: "Archived",
+                        description: nil,
+                        tags: nil,
+                        fetchMetadata: false,
+                        isArchived: true
+                    ))
+                },
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(res.status == .created, "It should return 201 Created")
+                    let bookmark = try res.content.decode(BookmarkResponse.self)
+                    #expect(bookmark.isArchived == true, "It should create the bookmark archived")
+                    createdID = bookmark.id
+                }
+            )
+
+            let id = try #require(createdID)
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks/\(id)",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let bookmark = try res.content.decode(BookmarkResponse.self)
+                #expect(bookmark.isArchived == true, "It should persist the archived state")
             }
         }
     }

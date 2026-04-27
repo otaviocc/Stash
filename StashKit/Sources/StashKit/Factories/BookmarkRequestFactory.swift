@@ -77,20 +77,28 @@ public enum BookmarkRequestFactory {
         )
     }
 
-    /// Requests all bookmarks (archived included) updated after `since`, for offline
-    /// sync. Omitting `since` returns every bookmark — the initial full sync.
+    /// Requests bookmarks (archived included) updated after `since`, for offline sync, using keyset
+    /// pagination. The first page passes `afterUpdatedAt`/`afterId` as `nil`; each subsequent page
+    /// echoes the previous response's `nextAfterUpdatedAt`/`nextAfterId`. Omitting `since` returns
+    /// every bookmark — the initial full sync. `afterUpdatedAt` is the opaque token from the response,
+    /// passed back verbatim.
     public static func makeChangesRequest(
         since: Date?,
-        page: Int,
+        afterUpdatedAt: String?,
+        afterId: UUID?,
         perPage: Int
-    ) -> NetworkRequest<VoidRequest, BookmarkPageDTO> {
+    ) -> NetworkRequest<VoidRequest, ChangesPageDTO> {
         var queryItems: [URLQueryItem] = [
-            URLQueryItem(name: "page", value: String(page)),
             URLQueryItem(name: "per", value: String(perPage))
         ]
 
         if let since {
             queryItems.append(URLQueryItem(name: "since", value: iso8601String(from: since)))
+        }
+
+        if let afterUpdatedAt, let afterId {
+            queryItems.append(URLQueryItem(name: "afterUpdatedAt", value: afterUpdatedAt))
+            queryItems.append(URLQueryItem(name: "afterId", value: afterId.uuidString))
         }
 
         return .init(

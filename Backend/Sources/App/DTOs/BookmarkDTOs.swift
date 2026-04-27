@@ -33,6 +33,20 @@ struct CreateBookmarkInput: Content {
     let description: String?
     let tags: [String]?
     let fetchMetadata: Bool?
+    let isArchived: Bool?
+}
+
+// MARK: - ChangesPage
+
+/// Keyset-paginated response for `GET /bookmarks/changes`. Replaces the offset-based `Page<T>`
+/// envelope: `nextAfterUpdatedAt` (a fractional ISO-8601 timestamp, opaque to the client) and
+/// `nextAfterId` form the `(updatedAt, id)` cursor for the next page, stable under concurrent edits.
+struct ChangesPage<T: Content>: Content {
+
+    let items: [T]
+    let hasMore: Bool
+    let nextAfterUpdatedAt: String?
+    let nextAfterId: UUID?
 }
 
 // MARK: - UpdateBookmarkInput

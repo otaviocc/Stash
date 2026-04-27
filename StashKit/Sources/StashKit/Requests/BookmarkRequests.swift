@@ -34,6 +34,7 @@ public struct CreateBookmarkRequest: Encodable, Sendable {
     public let description: String?
     public let tags: [String]?
     public let fetchMetadata: Bool?
+    public let isArchived: Bool?
 
     // MARK: Lifecycle
 
@@ -42,13 +43,15 @@ public struct CreateBookmarkRequest: Encodable, Sendable {
         title: String? = nil,
         description: String? = nil,
         tags: [String]? = nil,
-        fetchMetadata: Bool? = nil
+        fetchMetadata: Bool? = nil,
+        isArchived: Bool? = nil
     ) {
         self.url = url
         self.title = title
         self.description = description
         self.tags = tags
         self.fetchMetadata = fetchMetadata
+        self.isArchived = isArchived
     }
 }
 

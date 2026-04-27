@@ -41,6 +41,20 @@ public struct BookmarkDTO: Codable, Identifiable, Sendable {
 /// A paginated list of bookmarks.
 public typealias BookmarkPageDTO = PageDTO<BookmarkDTO>
 
+// MARK: - ChangesPageDTO
+
+/// A keyset-paginated page of bookmark changes (`GET /bookmarks/changes`). `nextAfterUpdatedAt` is an
+/// opaque continuation token (a server-formatted timestamp) the client echoes back verbatim alongside
+/// `nextAfterId` to fetch the next page — it is never interpreted client-side, so no date-precision is
+/// lost across the round-trip.
+public struct ChangesPageDTO: Codable, Sendable {
+
+    public let items: [BookmarkDTO]
+    public let hasMore: Bool
+    public let nextAfterUpdatedAt: String?
+    public let nextAfterId: UUID?
+}
+
 // MARK: - DeletedBookmarkDTO
 
 /// A tombstone record for a server-side bookmark deletion. `id` is the deleted

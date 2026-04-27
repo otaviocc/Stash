@@ -81,34 +81,59 @@ struct BookmarkRequestFactoryTests {
         #expect(request.method == .delete, "It should use DELETE")
     }
 
-    @Test("builds a GET changes request with paging and an ISO-8601 since")
+    @Test("builds a GET changes request with the keyset cursor and an ISO-8601 since")
     func changesRequest() {
         // Given
         let since = Date(timeIntervalSince1970: 1_700_000_000)
 
         // When
-        let request = BookmarkRequestFactory.makeChangesRequest(since: since, page: 2, perPage: 200)
+        let request = BookmarkRequestFactory.makeChangesRequest(
+            since: since,
+            afterUpdatedAt: "2023-11-14T22:13:21.500Z",
+            afterId: id,
+            perPage: 200
+        )
 
         // Then
         #expect(request.path == "/api/v1/bookmarks/changes", "It should target the changes endpoint")
         #expect(request.method == .get, "It should use GET")
-        #expect(request.queryItems.contains(URLQueryItem(name: "page", value: "2")), "It should carry the page")
+        #expect(
+            !request.queryItems.contains { $0.name == "page" },
+            "It should not carry an offset page parameter"
+        )
         #expect(request.queryItems.contains(URLQueryItem(name: "per", value: "200")), "It should carry the page size")
         #expect(
             request.queryItems.contains(URLQueryItem(name: "since", value: "2023-11-14T22:13:20Z")),
             "It should carry the since timestamp as an ISO-8601 string"
         )
+        #expect(
+            request.queryItems.contains(URLQueryItem(name: "afterUpdatedAt", value: "2023-11-14T22:13:21.500Z")),
+            "It should carry the keyset timestamp token verbatim"
+        )
+        #expect(
+            request.queryItems.contains(URLQueryItem(name: "afterId", value: id.uuidString)),
+            "It should carry the keyset id"
+        )
     }
 
-    @Test("omits the since query item when no since is given")
+    @Test("omits since and keyset items on the first full-sync page")
     func changesRequestWithoutSince() {
         // When
-        let request = BookmarkRequestFactory.makeChangesRequest(since: nil, page: 1, perPage: 100)
+        let request = BookmarkRequestFactory.makeChangesRequest(
+            since: nil,
+            afterUpdatedAt: nil,
+            afterId: nil,
+            perPage: 100
+        )
 
         // Then
         #expect(
             !request.queryItems.contains { $0.name == "since" },
             "It should omit the since item for an initial full sync"
+        )
+        #expect(
+            !request.queryItems.contains { $0.name == "afterUpdatedAt" || $0.name == "afterId" },
+            "It should omit the keyset cursor on the first page"
         )
     }
 

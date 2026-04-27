@@ -176,20 +176,27 @@ final class SyncEngine {
     private func pull(client: StashClient, since: Date?, userID: String) async throws {
         try Task.checkCancellation()
 
-        var page = 1
+        var afterUpdatedAt: String?
+        var afterId: UUID?
 
         while true {
-            let request = BookmarkRequestFactory.makeChangesRequest(since: since, page: page, perPage: Self.perPage)
+            let request = BookmarkRequestFactory.makeChangesRequest(
+                since: since,
+                afterUpdatedAt: afterUpdatedAt,
+                afterId: afterId,
+                perPage: Self.perPage
+            )
             let result = try await client.run(request).value
             for dto in result.items {
                 mergePulled(dto, userID: userID)
             }
 
-            guard result.items.count == Self.perPage, page * Self.perPage < result.metadata.total else {
+            guard result.hasMore else {
                 break
             }
 
-            page += 1
+            afterUpdatedAt = result.nextAfterUpdatedAt
+            afterId = result.nextAfterId
         }
 
         let tombstones = try await client.run(BookmarkRequestFactory.makeDeletedRequest(since: since)).value
@@ -257,7 +264,8 @@ final class SyncEngine {
                 title: record.title,
                 description: record.bookmarkDescription,
                 tags: record.tags.isEmpty ? nil : record.tags,
-                fetchMetadata: record.wantsMetadataFetch
+                fetchMetadata: record.wantsMetadataFetch,
+                isArchived: record.isArchived
             )
         )
 
@@ -312,7 +320,8 @@ final class SyncEngine {
             body: UpdateBookmarkRequest(
                 title: record.title,
                 description: record.bookmarkDescription,
-                tags: record.tags
+                tags: record.tags,
+                isArchived: record.isArchived
             )
         )
         let dto = try await client.run(request).value
