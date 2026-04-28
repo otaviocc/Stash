@@ -246,6 +246,7 @@ final class BookmarkRepository: BookmarkCreating {
         let now = Date()
         record.locallyDeletedAt = now
         record.pendingSyncAt = now
+        record.syncError = nil
         localStore.save()
         refreshVisible()
     }
@@ -254,6 +255,7 @@ final class BookmarkRepository: BookmarkCreating {
         let now = Date()
         record.serverUpdatedAt = now
         record.pendingSyncAt = now
+        record.syncError = nil
         localStore.save()
         refreshVisible()
     }

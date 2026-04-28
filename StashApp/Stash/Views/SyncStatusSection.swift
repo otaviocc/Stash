@@ -51,6 +51,12 @@ struct SyncStatusSection: View {
         return count == 1 ? "1 bookmark" : "\(count) bookmarks"
     }
 
+    private var failedChangesText: String {
+        let count = environment.syncEngine.failedCount
+
+        return count == 1 ? "1 bookmark" : "\(count) bookmarks"
+    }
+
     // MARK: Content Properties
 
     // MARK: Content
@@ -63,6 +69,10 @@ struct SyncStatusSection: View {
 
             if environment.syncEngine.pendingCount > 0 {
                 LabeledContent("Pending changes", value: pendingChangesText)
+            }
+
+            if environment.syncEngine.failedCount > 0 {
+                makeFailedRow()
             }
 
             if environment.syncEngine.lastSyncError != nil {
@@ -88,6 +98,19 @@ struct SyncStatusSection: View {
             }
         } else {
             Text("Never")
+        }
+    }
+
+    private func makeFailedRow() -> some View {
+        LabeledContent("Failed to sync") {
+            HStack(spacing: 12) {
+                Text(failedChangesText)
+                    .foregroundStyle(.secondary)
+                Button("Clear") {
+                    environment.syncEngine.clearFailedRecords()
+                }
+                .buttonStyle(.borderless)
+            }
         }
     }
 

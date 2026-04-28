@@ -49,18 +49,24 @@ struct OfflineBanner: View {
 
 // MARK: - PendingSyncBadge
 
-/// A small, muted indicator that a bookmark has a local change still waiting to be pushed. Shown in
-/// the trailing edge of a row and the detail header; it carries no action — interaction with the
-/// bookmark is never blocked — and disappears once the change syncs.
+/// A small trailing indicator for a bookmark's sync state. Muted when a local change is still waiting
+/// to be pushed; an orange warning when the push failed permanently. It carries no action —
+/// interaction with the bookmark is never blocked — and disappears once the change syncs or is cleared.
 struct PendingSyncBadge: View {
+
+    // MARK: Properties
+
+    let failed: Bool
+
+    // MARK: Content Properties
 
     // MARK: Content
 
     var body: some View {
-        Image(systemName: "arrow.triangle.2.circlepath")
+        Image(systemName: failed ? "exclamationmark.arrow.triangle.2.circlepath" : "arrow.triangle.2.circlepath")
             .font(.caption)
-            .foregroundStyle(.secondary)
-            .accessibilityLabel("Waiting to sync")
+            .foregroundStyle(failed ? Color.orange : Color.secondary)
+            .accessibilityLabel(failed ? "Sync failed" : "Waiting to sync")
     }
 }
 
@@ -69,7 +75,8 @@ struct PendingSyncBadge: View {
         VStack(spacing: 0) {
             OfflineBanner()
             Spacer()
-            PendingSyncBadge()
+            PendingSyncBadge(failed: false)
+            PendingSyncBadge(failed: true)
             Spacer()
         }
     }

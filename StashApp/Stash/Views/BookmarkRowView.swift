@@ -43,9 +43,9 @@ struct BookmarkRowView: View {
                     .font(.headline)
                     .lineLimit(2)
 
-                if bookmark.isPendingSync {
+                if bookmark.isPendingSync || bookmark.hasSyncError {
                     Spacer(minLength: 8)
-                    PendingSyncBadge()
+                    PendingSyncBadge(failed: bookmark.hasSyncError)
                 }
             }
 

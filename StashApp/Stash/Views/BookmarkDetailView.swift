@@ -107,9 +107,9 @@ struct BookmarkDetailView: View {
                 Text(bookmark.title)
                     .font(.headline)
 
-                if bookmark.isPendingSync {
+                if bookmark.isPendingSync || bookmark.hasSyncError {
                     Spacer(minLength: 8)
-                    PendingSyncBadge()
+                    PendingSyncBadge(failed: bookmark.hasSyncError)
                 }
             }
 

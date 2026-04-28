@@ -45,6 +45,10 @@ struct Bookmark: Identifiable, Hashable {
     /// bookmark. Drives the pending indicator in the list and detail views.
     var isPendingSync = false
 
+    /// True when this bookmark's push failed permanently (`syncError != nil`). Always `false` for a
+    /// server-sourced bookmark. Drives the failed-sync variant of the indicator.
+    var hasSyncError = false
+
     // MARK: Computed Properties
 
     /// The URL's host, suitable for a compact subtitle in a list row.

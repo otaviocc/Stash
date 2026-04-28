@@ -69,6 +69,11 @@ final class LocalBookmark {
     /// Honored when the create is pushed (`POST` with `fetchMetadata`); meaningless once synced.
     var wantsMetadataFetch = false
 
+    /// A human-readable message set when this record's push failed with a permanent error (e.g. a
+    /// 422/403 the server will always reject). Set alongside clearing `pendingSyncAt` to stop the
+    /// retry loop; surfaced to the user. `nil` means no error.
+    var syncError: String?
+
     // MARK: Lifecycle
 
     init(from dto: BookmarkDTO, userID: String) {
@@ -168,6 +173,7 @@ final class LocalBookmark {
         locallyDeletedAt = nil
         isLocalOnly = false
         wantsMetadataFetch = false
+        syncError = nil
     }
 }
 
@@ -190,5 +196,6 @@ extension Bookmark {
         createdAt = local.serverCreatedAt
         updatedAt = local.serverUpdatedAt
         isPendingSync = local.pendingSyncAt != nil
+        hasSyncError = local.syncError != nil
     }
 }

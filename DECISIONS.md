@@ -2972,3 +2972,42 @@ Two correctness bugs from the full-feature review.
   on page 2 with nothing skipped; `createArchived` proves `isArchived: true` on
   create persists. StashKit factory tests cover the new keyset parameters. 147
   backend tests pass; StashKit 23; both app platforms build; all lints clean.
+
+## Offline Sync — Sync correctness fix (#3)
+
+A pending record whose push hit a permanent error (e.g. 422/403) kept `pendingSyncAt`
+set, so every cycle retried it forever while `pendingCount` stayed elevated, no
+error surfaced, and the user had no way to clear it short of signing out.
+
+- **✅ `LocalBookmark.syncError: String?`** holds the user-facing message of a
+  permanent push failure; `nil` means none. Set alongside clearing `pendingSyncAt`
+  (which stops the retry), and re-cleared whenever the record is synced (`apply`) or
+  re-queued by a later edit/delete (`markPending`/`queueDelete` set it back to `nil`).
+- **✅ Error classification in `push(_:)`.** The per-record `catch` now splits errors:
+  connectivity is rethrown (aborts the cycle, as before), `CancellationError` is
+  rethrown (preserves the reset-cancellation from the #2 fix), and the rest go through
+  `isPermanentFailure`. **Recoverable** (left pending, retried): connectivity, auth
+  (`tokenExpired`/`tokenInvalid`/`accountSuspended`), and transient `serverError`
+  (5xx) — a server hiccup should not burn the offline write. **Permanent** (marked
+  failed, dequeued): `validationFailed` (422), `forbidden` (403), and the other
+  deterministic API errors. This treats `serverError` as recoverable, a deliberate
+  refinement of the task's "everything non-connectivity/non-auth is permanent" so a
+  transient 5xx doesn't discard a user's offline change.
+- **✅ `SyncEngine.failedCount` + `clearFailedRecords()`.** `failedCount` is recomputed
+  (user-scoped, like `pendingCount`) by `refreshPendingCount()` and at each cycle end.
+  `SyncStatusSection` shows a "Failed to sync — N bookmarks [Clear]" row when
+  `failedCount > 0`; **Clear** calls `clearFailedRecords()`, which deletes the current
+  user's failed records (the user accepts losing the unrecoverable change).
+- **✅ `Bookmark.hasSyncError`** (mapped from `syncError != nil` in `Bookmark(local:)`)
+  drives `PendingSyncBadge(failed:)`: the muted `arrow.triangle.2.circlepath` for
+  pending becomes an orange `exclamationmark.arrow.triangle.2.circlepath` for failed.
+  The row/detail show it when `isPendingSync || hasSyncError`.
+- **Schema migration (correction to the task's assumption).** `syncError` is an
+  *optional* attribute, so it is an **additive** change — SwiftData lightweight-migrates
+  existing stores in place (existing rows get `nil`), no wipe needed. The
+  `LocalStore.init()` wipe-and-retry remains only as the fallback for a genuinely
+  incompatible store.
+- **Known limitation.** Clearing failed records from Settings updates `failedCount`
+  immediately, but an already-visible bookmark list reflects the removal on its next
+  refresh (the standing cross-repository-refresh behavior), not instantly. Both app
+  platforms build; lints clean.

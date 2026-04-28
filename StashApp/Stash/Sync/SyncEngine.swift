@@ -47,6 +47,7 @@ final class SyncEngine {
     private(set) var lastSyncedAt: Date?
     private(set) var lastSyncError: Error?
     private(set) var pendingCount = 0
+    private(set) var failedCount = 0
 
     private let clientProvider: StashClientProvider
     private let session: SessionRefreshing
@@ -84,7 +85,29 @@ final class SyncEngine {
         self.connectivity = connectivity
         self.defaults = defaults
         lastSyncedAt = defaults.object(forKey: AppGroup.lastSyncedAtKey) as? Date
-        pendingCount = localStore.pendingCount(userID: clientProvider.currentUserID() ?? "")
+        let userID = clientProvider.currentUserID() ?? ""
+        pendingCount = localStore.pendingCount(userID: userID)
+        failedCount = localStore.failedCount(userID: userID)
+    }
+
+    // MARK: Static Functions
+
+    /// Whether a push error will never succeed on retry, so the record should be marked failed and
+    /// removed from the queue rather than retried forever. Connectivity, auth, and transient server
+    /// (5xx) errors are recoverable and left pending; a `422`/`403`/etc. the server keeps rejecting is
+    /// permanent.
+    private static func isPermanentFailure(_ error: Error) -> Bool {
+        guard let apiError = error as? StashAPIError else {
+            return false
+        }
+
+        switch apiError {
+        case .unknown, .serverError, .tokenExpired, .tokenInvalid, .accountSuspended:
+            return false
+        case .validationFailed, .forbidden, .notFound, .duplicateURL,
+             .usernameTaken, .invalidCredentials, .totpRequired, .totpInvalid:
+            return true
+        }
     }
 
     // MARK: Functions
@@ -119,12 +142,21 @@ final class SyncEngine {
     /// Recomputes the queued-change count from the store. Called when the sync status UI appears, so
     /// it reflects offline writes made since the last cycle.
     func refreshPendingCount() {
-        pendingCount = localStore.pendingCount(userID: currentUserID)
+        let userID = currentUserID
+        pendingCount = localStore.pendingCount(userID: userID)
+        failedCount = localStore.failedCount(userID: userID)
     }
 
     /// Dismisses the last sync error (the inline Settings alert). The next cycle also clears it.
     func dismissError() {
         lastSyncError = nil
+    }
+
+    /// Deletes the current user's permanently-failed records. The user acknowledges that the
+    /// unrecoverable offline changes are lost.
+    func clearFailedRecords() {
+        localStore.clearFailed(userID: currentUserID)
+        refreshPendingCount()
     }
 
     /// Clears the sync cursor and pending count on sign-out so the next user starts from a full pull.
@@ -167,7 +199,7 @@ final class SyncEngine {
             lastSyncError = error
         }
 
-        pendingCount = localStore.pendingCount(userID: currentUserID)
+        refreshPendingCount()
         isSyncing = false
     }
 
@@ -252,7 +284,15 @@ final class SyncEngine {
             }
         } catch let error where error.isConnectivityError {
             throw error
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
+            if Self.isPermanentFailure(error) {
+                record.syncError = error.stashUserMessage
+                record.pendingSyncAt = nil
+                localStore.save()
+            }
+
             return
         }
     }

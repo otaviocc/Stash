@@ -122,6 +122,25 @@ final class LocalStore {
         return (try? mainContext.fetchCount(descriptor)) ?? 0
     }
 
+    /// The number of the given user's records that failed to push permanently.
+    func failedCount(userID: String) -> Int {
+        let descriptor = FetchDescriptor<LocalBookmark>(
+            predicate: #Predicate { $0.syncError != nil && $0.userID == userID }
+        )
+
+        return (try? mainContext.fetchCount(descriptor)) ?? 0
+    }
+
+    /// Deletes the given user's permanently-failed records — the user has acknowledged losing the
+    /// unrecoverable offline changes.
+    func clearFailed(userID: String) {
+        try? mainContext.delete(
+            model: LocalBookmark.self,
+            where: #Predicate { $0.syncError != nil && $0.userID == userID }
+        )
+        try? mainContext.save()
+    }
+
     func record(forServerID serverID: UUID) -> LocalBookmark? {
         let descriptor = FetchDescriptor<LocalBookmark>(
             predicate: #Predicate { $0.serverID == serverID }
