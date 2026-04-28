@@ -82,6 +82,7 @@ swift-testing. Use the local `withTestApp { app in ... }` helper rather than Vap
 | `DELETE` | `/bookmarks/:id` | access token | Delete (204) |
 | `GET`  | `/tags` | access token | Distinct tags with counts |
 | `POST` | `/tags/rename` | access token | Rename a tag (and its children); 422 if `from`/`to` empty |
+| `DELETE` | `/tags/:tag` | access token | Delete a tag (and its children); 422 if empty; idempotent |
 | `POST` | `/metadata` | access token | Fetch title/description/favicon for a URL |
 | `GET`  | `/admin/users` | admin | List all users with stats |
 | `POST` | `/admin/users` | admin | Create account; 409 `username_taken` on dupe |
@@ -130,8 +131,9 @@ Unversioned, mounted at `/app`, separate from the API and the admin dashboard.
 | `GET`  | `/app/bookmarks/:id/edit` | Edit form |
 | `POST` | `/app/bookmarks/:id` | Update (title, description, tags, archived) |
 | `POST` | `/app/bookmarks/:id/delete` · `/archive` · `/unarchive` | Actions |
-| `GET`  | `/app/tags` | Tag browser (counts, links to `/app?tag=…`, inline rename) |
+| `GET`  | `/app/tags` | Tag browser (counts, links to `/app?tag=…`, inline rename/delete) |
 | `POST` | `/app/tags/rename` | Rename a tag (PRG → `?ok=renamed` banner) |
+| `POST` | `/app/tags/delete` | Delete a tag and its children (PRG → `?ok=deleted` banner) |
 | `GET`  | `/app/settings` | Settings |
 | `POST` | `/app/settings/password` | Change own password |
 | `GET`  | `/app/settings/totp` · `POST /verify` · `POST /disable` | 2FA enrolment (recovery codes shown once) / disable (requires a current code) |

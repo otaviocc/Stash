@@ -196,6 +196,7 @@ struct AppWebController: RouteCollection {
 
         app.get("tags", use: tagBrowser)
         app.post("tags", "rename", use: renameTag)
+        app.post("tags", "delete", use: deleteTag)
 
         app.get("settings", use: settings)
         app.post("settings", "password", use: changePassword)
@@ -506,15 +507,24 @@ struct AppWebController: RouteCollection {
             .sorted { $0.name < $1.name }
 
         var message: String?
-        if req.query[String.self, at: "ok"] == "renamed" {
+        switch req.query[String.self, at: "ok"] {
+        case "renamed":
             let from = req.query[String.self, at: "from"] ?? ""
             let to = req.query[String.self, at: "to"] ?? ""
             let count = req.query[Int.self, at: "n"] ?? 0
             message = "Renamed \(from) to \(to) (\(count) bookmark\(count == 1 ? "" : "s") updated)."
+        case "deleted":
+            let tag = req.query[String.self, at: "tag"] ?? ""
+            let count = req.query[Int.self, at: "n"] ?? 0
+            message = "Deleted \(tag) (\(count) bookmark\(count == 1 ? "" : "s") updated)."
+        default:
+            message = nil
         }
-        let error = req.query[String.self, at: "error"] == "rename"
-            ? "Couldn't rename the tag — both names must be non-empty."
-            : nil
+        let error: String? = switch req.query[String.self, at: "error"] {
+        case "rename": "Couldn't rename the tag — both names must be non-empty."
+        case "delete": "Couldn't delete the tag — it must be a non-empty tag name."
+        default: nil
+        }
 
         return try await req.view.render("app-tags", AppTagsContext(
             title: "Tags", appUsername: user.username, tags: tags, message: message, error: error
@@ -537,6 +547,23 @@ struct AppWebController: RouteCollection {
             return req.redirect(to: "/app/tags?ok=renamed&from=\(from)&to=\(to)&n=\(result.affectedBookmarks)")
         } catch is APIError {
             return req.redirect(to: "/app/tags?error=rename")
+        }
+    }
+
+    /// POST /app/tags/delete — delete a tag (and its children) via the shared logic, then PRG back.
+    func deleteTag(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        let form = try req.content.decode(TagDeleteForm.self)
+        do {
+            let result = try await TagDeleter.delete(
+                rawTag: form.tag,
+                for: user.requireID(),
+                on: req.db
+            )
+            let tag = Self.queryValue(result.tag)
+            return req.redirect(to: "/app/tags?ok=deleted&tag=\(tag)&n=\(result.affectedBookmarks)")
+        } catch is APIError {
+            return req.redirect(to: "/app/tags?error=delete")
         }
     }
 
