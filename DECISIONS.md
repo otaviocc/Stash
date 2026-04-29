@@ -3011,3 +3011,33 @@ error surfaced, and the user had no way to clear it short of signing out.
   immediately, but an already-visible bookmark list reflects the removal on its next
   refresh (the standing cross-repository-refresh behavior), not instantly. Both app
   platforms build; lints clean.
+
+## Offline Sync — Cleanup sweep
+
+Four no-behavior-change cleanups from the review.
+
+- **✅ Dead `LocalStore` methods removed.** `remove(serverID:)` had no callers (grep
+  confirmed) and is gone; `upsert(_:)` was already removed when the `userID` init
+  change orphaned it (the #1 fix), so only `remove(serverID:)` remained to delete.
+- **✅ `scheduleSync()` pushes only, no pull.** A write-triggered sync has nothing to
+  pull — the device just produced the change — yet it ran a full `sync()` (pull then
+  push) on every create/edit/delete, costing an extra round-trip and a redundant list
+  refresh per write. Added `SyncEngine.pushPending()`, a push-only cycle that reuses
+  the single-flight `inflightSync` guard; `scheduleSync()` now calls it. Full `sync()`
+  (pull + push) still runs on launch/sign-in, foreground, reconnect, "Sync Now", and
+  background refresh. Trade-off of the shared guard: if a write-push is in flight when
+  a full sync is requested, the full sync coalesces onto it and skips that cycle's
+  pull; this is rare and self-heals on the next pull trigger (foreground/launch/Sync
+  Now), and is preferable to racing two cycles.
+- **✅ Duplicated favicon-domain logic removed.** The host-derivation lived on both
+  `Bookmark.faviconDomain` (instance) and `LocalBookmark.faviconDomain(for:)` (static).
+  Made `Bookmark` the single owner — added `Bookmark.faviconDomain(for: URL)` static
+  with the instance property delegating to it — and pointed `LocalBookmark`'s inserts
+  at `Bookmark.faviconDomain(for:)`, deleting its copy. (The stored
+  `LocalBookmark.faviconDomain` column is unchanged; only the duplicated derivation
+  was removed.)
+- **✅ `ConnectivityMonitor` doc comment corrected.** It claimed `BookmarkRepository`
+  routes writes through the monitor to an offline queue — removed by the
+  optimistic-write refactor. Now it states the monitor backs the offline banner
+  (`MainFlowView`) and gates `SyncEngine` cycles, fires `onReconnect`, and is not used
+  by `BookmarkRepository`.

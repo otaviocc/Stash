@@ -181,12 +181,13 @@ final class BookmarkRepository: BookmarkCreating {
 
     // MARK: - Writes
 
-    /// Pushes the queued change in the background and refreshes this list when the cycle finishes, so
-    /// the optimistic local row is reconciled with the server's authoritative result (real ID,
-    /// normalized tags, fetched metadata) without blocking the caller on the network.
+    /// Pushes the queued change in the background and refreshes this list when it finishes, so the
+    /// optimistic local row is reconciled with the server's authoritative result (real ID, normalized
+    /// tags, fetched metadata) without blocking the caller on the network. Uses the push-only path —
+    /// a write has nothing to pull, so a full sync here would be a wasted round-trip.
     private func scheduleSync() {
         Task {
-            await syncEngine.sync()
+            await syncEngine.pushPending()
             refreshVisible()
         }
     }

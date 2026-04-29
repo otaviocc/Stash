@@ -157,16 +157,6 @@ final class LocalStore {
         mainContext.delete(record)
     }
 
-    /// Removes every record matching `serverID` (the server confirmed the deletion).
-    func remove(serverID: UUID) {
-        let descriptor = FetchDescriptor<LocalBookmark>(
-            predicate: #Predicate { $0.serverID == serverID }
-        )
-        for record in (try? mainContext.fetch(descriptor)) ?? [] {
-            mainContext.delete(record)
-        }
-    }
-
     /// Deletes the already-synced local bookmarks, used on sign-out so the next sign-in starts from a
     /// fresh copy — but **preserves any record with a queued offline change** (`pendingSyncAt != nil`,
     /// which also covers offline soft-deletes). Unpushed writes therefore survive a forced logout from

@@ -126,6 +126,22 @@ final class SyncEngine {
         inflightSync = nil
     }
 
+    /// Pushes queued local changes **without** a preceding pull. Used after a write: the device just
+    /// produced the change, so there is nothing new to pull, and skipping the pull avoids an
+    /// unnecessary round-trip and a redundant list refresh per write. Shares the single-flight
+    /// `inflightSync` guard — if any cycle is already running this is a no-op, because that cycle's
+    /// push phase fetches the pending records fresh and therefore includes this write.
+    func pushPending() async {
+        guard inflightSync == nil else {
+            return
+        }
+
+        let task = Task { await performPush() }
+        inflightSync = task
+        await task.value
+        inflightSync = nil
+    }
+
     /// Runs a cycle and then schedules the next background refresh. Called from the background-refresh
     /// handler; the SwiftUI `.backgroundTask` modifier marks the task complete when this returns.
     func syncInBackground() async {
@@ -195,6 +211,27 @@ final class SyncEngine {
             try await push(client: client, userID: userID)
             localStore.save()
             setLastSyncedAt(cycleStart)
+        } catch {
+            lastSyncError = error
+        }
+
+        refreshPendingCount()
+        isSyncing = false
+    }
+
+    private func performPush() async {
+        guard connectivity.isOnline else {
+            return
+        }
+
+        isSyncing = true
+        lastSyncError = nil
+        let userID = currentUserID
+
+        do {
+            let client = try await authenticatedClient()
+            try await push(client: client, userID: userID)
+            localStore.save()
         } catch {
             lastSyncError = error
         }

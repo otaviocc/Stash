@@ -59,6 +59,15 @@ struct Bookmark: Identifiable, Hashable {
     /// Cache key for Stash's favicon endpoint. Must match the backend's DomainExtractor:
     /// lowercased host, leading `www.` stripped, explicit port kept.
     var faviconDomain: String? {
+        Self.faviconDomain(for: url)
+    }
+
+    // MARK: Static Functions
+
+    /// The favicon cache key for a URL — the canonical derivation reused wherever a bookmark's
+    /// domain key is needed (e.g. the local store). Must match the backend's DomainExtractor:
+    /// lowercased host, leading `www.` stripped, explicit port kept.
+    static func faviconDomain(for url: URL) -> String? {
         guard var host = url.host()?.lowercased(), !host.isEmpty else { return nil }
 
         if host.hasPrefix("www.") {

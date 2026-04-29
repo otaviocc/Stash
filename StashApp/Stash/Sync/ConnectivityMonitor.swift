@@ -23,13 +23,13 @@
 import Foundation
 import Network
 
-/// Watches the network path and reports whether the device is online, firing `onReconnect` when the
-/// path transitions from unsatisfied to satisfied.
+/// Watches the network path via `NWPathMonitor` and reports whether the device is online, firing
+/// `onReconnect` when the path transitions from unsatisfied to satisfied.
 ///
-/// `SyncEngine` consults `isOnline` to decide whether to attempt a cycle, and `BookmarkRepository`
-/// consults it to route a write to the API or the offline queue. The reconnection callback drives a
-/// sync as soon as connectivity returns. Starts optimistically online; `NWPathMonitor` corrects it on
-/// the first path update.
+/// `isOnline` drives the offline banner (`MainFlowView`) and gates `SyncEngine`'s cycle attempts;
+/// `onReconnect` is wired to trigger a sync as soon as connectivity returns. `BookmarkRepository`
+/// does not use it — writes are unconditionally optimistic-local and reconciled by the sync engine.
+/// Starts optimistically online; `NWPathMonitor` corrects it on the first path update.
 @MainActor
 @Observable
 final class ConnectivityMonitor {

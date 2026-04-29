@@ -85,7 +85,7 @@ final class LocalBookmark {
         bookmarkDescription = dto.description
         tags = dto.tags
         isArchived = dto.isArchived
-        faviconDomain = Self.faviconDomain(for: dto.url)
+        faviconDomain = Bookmark.faviconDomain(for: dto.url)
         serverCreatedAt = dto.createdAt
         serverUpdatedAt = dto.updatedAt
         pendingSyncAt = nil
@@ -107,7 +107,7 @@ final class LocalBookmark {
         bookmarkDescription = input.description
         tags = input.tags
         isArchived = false
-        faviconDomain = Self.faviconDomain(for: input.url)
+        faviconDomain = Bookmark.faviconDomain(for: input.url)
         serverCreatedAt = now
         serverUpdatedAt = now
         pendingSyncAt = now
@@ -127,7 +127,7 @@ final class LocalBookmark {
             bookmarkDescription = bookmark.description
             tags = bookmark.tags
             isArchived = bookmark.isArchived
-            faviconDomain = Self.faviconDomain(for: bookmark.url)
+            faviconDomain = Bookmark.faviconDomain(for: bookmark.url)
             serverCreatedAt = bookmark.createdAt
             serverUpdatedAt = bookmark.updatedAt
             pendingSyncAt = nil
@@ -135,25 +135,6 @@ final class LocalBookmark {
             isLocalOnly = false
         }
     #endif
-
-    // MARK: Static Functions
-
-    /// Cache key for Stash's favicon endpoint, matching the backend's `DomainExtractor`: lowercased
-    /// host, leading `www.` stripped, explicit port kept.
-    static func faviconDomain(for url: URL) -> String? {
-        guard var host = url.host()?.lowercased(), !host.isEmpty else { return nil }
-
-        if host.hasPrefix("www.") {
-            host = String(host.dropFirst(4))
-            guard !host.isEmpty else { return nil }
-        }
-
-        if let port = url.port {
-            return "\(host):\(port)"
-        }
-
-        return host
-    }
 
     // MARK: Functions
 
@@ -166,7 +147,7 @@ final class LocalBookmark {
         bookmarkDescription = dto.description
         tags = dto.tags
         isArchived = dto.isArchived
-        faviconDomain = Self.faviconDomain(for: dto.url)
+        faviconDomain = Bookmark.faviconDomain(for: dto.url)
         serverCreatedAt = dto.createdAt
         serverUpdatedAt = dto.updatedAt
         pendingSyncAt = nil
