@@ -267,8 +267,10 @@ struct BookmarkController: RouteCollection {
         let bookmarkID = try bookmark.requireID()
         let userID = try user.requireID()
 
-        try await bookmark.delete(on: req.db)
-        try await DeletedBookmark.record(bookmarkID: bookmarkID, userID: userID, on: req.db)
+        try await req.db.transaction { db in
+            try await bookmark.delete(on: db)
+            try await DeletedBookmark.record(bookmarkID: bookmarkID, userID: userID, on: db)
+        }
 
         user.bookmarkCount = max(user.bookmarkCount - 1, 0)
         try await user.save(on: req.db)

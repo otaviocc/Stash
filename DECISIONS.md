@@ -3041,3 +3041,27 @@ Four no-behavior-change cleanups from the review.
   optimistic-write refactor. Now it states the monitor backs the offline banner
   (`MainFlowView`) and gates `SyncEngine` cycles, fires `onReconnect`, and is not used
   by `BookmarkRepository`.
+
+## Offline Sync — Sync correctness fix (#5)
+
+- **Problem.** Every hard-delete deleted the bookmark row and recorded its
+  `DeletedBookmark` tombstone as two separate `await`s with no transaction. A crash
+  or dropped connection in the gap left the bookmark gone server-side with no
+  tombstone — a synced client would never see it again via `changes?since=` (gone)
+  nor `deleted?since=` (no tombstone), orphaning the local copy forever.
+- **✅ Fix.** All three hard-delete paths now wrap the delete and the tombstone
+  record(s) in a single `req.db.transaction { db in … }`: `BookmarkController.delete`
+  (API single), `AppWebController.deleteBookmark` (web single), and
+  `AppWebController.deleteAllBookmarks` (web bulk — the whole delete-then-record loop
+  is inside one transaction). Either the bookmark is deleted **with** its tombstone or
+  neither takes effect. Fluent's `db.transaction {}` is honored by both SQLite (tests,
+  in-memory) and PostgreSQL (production). The `bookmarkCount`/`user.save` update stays
+  outside the transaction (a denormalized counter, not part of the delete/tombstone
+  atomicity).
+- **Tests.** The existing tombstone tests (`deleteRecordsTombstone`,
+  `webDeleteRecordsTombstone`, `webBulkDeleteRecordsTombstones`) cover the success path
+  under the transaction (147 backend tests pass). The rollback-on-failure assertion was
+  **skipped**: there is no clean failure-injection point in the current harness —
+  `DeletedBookmark` has no unique/NOT-NULL constraint to trip mid-transaction, and the
+  only alternative is a production test-only hook, which the task explicitly directed to
+  avoid over a fragile workaround. The atomicity rests on Fluent's transaction wrapper.

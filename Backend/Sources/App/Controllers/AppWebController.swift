@@ -603,8 +603,10 @@ struct AppWebController: RouteCollection {
         let bookmarkID = try bookmark.requireID()
         let userID = try user.requireID()
 
-        try await bookmark.delete(on: req.db)
-        try await DeletedBookmark.record(bookmarkID: bookmarkID, userID: userID, on: req.db)
+        try await req.db.transaction { db in
+            try await bookmark.delete(on: db)
+            try await DeletedBookmark.record(bookmarkID: bookmarkID, userID: userID, on: db)
+        }
         user.bookmarkCount = max(user.bookmarkCount - 1, 0)
         try await user.save(on: req.db)
         return req.redirect(to: "/app")
@@ -1078,9 +1080,11 @@ struct AppWebController: RouteCollection {
         let userID = try user.requireID()
         let bookmarkIDs = try await user.$bookmarks.query(on: req.db).all().map { try $0.requireID() }
 
-        try await user.$bookmarks.query(on: req.db).delete()
-        for bookmarkID in bookmarkIDs {
-            try await DeletedBookmark.record(bookmarkID: bookmarkID, userID: userID, on: req.db)
+        try await req.db.transaction { db in
+            try await user.$bookmarks.query(on: db).delete()
+            for bookmarkID in bookmarkIDs {
+                try await DeletedBookmark.record(bookmarkID: bookmarkID, userID: userID, on: db)
+            }
         }
         user.bookmarkCount = 0
         try await user.save(on: req.db)
