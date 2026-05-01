@@ -5,7 +5,7 @@
 #export("content"):
     <section class="landing-hero">
         <h1>Your bookmarks. Your server. Your data.</h1>
-        <p class="lead">Stash is a self-hosted, fully private bookmark manager — with native iOS and macOS apps, a full web interface, a command-line tool, and a browser extension.</p>
+        <p class="lead">Stash is a self-hosted, fully private bookmark manager — with native iOS and macOS apps that work offline, a full web interface, a command-line tool, and a browser extension.</p>
         <div class="landing-cta">
             <a class="primary" href="/app">Sign in &rarr;</a>
             <a class="secondary" href="/admin">Admin &rarr;</a>
@@ -32,7 +32,7 @@
         <div class="feature">
             <div class="icon">🖥️</div>
             <h3>Every platform</h3>
-            <p>Native iOS and macOS apps with Share Extensions, a full web interface, the <code>stash</code> command-line tool, and a Firefox &amp; Chrome browser extension.</p>
+            <p>Native iOS and macOS apps with Share Extensions that keep a full local copy of your library — browse and save offline, and changes sync automatically when you reconnect. Plus a full web interface, the <code>stash</code> command-line tool, and a Firefox &amp; Chrome browser extension.</p>
         </div>
         <div class="feature">
             <div class="icon">🗂️</div>

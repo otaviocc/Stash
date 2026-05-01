@@ -164,8 +164,9 @@ struct AddBookmarkView: View {
         Section("URL") {
             if isURLEditable {
                 HStack {
-                    TextField("https://example.com", text: $urlText)
+                    TextField("URL", text: $urlText)
                         .urlFieldStyle()
+
                     PasteButton(payloadType: String.self) { strings in
                         guard let pasted = strings.first else {
                             return
@@ -197,9 +198,7 @@ struct AddBookmarkView: View {
     private func makeDetailsSection() -> some View {
         Section("Details") {
             TextField("Title", text: $title)
-                .labelsHidden()
             TextField("Description", text: $description, axis: .vertical)
-                .labelsHidden()
                 .lineLimit(2...5)
         }
     }

@@ -3065,3 +3065,17 @@ Four no-behavior-change cleanups from the review.
   `DeletedBookmark` has no unique/NOT-NULL constraint to trip mid-transaction, and the
   only alternative is a production test-only hook, which the task explicitly directed to
   avoid over a fragile workaround. The atomicity rests on Fluent's transaction wrapper.
+
+## Offline Sync — landing page copy
+
+- **✅ Landing page now advertises offline.** The public landing page
+  (`Backend/Resources/Views/landing.leaf`) predated offline sync and described the
+  native apps with no mention of local storage or sync. Updated the hero lead to say
+  the iOS/macOS apps "work offline" and rewrote the "Every platform" feature card to
+  spell out the differentiator: the apps keep a full local copy of the library, browse
+  and save offline, and sync automatically on reconnect (mirroring `PRODUCT.md` §16 and
+  the Offline Sync phases above).
+- **Folded into the existing card, not a 7th.** Offline was added to the "Every
+  platform" card rather than as a new feature card, to preserve the balanced 3×2
+  features grid (`landing.css` `repeat(3, 1fr)`) — a 7th card would have left a lone
+  card on the last row. Content-only change: no template structure or CSS touched.

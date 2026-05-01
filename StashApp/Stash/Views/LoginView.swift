@@ -86,7 +86,7 @@ struct LoginView: View {
 
     private func makeServerSection() -> some View {
         Section {
-            TextField("https://stash.example.com", text: $serverURL)
+            TextField("URL", text: $serverURL)
                 .urlFieldStyle()
         } header: {
             Text("Server")
