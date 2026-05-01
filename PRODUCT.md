@@ -1,6 +1,6 @@
 # Stash — Product Requirements Document
 
-**Version:** 1.3  
+**Version:** 1.4  
 **Status:** Living Document  
 **Author:** Otávio  
 
@@ -19,6 +19,7 @@ The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 - Save bookmarks quickly from any Apple platform via Share Extensions or the CLI
 - Retrieve bookmarks reliably via keyword search, tag browsing, or recency
 - Organise bookmarks with both flat and hierarchical tags
+- Rename and delete tags across all bookmarks in bulk
 - Auto-fetch page metadata (title, description, favicon) at save time, with manual override
 - Support multiple users, each with a fully isolated bookmark collection
 - Admin can create, suspend, and hard-delete accounts, reset passwords and 2FA — via web dashboard and CLI
@@ -28,6 +29,7 @@ The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 - Duplicate URLs per user are blocked at save time
 - Import bookmarks from Anybox JSON export and Stash JSON
 - Export bookmarks in Stash native JSON format
+- Dark mode support (Light / Dark / Auto)
 - Keep all data on infrastructure the user controls
 - Remain fully private — no public sharing, no public registration
 
@@ -87,6 +89,7 @@ There is exactly one admin. The admin account is seeded at first boot via enviro
 │  Routes → Controllers → Fluent ORM                   │
 │  Metadata Fetcher (async, non-blocking)               │
 │  ImportExportRegistry (pluggable importers/exporters) │
+│  TagRenamer / TagDeleter (shared business logic)      │
 └──────────────────────────┬────────────────────────────┘
                            │
                            ▼
@@ -125,16 +128,16 @@ StashKit (Swift Package) — Planned
 | `id` | UUID | Primary key |
 | `userID` | UUID | Foreign key → User; all queries scoped to this |
 | `url` | String | Required, valid URL, unique per user |
-| `title` | String | Auto-fetched, overridable |
+| `title` | String | Auto-fetched, overridable. Falls back to URL if blank. |
 | `description` | String? | Auto-fetched, overridable |
 | `faviconURL` | String? | Auto-fetched |
-| `tags` | [String] | Flat or hierarchical (e.g. `swift/vapor`) |
-| `tagsSearch` | String | Derived column (`\|swift\|swift/vapor\|`) for portable LIKE queries |
+| `tags` | [String] | Flat or hierarchical (e.g. `swift/vapor`). JSON column. |
+| `tagsSearch` | String | Derived: `\|swift\|swift/vapor\|` for portable LIKE queries |
 | `isArchived` | Bool | Default false |
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
-**Duplicate URL constraint:** a unique index on `(userID, url)` enforces one bookmark per URL per user. The API returns HTTP 409 Conflict if a duplicate is attempted.
+**Duplicate URL constraint:** unique index on `(userID, url)`. API returns HTTP 409 Conflict if a duplicate is attempted.
 
 ### 7.3 Refresh Token
 
@@ -146,7 +149,7 @@ StashKit (Swift Package) — Planned
 | `expiresAt` | Date | 90 days from issuance |
 | `createdAt` | Date | Auto-set |
 
-Refresh tokens are stored hashed. On rotation, the old token is deleted and a new one is issued. On logout, the token is deleted. On account suspension, deletion, password reset (admin), or 2FA disable/reset, all tokens for that user are deleted.
+Rotated on every use. Deleted on logout, suspension, hard deletion, password reset (admin), and 2FA disable/reset.
 
 ### 7.4 Recovery Code
 
@@ -155,19 +158,19 @@ Refresh tokens are stored hashed. On rotation, the old token is deleted and a ne
 | `id` | UUID | Primary key |
 | `userID` | UUID | Foreign key → User |
 | `codeHash` | String | Bcrypt hash of the raw code |
-| `usedAt` | Date? | Null until redeemed; once used, cannot be reused |
+| `usedAt` | Date? | Null until redeemed; single-use |
 
-Eight recovery codes are generated at 2FA enrolment. Each is single-use. Stored hashed. All recovery codes are deleted when 2FA is disabled or reset.
+Eight codes generated at 2FA enrolment. Deleted when 2FA is disabled or reset.
 
 ### 7.5 Tags
 
-Tags are plain strings stored on each bookmark. Hierarchical tags use slash notation: `swift/vapor`, `swift/uikit`, `music/jazz`. The tag tree is derived dynamically per user — no separate tag table.
+Tags are plain strings stored on each bookmark. Hierarchical tags use slash notation: `swift/vapor`. The tag tree is derived dynamically per user — no separate tag table.
 
-A derived `tagsSearch` column stores tags in `|swift|swift/vapor|` format for portable prefix-matching via SQL `LIKE` queries. This works consistently across both SQLite (tests) and PostgreSQL (production).
+A derived `tagsSearch` column stores tags as `|swift|swift/vapor|` for portable prefix-matching via SQL `LIKE`. Consistent across SQLite (tests) and PostgreSQL (production).
 
-Querying `tag=swift` returns all bookmarks where `tagsSearch` contains `|swift` (prefix match: matches `swift` and `swift/*`).
+Querying `tag=swift` matches bookmarks where `tagsSearch` contains `|swift` — prefix match: includes `swift` and `swift/*`, but not `swiftui`.
 
-**Tag normalisation:** all tags are normalised on write — trimmed of whitespace, lowercased, and de-duplicated. Enforced server-side. `Swift`, `swift`, and `  Swift  ` all resolve to `swift`.
+**Tag normalisation:** trimmed, lowercased, surrounding slashes stripped, de-duplicated. Enforced server-side on every write.
 
 ---
 
@@ -177,151 +180,162 @@ Querying `tag=swift` returns all bookmarks where `tagsSearch` contains `|swift` 
 
 | Token | Lifetime | Storage (client) |
 |-------|----------|-----------------|
-| Access token (JWT) | 15 minutes | Memory only (never persisted to disk) |
-| Refresh token (opaque) | 90 days, rotated on use | Keychain (iOS/macOS), `~/.config/stash/tokens.json` (CLI), session cookie (web) |
+| Access token (JWT, HS256) | 15 minutes | Memory only |
+| Refresh token (opaque 256-bit hex) | 90 days, rotated on use | Keychain (iOS/macOS), file (CLI), session (web) |
 
-Silent refresh: client checks expiry within 60 seconds and calls `POST /api/v1/auth/refresh` transparently before each request.
+Silent refresh within 60 seconds of expiry. The 2FA temp token uses `scope: "2fa"` so it cannot be replayed as an access token.
 
 ### 8.2 Login Flow
 
 ```
-1. POST /api/v1/auth/login  { username, password }
-   → If 2FA disabled: { accessToken, refreshToken }
-   → If 2FA enabled:  { requires2FA: true, tempToken: "<5-min JWT, limited scope>" }
-
-2. POST /api/v1/auth/totp   { tempToken, totpCode }
-   → { accessToken, refreshToken }
-
-3. POST /api/v1/auth/refresh { refreshToken }
-   → { accessToken, refreshToken }  (old refresh token invalidated)
-
-4. POST /api/v1/auth/logout  { refreshToken }
-   → 204 No Content  (refresh token deleted from DB)
-```
-
-### 8.3 2FA Enrolment Flow
-
-```
-1. GET  /api/v1/auth/totp/setup
-   → { secret: "<base32>", otpauthURI: "otpauth://totp/Stash:username?secret=..." }
-   Web UI: shows otpauth URI + manual key (no server-side QR — CoreImage unavailable on Linux)
-   Native clients: display QR code from otpauthURI
-
-2. POST /api/v1/auth/totp/verify-setup  { totpCode }
-   → { recoveryCodes: ["ABCD-EFGH", ...] }  (8 codes, shown once, never retrievable again)
-   Server sets isTOTPEnabled = true, stores hashed codes.
-```
-
-Recovery codes shown exactly once. Client must require explicit "I've saved these" confirmation before dismissal.
-
-### 8.4 Recovery Code Login Flow
-
-```
 POST /api/v1/auth/login  { username, password }
-→ { requires2FA: true, tempToken }
+→ 2FA disabled: { accessToken, refreshToken }
+→ 2FA enabled:  { requires2FA: true, tempToken }
+
+POST /api/v1/auth/totp   { tempToken, totpCode }
+→ { accessToken, refreshToken }
 
 POST /api/v1/auth/recovery  { tempToken, recoveryCode }
-→ { accessToken, refreshToken }
-Server marks the code as used (sets usedAt). It cannot be reused.
+→ { accessToken, refreshToken }  (code marked used)
+
+POST /api/v1/auth/refresh { refreshToken }
+→ { accessToken, refreshToken }  (old token deleted)
+
+POST /api/v1/auth/logout  { refreshToken }
+→ 204 No Content
 ```
 
-### 8.5 2FA Disable Flow
+### 8.3 2FA Enrolment
 
-**User self-service:** requires current TOTP code to confirm. Clears `totpSecret`, sets `isTOTPEnabled = false`, deletes all recovery codes, invalidates all refresh tokens.
+```
+GET  /api/v1/auth/totp/setup
+→ { secret, otpauthURI }
 
-**Admin reset:** no confirmation code required. Same effect — clears TOTP secret, disables 2FA, deletes recovery codes, invalidates all refresh tokens for the target user. Self-reset is allowed.
+POST /api/v1/auth/totp/verify-setup  { totpCode }
+→ { recoveryCodes: [...] }  (8 codes, shown once)
+```
 
-### 8.6 Password Rules
+Recovery codes: 8 × `XXXX-XXXX`, bcrypt-hashed, single-use. Shown exactly once with mandatory "I've saved these" confirmation.
 
-- Minimum 12 characters
-- Stored as bcrypt hash, cost factor 12
+Web UI shows `otpauthURI` + manual setup key — no QR image (CoreImage unavailable on Linux). Native clients display a QR code.
 
-### 8.7 Account Suspension & Deletion
+### 8.4 2FA Disable / Reset
 
-- **Suspension:** `isActive = false`. All refresh tokens immediately deleted.
-- **Password reset (admin):** all refresh tokens for the target user immediately deleted.
-- **Hard deletion:** all bookmarks, refresh tokens, and recovery codes cascade-deleted. No soft delete.
-- **2FA disable/reset:** all refresh tokens deleted, forcing re-login.
+**User self-service (`POST /api/v1/auth/totp/disable`):** requires current TOTP code. Clears `totpSecret`, sets `isTOTPEnabled = false`, deletes recovery codes, invalidates all refresh tokens.
+
+**Admin reset (`POST /api/v1/admin/users/:id/reset-totp`):** no confirmation code required. Same effect. Self-reset allowed. Invalidates refresh tokens.
+
+### 8.5 Password Rules
+
+Minimum 12 characters. Bcrypt, cost factor 12. Unknown usernames run a throwaway bcrypt verify to prevent timing-based account enumeration.
+
+### 8.6 Token Invalidation Rules
+
+All refresh tokens for a user are deleted when:
+- Account suspended
+- Password reset by admin
+- Account hard-deleted
+- 2FA disabled (self-service or admin reset)
 
 ---
 
 ## 9. API Specification
 
-### 9.1 Auth Endpoints (unauthenticated)
+All API routes prefixed `/api/v1/`. Health check at `/health` (unversioned).
+
+### 9.1 Auth (unauthenticated)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/auth/login` | Submit username + password |
-| `POST` | `/api/v1/auth/totp` | Submit TOTP code after login |
-| `POST` | `/api/v1/auth/recovery` | Submit recovery code after login |
-| `POST` | `/api/v1/auth/refresh` | Rotate refresh token, get new access token |
+| `POST` | `/api/v1/auth/login` | Username + password |
+| `POST` | `/api/v1/auth/totp` | TOTP code after login |
+| `POST` | `/api/v1/auth/recovery` | Recovery code after login |
+| `POST` | `/api/v1/auth/refresh` | Rotate refresh token |
 | `POST` | `/api/v1/auth/logout` | Invalidate refresh token |
-| `GET` | `/health` | Health check (unversioned) |
 
-### 9.2 User Endpoints (authenticated, any role)
+### 9.2 User (authenticated, any role)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/v1/me` | Get current user profile |
+| `GET` | `/api/v1/me` | Current user profile |
 | `PUT` | `/api/v1/me/password` | Change own password |
 | `GET` | `/api/v1/auth/totp/setup` | Begin 2FA enrolment |
-| `POST` | `/api/v1/auth/totp/verify-setup` | Confirm 2FA enrolment; returns recovery codes |
+| `POST` | `/api/v1/auth/totp/verify-setup` | Confirm enrolment; returns recovery codes |
 | `POST` | `/api/v1/auth/totp/disable` | Disable own 2FA (requires current TOTP code) |
 
-### 9.3 Bookmark Endpoints (authenticated, scoped to current user)
+### 9.3 Bookmarks (authenticated, scoped to current user)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/v1/bookmarks` | List bookmarks |
-| `POST` | `/api/v1/bookmarks` | Create bookmark; returns 409 if URL already saved |
-| `GET` | `/api/v1/bookmarks/:id` | Get single bookmark |
+| `POST` | `/api/v1/bookmarks` | Create bookmark (409 if URL exists) |
+| `GET` | `/api/v1/bookmarks/:id` | Get bookmark |
 | `PUT` | `/api/v1/bookmarks/:id` | Update bookmark |
 | `DELETE` | `/api/v1/bookmarks/:id` | Delete bookmark |
 
 **`GET /api/v1/bookmarks` query parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `q` | String | Full-text search across URL, title, description. Case-insensitive (`ILIKE` on PostgreSQL). |
-| `tag` | String | Filter by tag (prefix match: `swift` matches `swift` and `swift/*`, not `swiftui`) |
-| `archived` | Bool | Default false; pass `true` for archived bookmarks |
-| `page` | Int | Page number, default 1 |
-| `per` | Int | Results per page, default 20, max 100 (clamped) |
+| Parameter | Description |
+|-----------|-------------|
+| `q` | Full-text search (URL, title, description, tags). Case-insensitive (`ILIKE` on PostgreSQL). |
+| `tag` | Prefix filter. `swift` matches `swift` and `swift/*` but not `swiftui`. Special value `__untagged__` returns bookmarks with no tags. |
+| `archived` | Default false. Pass `true` for archived bookmarks. |
+| `page` / `per` | Pagination. `per` clamped 1–100. |
 
-### 9.4 Tag Endpoints (authenticated, scoped to current user)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/v1/tags` | List all tags with counts for current user |
-
-### 9.5 Metadata Endpoint (authenticated)
+### 9.4 Tags (authenticated, scoped to current user)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/v1/metadata` | Fetch title, description, favicon for a URL without saving |
+| `GET` | `/api/v1/tags` | All tags with counts |
+| `POST` | `/api/v1/tags/rename` | Rename a tag (and its children) |
+| `DELETE` | `/api/v1/tags/:tag` | Delete a tag (and its children) |
 
-### 9.6 Admin Endpoints (authenticated, admin role only)
+**`POST /api/v1/tags/rename` body:**
+```json
+{ "from": "foo-bar", "to": "foobar" }
+```
+Response: `{ "from": "foo-bar", "to": "foobar", "affectedBookmarks": 12 }`
+
+- Renames exact tag and all children (`foo-bar/x` → `foobar/x`)
+- If `to` already exists: merge silently (de-duplicate)
+- `from == to` or unused `from`: idempotent 200, `affectedBookmarks: 0`
+
+**`DELETE /api/v1/tags/:tag`:**
+Response: `{ "tag": "foo-bar", "affectedBookmarks": 12 }`
+
+- Removes exact tag and all children from all affected bookmarks
+- Bookmarks are never deleted — only their tags
+- Unused tag: idempotent 200, `affectedBookmarks: 0`
+
+### 9.5 Metadata (authenticated)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/metadata` | Fetch title, description, favicon without saving |
+
+### 9.6 Admin (authenticated, admin role only)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/v1/admin/users` | List all users with stats |
-| `POST` | `/api/v1/admin/users` | Create a new user account (always `user` role) |
-| `GET` | `/api/v1/admin/users/:id` | Get a single user |
-| `PUT` | `/api/v1/admin/users/:id` | Suspend/unsuspend, reset password (invalidates tokens) |
-| `DELETE` | `/api/v1/admin/users/:id` | Hard-delete user and all their data (cannot delete self) |
-| `POST` | `/api/v1/admin/users/:id/reset-totp` | Reset user's 2FA (invalidates tokens) |
-| `GET` | `/api/v1/admin/stats` | Aggregate stats (total users, total bookmarks, per-user counts) |
+| `POST` | `/api/v1/admin/users` | Create user (always `user` role) |
+| `GET` | `/api/v1/admin/users/:id` | Get user |
+| `PUT` | `/api/v1/admin/users/:id` | Suspend/unsuspend, reset password |
+| `DELETE` | `/api/v1/admin/users/:id` | Hard-delete (cannot delete self) |
+| `POST` | `/api/v1/admin/users/:id/reset-totp` | Reset user's 2FA |
+| `GET` | `/api/v1/admin/stats` | Aggregate stats |
 
 ---
 
-## 10. Metadata Fetching — Backend Behaviour
+## 10. Metadata Fetching
 
-When a bookmark is created with `fetchMetadata: true` (default):
+On `POST /api/v1/bookmarks` with `fetchMetadata: true` (default):
 
-1. HTTP GET to the URL
-2. Parses `<title>`, `<meta name="description">`, favicon (`<link rel="icon">` or `/favicon.ico` fallback) using a dependency-free regex parser (`MetadataFetcher`) over Vapor's built-in HTTP client
-3. Client-supplied values take precedence over fetched ones
-4. If fetching fails (timeout, 4xx/5xx), save proceeds with whatever the client supplied — never blocks the save
+1. HTTP GET to the URL via Vapor's built-in HTTP client
+2. Dependency-free regex parser (`MetadataFetcher`) extracts `<title>`, `<meta name="description">`, favicon
+3. Client-supplied values take precedence
+4. Title falls back to URL if blank
+5. On any failure: save proceeds with client-supplied values — never blocks
 
 Timeout: 5 seconds. No retry.
 
@@ -331,7 +345,7 @@ Timeout: 5 seconds. No retry.
 
 ### 11.1 Architecture
 
-A pluggable `ImportExportRegistry` allows new formats to be added by conforming to protocols and registering — no controller changes required.
+Pluggable `ImportExportRegistry`. New formats: conform to protocol, register in `init` — no controller, route, or template changes needed.
 
 ```swift
 protocol BookmarkImporter {
@@ -357,53 +371,47 @@ struct ImportResult {
 }
 ```
 
+Parse failure throws `ImportError.invalidFormat` (inline error, no redirect). Bad individual records are counted in `skipped`/`errors`, shown in a collapsible `<details>` block.
+
 ### 11.2 Anybox JSON Importer (`identifier: "anybox"`)
 
-Anybox exports a JSON array. Relevant fields:
+Anybox exports a JSON array. **Actual field shapes** (verified against a real export):
 
-```json
-[
-  {
-    "url": "https://example.com",
-    "title": "Example",
-    "description": "Optional",
-    "tags": ["swift", "ios"],
-    "folder": ["Development"],
-    "date_added": 1756535446
-  }
-]
-```
+- `tags` is `[[String]]` — arrays of `[namespace, value]` pairs (e.g. `[["topic","swift"],["status","reading"]]`). Each pair joined with `/` → hierarchical Stash tag (`topic/swift`). Plain `[String]` accepted as fallback.
+- `dateAdded` — camelCase, ISO-8601 string. Numeric `date_added`/`dateAdded` accepted as fallback. Missing → current time.
 
-Mapping rules:
-- `url` → required; skip record if missing or invalid
-- `title` → `Bookmark.title` (empty string if missing)
-- `description` → `Bookmark.description`
-- `tags` → `Bookmark.tags` (normalised)
-- `folder` → ignored (flat import, folders not mapped to tags)
-- `date_added` → `Bookmark.createdAt` (Unix timestamp; current time if missing)
-- All other fields ignored
+| Anybox field | Stash field | Notes |
+|---|---|------|
+| `url` | `url` | Required; skip if missing or invalid |
+| `title` | `title` | Empty string if missing |
+| `description` | `description` | |
+| `tags` | `tags` | Normalised |
+| `dateAdded` | `createdAt` | ISO-8601; Unix int fallback |
+| `folder` | — | Ignored (flat import) |
+| others | — | Ignored |
 
-**Duplicate URL:** update existing bookmark — overwrite title, description, tags. Do not change `createdAt`.
+Duplicate URL: update title, description, tags in place. `createdAt` preserved.
 
 ### 11.3 Stash JSON Importer (`identifier: "stash-json"`)
 
-Imports a previously exported Stash JSON file. Useful for migrating between Stash instances.
+Imports a previously exported Stash JSON file. Useful for migrating between instances.
 
-Mapping rules:
-- `bookmarks[].url` → required; skip record if missing or invalid
-- `bookmarks[].title` → `Bookmark.title`
-- `bookmarks[].description` → `Bookmark.description`
-- `bookmarks[].tags` → `Bookmark.tags` (normalised)
-- `bookmarks[].isArchived` → `Bookmark.isArchived`
-- `bookmarks[].faviconURL` → `Bookmark.faviconURL`
-- `bookmarks[].createdAt` → `Bookmark.createdAt` (ISO 8601; current time if missing or unparseable)
-- Top-level `version`, `exportedAt`, and per-bookmark `id`/`updatedAt` → ignored
+| Field | Notes |
+|-------|-------|
+| `bookmarks[].url` | Required; skip if missing or invalid |
+| `bookmarks[].title` | |
+| `bookmarks[].description` | |
+| `bookmarks[].tags` | Normalised |
+| `bookmarks[].isArchived` | |
+| `bookmarks[].faviconURL` | |
+| `bookmarks[].createdAt` | ISO-8601; current time if missing |
+| `id`, `updatedAt`, `version`, `exportedAt` | Ignored |
 
-**Duplicate URL:** update existing bookmark — overwrite title, description, tags, isArchived, faviconURL. Do not change `createdAt` on update.
+Duplicate URL: update in place. `createdAt` preserved.
 
 ### 11.4 Stash JSON Exporter (`identifier: "stash-json"`)
 
-Exports all bookmarks (including archived) for the authenticated user, sorted by `createdAt` ascending:
+All bookmarks (including archived), sorted by `createdAt` ascending:
 
 ```json
 {
@@ -425,13 +433,13 @@ Exports all bookmarks (including archived) for the authenticated user, sorted by
 }
 ```
 
-Returned as a file download: `Content-Disposition: attachment; filename="stash-export-{date}.json"`.
+`Content-Disposition: attachment; filename="stash-export-YYYY-MM-DD.json"`.
 
 ---
 
 ## 12. Web Admin Dashboard (`/admin`)
 
-Server-rendered with Leaf. Session-based authentication (`stash_admin_session` cookie, in-memory store). Only active admin accounts can log in.
+Session-based auth (`stash_admin_session` cookie, in-memory, HTTPOnly, SameSite=Lax). Only active admin accounts can log in. Sessions don't survive a container restart.
 
 ### Pages
 
@@ -445,18 +453,18 @@ Server-rendered with Leaf. Session-based authentication (`stash_admin_session` c
 
 ### Business Rules
 
-- All accounts created via the dashboard are always `user` role
-- Admin cannot delete their own account (button hidden + POST blocked with 400)
-- Suspend and password reset both invalidate all refresh tokens for the target user
-- 2FA reset: clears TOTP secret, deletes recovery codes, invalidates all refresh tokens
-- Post/Redirect/Get pattern with `?ok=…` confirmation banners
-- Sessions are in-memory — a container restart logs out active admin sessions (by design)
+- Accounts always created as `user` role
+- Admin cannot delete own account (button hidden + POST blocked → 400)
+- Suspend and password reset invalidate all refresh tokens
+- 2FA reset: clears secret + recovery codes + invalidates refresh tokens
+- Post/Redirect/Get with `?ok=` confirmation banners
+- HTML forms use POST sub-routes for destructive actions (suspend, delete, etc.)
 
 ---
 
 ## 13. Web Frontend (`/app`)
 
-Server-rendered with Leaf. Session-based authentication (`stash_session` cookie, in-memory store, path `/app`). Any active user role can log in.
+Session-based auth (`stash_session` cookie, path `/app`, in-memory, SameSite=Lax). Any active user role can log in. Sessions don't survive a container restart.
 
 ### Pages
 
@@ -469,57 +477,87 @@ Server-rendered with Leaf. Session-based authentication (`stash_session` cookie,
 | Edit Bookmark | `/app/bookmarks/:id/edit` |
 | Tag Browser | `/app/tags` |
 | Settings | `/app/settings` |
-| Import & Export | `/app/settings` (section) |
 
-### Features
+### Bookmark List Features
 
-- Search (`?q=`), tag filter (`?tag=`), archived toggle, pagination with prev/next links preserving filters
-- Add form: two-step flow — "Fetch metadata" previews title/description server-side, "Save" persists
+- Search (`?q=`), tag filter (`?tag=`), archived toggle (`?archived=true`)
+- Pagination with prev/next links preserving active filters
+- Two-column layout: bookmark list (left/main) + tag sidebar (right, 220px)
+- Mobile (<768px): sidebar hidden, filter pills used instead
+
+### Tag Sidebar
+
+- Right column, plain flex — scrolls with the page as one unit (no fixed/sticky positioning)
+- "All" link at top (highlighted when no filter active)
+- "Untagged" link (highlighted when `?tag=__untagged__`; count shown when > 0)
+- Full hierarchical tag tree, alphabetical at every level
+- Parent tags with children shown via indentation; synthetic parents (count 0) included so children always nest
+- Tag counts in muted colour; active tag highlighted with accent colour
+- Aligned with the search bar via `margin-top`
+
+### Add / Edit Bookmark
+
+- Add form: two-step — "Fetch metadata" previews server-side; "Save" persists
 - Duplicate URL: inline error with link to existing bookmark
-- Archive/unarchive toggle per bookmark
-- Tag autocomplete on add and edit forms: vanilla JS (~60 lines), dependency-free, splits on commas, prefix-matches against the user's existing tag list fetched at page load
-- Hierarchical tags displayed as `swift › vapor`, stored as `swift/vapor`
-- 2FA enrolment: shows `otpauth://` URI + manual setup key (no QR image — CoreImage unavailable on Linux); recovery codes shown once with "I've saved these" confirmation
-- 2FA disable: requires current TOTP code
-- Import: file upload, format selector (Anybox JSON, Stash JSON), summary banner with imported/updated/skipped counts, collapsible error details
-- Export: "Download your bookmarks" → Stash JSON file download
-- Danger Zone: "Delete all bookmarks" requires typing `delete all` (case-insensitive) to confirm; verified server-side; resets `bookmarkCount` to 0
+- Edit form does not allow URL changes (avoids duplicate-handling complexity)
+- Tag input with autocomplete: vanilla JS (~50 lines), splits on commas, prefix-matches user's existing tags embedded as JSON in `data-known-tags` attribute
+
+### Tag Browser (`/app/tags`)
+
+- Full tag list with counts
+- Inline rename form per tag (vanilla JS toggle, Post/Redirect/Get)
+- Inline delete confirmation per tag (vanilla JS toggle, Post/Redirect/Get)
+- Rename renames tag and all children; merge if target exists
+- Delete removes tag and all children from all bookmarks
+
+### Settings (`/app/settings`)
+
+**Appearance:** Light / Dark / Auto radio buttons. `POST /app/settings/theme` sets `stash_theme` cookie (1 year, path `/`, HTTPOnly=false, SameSite=Lax).
+
+**Account:** change password.
+
+**Two-Factor Authentication:** enrol (QR via `otpauthURI` + manual key), disable (requires current TOTP code; recovery codes shown once with "I've saved these" confirmation).
+
+**Import & Export:**
+- Import: file upload, format selector (Anybox JSON, Stash JSON), summary banner with imported/updated/skipped counts, collapsible error details. Upload body limit 16MB.
+- Export: "Download your bookmarks" → Stash JSON file download.
+
+**Danger Zone:**
+- "Delete all bookmarks" — requires typing `delete all` (case-insensitive). Verified server-side. Resets `bookmarkCount` to 0. Redirects to `/app` with flash banner.
+
+### Dark Mode
+
+Three-way CSS resolution:
+- `:root` → light values
+- `[data-theme="dark"]` → explicit dark
+- `@media (prefers-color-scheme: dark) :root:not([data-theme])` → auto
+
+Inline flash-prevention script at top of `<head>` sets `data-theme` from `stash_theme` cookie before first paint — no flash. Applies to both `/app` and `/admin` (shared `layout.leaf`). iOS-style palette: bg `#1c1c1e`, surface `#2c2c2e`, accent `#0a84ff`, danger `#ff453a`, success `#30d158`.
 
 ---
 
 ## 14. CLI — `stash` (Planned — M7)
 
-Swift CLI built with `ArgumentParser`. No external dependencies beyond `StashKit`.  
-Configuration stored in `~/.config/stash/config.json`.
-
-### Auth Commands
+Swift CLI, `ArgumentParser`, no deps beyond `StashKit`. Config: `~/.config/stash/config.json`.
 
 ```
-stash login
-stash logout
-```
+stash login / logout
 
-### Bookmark Commands
-
-```
-stash add <url> [--title "..."] [--description "..."] [--tag <tag>] [--no-fetch] [--json]
-stash list [--tag <tag>] [--search "..."] [--archived] [--page <n>] [--json]
+stash add <url> [--title] [--description] [--tag] [--no-fetch] [--json]
+stash list [--tag] [--search] [--archived] [--page] [--json]
 stash get <id> [--json]
 stash delete <id>
 stash archive <id>
 stash tags [--json]
-stash import <file> [--format anybox]
+stash tags rename --from <tag> --to <tag>
+stash tags delete <tag>
+stash import <file> [--format anybox|stash-json]
 stash export [--format stash-json] [--output <path>]
-```
 
-### Admin Commands (admin accounts only)
-
-```
 stash admin users [--json]
 stash admin create-user --username <u> --password <p>
-stash admin suspend-user <username>
-stash admin unsuspend-user <username>
-stash admin reset-password <username> --password <newpassword>
+stash admin suspend-user / unsuspend-user <username>
+stash admin reset-password <username> --password <p>
 stash admin reset-totp <username>
 stash admin delete-user <username>
 stash admin stats [--json]
@@ -529,47 +567,34 @@ stash admin stats [--json]
 
 ## 15. StashKit — Shared Swift Package (Planned — M6)
 
-No external dependencies. Uses only `Foundation` and `URLSession`.
+No external dependencies. `Foundation` + `URLSession` only.
 
-### Tag Autocomplete Strategy
-
-Tags fetched once per session via `GET /api/v1/tags`, cached in memory. `autocompleteTags(prefix:)` is synchronous, local. Cache invalidated after any bookmark mutation that modifies tags.
+Tag cache: fetched once per session via `GET /api/v1/tags`, cached in memory. `autocompleteTags(prefix:)` is synchronous, local. Invalidated after any bookmark mutation that modifies tags.
 
 ---
 
 ## 16. iOS + macOS App (Planned — M8–M10)
 
-Single multiplatform SwiftUI target.
+Single multiplatform SwiftUI target. iOS 17.0 / macOS 14.0 minimum.
 
-**Minimum OS versions:** iOS 17.0, macOS 14.0 (Sonoma)  
-**Bundle ID prefix:** `cc.otavio.stash`  
-**App Group:** `group.cc.otavio.stash` (shared Keychain for Share Extension)
-
-### iOS Screens
-
-Login → TOTP Entry → Recovery Code Entry → 2FA Setup → Bookmark List → Add Bookmark → Bookmark Detail → Tag Browser → Archived → Settings
-
-### Share Extension
-
-- Shared Keychain access via App Group
-- Compact Add Bookmark sheet
-- Auto-fetches metadata; user can edit before saving
-- Duplicate URL: shows existing bookmark title + "View existing" option
+**Bundle IDs:** `cc.otavio.stash` (app), `cc.otavio.stash.ShareExtension`  
+**App Group:** `group.cc.otavio.stash` (shared Keychain for Share Extension)  
+**ATS:** `NSAllowsArbitraryLoads: true` for local network deployments  
+**Tokens:** refresh token in Keychain; access token in memory only
 
 ---
 
 ## 17. Deployment
 
-### Distribution Model
+### Distribution
 
-Distributed as a ready-to-run Docker image at `ghcr.io/otaviocc/stash`. Users run a single `docker-compose.yml` — no build step required.
+Docker image at `ghcr.io/otaviocc/stash`. Single `docker-compose.yml` — no build step required.
 
-### Docker Image
+### Image
 
-- **Build base:** `swift:6.1-jammy` (compilation), `ubuntu:22.04` (runtime)
-- **Platforms:** `linux/amd64` and `linux/arm64`
-- **Registry:** `ghcr.io/otaviocc/stash`
-- **Tags:** `latest`, semver (e.g. `1.0.0`, `1.0`)
+- **Build:** `swift:6.1-jammy` → `ubuntu:22.04` runtime
+- **Platforms:** `linux/amd64`, `linux/arm64`
+- **Tags:** `latest`, semver
 
 ### Canonical `docker-compose.yml`
 
@@ -602,15 +627,15 @@ volumes:
   stash_db:
 ```
 
-### First Boot — Admin Seeding
+### First Boot
 
-On first run, if no user exists, reads `ADMIN_USERNAME` and `ADMIN_PASSWORD` from env vars and creates the admin account. Missing/invalid credentials with an empty DB → logs critical error and exits. Subsequent boots: silent no-op.
+Reads `ADMIN_USERNAME` / `ADMIN_PASSWORD` from env, creates admin if no users exist. Missing/invalid → logs critical error, exits. Subsequent boots: silent no-op. Migrations auto-run on boot (idempotent).
 
-### Local Network Usage
+### Local Network
 
-Primary use case: deployment on a home server or NAS at `http://192.168.1.x:8080`. iOS/macOS apps require an ATS exception for arbitrary HTTP loads (`NSAllowsArbitraryLoads: true`). Sessions are in-memory — a container restart logs out active web sessions.
+Primary use case: `http://192.168.1.x:8080`. No domain or TLS required. In-memory sessions don't survive a container restart.
 
-### Reverse Proxy (optional, for external access)
+### External Access (optional)
 
 ```
 stash.yourdomain.com {
@@ -623,13 +648,13 @@ stash.yourdomain.com {
 | Variable | Description |
 |----------|-------------|
 | `DB_PASSWORD` | PostgreSQL password |
-| `JWT_SECRET` | JWT signing secret (min 32 chars, random) |
+| `JWT_SECRET` | JWT signing secret (min 32 chars) |
 | `ADMIN_USERNAME` | Admin username (first boot only) |
 | `ADMIN_PASSWORD` | Admin password (first boot only, min 12 chars) |
 
 ### CI/CD (Planned — M4.1)
 
-GitHub Actions on version tag push: build multi-arch image → push to `ghcr.io/otaviocc/stash` → attach `docker-compose.yml` as release artifact.
+GitHub Actions on version tag: build multi-arch image → push to `ghcr.io/otaviocc/stash` → attach `docker-compose.yml` as release artifact.
 
 ---
 
@@ -639,56 +664,43 @@ GitHub Actions on version tag push: build multi-arch image → push to `ghcr.io/
 
 ```
 stash/
-├── Backend/                        # Vapor 4 REST API
+├── Backend/
 │   ├── Sources/App/
 │   │   ├── Controllers/
 │   │   ├── Models/
 │   │   ├── Migrations/
 │   │   ├── Middleware/
-│   │   ├── ImportExport/           # Importers, exporters, registry
+│   │   ├── ImportExport/        # Protocols, registry, importers, exporters
+│   │   ├── Tags/                # TagRenamer, TagDeleter
 │   │   └── configure.swift
 │   ├── Tests/AppTests/
-│   ├── Resources/Views/            # Leaf templates
+│   ├── Resources/Views/         # Leaf templates
 │   ├── Package.swift
 │   ├── Dockerfile
 │   └── docker-compose.yml
-│
-├── StashKit/                       # Shared Swift package (planned)
-│   ├── Sources/StashKit/
-│   └── Package.swift
-│
-├── StashApp/                       # Xcode project — iOS + macOS (planned)
-│   ├── Shared/
-│   ├── iOS/
-│   ├── macOS/
-│   └── ShareExtension/
-│
-├── stash-cli/                      # Swift CLI tool (planned)
-│   ├── Sources/stash/
-│   └── Package.swift
-│
-├── .github/workflows/
-│   └── release.yml                 # Planned (M4.1)
-│
-└── README.md
+├── StashKit/                    # Planned
+├── StashApp/                    # Planned
+├── stash-cli/                   # Planned
+├── .github/workflows/           # Planned (M4.1)
+├── PRODUCT.md
+└── DECISIONS.md
 ```
 
 ### 18.2 Swift Package Dependencies
 
-#### Backend (`Backend/Package.swift`)
+#### Backend
 
 | Package | Purpose |
 |---------|---------|
 | `vapor/vapor` `from: "4.0.0"` | Web framework |
 | `vapor/fluent` `from: "4.0.0"` | ORM |
-| `vapor/fluent-postgres-driver` `from: "2.0.0"` | PostgreSQL driver |
-| `vapor/jwt` `from: "4.0.0"` | JWT signing + verification |
+| `vapor/fluent-postgres-driver` `from: "2.0.0"` | PostgreSQL (production) |
+| `vapor/fluent-sqlite-driver` | SQLite (tests only) |
+| `vapor/jwt` `from: "4.0.0"` | JWT |
 | `vapor/leaf` `from: "4.0.0"` | Server-rendered HTML |
-| `vapor/authentication` `from: "2.0.0"` | TOTP/HOTP + password auth |
+| `vapor/authentication` `from: "2.0.0"` | Auth helpers (note: TOTP implemented natively via `swift-crypto`) |
 
-No third-party TOTP library — `vapor/authentication` includes RFC-compliant TOTP built in.
-
-#### CLI (`stash-cli/Package.swift`)
+#### CLI (planned)
 
 | Package | Purpose |
 |---------|---------|
@@ -696,7 +708,7 @@ No third-party TOTP library — `vapor/authentication` includes RFC-compliant TO
 
 ### 18.3 API Versioning
 
-All API routes: `/api/v1/`. Web dashboard: `/admin`. Web frontend: `/app`. Health check: `/health`.
+API: `/api/v1/`. Admin dashboard: `/admin`. Frontend: `/app`. Health: `/health`.
 
 ### 18.4 Error Response Format
 
@@ -712,54 +724,51 @@ All API routes: `/api/v1/`. Web dashboard: `/admin`. Web frontend: `/app`. Healt
 |------|--------|-------------|
 | `invalid_credentials` | 401 | Wrong username or password |
 | `account_suspended` | 401 | Account is inactive |
-| `token_expired` | 401 | Access token has expired |
+| `token_expired` | 401 | Access token expired |
 | `token_invalid` | 401 | Malformed or unrecognised token |
 | `totp_required` | 401 | Login requires TOTP |
 | `totp_invalid` | 401 | Wrong TOTP or recovery code |
 | `forbidden` | 403 | Insufficient role |
-| `not_found` | 404 | Resource does not exist |
-| `duplicate_url` | 409 | URL already saved by this user |
+| `not_found` | 404 | Resource not found |
+| `duplicate_url` | 409 | URL already saved (includes `existingID`) |
 | `username_taken` | 409 | Username already exists |
-| `cannot_delete_self` | 400 | Admin attempting to delete their own account |
-| `validation_failed` | 422 | One or more fields failed validation |
+| `cannot_delete_self` | 400 | Admin attempting to delete own account |
+| `validation_failed` | 422 | Validation error |
 | `internal_error` | 500 | Unexpected server error |
 
-Duplicate URL (409) also includes `"existingID": "<uuid>"`.
-
-### 18.5 Pagination Response Envelope
+### 18.5 Pagination
 
 Vapor's native `Page<T>`:
-
 ```json
-{
-  "items": [],
-  "metadata": { "page": 1, "per": 20, "total": 142 }
-}
+{ "items": [], "metadata": { "page": 1, "per": 20, "total": 142 } }
 ```
 
 ### 18.6 Xcode Project (Planned)
 
-- Single multiplatform SwiftUI target
-- iOS 17.0 / macOS 14.0 minimum
-- Bundle IDs: `cc.otavio.stash` (app), `cc.otavio.stash.ShareExtension`
-- App Group: `group.cc.otavio.stash`
-- Refresh token in Keychain (shared group); access token in memory only
-- `NSAllowsArbitraryLoads: true` in `Info.plist`
+Single multiplatform SwiftUI target. iOS 17.0 / macOS 14.0. Bundle ID `cc.otavio.stash`. App Group `group.cc.otavio.stash`. Refresh token in shared Keychain group; access token in memory only.
 
-### 18.7 Testing Expectations
+### 18.7 Testing
 
-Backend tests use `VaporTesting` against in-memory SQLite.
+Backend tests: `VaporTesting` + swift-testing, in-memory SQLite. Leaf templates: not unit-tested (throwaway smoke tests, run then removed). StashKit: mock URLSession. CLI: manual integration only.
+
+**Required backend coverage:**
 
 | Layer | Coverage |
 |-------|---------|
-| Auth controller | Login, TOTP, recovery codes, refresh rotation, logout, 2FA disable |
-| Bookmark controller | CRUD, duplicate 409, tag filtering, full-text search, pagination, user isolation |
-| Admin controller | Create, suspend/unsuspend, reset password, reset TOTP, delete, stats, self-delete guard |
+| Auth | Login, TOTP, recovery codes, refresh rotation, logout, 2FA enrol/disable |
+| Bookmarks | CRUD, 409, tag filtering, `__untagged__`, full-text search, pagination, user isolation |
+| Admin | Create, suspend, reset password, reset TOTP, delete, stats, self-delete guard |
+| Tags | Rename (with children, merge), delete (with children), user isolation |
 | Middleware | 401 unauthenticated, 403 non-admin |
-| Error format | Standard envelope on all errors |
-| Admin seeding | Seeds on empty DB, skips if user exists, exits on missing creds |
+| Admin seeding | Seeds, skips, exits on bad creds |
 
-Leaf templates: not tested. StashKit: mock URLSession tests. CLI: manual integration testing only.
+### 18.8 Code Style
+
+SwiftLint + SwiftFormat enforced. `swiftlint lint` clean (0 violations), `swiftformat --lint` idempotent.
+
+Organisation mode: type (`Nested Types → Static Properties → Properties → Computed Properties → Lifecycle → Functions`), public-before-private within sections.
+
+Disabled rules: `file_length`, `type_body_length`, `function_body_length`, `first_where`, `contains_over_first_not_nil`, `empty_string` (last three false-positive on Fluent query DSL).
 
 ---
 
@@ -772,9 +781,9 @@ Leaf templates: not tested. StashKit: mock URLSession tests. CLI: manual integra
 | M3 | Backend: admin user management API | ✅ Complete |
 | M4 | Backend: Docker image, docker-compose, first-boot seeding | ✅ Complete |
 | M5 | Web admin dashboard (Leaf) | ✅ Complete |
-| M11 | Web frontend (`/app`): full CRUD, tag browser, 2FA, import/export (Anybox + Stash JSON), danger zone | ✅ Complete |
+| M11 | Web frontend: full CRUD, tag sidebar, tag browser (rename/delete), dark mode, import/export, danger zone | ✅ Complete |
 | M6 | StashKit: models + APIClient | Planned |
-| M7 | CLI: all commands including import/export | Planned |
+| M7 | CLI: all commands including import/export, tag rename/delete | Planned |
 | M8 | iOS app | Planned |
 | M9 | iOS Share Extension | Planned |
 | M10 | macOS app + Share Extension | Planned |
@@ -782,21 +791,14 @@ Leaf templates: not tested. StashKit: mock URLSession tests. CLI: manual integra
 
 ---
 
-## 20. Implementation Decisions Log
+## 20. Known Leaf Gotchas
 
-| Decision | Rationale |
-|----------|-----------|
-| `swift:6.1-jammy` Docker base (not 5.10) | Latest Vapor/Fluent packages require Swift tools version 6.0+ |
-| `tagsSearch` derived column for tag prefix matching | Portable across SQLite (tests) and PostgreSQL (production) without DB-specific functions |
-| Full-text search uses `ILIKE` on PostgreSQL | Case-insensitive; SQLite tests use `LIKE` (case-sensitive — acceptable in test environment) |
-| Tags lowercased on write | Prevents fragmented tag tree (`Swift` vs `swift`); matches all examples in the PRD |
-| In-memory sessions for web frontend | Single self-hosted instance; DB/Redis store can be added later if needed |
-| No QR code in web 2FA setup | CoreImage unavailable on Linux; `otpauth://` URI + manual key is fully functional |
-| Anybox folder field ignored on import | Flat import as decided; hierarchical tag mapping can be added as a future importer option |
-| Stash JSON importer uses same update-on-duplicate behaviour as Anybox | Consistent behaviour across all importers |
-| Danger zone confirmation verified server-side (not just client-side JS) | Client check is convenience only; server is authoritative |
-| Admin password reset invalidates tokens | Treats forced reset as potential account compromise response |
-| `POST` sub-routes for web actions (delete, archive, etc.) | HTML forms cannot send PUT/DELETE; Post/Redirect/Get pattern used throughout |
+Documented here to prevent recurrence in future template work:
+
+- `#if(count(x))` does **not** coerce `Int` to `Bool` — `count 0` evaluates truthy. Always use `#if(count(x) > 0)`.
+- Inline conditionals require the colon: `#if(cond): … #endif`.
+- `#if(cond):#else: X #endif` with an empty then-branch misbehaves (else content dropped). Use positive single-branch tests.
+- A non-optional `String` field set to `""` makes `#if(field)` evaluate **true**. For empty-string guards use `#if(field != "")` or `#if(field == "")` explicitly.
 
 ---
 
