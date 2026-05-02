@@ -99,7 +99,7 @@
 
             Form {
                 Section("Server") {
-                    TextField("https://stash.example.com", text: $settings.serverURL)
+                    TextField("URL", text: $settings.serverURL)
                         .urlFieldStyle()
                 }
 
