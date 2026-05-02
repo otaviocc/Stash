@@ -54,6 +54,10 @@ protocol TagAutocompleting: AnyObject {
 
     var tags: [Tag] { get }
 
+    /// The hierarchical tag tree derived from `tags`, used by the tag picker. The app caches it on
+    /// `TagRepository`; the extension derives it on the fly.
+    var tagHierarchy: [TagNode] { get }
+
     // MARK: Functions
 
     func load() async throws

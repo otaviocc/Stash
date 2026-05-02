@@ -27,8 +27,8 @@ import SwiftUI
 /// The shared add-bookmark form, used by both the main app's `AddBookmarkSheet` and the Share
 /// Extension's `ShareExtensionView`.
 ///
-/// The form owns its own field state and surfaces metadata fetch, comma-separated tag input, and
-/// tag autocomplete. Its data dependencies are the narrow `BookmarkCreating`/`TagAutocompleting`
+/// The form owns its own field state and surfaces metadata fetch and tag selection via the
+/// `TagPickerSheet`. Its data dependencies are the narrow `BookmarkCreating`/`TagAutocompleting`
 /// protocols, so it does not know whether it is talking to the app's repositories or the extension's
 /// lightweight ones. Saving and cancelling are reported through the `onSaved`/`onCancel` callbacks
 /// rather than handled here, so the host decides whether to dismiss (app) or advance to a
@@ -44,7 +44,7 @@ struct AddBookmarkView: View {
     @State private var urlText: String
     @State private var title = ""
     @State private var description = ""
-    @State private var tagText = ""
+    @State private var selectedTags: [String] = []
     @State private var isFetching = false
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -106,7 +106,7 @@ struct AddBookmarkView: View {
                 makeURLSection()
                 makeDetailsSection()
 
-                TagInputSection(tagText: $tagText, tagStore: tagStore)
+                TagSummarySection(selectedTags: $selectedTags, tagHierarchy: tagStore.tagHierarchy)
 
                 makeErrorMessage()
             }
@@ -257,7 +257,7 @@ struct AddBookmarkView: View {
                 url: url,
                 title: trimmedTitle.isEmpty ? nil : trimmedTitle,
                 description: trimmedDescription.isEmpty ? nil : trimmedDescription,
-                tags: TagInputSection.tags(from: tagText),
+                tags: selectedTags,
                 fetchMetadata: true
             )
 

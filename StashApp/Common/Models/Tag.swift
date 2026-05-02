@@ -74,6 +74,22 @@ struct TagNode: Identifiable, Hashable {
     }
 }
 
+// MARK: - Tag normalization
+
+extension String {
+
+    /// Normalizes a raw tag string the way the backend's `Bookmark.normalizeTagQuery` does: trim,
+    /// lowercase, strip wrapping slashes, and drop pipes. The single place the native clients
+    /// normalize a tag before sending it, so the tag picker's "Create" path and the offline filter
+    /// stay in sync with the server.
+    func normalizedTagQuery() -> String {
+        trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .replacingOccurrences(of: "|", with: "")
+    }
+}
+
 // MARK: - Tag autocomplete
 
 extension [Tag] {

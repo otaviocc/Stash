@@ -26,7 +26,7 @@ import SwiftUI
 
 /// An edit sheet for a bookmark's title, description, and tags. The URL is fixed — editing it would
 /// reintroduce duplicate-URL handling (the same choice the web frontend makes). Tags use the same
-/// comma-separated input and autocomplete as the add form.
+/// `TagPickerSheet` as the add form.
 struct EditBookmarkView: View {
 
     // MARK: SwiftUI Properties
@@ -36,7 +36,7 @@ struct EditBookmarkView: View {
 
     @State private var title: String
     @State private var description: String
-    @State private var tagText: String
+    @State private var selectedTags: [String]
     @State private var isSaving = false
     @State private var errorMessage: String?
 
@@ -58,7 +58,7 @@ struct EditBookmarkView: View {
         self.onSaved = onSaved
         _title = State(initialValue: bookmark.title)
         _description = State(initialValue: bookmark.description ?? "")
-        _tagText = State(initialValue: bookmark.tags.isEmpty ? "" : bookmark.tags.joined(separator: ", ") + ", ")
+        _selectedTags = State(initialValue: bookmark.tags)
     }
 
     // MARK: Content Properties
@@ -71,7 +71,10 @@ struct EditBookmarkView: View {
                 makeURLSection()
                 makeDetailsSection()
 
-                TagInputSection(tagText: $tagText, tagStore: environment.tagRepository)
+                TagSummarySection(
+                    selectedTags: $selectedTags,
+                    tagHierarchy: environment.tagRepository.tagHierarchy
+                )
 
                 makeErrorMessage()
             }
@@ -144,7 +147,7 @@ struct EditBookmarkView: View {
                     id: bookmark.id,
                     title: trimmedTitle.isEmpty ? nil : trimmedTitle,
                     description: trimmedDescription.isEmpty ? nil : trimmedDescription,
-                    tags: TagInputSection.tags(from: tagText)
+                    tags: selectedTags
                 )
                 environment.tagRepository.refresh()
                 onSaved(updated)

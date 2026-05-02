@@ -40,6 +40,14 @@ final class ExtensionTagRepository: TagAutocompleting {
     private let session: ExtensionSession
     private var hasLoaded = false
 
+    // MARK: Computed Properties
+
+    /// Derived on access rather than cached: the extension is short-lived and the tag list is small,
+    /// so there is no observing-view redraw cost worth caching against (unlike the app's repository).
+    var tagHierarchy: [TagNode] {
+        tags.hierarchy()
+    }
+
     // MARK: Lifecycle
 
     init(session: ExtensionSession) {

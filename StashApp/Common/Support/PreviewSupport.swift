@@ -112,6 +112,12 @@
 
         var tags: [Tag] = Tag.samples
 
+        // MARK: Computed Properties
+
+        var tagHierarchy: [TagNode] {
+            tags.hierarchy()
+        }
+
         // MARK: Functions
 
         func load() async throws {}

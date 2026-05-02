@@ -3079,3 +3079,47 @@ Four no-behavior-change cleanups from the review.
   platform" card rather than as a new feature card, to preserve the balanced 3×2
   features grid (`landing.css` `repeat(3, 1fr)`) — a 7th card would have left a lone
   card on the last row. Content-only change: no template structure or CSS touched.
+
+## Tag picker (native apps)
+
+- **✅ `TagPickerSheet` replaces the comma-separated tag field.** The add and edit
+  bookmark forms previously edited tags through a comma-separated `TextField` plus the
+  `TagSuggestionView` autocomplete chips (`TagInputSection`). Both forms now show a
+  read-only tag summary (capsule `TagPill`s, or a muted "No tags") and an "Add Tags"
+  button that presents `TagPickerSheet` — a touch-first surface where existing tags are
+  picked from the hierarchical tree with no keyboard required. `TagInputSection` was the
+  only caller of the comma-field machinery and is deleted; the picker is the sole
+  tag-editing surface on the forms.
+- **`TagSuggestionView` retained for `SmartViewFormView`.** The Smart View editor's `tag`
+  condition value is a *single*-tag field, so the inline autocomplete chip pattern is
+  still the right fit there — `TagSuggestionView` keeps that one caller and is not removed.
+- **Search-as-create.** The picker's search field doubles as new-tag input: it filters
+  the tree live, and when the normalized query matches no existing tag path a `+ Create
+  "…"` row appears at the top. Tapping it (or pressing return) adds the tag and clears the
+  field *without closing the sheet*, so several new tags can be added in a row. The query
+  is normalized before adding via the shared `String.normalizedTagQuery()` — trim,
+  lowercase, strip wrapping slashes, drop pipes — mirroring the backend's
+  `Bookmark.normalizeTagQuery`. That helper now lives in `Common` (`Tag.swift`) and
+  `BookmarkFilter` delegates to it, so the offline filter and the picker share one
+  normalization (and the extension, which can't see the app-only `BookmarkFilter`, gets it
+  too). The backend's normalization does **not** collapse duplicate `/`, so the client
+  doesn't either.
+- **Parent-visible filtering.** `TagPickerSheet.filtered` walks the `[TagNode]` tree
+  recursively: a node survives if its own label matches or any descendant matches, so a
+  matching child keeps its ancestors visible and the hierarchy stays navigable. A parent
+  that matches by name keeps its full unfiltered subtree (all children stay selectable); a
+  parent kept only because a descendant matched shows just the matching branch. The
+  `OutlineGroup` disclosure behaviour is left native on both platforms.
+- **Live binding, no Cancel.** Every tap toggles the tag in the `selectedTags` binding
+  immediately, so Done and swipe-down both commit the same state — consistent with how iOS
+  pickers generally behave. iPhone gets `.presentationDetents([.medium, .large])`; macOS
+  uses a fixed-frame sheet.
+- **Shared into the Share Extension.** `AddBookmarkView` (and thus the picker) is shared
+  with the Share Extension, so `tagHierarchy: [TagNode]` was added to the
+  `TagAutocompleting` protocol. The app's `TagRepository` already caches it;
+  `ExtensionTagRepository` derives it on access via `[Tag].hierarchy()` (cheap — the
+  process is short-lived). `TagTreeLabel` and `TagPill` moved from the app-only
+  `Stash/Views/` into `Common/Views/` so the shared picker and summary can use them.
+  Offline, the extension's tag list is empty and the picker shows a "No Tags Yet" empty
+  state with only the Create path available — the same graceful degradation the old
+  autocomplete had.

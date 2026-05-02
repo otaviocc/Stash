@@ -73,29 +73,6 @@ struct BookmarkRowView: View {
     }
 }
 
-// MARK: - TagPill
-
-/// A small capsule label for a tag.
-struct TagPill: View {
-
-    // MARK: Properties
-
-    let name: String
-
-    // MARK: Content Properties
-
-    // MARK: Content
-
-    var body: some View {
-        Text(name)
-            .font(.caption2)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Color.accentColor.opacity(0.15), in: .capsule)
-            .foregroundStyle(Color.accentColor)
-    }
-}
-
 #if DEBUG
     #Preview {
         List(Bookmark.samples) { bookmark in

@@ -1,0 +1,248 @@
+// MIT License
+//
+// Copyright (c) 2026 Otávio C.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+import SwiftUI
+
+// MARK: - TagPickerSheet
+
+/// A sheet for selecting and creating tags from the user's tag hierarchy. The sole tag-editing
+/// surface for the add and edit bookmark forms on both platforms — touch-first, no keyboard required
+/// to pick existing tags.
+///
+/// The search field doubles as new-tag input: when the query matches no existing tag a "Create" row
+/// appears at the top, and tapping it normalizes the query (mirroring the backend) and adds it to the
+/// selection without closing the sheet. Selection is a live binding — every tap commits immediately,
+/// so there is no Cancel; Done and swipe-down both leave the selection as edited.
+struct TagPickerSheet: View {
+
+    // MARK: SwiftUI Properties
+
+    @Binding var selectedTags: [String]
+
+    @State private var searchText = ""
+
+    // MARK: Properties
+
+    let tagHierarchy: [TagNode]
+    var onDismiss: () -> Void
+
+    // MARK: Computed Properties
+
+    private var normalizedQuery: String {
+        searchText.normalizedTagQuery()
+    }
+
+    private var filteredHierarchy: [TagNode] {
+        Self.filtered(tagHierarchy, query: searchText.trimmingCharacters(in: .whitespaces))
+    }
+
+    private var showsCreateRow: Bool {
+        !normalizedQuery.isEmpty && !allSlugs.contains(normalizedQuery)
+    }
+
+    private var allSlugs: Set<String> {
+        func collect(_ nodes: [TagNode]) -> [String] {
+            nodes.flatMap { [$0.slug] + collect($0.children ?? []) }
+        }
+
+        return Set(collect(tagHierarchy))
+    }
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                makeSearchField()
+                Divider()
+                makeContent()
+            }
+            .navigationTitle("Tags")
+            .inlineNavigationTitleStyle()
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done", action: onDismiss)
+                }
+            }
+        }
+        #if os(iOS)
+        .presentationDetents([.medium, .large])
+        #else
+        .frame(minWidth: 420, minHeight: 480)
+        #endif
+    }
+
+    // MARK: Content Methods
+
+    private func makeSearchField() -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+
+            TextField("Search or add tag…", text: $searchText)
+                .textFieldStyle(.plain)
+                .lowercasedFieldStyle()
+                .onSubmit(createTag)
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear Search")
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private func makeContent() -> some View {
+        if filteredHierarchy.isEmpty, !showsCreateRow {
+            makeEmptyState()
+        } else {
+            List {
+                if showsCreateRow {
+                    makeCreateRow()
+                }
+
+                OutlineGroup(filteredHierarchy, children: \.children) { node in
+                    makeTagRow(node)
+                }
+            }
+        }
+    }
+
+    private func makeCreateRow() -> some View {
+        Button(action: createTag) {
+            Label {
+                Text("Create \"\(normalizedQuery)\"")
+            } icon: {
+                Image(systemName: "plus")
+            }
+            .foregroundStyle(Color.accentColor)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func makeTagRow(_ node: TagNode) -> some View {
+        Button {
+            toggle(node.slug)
+        } label: {
+            HStack {
+                TagTreeLabel(node: node)
+
+                if selectedTags.contains(node.slug) {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func makeEmptyState() -> some View {
+        ContentUnavailableView(
+            searchText.isEmpty ? "No Tags Yet" : "No Matches",
+            systemImage: "tag",
+            description: Text(
+                searchText.isEmpty
+                    ? "Type above to create your first tag."
+                    : "No tag matches your search."
+            )
+        )
+    }
+
+    // MARK: Static Functions
+
+    /// Filters the tag tree against the query, keeping a parent visible whenever any descendant
+    /// matches so the hierarchy stays navigable. When a parent matches by its own name its full
+    /// unfiltered subtree is kept (so its children remain selectable); when it survives only because
+    /// a descendant matches, just the matching branch is kept.
+    static func filtered(_ nodes: [TagNode], query: String) -> [TagNode] {
+        guard !query.isEmpty else {
+            return nodes
+        }
+
+        return nodes.compactMap { node in
+            let nameMatches = node.label.localizedCaseInsensitiveContains(query)
+            let filteredChildren = filtered(node.children ?? [], query: query)
+
+            if nameMatches {
+                return node
+            }
+
+            if !filteredChildren.isEmpty {
+                return TagNode(
+                    slug: node.slug,
+                    label: node.label,
+                    count: node.count,
+                    children: filteredChildren
+                )
+            }
+
+            return nil
+        }
+    }
+
+    // MARK: Functions
+
+    private func toggle(_ slug: String) {
+        if let index = selectedTags.firstIndex(of: slug) {
+            selectedTags.remove(at: index)
+        } else {
+            selectedTags.append(slug)
+        }
+    }
+
+    private func createTag() {
+        let tag = normalizedQuery
+        guard !tag.isEmpty else {
+            return
+        }
+
+        if !selectedTags.contains(tag) {
+            selectedTags.append(tag)
+        }
+
+        searchText = ""
+    }
+}
+
+#if DEBUG
+    #Preview {
+        @Previewable @State var selected = ["swift/server"]
+        Color.clear
+            .sheet(isPresented: .constant(true)) {
+                TagPickerSheet(
+                    selectedTags: $selected,
+                    tagHierarchy: Tag.samples.hierarchy()
+                ) {}
+            }
+    }
+#endif

@@ -172,12 +172,9 @@ enum BookmarkFilter {
     }
 
     /// Mirrors the backend's `Bookmark.normalizeTagQuery`: trim, lowercase, strip wrapping slashes,
-    /// drop pipes.
+    /// drop pipes. Delegates to the shared `String.normalizedTagQuery()`.
     private static func normalizeTagQuery(_ raw: String) -> String {
-        raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            .replacingOccurrences(of: "|", with: "")
+        raw.normalizedTagQuery()
     }
 
     private static func parseDate(_ raw: String) -> Date? {
