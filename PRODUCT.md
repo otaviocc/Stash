@@ -1090,8 +1090,8 @@ building against the SDK; no explicit modifiers.
   password, 2FA enrol / disable), Smart Views (create / edit / delete — the shared
   `SmartViewManagementView`), Appearance (Light / Dark / Auto, stored in
   `UserDefaults` — no theme cookie on native).
-- **Keyboard shortcuts:** ⌘N new, ⌘E edit, ⌘R refresh, ⌘⌫ delete (with
-  confirmation).
+- **Keyboard shortcuts:** ⌘N new, ⌘E edit, ⌘R sync (triggers an offline-sync
+  cycle), ⌘⌫ delete (with confirmation).
 - **Share Extension:** the single multiplatform `StashShareExtension` target
   serves both platforms (same three states and confirmation-with-undo); only the
   principal controller differs — `MacShareViewController` (`NSViewController`)

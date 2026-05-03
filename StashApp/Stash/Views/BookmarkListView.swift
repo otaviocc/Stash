@@ -197,9 +197,6 @@ private struct BookmarkListContent: View {
                     repository.refresh()
                 }
             }
-            .refreshable {
-                await load()
-            }
             .toolbar {
                 if smartView == nil {
                     ToolbarItem(placement: .primaryAction) {
@@ -289,7 +286,7 @@ private struct BookmarkListContent: View {
             }
 
             Button {
-                reload()
+                sync()
             } label: {
                 Label("Refresh", systemImage: "arrow.clockwise")
             }
@@ -381,6 +378,10 @@ private struct BookmarkListContent: View {
 
     private func reload() {
         Task { await load() }
+    }
+
+    private func sync() {
+        Task { await environment.syncEngine.sync() }
     }
 
     private func setArchived(_ bookmark: Bookmark, archived: Bool) {

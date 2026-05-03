@@ -3080,6 +3080,26 @@ Four no-behavior-change cleanups from the review.
   features grid (`landing.css` `repeat(3, 1fr)`) — a 7th card would have left a lone
   card on the last row. Content-only change: no template structure or CSS touched.
 
+## Offline Sync — Refresh button triggers a sync
+
+- **✅ ⌘R / the list Refresh button now runs `SyncEngine.sync()`.** Before offline
+  sync, the bookmark list's Refresh action (`reload()` → `BookmarkRepository.load`)
+  re-fetched from the server. After M13 the repository reads entirely from the local
+  SwiftData store, so `load()` only re-read what was already on screen — the button
+  reached nothing remote and was effectively a no-op. `BookmarkListView`'s Refresh
+  button (and its ⌘R shortcut) now call a new `sync()` that awaits
+  `environment.syncEngine.sync()`, the same single-flight pull-then-push cycle the
+  Settings "Sync Now" button uses. The existing
+  `.onChange(of: syncEngine.isSyncing)` handler repopulates the visible list when the
+  cycle ends, so pulled-in bookmarks appear without an extra refresh call.
+- **`reload()` / `load()` left alone.** They still back the local-only filter re-runs
+  (search submit, search clear, source change, archived toggle) and the initial
+  `.task` load — those must not hit the network, so only the Refresh button's action
+  was repointed.
+- **Pull-to-refresh removed.** The iOS `.refreshable { await load() }` had the same
+  dead behavior (local re-read only) and was dropped rather than rewired — the ⌘R /
+  toolbar sync is the single "get fresh data" affordance now.
+
 ## Tag picker (native apps)
 
 - **✅ `TagPickerSheet` replaces the comma-separated tag field.** The add and edit
