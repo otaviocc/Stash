@@ -410,3 +410,10 @@ code, the deviations from the PRD, and the trade-offs accepted.
   `/app/tags?ok=deleted&tag=…&n=…`, and the browser builds the "Deleted X (N bookmarks updated)"
   banner from those params.
 - **⚠️ Beyond the PRD** — like renaming, tag deletion isn't in `PRODUCT.md`; added on request.
+
+## Code style — comments and documentation
+
+- **✅ No inline comments inside method bodies.** The code and tests are the documentation. Inline `//` comments explaining *what* the code does are removed; the code should be readable without them.
+- **✅ `///` doc comments on types only.** Every `enum`, `struct`, `class`, `actor`, and `protocol` has a doc comment. Methods, computed properties, and stored properties inside types do not.
+- **✅ American English throughout.** All doc comments, `#expect` descriptions, and test labels use American English spelling (`behavior`, `initialize`, `normalize`, `color`, etc.), never British English.
+- **✅ Tests follow Given/When/Then.** Every test has `// Given`, `// When`, `// Then` structural comments. Every `#expect()` has a string description starting with `"It should ..."` describing the expected behavior.

@@ -46,12 +46,11 @@ struct DuplicateURLErrorResponse: Content {
 // MARK: - StashErrorMiddleware
 
 /// Replaces Vapor's default error middleware so *all* errors — including 404s from
-/// unmatched routes and validation failures — serialise to the standard envelope.
+/// unmatched routes and validation failures — serialize to the standard envelope.
 struct StashErrorMiddleware: AsyncMiddleware {
 
     // MARK: Static Functions
 
-    /// Map bare HTTP statuses (e.g. routing 404s) onto the standard code table.
     private static func code(for status: HTTPResponseStatus) -> String {
         switch status {
         case .badRequest: "bad_request"

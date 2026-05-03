@@ -22,7 +22,7 @@
 
 import Vapor
 
-/// Strongly-typed API errors that serialise to the standard envelope (PRD §17.4).
+/// Strongly-typed API errors that serialize to the standard envelope (PRD §17.4).
 enum APIError: AbortError {
 
     case invalidCredentials
@@ -64,7 +64,6 @@ enum APIError: AbortError {
         }
     }
 
-    /// The snake_case error code from the PRD's standard error-code table.
     var code: String {
         switch self {
         case .invalidCredentials: "invalid_credentials"

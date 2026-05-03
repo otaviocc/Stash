@@ -41,11 +41,9 @@ final class RefreshToken: Model, @unchecked Sendable {
     @Parent(key: "user_id")
     var user: User
 
-    /// SHA-256 hash (hex) of the raw token.
     @Field(key: "token_hash")
     var tokenHash: String
 
-    /// 90 days from issuance.
     @Field(key: "expires_at")
     var expiresAt: Date
 

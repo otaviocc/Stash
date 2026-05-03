@@ -38,7 +38,6 @@ struct CreateUserInput: Content, Validatable {
 
     static func validations(_ validations: inout Validations) {
         validations.add("username", as: String.self, is: !.empty)
-        // Password rules: minimum 12 characters (PRD §8.5).
         validations.add("password", as: String.self, is: .count(12...))
     }
 }

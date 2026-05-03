@@ -29,6 +29,7 @@ struct StashJSONExporter: BookmarkExporter {
 
     // MARK: Nested Types
 
+    /// Top-level export envelope wrapping the format version and the bookmark items.
     private struct Document: Encodable {
 
         let version: String
@@ -36,6 +37,7 @@ struct StashJSONExporter: BookmarkExporter {
         let bookmarks: [Item]
     }
 
+    /// A single bookmark serialized into the Stash JSON shape.
     private struct Item: Encodable {
 
         let id: String

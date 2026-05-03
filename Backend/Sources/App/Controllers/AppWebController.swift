@@ -30,7 +30,6 @@ struct AppWebController: RouteCollection {
 
     // MARK: Static Properties
 
-    /// Internal pseudo-tag used by the sidebar's "Untagged" filter. Never shown to the user.
     static let untaggedSentinel = "__untagged__"
 
     static let dateFormatter: DateFormatter = {
@@ -40,7 +39,6 @@ struct AppWebController: RouteCollection {
         return formatter
     }()
 
-    /// `yyyy-MM-dd`, for export download filenames.
     static let fileDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -48,15 +46,11 @@ struct AppWebController: RouteCollection {
         return formatter
     }()
 
-    /// A valid bcrypt hash used to equalise timing for unknown usernames.
     static let dummyHash = "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
 
     // MARK: Static Functions
 
-    /// Turn an exact-count map into a flattened, pre-ordered (DFS) tag tree. Synthetic ancestors
-    /// (a parent path that isn't itself a tag) are included so children always nest under a parent.
     static func buildSidebar(counts: [String: Int], activeTag: String) -> [SidebarTag] {
-        // Collect every node, including synthetic ancestors (e.g. `swift` for `swift/vapor`).
         var slugs = Set<String>()
         for key in counts.keys {
             let parts = key.split(separator: "/").map(String.init)
@@ -65,8 +59,6 @@ struct AppWebController: RouteCollection {
                 slugs.insert(parts[0..<depth].joined(separator: "/"))
             }
         }
-        // Sorting by path components (prefix-first) yields exact pre-order DFS: a parent precedes
-        // its subtree, and siblings are alphabetical at every level.
         let ordered = slugs.sorted { lhs, rhs in
             let a = lhs.split(separator: "/").map(String.init)
             let b = rhs.split(separator: "/").map(String.init)
@@ -87,19 +79,16 @@ struct AppWebController: RouteCollection {
         }
     }
 
-    /// `/app?tag=…` with the slug percent-encoded (so `/` becomes `%2F`).
     static func tagHref(_ slug: String) -> String {
         "/app?tag=\(queryValue(slug))"
     }
 
-    /// Percent-encode a string for safe use as a query-string value (encodes `/`, `&`, `=`, …).
     static func queryValue(_ value: String) -> String {
         var allowed = CharacterSet.urlQueryAllowed
         allowed.remove(charactersIn: "/?&=#+%")
         return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 
-    /// The theme preference from the `stash_theme` cookie (`auto` when missing/invalid).
     static func currentTheme(_ req: Request) -> String {
         switch req.cookies["stash_theme"]?.string {
         case "light": "light"
@@ -129,17 +118,14 @@ struct AppWebController: RouteCollection {
         )
     }
 
-    /// `swift/vapor` → `swift › vapor` for display.
     static func display(_ tag: String) -> String {
         tag.components(separatedBy: "/").joined(separator: " › ")
     }
 
-    /// Split a free-text tag field on commas and whitespace.
     static func parseTags(_ raw: String) -> [String] {
         raw.components(separatedBy: CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines))
     }
 
-    /// Build a `/app` list URL preserving the active filters for a given page.
     static func listURL(_ query: BookmarkListQuery, page: Int) -> String {
         var components = URLComponents()
         components.path = "/app"
@@ -175,12 +161,10 @@ struct AppWebController: RouteCollection {
     // MARK: Functions
 
     func boot(routes: RoutesBuilder) throws {
-        // Public — login / logout.
         routes.get("login", use: loginPage)
         routes.post("login", use: login)
         routes.post("logout", use: logout)
 
-        // Everything else requires an authenticated (active) user session.
         let app = routes.grouped(UserSessionMiddleware())
         app.get(use: list)
 
@@ -206,19 +190,16 @@ struct AppWebController: RouteCollection {
         app.post("settings", "delete-all-bookmarks", use: deleteAllBookmarks)
         app.post("settings", "theme", use: setTheme)
 
-        // Import (multipart upload — raise the body limit above the 16KB default) & export.
         app.on(.POST, "import", body: .collect(maxSize: "16mb"), use: importBookmarks)
         app.get("export", use: exportBookmarks)
     }
 
     // MARK: - Login / logout
 
-    /// GET /app/login
     func loginPage(req: Request) async throws -> View {
         try await req.view.render("app-login", LoginPageContext(title: "Sign in", error: nil))
     }
 
-    /// POST /app/login
     func login(req: Request) async throws -> Response {
         let form = try req.content.decode(LoginForm.self)
         let username = form.username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -235,7 +216,6 @@ struct AppWebController: RouteCollection {
             _ = try? await req.password.async.verify(form.password, created: Self.dummyHash)
             return try await failure()
         }
-        // Any role may sign in here; suspended accounts are rejected.
         guard try await req.password.async.verify(form.password, created: user.passwordHash),
               user.isActive
         else {
@@ -256,7 +236,6 @@ struct AppWebController: RouteCollection {
         return req.redirect(to: "/app")
     }
 
-    /// POST /app/logout
     func logout(req: Request) async throws -> Response {
         req.session.destroy()
         return req.redirect(to: "/app/login")
@@ -264,7 +243,6 @@ struct AppWebController: RouteCollection {
 
     // MARK: - Bookmark list
 
-    /// GET /app
     func list(req: Request) async throws -> View {
         let user = try req.auth.require(User.self)
         let query = try req.query.decode(BookmarkListQuery.self)
@@ -277,7 +255,6 @@ struct AppWebController: RouteCollection {
             .filter(\.$user.$id == user.requireID())
             .filter(\.$isArchived == archived)
 
-        // Full-text search across URL, title, description, and tags.
         if let term = query.q?.nonEmpty {
             builder.group(.or) { group in
                 group.filter(\.$url ~~ term)
@@ -289,7 +266,6 @@ struct AppWebController: RouteCollection {
 
         if let rawTag = query.tag?.nonEmpty {
             if rawTag == Self.untaggedSentinel {
-                // Special case: bookmarks with no tags (tagsSearch is "" when tags is empty).
                 builder.filter(\.$tagsSearch == "")
             } else {
                 let tag = Bookmark.normalizeTagQuery(rawTag)
@@ -321,7 +297,6 @@ struct AppWebController: RouteCollection {
             bookmarks: result.items.map { try Self.row(from: $0) },
             q: query.q?.nonEmpty ?? "",
             tag: rawTag ?? "",
-            // Never surface the internal sentinel; show "Untagged" instead.
             tagDisplay: isUntagged ? "Untagged" : Self.display(rawTag ?? ""),
             archived: archived,
             total: total,
@@ -338,7 +313,6 @@ struct AppWebController: RouteCollection {
 
     // MARK: - Create
 
-    /// GET /app/bookmarks/new
     func newBookmarkForm(req: Request) async throws -> View {
         let user = try req.auth.require(User.self)
         return try await req.view.render("app-bookmark-new", AppNewBookmarkContext(
@@ -348,7 +322,6 @@ struct AppWebController: RouteCollection {
         ))
     }
 
-    /// POST /app/bookmarks  (action = "preview" | "save")
     func createBookmark(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let form = try req.content.decode(CreateBookmarkForm.self)
@@ -372,7 +345,6 @@ struct AppWebController: RouteCollection {
             ), status: status)
         }
 
-        // Validate URL up front for both preview and save.
         let url: String
         do {
             url = try Bookmark.validatedURL(rawURL)
@@ -380,7 +352,6 @@ struct AppWebController: RouteCollection {
             return try await renderForm(error: "Enter a valid http(s) URL.", status: .unprocessableEntity)
         }
 
-        // Preview: fetch metadata and pre-fill any blank fields, but don't save.
         if form.action == "preview" {
             let fetched = await MetadataFetcher.fetch(url: url, on: req)
             title = title ?? fetched.title
@@ -388,7 +359,6 @@ struct AppWebController: RouteCollection {
             return try await renderForm(error: nil, previewed: true)
         }
 
-        // Save.
         let userID = try user.requireID()
         if let existing = try await existingBookmark(url: url, userID: userID, on: req.db) {
             return try await renderForm(
@@ -435,7 +405,6 @@ struct AppWebController: RouteCollection {
 
     // MARK: - Detail / edit / update
 
-    /// GET /app/bookmarks/:id
     func bookmarkDetail(req: Request) async throws -> Response {
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
         let message = Self.message(for: req.query[String.self, at: "ok"])
@@ -447,13 +416,11 @@ struct AppWebController: RouteCollection {
         ))
     }
 
-    /// GET /app/bookmarks/:id/edit
     func editBookmarkForm(req: Request) async throws -> Response {
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
         return try await renderEdit(req, bookmark: bookmark, error: nil)
     }
 
-    /// POST /app/bookmarks/:id
     func updateBookmark(req: Request) async throws -> Response {
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
         let form = try req.content.decode(EditBookmarkForm.self)
@@ -467,7 +434,6 @@ struct AppWebController: RouteCollection {
         return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=saved")
     }
 
-    /// POST /app/bookmarks/:id/delete
     func deleteBookmark(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
@@ -477,19 +443,16 @@ struct AppWebController: RouteCollection {
         return req.redirect(to: "/app")
     }
 
-    /// POST /app/bookmarks/:id/archive
     func archiveBookmark(req: Request) async throws -> Response {
         try await setArchived(req, true)
     }
 
-    /// POST /app/bookmarks/:id/unarchive
     func unarchiveBookmark(req: Request) async throws -> Response {
         try await setArchived(req, false)
     }
 
     // MARK: - Tags
 
-    /// GET /app/tags
     func tagBrowser(req: Request) async throws -> View {
         let user = try req.auth.require(User.self)
         let bookmarks = try await Bookmark.query(on: req.db)
@@ -531,7 +494,6 @@ struct AppWebController: RouteCollection {
         ))
     }
 
-    /// POST /app/tags/rename — rename a tag via the shared logic, then PRG back to the browser.
     func renameTag(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let form = try req.content.decode(TagRenameForm.self)
@@ -550,7 +512,6 @@ struct AppWebController: RouteCollection {
         }
     }
 
-    /// POST /app/tags/delete — delete a tag (and its children) via the shared logic, then PRG back.
     func deleteTag(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let form = try req.content.decode(TagDeleteForm.self)
@@ -569,11 +530,9 @@ struct AppWebController: RouteCollection {
 
     // MARK: - Settings & 2FA
 
-    /// GET /app/settings
     func settings(req: Request) async throws -> View {
         let user = try req.auth.require(User.self)
 
-        // Pull the import summary flashed across the post-import redirect, then clear it.
         var importSummary: ImportSummaryContext?
         if req.query[String.self, at: "imported"] == "1",
            let stored = req.session.data["importSummary"],
@@ -591,7 +550,6 @@ struct AppWebController: RouteCollection {
         ))
     }
 
-    /// POST /app/settings/password
     func changePassword(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let form = try req.content.decode(AppChangePasswordForm.self)
@@ -611,13 +569,11 @@ struct AppWebController: RouteCollection {
         return req.redirect(to: "/app/settings?ok=password")
     }
 
-    /// GET /app/settings/totp
     func totpSetup(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         if user.isTOTPEnabled {
             return req.redirect(to: "/app/settings")
         }
-        // Generate (or regenerate, until confirmed) a secret and persist it.
         let secret = TOTP.generateSecret()
         user.totpSecret = secret
         try await user.save(on: req.db)
@@ -629,7 +585,6 @@ struct AppWebController: RouteCollection {
         ))
     }
 
-    /// POST /app/settings/totp/verify
     func totpVerify(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let form = try req.content.decode(AppVerifyTOTPForm.self)
@@ -645,7 +600,6 @@ struct AppWebController: RouteCollection {
             ), status: .badRequest)
         }
 
-        // Replace any prior recovery codes, then enable 2FA (mirrors the API).
         try await user.$recoveryCodes.query(on: req.db).delete()
         let plainCodes = RecoveryCodes.generate()
         for code in plainCodes {
@@ -660,16 +614,13 @@ struct AppWebController: RouteCollection {
         ))
     }
 
-    /// POST /app/settings/totp/disable — confirm with a current TOTP code, then turn 2FA off.
     func totpDisable(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let form = try req.content.decode(AppDisableTOTPForm.self)
 
-        // Nothing to disable.
         guard user.isTOTPEnabled, let secret = user.totpSecret, let secretData = Base32.decode(secret) else {
             return req.redirect(to: "/app/settings")
         }
-        // Require a valid code so the user proves they still control the authenticator.
         guard TOTP(secret: secretData).validate(form.totpCode) else {
             return try await render(req, "app-settings", settingsContext(
                 req, user, error: "That code didn't match. Two-factor authentication was not disabled."
@@ -685,7 +636,6 @@ struct AppWebController: RouteCollection {
 
     // MARK: - Import / export
 
-    /// POST /app/import — parse the uploaded file with the selected importer (PRG on success).
     func importBookmarks(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let form = try req.content.decode(ImportForm.self)
@@ -709,7 +659,6 @@ struct AppWebController: RouteCollection {
             return try await importError(error.description)
         }
 
-        // Flash the summary across the redirect (counts + skipped descriptions).
         if let data = try? JSONEncoder().encode(ImportSummaryContext(result)),
            let json = String(data: data, encoding: .utf8)
         {
@@ -718,7 +667,6 @@ struct AppWebController: RouteCollection {
         return req.redirect(to: "/app/settings?imported=1")
     }
 
-    /// GET /app/export?format=… — stream the exported file as a download.
     func exportBookmarks(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let format = req.query[String.self, at: "format"] ?? StashJSONExporter.identifier
@@ -738,12 +686,10 @@ struct AppWebController: RouteCollection {
 
     // MARK: - Danger zone
 
-    /// POST /app/settings/delete-all-bookmarks — delete every bookmark for the current user.
     func deleteAllBookmarks(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let form = try req.content.decode(DeleteAllBookmarksForm.self)
 
-        // Re-verify the confirmation phrase server-side (not only in the browser).
         guard form.confirm.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "delete all" else {
             return try await render(req, "app-settings", settingsContext(
                 req, user, error: "Type “delete all” to confirm — no bookmarks were deleted."
@@ -759,7 +705,6 @@ struct AppWebController: RouteCollection {
 
     // MARK: - Appearance
 
-    /// POST /app/settings/theme — store the theme preference in a long-lived, JS-readable cookie.
     func setTheme(req: Request) async throws -> Response {
         _ = try req.auth.require(User.self)
         let form = try req.content.decode(ThemeForm.self)
@@ -769,8 +714,6 @@ struct AppWebController: RouteCollection {
         }
 
         let response = req.redirect(to: "/app/settings?ok=theme")
-        // Site-wide (path "/" so it also applies to /admin), 1-year, readable by the flash-prevention
-        // script (HTTPOnly must be false).
         response.cookies["stash_theme"] = HTTPCookies.Value(
             string: theme,
             expires: Date(timeIntervalSinceNow: 60 * 60 * 24 * 365),
@@ -784,8 +727,6 @@ struct AppWebController: RouteCollection {
         return response
     }
 
-    /// Build the hierarchical tag sidebar for the user: fetch all tags with counts (same source
-    /// as `/app/tags` and the autocomplete), then flatten into a pre-ordered tree with depth.
     private func sidebarTags(
         for user: User,
         activeTag: String,
@@ -812,7 +753,6 @@ struct AppWebController: RouteCollection {
         return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=\(archived ? "archived" : "unarchived")")
     }
 
-    /// Build the settings page context, always populating the available import/export formats.
     private func settingsContext(
         _ req: Request,
         _ user: User,
@@ -837,7 +777,6 @@ struct AppWebController: RouteCollection {
 
     // MARK: - Helpers
 
-    /// Load a bookmark by id, scoped to the current user (cross-user access yields nil → 404/redirect).
     private func loadBookmark(_ req: Request) async throws -> Bookmark? {
         let user = try req.auth.require(User.self)
         guard let id = req.parameters.get("bookmarkID", as: UUID.self) else { return nil }
@@ -854,8 +793,6 @@ struct AppWebController: RouteCollection {
             .first()
     }
 
-    /// The distinct tag names the user has used, sorted — backs the create/edit autocomplete
-    /// (same source as `GET /app/tags`).
     private func knownTagsJSON(_ req: Request, user: User) async throws -> String {
         let bookmarks = try await Bookmark.query(on: req.db)
             .filter(\.$user.$id == user.requireID())

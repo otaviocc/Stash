@@ -40,13 +40,11 @@ struct TOTP {
 
     // MARK: Functions
 
-    /// Generate the code for a given moment.
     func generate(at date: Date = Date()) -> String {
         let counter = UInt64(date.timeIntervalSince1970 / Double(period))
         return code(forCounter: counter)
     }
 
-    /// Validate a submitted code, tolerating a ±`window` step drift (default ±1 step = ±30s).
     func validate(_ candidate: String, at date: Date = Date(), window: Int = 1) -> Bool {
         let trimmed = candidate.trimmingCharacters(in: .whitespaces)
         let counter = Int64(date.timeIntervalSince1970 / Double(period))
@@ -79,7 +77,6 @@ struct TOTP {
 
 extension TOTP {
 
-    /// Generate a fresh random 20-byte secret, Base32-encoded for storage/display.
     static func generateSecret() -> String {
         var bytes = [UInt8](repeating: 0, count: 20)
         for i in bytes.indices {
@@ -88,7 +85,6 @@ extension TOTP {
         return Base32.encode(Data(bytes))
     }
 
-    /// Build the `otpauth://` provisioning URI a client renders as a QR code.
     static func otpauthURI(secret: String, username: String, issuer: String = "Stash") -> String {
         var components = URLComponents()
         components.scheme = "otpauth"

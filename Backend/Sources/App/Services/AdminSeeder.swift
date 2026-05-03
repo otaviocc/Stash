@@ -26,13 +26,6 @@ import Vapor
 /// First-boot admin account seeding (PRD §16).
 enum AdminSeeder {
 
-    /// Create the admin account when the database has no users yet.
-    ///
-    /// - Returns: `true` if an admin was created, `false` if seeding was skipped because a
-    ///   user already exists (the env vars are ignored from then on).
-    /// - Throws: when no user exists but the credentials are missing or invalid — the caller
-    ///   should let this propagate so the process exits rather than starting a broken,
-    ///   login-less instance.
     @discardableResult
     static func seed(
         username rawUsername: String?,
@@ -59,7 +52,6 @@ enum AdminSeeder {
             )
         }
 
-        // Enforce the password rule (min 12 characters, PRD §8.5) before creating the account.
         guard password.count >= 12 else {
             logger.critical("ADMIN_PASSWORD must be at least 12 characters. The admin account was not created.")
             throw Abort(.internalServerError, reason: "ADMIN_PASSWORD must be at least 12 characters.")

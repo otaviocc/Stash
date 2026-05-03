@@ -22,6 +22,7 @@
 
 import Fluent
 
+/// Migration that creates the `refresh_tokens` table.
 struct CreateRefreshToken: AsyncMigration {
 
     func prepare(on database: Database) async throws {

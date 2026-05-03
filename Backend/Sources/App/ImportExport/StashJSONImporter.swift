@@ -28,7 +28,7 @@ import Foundation
 ///
 /// Per-bookmark mapping:
 /// - `url` (required; record skipped if missing/invalid)
-/// - `title` (empty string if missing) · `description` · `tags` (normalised) · `isArchived`
+/// - `title` (empty string if missing) · `description` · `tags` (normalized) · `isArchived`
 /// - `faviconURL`
 /// - `createdAt` (ISO-8601 string; current time if missing/unparseable)
 /// - `id`/`updatedAt` and the top-level `version`/`exportedAt` are ignored.
@@ -39,11 +39,13 @@ struct StashJSONImporter: BookmarkImporter {
 
     // MARK: Nested Types
 
+    /// Top-level decoded envelope holding the bookmark records.
     private struct Document: Decodable {
 
         let bookmarks: [Record]
     }
 
+    /// A single decoded Stash JSON bookmark record.
     private struct Record: Decodable {
 
         let url: String?
@@ -138,8 +140,6 @@ struct StashJSONImporter: BookmarkImporter {
                     isArchived: isArchived
                 )
                 try await bookmark.save(on: db)
-                // Fluent sets createdAt to "now" on insert; restore the imported timestamp with a
-                // follow-up update (which only touches updatedAt, leaving createdAt as set).
                 if let createdAt = record.createdAt, let date = Self.parseDate(createdAt) {
                     bookmark.createdAt = date
                     try await bookmark.save(on: db)

@@ -22,6 +22,7 @@
 
 import Vapor
 
+/// Process entry point: bootstraps the environment, builds the application, and runs it.
 @main
 enum Entrypoint {
 

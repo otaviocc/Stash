@@ -25,6 +25,7 @@ import Testing
 import VaporTesting
 @testable import App
 
+/// Verifies HTML metadata parsing and the authenticated metadata endpoint.
 @Suite("Metadata — HTML parsing")
 struct MetadataTests {
 
@@ -36,6 +37,7 @@ struct MetadataTests {
 
     @Test("parses title, description, and an absolute favicon")
     func parsesBasics() {
+        // Given
         let html = """
         <html><head>
         <title>Hello &amp; World</title>
@@ -43,56 +45,91 @@ struct MetadataTests {
         <link rel="icon" href="https://cdn.example.com/fav.png">
         </head><body>x</body></html>
         """
+
+        // When
         let meta = MetadataFetcher.parse(html: html, baseURL: base)
-        #expect(meta.title == "Hello & World")
-        #expect(meta.description == "A great \"page\"")
-        #expect(meta.faviconURL == "https://cdn.example.com/fav.png")
+
+        // Then
+        #expect(meta.title == "Hello & World", "It should decode HTML entities in the title")
+        #expect(meta.description == "A great \"page\"", "It should decode HTML entities in the description")
+        #expect(meta.faviconURL == "https://cdn.example.com/fav.png", "It should keep an absolute favicon URL")
     }
 
     @Test("resolves a relative favicon href against the base URL")
     func relativeFavicon() {
+        // Given
         let html = #"<head><link rel="shortcut icon" href="/assets/icon.ico"></head>"#
+
+        // When
         let meta = MetadataFetcher.parse(html: html, baseURL: base)
-        #expect(meta.faviconURL == "https://example.com/assets/icon.ico")
+
+        // Then
+        #expect(
+            meta.faviconURL == "https://example.com/assets/icon.ico",
+            "It should resolve a relative favicon href against the base URL"
+        )
     }
 
     @Test("falls back to /favicon.ico when no link tag is present")
     func defaultFavicon() {
+        // Given
         let html = "<head><title>No icon here</title></head>"
+
+        // When
         let meta = MetadataFetcher.parse(html: html, baseURL: base)
-        #expect(meta.title == "No icon here")
-        #expect(meta.faviconURL == "https://example.com/favicon.ico")
+
+        // Then
+        #expect(meta.title == "No icon here", "It should parse the title")
+        #expect(
+            meta.faviconURL == "https://example.com/favicon.ico",
+            "It should fall back to /favicon.ico when no link tag is present"
+        )
     }
 
     @Test("handles reversed attribute order and Open Graph fallbacks")
     func attributeOrderAndOG() {
+        // Given
         let html = """
         <head>
         <meta content="reversed order desc" name="description">
         <meta property="og:title" content="OG Title">
         </head>
         """
+
+        // When
         let meta = MetadataFetcher.parse(html: html, baseURL: base)
-        #expect(meta.description == "reversed order desc")
-        // No <title>, so og:title is used.
-        #expect(meta.title == "OG Title")
+
+        // Then
+        #expect(meta.description == "reversed order desc", "It should parse a meta tag with reversed attribute order")
+        #expect(meta.title == "OG Title", "It should fall back to og:title when no title tag is present")
     }
 
     @Test("returns nil title/description for empty HTML but still a default favicon")
     func emptyHTML() {
+        // Given — no setup required
+
+        // When
         let meta = MetadataFetcher.parse(html: "", baseURL: base)
-        #expect(meta.title == nil)
-        #expect(meta.description == nil)
-        #expect(meta.faviconURL == "https://example.com/favicon.ico")
+
+        // Then
+        #expect(meta.title == nil, "It should return a nil title for empty HTML")
+        #expect(meta.description == nil, "It should return a nil description for empty HTML")
+        #expect(meta.faviconURL == "https://example.com/favicon.ico", "It should still return a default favicon")
     }
 
     @Test("POST /metadata requires authentication")
     func metadataRequiresAuth() async throws {
         try await withTestApp { app in
+            // Given — no setup required
+
+            // When
             try await app.testing().test(
                 .POST, "api/v1/metadata",
                 beforeRequest: { req in try req.content.encode(MetadataRequest(url: "https://example.com")) },
-                afterResponse: { res async throws in #expect(res.status == .unauthorized) }
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(res.status == .unauthorized, "It should reject unauthenticated metadata requests")
+                }
             )
         }
     }
@@ -100,15 +137,22 @@ struct MetadataTests {
     @Test("POST /metadata rejects an invalid URL with 422")
     func metadataInvalidURL() async throws {
         try await withTestApp { app in
+            // Given
             try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            // When
             try await app.testing().test(
                 .POST, "api/v1/metadata",
                 headers: bearer(pair.accessToken),
                 beforeRequest: { req in try req.content.encode(MetadataRequest(url: "ftp://nope")) },
                 afterResponse: { res async throws in
-                    #expect(res.status == .unprocessableEntity)
-                    #expect(try res.content.decode(TestError.self).code == "validation_failed")
+                    // Then
+                    #expect(res.status == .unprocessableEntity, "It should return 422 Unprocessable Entity")
+                    #expect(
+                        try res.content.decode(TestError.self).code == "validation_failed",
+                        "It should return the validation_failed error code"
+                    )
                 }
             )
         }

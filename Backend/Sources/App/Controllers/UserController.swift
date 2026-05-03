@@ -35,13 +35,11 @@ struct UserController: RouteCollection {
         totp.post("verify-setup", use: verifyTOTPSetup)
     }
 
-    /// GET /me
     func me(req: Request) async throws -> UserResponse {
         let user = try req.auth.require(User.self)
         return try user.asResponse()
     }
 
-    /// PUT /me/password
     func changePassword(req: Request) async throws -> Response {
         try ChangePasswordRequest.validate(content: req)
         let input = try req.content.decode(ChangePasswordRequest.self)
@@ -56,11 +54,9 @@ struct UserController: RouteCollection {
         return Response(status: .noContent)
     }
 
-    /// GET /auth/totp/setup — begin enrolment (PRD §8.3).
     func setupTOTP(req: Request) async throws -> TOTPSetupResponse {
         let user = try req.auth.require(User.self)
 
-        // Generate (or regenerate, if not yet confirmed) a secret and persist it.
         let secret = TOTP.generateSecret()
         user.totpSecret = secret
         try await user.save(on: req.db)
@@ -71,7 +67,6 @@ struct UserController: RouteCollection {
         )
     }
 
-    /// POST /auth/totp/verify-setup — confirm enrolment, return recovery codes once (PRD §8.3).
     func verifyTOTPSetup(req: Request) async throws -> RecoveryCodesResponse {
         let input = try req.content.decode(VerifySetupRequest.self)
         let user = try req.auth.require(User.self)
@@ -87,7 +82,6 @@ struct UserController: RouteCollection {
             throw APIError.totpInvalid
         }
 
-        // Replace any prior recovery codes, then enable 2FA.
         try await user.$recoveryCodes.query(on: req.db).delete()
 
         let plainCodes = RecoveryCodes.generate()

@@ -29,7 +29,6 @@ struct MetadataController: RouteCollection {
         routes.post("metadata", use: fetch)
     }
 
-    /// POST /metadata
     func fetch(req: Request) async throws -> MetadataResponse {
         _ = try req.auth.require(User.self)
         let input = try req.content.decode(MetadataRequest.self)

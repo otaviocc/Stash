@@ -32,11 +32,8 @@ protocol BookmarkImporter: Sendable {
 
     // MARK: Static Computed Properties
 
-    /// Stable machine identifier, e.g. `"anybox"`.
     static var identifier: String { get }
-    /// Human-facing name shown in the format selector, e.g. `"Anybox JSON"`.
     static var displayName: String { get }
-    /// Expected file extension (no dot), e.g. `"json"`.
     static var fileExtension: String { get }
 
     // MARK: Functions
@@ -66,13 +63,9 @@ protocol BookmarkExporter: Sendable {
 /// Outcome of an import run.
 struct ImportResult {
 
-    /// New bookmarks created.
     let imported: Int
-    /// Existing bookmarks updated (matched by URL).
     let updated: Int
-    /// Records skipped (invalid URL, missing required fields).
     let skipped: Int
-    /// Human-readable descriptions of the skipped records.
     let errors: [String]
 }
 

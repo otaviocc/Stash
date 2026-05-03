@@ -25,7 +25,7 @@ import Vapor
 
 /// A single-use 2FA recovery code. See PRD §7.4 and §8.4.
 ///
-/// Eight codes are generated at 2FA enrolment. Only the bcrypt hash is stored.
+/// Eight codes are generated at 2FA enrollment. Only the bcrypt hash is stored.
 final class RecoveryCode: Model, @unchecked Sendable {
 
     // MARK: Static Properties
@@ -40,11 +40,9 @@ final class RecoveryCode: Model, @unchecked Sendable {
     @Parent(key: "user_id")
     var user: User
 
-    /// Bcrypt hash of the raw (normalised, dash-free, uppercased) code.
     @Field(key: "code_hash")
     var codeHash: String
 
-    /// Null until redeemed; once set, the code cannot be reused.
     @OptionalField(key: "used_at")
     var usedAt: Date?
 

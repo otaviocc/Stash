@@ -65,6 +65,7 @@ struct UserRowContext: Content {
 
 // MARK: - LoginPageContext
 
+/// View context for the admin login page.
 struct LoginPageContext: Content {
 
     let title: String
@@ -73,6 +74,7 @@ struct LoginPageContext: Content {
 
 // MARK: - DashboardContext
 
+/// View context for the admin dashboard page.
 struct DashboardContext: Content {
 
     let title: String
@@ -84,6 +86,7 @@ struct DashboardContext: Content {
 
 // MARK: - UsersContext
 
+/// View context for the admin users list page.
 struct UsersContext: Content {
 
     let title: String
@@ -93,6 +96,7 @@ struct UsersContext: Content {
 
 // MARK: - NewUserContext
 
+/// View context for the new-user form page.
 struct NewUserContext: Content {
 
     let title: String
@@ -103,6 +107,7 @@ struct NewUserContext: Content {
 
 // MARK: - UserDetailContext
 
+/// View context for the user detail page.
 struct UserDetailContext: Content {
 
     let title: String

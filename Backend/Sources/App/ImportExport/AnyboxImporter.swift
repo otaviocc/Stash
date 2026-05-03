@@ -31,7 +31,7 @@ import Foundation
 /// - `description`
 /// - `tags`: Anybox stores **arrays of `[namespace, value]` pairs**, e.g.
 ///   `[["topic","music-gear"],["status","wishlist"]]`. Each pair is joined with `/` into a
-///   hierarchical Stash tag (`topic/music-gear`), then normalised. A plain `[String]` is also
+///   hierarchical Stash tag (`topic/music-gear`), then normalized. A plain `[String]` is also
 ///   accepted for forward/backward compatibility.
 /// - `dateAdded` (ISO-8601 string) → `createdAt`; a numeric `date_added`/`dateAdded` (Unix
 ///   seconds) is also accepted. Missing → current time.
@@ -64,10 +64,12 @@ struct AnyboxImporter: BookmarkImporter {
         }
     }
 
+    /// A single decoded Anybox bookmark record.
     private struct Record: Decodable {
 
         // MARK: Nested Types
 
+        /// Coding keys covering both the camelCase and snake_case date fields.
         enum CodingKeys: String, CodingKey {
 
             case url, title, description, tags, dateAdded
@@ -97,7 +99,6 @@ struct AnyboxImporter: BookmarkImporter {
             let rawTags = (try? c.decodeIfPresent([FlexibleTag].self, forKey: .tags)) ?? []
             tags = rawTags.compactMap(\.value)
 
-            // Prefer an ISO-8601 string (current Anybox); fall back to a numeric Unix timestamp.
             if let iso = (try? c.decodeIfPresent(String.self, forKey: .dateAdded)),
                let date = Record.iso.date(from: iso)
             {
@@ -160,8 +161,6 @@ struct AnyboxImporter: BookmarkImporter {
                 .filter(\.$url == url)
                 .first()
             {
-                // Duplicate URL → overwrite title/description/tags. Leave createdAt untouched
-                // (an update only touches updatedAt).
                 existing.title = title
                 existing.description = description
                 existing.applyTags(tags)
@@ -170,8 +169,6 @@ struct AnyboxImporter: BookmarkImporter {
             } else {
                 let bookmark = Bookmark(userID: userID, url: url, title: title, description: description, tags: tags)
                 try await bookmark.save(on: db)
-                // Fluent sets createdAt to "now" on insert, so restore the imported timestamp with
-                // a follow-up update (which only touches updatedAt, leaving createdAt as set).
                 if let created = record.createdAt {
                     bookmark.createdAt = created
                     try await bookmark.save(on: db)
@@ -180,7 +177,6 @@ struct AnyboxImporter: BookmarkImporter {
             }
         }
 
-        // Keep the denormalised bookmark count consistent with the new rows.
         if imported > 0, let user = try await User.find(userID, on: db) {
             user.bookmarkCount += imported
             try await user.save(on: db)

@@ -32,7 +32,6 @@ struct TagController: RouteCollection {
         routes.delete("tags", ":tag", use: delete)
     }
 
-    /// GET /tags — every distinct tag with its count, scoped to the current user.
     func list(req: Request) async throws -> [TagCount] {
         let user = try req.auth.require(User.self)
 
@@ -52,7 +51,6 @@ struct TagController: RouteCollection {
             .sorted { $0.name < $1.name }
     }
 
-    /// POST /tags/rename — rename a tag (and its children) across the current user's bookmarks.
     func rename(req: Request) async throws -> TagRenameResponse {
         let user = try req.auth.require(User.self)
         let input = try req.content.decode(TagRenameRequest.self)
@@ -65,8 +63,6 @@ struct TagController: RouteCollection {
         return TagRenameResponse(from: result.from, to: result.to, affectedBookmarks: result.affectedBookmarks)
     }
 
-    /// DELETE /tags/:tag — delete a tag (and its children) across the current user's bookmarks.
-    /// The `:tag` path parameter is URL-decoded by Vapor (so `foo-bar%2Fswift` arrives as `foo-bar/swift`).
     func delete(req: Request) async throws -> TagDeleteResponse {
         let user = try req.auth.require(User.self)
         let rawTag = req.parameters.get("tag") ?? ""

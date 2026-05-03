@@ -37,7 +37,6 @@ struct BookmarkController: RouteCollection {
         }
     }
 
-    /// GET /bookmarks
     func list(req: Request) async throws -> Page<BookmarkResponse> {
         let user = try req.auth.require(User.self)
         let query = try req.query.decode(BookmarkListQuery.self)
@@ -49,7 +48,6 @@ struct BookmarkController: RouteCollection {
             .filter(\.$user.$id == user.requireID())
             .filter(\.$isArchived == (query.archived ?? false))
 
-        // Full-text search across URL, title, description, and tags.
         if let term = query.q?.nonEmpty {
             builder.group(.or) { group in
                 group.filter(\.$url ~~ term)
@@ -59,7 +57,6 @@ struct BookmarkController: RouteCollection {
             }
         }
 
-        // Tag prefix match: `swift` matches `swift` and `swift/*` (PRD §7.5).
         if let rawTag = query.tag?.nonEmpty {
             let tag = Bookmark.normalizeTagQuery(rawTag)
             if !tag.isEmpty {
@@ -79,7 +76,6 @@ struct BookmarkController: RouteCollection {
         return Page(items: items, metadata: result.metadata)
     }
 
-    /// POST /bookmarks
     func create(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let input = try req.content.decode(CreateBookmarkInput.self)
@@ -90,7 +86,6 @@ struct BookmarkController: RouteCollection {
             throw try APIError.duplicateURL(existingID: existing.requireID())
         }
 
-        // Client-supplied values take precedence over fetched ones (PRD §10).
         var title = input.title?.nonEmpty
         var description = input.description?.nonEmpty
         var faviconURL: String?
@@ -115,7 +110,6 @@ struct BookmarkController: RouteCollection {
         do {
             try await bookmark.save(on: req.db)
         } catch {
-            // Unique-index backstop in case of a race between the check above and the insert.
             if let existing = try await existingBookmark(url: url, userID: userID, on: req.db) {
                 throw try APIError.duplicateURL(existingID: existing.requireID())
             }
@@ -130,12 +124,10 @@ struct BookmarkController: RouteCollection {
         return response
     }
 
-    /// GET /bookmarks/:id
     func get(req: Request) async throws -> BookmarkResponse {
         try await requireBookmark(req).asResponse()
     }
 
-    /// PUT /bookmarks/:id
     func update(req: Request) async throws -> BookmarkResponse {
         let user = try req.auth.require(User.self)
         let bookmark = try await requireBookmark(req)
@@ -161,7 +153,6 @@ struct BookmarkController: RouteCollection {
         return try bookmark.asResponse()
     }
 
-    /// DELETE /bookmarks/:id
     func delete(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         let bookmark = try await requireBookmark(req)
@@ -174,8 +165,6 @@ struct BookmarkController: RouteCollection {
 
     // MARK: - Helpers
 
-    /// Load a bookmark by id, scoped to the current user. Cross-user access returns 404,
-    /// which is exactly the user-isolation guarantee (PRD §17.7).
     private func requireBookmark(_ req: Request) async throws -> Bookmark {
         let user = try req.auth.require(User.self)
         guard let id = req.parameters.get("bookmarkID", as: UUID.self) else {

@@ -29,7 +29,6 @@ struct AuthController: RouteCollection {
 
     // MARK: Static Properties
 
-    /// A valid bcrypt hash used to equalise timing for unknown usernames.
     private static let dummyHash =
         "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
 
@@ -37,7 +36,6 @@ struct AuthController: RouteCollection {
 
     // MARK: - Helpers
 
-    /// Verify a temp (2FA) token and load the still-active user it refers to.
     private static func userFromTempToken(_ token: String, req: Request) async throws -> User {
         let payload: TempTokenPayload
         do {
@@ -65,7 +63,6 @@ struct AuthController: RouteCollection {
         auth.post("logout", use: logout)
     }
 
-    /// POST /auth/login
     func login(req: Request) async throws -> Response {
         try LoginRequest.validate(content: req)
         let input = try req.content.decode(LoginRequest.self)
@@ -74,7 +71,6 @@ struct AuthController: RouteCollection {
             .filter(\.$username == input.username.lowercased())
             .first()
         else {
-            // Run a throwaway verify to keep timing roughly constant for unknown users.
             _ = try? await req.password.async.verify(input.password, created: Self.dummyHash)
             throw APIError.invalidCredentials
         }
@@ -82,7 +78,6 @@ struct AuthController: RouteCollection {
         guard try await req.password.async.verify(input.password, created: user.passwordHash) else {
             throw APIError.invalidCredentials
         }
-        // Suspended accounts cannot log in (checked after password to avoid leaking status).
         guard user.isActive else {
             throw APIError.accountSuspended
         }
@@ -96,7 +91,6 @@ struct AuthController: RouteCollection {
         return try await pair.encodeResponse(for: req)
     }
 
-    /// POST /auth/totp
     func totp(req: Request) async throws -> TokenPair {
         let input = try req.content.decode(TOTPRequest.self)
         let user = try await Self.userFromTempToken(input.tempToken, req: req)
@@ -111,7 +105,6 @@ struct AuthController: RouteCollection {
         return try await TokenService.issuePair(for: user, on: req)
     }
 
-    /// POST /auth/recovery
     func recovery(req: Request) async throws -> TokenPair {
         let input = try req.content.decode(RecoveryRequest.self)
         let user = try await Self.userFromTempToken(input.tempToken, req: req)
@@ -132,7 +125,6 @@ struct AuthController: RouteCollection {
         throw APIError.totpInvalid
     }
 
-    /// POST /auth/refresh — rotation: invalidate the presented token, issue a fresh one.
     func refresh(req: Request) async throws -> TokenPair {
         let input = try req.content.decode(RefreshRequest.self)
         let tokenHash = TokenService.hash(input.refreshToken)
@@ -144,7 +136,6 @@ struct AuthController: RouteCollection {
             throw APIError.tokenInvalid
         }
 
-        // Expired token: discard it and reject.
         guard stored.expiresAt > Date() else {
             try await stored.delete(on: req.db)
             throw APIError.tokenExpired
@@ -159,7 +150,6 @@ struct AuthController: RouteCollection {
         return try await TokenService.issuePair(for: user, on: req)
     }
 
-    /// POST /auth/logout — delete the refresh token; always 204.
     func logout(req: Request) async throws -> Response {
         let input = try req.content.decode(LogoutRequest.self)
         let tokenHash = TokenService.hash(input.refreshToken)

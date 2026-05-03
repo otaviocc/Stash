@@ -51,7 +51,6 @@ enum MetadataFetcher {
         }
     }
 
-    /// Pure HTML parser — unit-testable without any network access.
     static func parse(html: String, baseURL: URL) -> MetadataResponse {
         let title = extractTitle(from: html)
         let description = extractDescription(from: html)
@@ -72,7 +71,6 @@ enum MetadataFetcher {
         if let raw = firstMatch(#"<title[^>]*>(.*?)</title>"#, in: html) {
             return decodeEntities(raw).nonEmpty
         }
-        // Fall back to Open Graph.
         return metaContent(html: html, attribute: "property", value: "og:title")
     }
 
@@ -81,7 +79,6 @@ enum MetadataFetcher {
             ?? metaContent(html: html, attribute: "property", value: "og:description")
     }
 
-    /// Read a `<meta>` tag's `content`, tolerating either attribute order.
     private static func metaContent(html: String, attribute: String, value: String) -> String? {
         let v = NSRegularExpression.escapedPattern(for: value)
         let attrFirst = #"<meta[^>]+"# + attribute + #"\s*=\s*["']"# + v + #"["'][^>]*content\s*=\s*["']([^"']*)["']"#
