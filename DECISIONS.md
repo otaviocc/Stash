@@ -3143,3 +3143,23 @@ Four no-behavior-change cleanups from the review.
   Offline, the extension's tag list is empty and the picker shows a "No Tags Yet" empty
   state with only the Create path available — the same graceful degradation the old
   autocomplete had.
+
+---
+
+## Tag pills mirror the web's hierarchy rendering (native apps)
+
+- **✅ `TagPill` displays `swift › server`, not `swift/server`.** The web frontend
+  already presents a hierarchical tag with a middot separator (`AppWebController.display(_:)`
+  → `tag.components(separatedBy: "/").joined(separator: " › ")`), which reads far better than
+  the raw slash slug. The apps now match it: `TagPill` (`Common/Views/TagPill.swift`) renders a
+  `displayName` computed from the same split-and-join (`" › "`, U+2023). **Presentation-only** —
+  the stored tag, the `tag=` filter slug, and every query keep the raw `swift/server` form; only
+  the pill's `Text` changes. Because `TagPill` is the single shared capsule, the change lands on
+  the bookmark rows, the detail view, and the add/edit tag summary (and thus the Share Extension)
+  at once. `TagTreeLabel` is deliberately left showing the leaf segment (`node.label`) — the tree
+  conveys hierarchy by nesting, so it needs no separator.
+- **Default-expanded tag trees were considered and deferred.** Making the four
+  `OutlineGroup(_:children:)` trees open expanded would require replacing `OutlineGroup` (which
+  exposes no default-expanded / expansion-binding option) with a recursive `DisclosureGroup`
+  wrapper across all four call sites — judged too much machinery for the payoff for now, so the
+  trees keep the native collapsed-by-default disclosure.

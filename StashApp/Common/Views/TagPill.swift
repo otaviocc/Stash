@@ -32,12 +32,18 @@ struct TagPill: View {
 
     let name: String
 
+    // MARK: Computed Properties
+
+    private var displayName: String {
+        name.components(separatedBy: "/").joined(separator: " › ")
+    }
+
     // MARK: Content Properties
 
     // MARK: Content
 
     var body: some View {
-        Text(name)
+        Text(displayName)
             .font(.caption2)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
