@@ -3163,3 +3163,42 @@ Four no-behavior-change cleanups from the review.
   exposes no default-expanded / expansion-binding option) with a recursive `DisclosureGroup`
   wrapper across all four call sites — judged too much machinery for the payoff for now, so the
   trees keep the native collapsed-by-default disclosure.
+
+## Drag-and-drop tagging (native apps)
+
+- **✅ Drag a bookmark row onto a sidebar tag to add that tag — iPad and macOS only.**
+  Those are the two layouts where the tag sidebar and the bookmark list share the screen
+  (`SidebarSplitView` on iPad, `MacContentView` on macOS). On iPhone the tags are a separate
+  tab, so there is no on-screen drop target; the gesture would also compete with the row's
+  long-press context menu. Dragging is therefore gated off in compact width:
+  `draggableBookmark(_:enabled:)` (`Common/Support/PlatformModifiers.swift`) applies
+  `.draggable` only when enabled, and `BookmarkListContent.isDragEnabled` is `true` on macOS
+  and only at `horizontalSizeClass == .regular` on iOS. `.draggable` and the existing row
+  `.contextMenu` coexist (long-press lifts into the menu on iPad; drag = mouse, menu =
+  right-click on macOS).
+- **✅ `Bookmark` is `Transferable` via a custom UTType, not generic JSON.** `Bookmark`
+  gained `Codable` and a `CodableRepresentation(contentType: .stashBookmark)` where
+  `.stashBookmark = UTType(exportedAs: "cc.otavio.stash.bookmark")`. The dedicated type stops
+  the tag rows from accepting arbitrary dropped JSON. **The type must be declared** in the app's
+  Info.plist (`UTExportedTypeDeclarations`, conforming to `public.data`) on both platforms —
+  without the declaration the drag still lifts, but `dropDestination(for: Bookmark.self)` can't
+  resolve the conformance for an unregistered exported type and silently rejects every drop (the
+  bug that "intra-app drags need no declaration" assumed away). Only the two App Info.plists need
+  it; the Share Extension does no drag-and-drop. The drag carries a snapshot of the bookmark's tags at lift
+  time — an accepted trade-off, since the append is a single field and last-write-wins sync
+  reconciles any drift.
+- **✅ The drop reuses the optimistic `update` path; no new write API.** A
+  `BookmarkTagDropModifier` (`Stash/Views/`, app-only because it depends on
+  `AppEnvironment`/`BookmarkRepository`, which are not in `Common/`) wraps each `TagTreeLabel`
+  via `.dropDestination(for: Bookmark.self)` in both sidebars' `makeTagsSection()`. On drop it
+  appends `node.slug` to each dropped bookmark's tags (skipping ones that already have it) and
+  calls `BookmarkRepository.update(id:title:description:tags:)`, then
+  `TagRepository.refresh()` to update the sidebar counts. It builds a throwaway repository via
+  `makeBookmarkRepository()` — every repository writes to the one shared `LocalStore`, so the
+  drop lands regardless of which list owns the visible state. **Gotcha:** the handler passes
+  `description: bookmark.description` (not `nil`) because `queueUpdate` assigns
+  `record.bookmarkDescription = description` unconditionally — `nil` would wipe the description.
+- **✅ Sentinels are never drop targets.** `__untagged__`, `__today__`, and `__this_week__`
+  live in the **Views** section, not in `tagHierarchy`, so only real tag nodes get the drop
+  modifier. Synthetic parent nodes (count `nil`, e.g. `swift`) carry a real `slug` and are valid
+  targets. A drop highlights the targeted row with a translucent accent `listRowBackground`.

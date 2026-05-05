@@ -131,6 +131,18 @@ extension View {
         #endif
     }
 
+    /// Makes a bookmark row draggable (for dropping onto a sidebar tag) only when `enabled`, keeping
+    /// the row's identity stable either way. Disabled on iPhone, where the tags live in a separate tab
+    /// so there is no drop target and the lift would compete with the row's long-press context menu.
+    @ViewBuilder
+    func draggableBookmark(_ bookmark: Bookmark, enabled: Bool) -> some View {
+        if enabled {
+            draggable(bookmark)
+        } else {
+            self
+        }
+    }
+
     /// A search field: no autocapitalization or autocorrection so the query is sent as typed.
     func searchInputStyle() -> some View {
         #if os(iOS)

@@ -1004,7 +1004,9 @@ Extension reuse (deviation from original memory-only access token spec).
   Untagged, Today, This Week), an optional **Smart Views** section (one entry per
   Smart View, shown only when the user has any), and a **collapsible hierarchical
   tag tree** (`OutlineGroup`, mirroring the web sidebar), all driving the filtered
-  `BookmarkListView` in the detail column
+  `BookmarkListView` in the detail column. **Drag a bookmark row onto a tag** in the
+  sidebar to add that tag to the bookmark (iPad and macOS only — where the sidebar
+  and list share the screen; disabled on iPhone)
 - **iPhone:** `TabContainerView` — Bookmarks / Tags / Settings tabs, each in its
   own `NavigationStack`. The Tags tab shows the same Views, the optional Smart
   Views section, and the collapsible tag tree, drilling into a filtered list. Tab
@@ -1081,6 +1083,8 @@ building against the SDK; no explicit modifiers.
   sidebar) driving the shared `BookmarkListView` in the detail column; selecting a
   bookmark pushes the shared `BookmarkDetailView`. The optional inspector panel
   was not built (the shared list is reused as-is for maximum code sharing).
+  **Drag a bookmark row onto a tag** in the sidebar to add that tag to the bookmark
+  (shared with iPad).
 - **Window:** standard `WindowGroup`, 800×500 minimum
   (`windowResizability(.contentMinSize)`).
 - **Bookmarks:** shared list and rows; right-click context menu (Open in

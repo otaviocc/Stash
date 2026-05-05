@@ -143,6 +143,7 @@ import SwiftUI
                 OutlineGroup(environment.tagRepository.tagHierarchy, children: \.children) { node in
                     TagTreeLabel(node: node)
                         .tag(SidebarItem.tag(node.slug))
+                        .bookmarkTagDropDestination(slug: node.slug)
                 }
             }
         }

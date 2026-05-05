@@ -20,13 +20,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import CoreTransferable
 import Foundation
 import StashKit
+import UniformTypeIdentifiers
 
 // MARK: - Bookmark
 
 /// A bookmark belonging to the current user.
-struct Bookmark: Identifiable, Hashable {
+struct Bookmark: Identifiable, Hashable, Codable {
 
     // MARK: Properties
 
@@ -80,6 +82,25 @@ struct Bookmark: Identifiable, Hashable {
         }
 
         return host
+    }
+}
+
+// MARK: - UTType + stashBookmark
+
+extension UTType {
+
+    /// The drag-and-drop payload type for a `Bookmark`, used when dragging a bookmark row onto a tag
+    /// in the iPad/macOS sidebar. A dedicated type keeps the drop destination from accepting arbitrary
+    /// JSON; intra-app drags need no Info.plist declaration.
+    static let stashBookmark = UTType(exportedAs: "cc.otavio.stash.bookmark")
+}
+
+// MARK: - Bookmark + Transferable
+
+extension Bookmark: Transferable {
+
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .stashBookmark)
     }
 }
 

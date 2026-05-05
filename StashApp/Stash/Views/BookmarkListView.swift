@@ -90,6 +90,9 @@ private struct BookmarkListContent: View {
 
     @Environment(\.openURL) private var openURL
     @Environment(AppEnvironment.self) private var environment
+    #if os(iOS)
+        @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
 
     @FocusState private var isSearchFocused: Bool
 
@@ -149,6 +152,17 @@ private struct BookmarkListContent: View {
         }
 
         return showArchived ? "Archived" : "Bookmarks"
+    }
+
+    /// Whether bookmark rows can be dragged onto a sidebar tag. Always on macOS; on iOS only at regular
+    /// width (iPad), where the sidebar and list share the screen. Off on iPhone (compact), where the
+    /// tags are a separate tab.
+    private var isDragEnabled: Bool {
+        #if os(iOS)
+            horizontalSizeClass == .regular
+        #else
+            true
+        #endif
     }
 
     private var optionsPlacement: ToolbarItemPlacement {
@@ -252,6 +266,7 @@ private struct BookmarkListContent: View {
         } label: {
             BookmarkRowView(bookmark: bookmark)
         }
+        .draggableBookmark(bookmark, enabled: isDragEnabled)
         .onAppear {
             loadMoreIfNeeded(currentItem: bookmark)
         }

@@ -107,6 +107,7 @@
                 OutlineGroup(environment.tagRepository.tagHierarchy, children: \.children) { node in
                     TagTreeLabel(node: node)
                         .tag(MacSidebarItem.tag(node.slug))
+                        .bookmarkTagDropDestination(slug: node.slug)
                 }
             }
         }
