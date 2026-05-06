@@ -1173,12 +1173,19 @@ Glass adopted automatically by building against the 26 SDKs).
 
 ## Code style — comments and documentation
 
-- **✅ No inline comments inside method bodies.** The code and tests are the
-  documentation. Inline `//` comments explaining *what* the code does are
-  removed; the code should be readable without them.
-- **✅ `///` doc comments on types only.** Every `enum`, `struct`, `class`,
-  `actor`, and `protocol` has a doc comment. Methods, computed properties, and
-  stored properties inside types do not.
+- **✅ No comments of any kind inside method/function bodies.** The code and
+  tests are the documentation. Neither `//` nor `///` comments explaining *what*
+  the code does belong inside a body; the code should be readable without them.
+  All documentation lives at the declaration level. (Exception: the backend
+  tests' `// Given` / `// When` / `// Then` structure markers, below.)
+- **🔁 `///` doc comments allowed on any declaration** (supersedes the earlier
+  "types only" rule). Doc comments are permitted — and idiomatic — on **types,
+  properties, and methods/functions**, not just types. This matches SwiftFormat's
+  `--doc-comments before-declarations`, which converts any comment placed before a
+  declaration into a `///` doc comment, so a "types only" rule was never
+  tooling-enforceable: a `//` written above a method is auto-upgraded to `///`.
+  The rule now reflects what the formatter actually produces; documentation is
+  written at the declaration level rather than inside bodies.
 - **✅ American English throughout.** All doc comments, `#expect` descriptions,
   and test labels use American English spelling (`behavior`, `initialize`,
   `normalize`, `color`, etc.), never British English.
