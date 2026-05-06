@@ -102,6 +102,7 @@ struct StashJSONImporter: BookmarkImporter {
                 errors.append("Record \(position): missing URL.")
                 continue
             }
+
             let url: String
             do {
                 url = try Bookmark.validatedURL(rawURL)

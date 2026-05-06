@@ -55,6 +55,7 @@ struct AppWebController: RouteCollection {
         for key in counts.keys {
             let parts = key.split(separator: "/").map(String.init)
             guard !parts.isEmpty else { continue }
+
             for depth in 1...parts.count {
                 slugs.insert(parts[0..<depth].joined(separator: "/"))
             }
@@ -100,6 +101,7 @@ struct AppWebController: RouteCollection {
     static func jsonArray(_ strings: [String]) -> String {
         guard let data = try? JSONEncoder().encode(strings),
               let json = String(data: data, encoding: .utf8) else { return "[]" }
+
         return json
     }
 
@@ -407,6 +409,7 @@ struct AppWebController: RouteCollection {
 
     func bookmarkDetail(req: Request) async throws -> Response {
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
+
         let message = Self.message(for: req.query[String.self, at: "ok"])
         return try await render(req, "app-bookmark-detail", AppBookmarkDetailContext(
             title: bookmark.title,
@@ -418,11 +421,13 @@ struct AppWebController: RouteCollection {
 
     func editBookmarkForm(req: Request) async throws -> Response {
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
+
         return try await renderEdit(req, bookmark: bookmark, error: nil)
     }
 
     func updateBookmark(req: Request) async throws -> Response {
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
+
         let form = try req.content.decode(EditBookmarkForm.self)
 
         bookmark.title = form.title?.nonEmpty ?? bookmark.url
@@ -437,6 +442,7 @@ struct AppWebController: RouteCollection {
     func deleteBookmark(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
+
         try await bookmark.delete(on: req.db)
         user.bookmarkCount = max(user.bookmarkCount - 1, 0)
         try await user.save(on: req.db)
@@ -564,6 +570,7 @@ struct AppWebController: RouteCollection {
         guard form.newPassword.count >= 12 else {
             return try await settingsError("New password must be at least 12 characters.")
         }
+
         user.passwordHash = try await req.password.async.hash(form.newPassword)
         try await user.save(on: req.db)
         return req.redirect(to: "/app/settings?ok=password")
@@ -647,6 +654,7 @@ struct AppWebController: RouteCollection {
         guard let importer = ImportExportRegistry.shared.importer(for: form.format) else {
             return try await importError("Unknown import format.")
         }
+
         let data = Data(buffer: form.file.data)
         guard !data.isEmpty else {
             return try await importError("Please choose a file to import.")
@@ -748,6 +756,7 @@ struct AppWebController: RouteCollection {
 
     private func setArchived(_ req: Request, _ archived: Bool) async throws -> Response {
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
+
         bookmark.isArchived = archived
         try await bookmark.save(on: req.db)
         return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=\(archived ? "archived" : "unarchived")")
@@ -780,6 +789,7 @@ struct AppWebController: RouteCollection {
     private func loadBookmark(_ req: Request) async throws -> Bookmark? {
         let user = try req.auth.require(User.self)
         guard let id = req.parameters.get("bookmarkID", as: UUID.self) else { return nil }
+
         return try await Bookmark.query(on: req.db)
             .filter(\.$user.$id == user.requireID())
             .filter(\.$id == id)

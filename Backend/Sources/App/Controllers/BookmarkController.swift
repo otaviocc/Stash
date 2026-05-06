@@ -177,6 +177,7 @@ struct BookmarkController: RouteCollection {
         else {
             throw APIError.notFound
         }
+
         return bookmark
     }
 

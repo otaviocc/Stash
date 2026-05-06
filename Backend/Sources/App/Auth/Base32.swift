@@ -33,6 +33,7 @@ enum Base32 {
 
     static func encode(_ data: Data) -> String {
         guard !data.isEmpty else { return "" }
+
         var output = ""
         var buffer = 0
         var bitsLeft = 0
@@ -64,6 +65,7 @@ enum Base32 {
         var bytes = [UInt8]()
         for char in cleaned {
             guard let value = lookup[char] else { return nil }
+
             buffer = (buffer << 5) | value
             bitsLeft += 5
             if bitsLeft >= 8 {

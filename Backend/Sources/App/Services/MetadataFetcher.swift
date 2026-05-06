@@ -34,6 +34,7 @@ enum MetadataFetcher {
         guard let baseURL = URL(string: url) else {
             return MetadataResponse(title: nil, description: nil, faviconURL: nil)
         }
+
         do {
             var headers = HTTPHeaders()
             headers.add(name: .userAgent, value: "StashBot/1.0 (+https://github.com/otaviocc/stash)")
@@ -43,6 +44,7 @@ enum MetadataFetcher {
             guard response.status == .ok, var body = response.body else {
                 return MetadataResponse(title: nil, description: nil, faviconURL: defaultFavicon(for: baseURL))
             }
+
             let html = body.readString(length: body.readableBytes, encoding: .utf8) ?? ""
             return parse(html: html, baseURL: baseURL)
         } catch {
@@ -60,6 +62,7 @@ enum MetadataFetcher {
 
     static func defaultFavicon(for baseURL: URL) -> String? {
         guard let scheme = baseURL.scheme, let host = baseURL.host else { return nil }
+
         var origin = "\(scheme)://\(host)"
         if let port = baseURL.port { origin += ":\(port)" }
         return origin + "/favicon.ico"
@@ -95,6 +98,7 @@ enum MetadataFetcher {
         guard let href = (firstMatch(relFirst, in: html) ?? firstMatch(hrefFirst, in: html))?.nonEmpty else {
             return nil
         }
+
         let resolved = decodeEntities(href)
         return URL(string: resolved, relativeTo: baseURL)?.absoluteString ?? resolved
     }
@@ -106,10 +110,12 @@ enum MetadataFetcher {
             pattern: pattern,
             options: [.caseInsensitive, .dotMatchesLineSeparators]
         ) else { return nil }
+
         let range = NSRange(html.startIndex..., in: html)
         guard let match = regex.firstMatch(in: html, options: [], range: range),
               match.numberOfRanges > group,
               let captured = Range(match.range(at: group), in: html) else { return nil }
+
         return String(html[captured])
     }
 

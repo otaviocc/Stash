@@ -32,6 +32,7 @@ struct AdminMiddleware: AsyncMiddleware {
         guard user.role == .admin else {
             throw APIError.forbidden
         }
+
         return try await next.respond(to: request)
     }
 }

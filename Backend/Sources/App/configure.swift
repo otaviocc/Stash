@@ -103,6 +103,7 @@ public func configure(_ app: Application) async throws {
 /// Tests manage their own accounts, so seeding never runs against the in-memory test database.
 private func seedAdminIfNeeded(_ app: Application) async throws {
     guard app.environment != .testing else { return }
+
     try await AdminSeeder.seed(
         username: Environment.get("ADMIN_USERNAME"),
         password: Environment.get("ADMIN_PASSWORD"),

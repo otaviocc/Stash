@@ -135,6 +135,7 @@ extension Bookmark {
         else {
             throw APIError.validationFailed("A valid http(s) URL is required.")
         }
+
         return trimmed
     }
 
@@ -148,6 +149,7 @@ extension Bookmark {
                 .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
                 .replacingOccurrences(of: "|", with: "")
             guard !tag.isEmpty else { continue }
+
             if seen.insert(tag).inserted { result.append(tag) }
         }
         return result

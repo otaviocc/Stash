@@ -177,6 +177,7 @@ struct AdminWebController: RouteCollection {
         guard form.password.count >= 12 else {
             return try await formError("Password must be at least 12 characters.")
         }
+
         if try await User.query(on: req.db).filter(\.$username == username).first() != nil {
             return try await formError("That username is already taken.")
         }
@@ -201,12 +202,14 @@ struct AdminWebController: RouteCollection {
         guard let user = try await loadUser(req) else {
             return req.redirect(to: "/admin/users")
         }
+
         let message = Self.message(for: req.query[String.self, at: "ok"])
         return try await renderDetail(req, user: user, error: nil, message: message)
     }
 
     func suspend(req: Request) async throws -> Response {
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
+
         user.isActive = false
         try await user.save(on: req.db)
         try await user.$refreshTokens.query(on: req.db).delete()
@@ -215,6 +218,7 @@ struct AdminWebController: RouteCollection {
 
     func unsuspend(req: Request) async throws -> Response {
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
+
         user.isActive = true
         try await user.save(on: req.db)
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=unsuspended")
@@ -222,6 +226,7 @@ struct AdminWebController: RouteCollection {
 
     func resetPassword(req: Request) async throws -> Response {
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
+
         let form = try req.content.decode(ResetPasswordForm.self)
 
         guard form.password.count >= 12 else {
@@ -272,6 +277,7 @@ struct AdminWebController: RouteCollection {
 
     private func loadUser(_ req: Request) async throws -> User? {
         guard let id = req.parameters.get("userID", as: UUID.self) else { return nil }
+
         return try await User.find(id, on: req.db)
     }
 
