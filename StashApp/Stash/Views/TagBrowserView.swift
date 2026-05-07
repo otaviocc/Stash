@@ -37,8 +37,8 @@ struct TagBrowserView: View {
 
     // MARK: Computed Properties
 
-    private var nodes: [TagNode] {
-        environment.tagRepository.tagHierarchy
+    private var flatNodes: [FlatTagNode] {
+        environment.tagRepository.flattenedTagHierarchy
     }
 
     private var smartViews: [SmartView] {
@@ -92,13 +92,13 @@ struct TagBrowserView: View {
 
     @ViewBuilder
     private func makeTagsSection() -> some View {
-        if !nodes.isEmpty {
+        if !flatNodes.isEmpty {
             Section("Tags") {
-                OutlineGroup(nodes, children: \.children) { node in
+                ForEach(flatNodes) { item in
                     NavigationLink {
-                        BookmarkListView(tag: node.slug)
+                        BookmarkListView(tag: item.node.slug)
                     } label: {
-                        TagTreeLabel(node: node)
+                        TagTreeLabel(node: item.node, depth: item.depth)
                     }
                 }
             }

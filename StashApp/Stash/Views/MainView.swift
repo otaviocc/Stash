@@ -140,10 +140,10 @@ import SwiftUI
 
         private func makeTagsSection() -> some View {
             Section("Tags") {
-                OutlineGroup(environment.tagRepository.tagHierarchy, children: \.children) { node in
-                    TagTreeLabel(node: node)
-                        .tag(SidebarItem.tag(node.slug))
-                        .bookmarkTagDropDestination(slug: node.slug)
+                ForEach(environment.tagRepository.flattenedTagHierarchy) { item in
+                    TagTreeLabel(node: item.node, depth: item.depth)
+                        .tag(SidebarItem.tag(item.node.slug))
+                        .bookmarkTagDropDestination(slug: item.node.slug)
                 }
             }
         }

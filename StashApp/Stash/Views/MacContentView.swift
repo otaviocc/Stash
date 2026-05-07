@@ -104,10 +104,10 @@
 
         private func makeTagsSection() -> some View {
             Section("Tags") {
-                OutlineGroup(environment.tagRepository.tagHierarchy, children: \.children) { node in
-                    TagTreeLabel(node: node)
-                        .tag(MacSidebarItem.tag(node.slug))
-                        .bookmarkTagDropDestination(slug: node.slug)
+                ForEach(environment.tagRepository.flattenedTagHierarchy) { item in
+                    TagTreeLabel(node: item.node, depth: item.depth)
+                        .tag(MacSidebarItem.tag(item.node.slug))
+                        .bookmarkTagDropDestination(slug: item.node.slug)
                 }
             }
         }

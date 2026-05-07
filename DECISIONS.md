@@ -707,8 +707,9 @@ Glass adopted automatically by building against the 26 SDKs).
   bespoke inspector.** The brief sketched a three-column layout with an optional
   inspector. To honor "maximum code sharing with minimal `#if`",
   `MacContentView` is a `NavigationSplitView` whose sidebar (All Bookmarks,
-  Untagged, then the tag list — flat at M10, since made a collapsible hierarchical
-  tree at iPad parity; see "Native apps — hierarchical tag sidebar") drives the
+  Untagged, then the tag list — flat at M10, since made a hierarchical tree at iPad
+  parity, later flattened to an always-expanded indented tree; see "Native apps —
+  hierarchical tag sidebar" and "Flat-indented (web-parity) tag tree") drives the
   *same* shared `BookmarkListView` in the detail column inside a
   `NavigationStack`; selecting a bookmark pushes the shared `BookmarkDetailView`
   there, exactly as on iPad. The inspector panel (explicitly optional in the
@@ -2223,12 +2224,14 @@ the apps to web parity.
   `depth` for CSS indentation) is that `TagNode` is **genuinely nested**
   (`children: [TagNode]?`) — SwiftUI's `OutlineGroup` wants a recursive structure,
   not a pre-flattened one.
-- **✅ Collapsible, not flat-indented (the deliberate divergence from web).** The
-  web is always-expanded with `padding-left: calc(depth * 0.9rem)`; the apps use
+- **🔁 Collapsible, not flat-indented (the deliberate divergence from web).**
+  *Superseded by "Flat-indented (web-parity) tag tree".* The web is always-expanded with
+  `padding-left: calc(depth * 0.9rem)`; the apps originally used
   `OutlineGroup(children: \.children)` so parents expand/collapse with native
-  disclosure triangles. Chosen over a faithful flat-indent port because it reads as
-  native on both platforms and `OutlineGroup` composes with `List(selection:)`
-  (iPad/macOS) and with `NavigationLink` leaves (iPhone Tags tab) for free.
+  disclosure triangles. Chosen at the time over a faithful flat-indent port because it
+  read as native and composed with `List(selection:)` and `NavigationLink` leaves for
+  free — but collapsed-by-default meant the whole list was never visible and the
+  picker's search was undercut, so this was later reversed to the flat-indent web port.
 - **✅ `count: Int?`, nil for synthetic parents.** Modeling the hidden count as
   `nil` rather than `0 + "hide when zero"` both reads cleaner (`if let count`) and
   sidesteps SwiftLint's `empty_count` rule, which fires on any `.count > 0`.
@@ -3165,11 +3168,45 @@ Four no-behavior-change cleanups from the review.
   the bookmark rows, the detail view, and the add/edit tag summary (and thus the Share Extension)
   at once. `TagTreeLabel` is deliberately left showing the leaf segment (`node.label`) — the tree
   conveys hierarchy by nesting, so it needs no separator.
-- **Default-expanded tag trees were considered and deferred.** Making the four
-  `OutlineGroup(_:children:)` trees open expanded would require replacing `OutlineGroup` (which
-  exposes no default-expanded / expansion-binding option) with a recursive `DisclosureGroup`
-  wrapper across all four call sites — judged too much machinery for the payoff for now, so the
-  trees keep the native collapsed-by-default disclosure.
+- **🔁 Default-expanded tag trees were considered and deferred.** *Superseded by "Flat-indented
+  (web-parity) tag tree" below.* Making the four `OutlineGroup(_:children:)` trees open expanded
+  would require replacing `OutlineGroup` (which exposes no default-expanded / expansion-binding
+  option) with a recursive `DisclosureGroup` wrapper across all four call sites — judged too much
+  machinery for the payoff at the time. That recursive-`DisclosureGroup` path remains rejected; the
+  simpler flat-indent port below was taken instead.
+
+## Flat-indented (web-parity) tag tree (native apps)
+
+- **✅ The four tag trees are always-visible and indented, not collapsible.** The
+  `OutlineGroup(_:children:)` at all four call sites (iPad `MainView`, macOS `MacContentView`,
+  iPhone `TagBrowserView`, and the add/edit `TagPickerSheet`) was collapsed-by-default with no way
+  to open it — to browse or pick a tag you had to expand each parent, and the whole list was never
+  visible at once. Replaced with `ForEach(nodes.flattened())`, mirroring the always-expanded web
+  sidebar (which flattens to `[node, depth]` and indents with `padding-left`). **Why:** the entire
+  tag list is now visible without expanding; it is *less* machinery than `OutlineGroup` (a flat
+  `ForEach`, no recursion/disclosure state), not a workaround. The rejected alternative was the
+  recursive-`DisclosureGroup` wrapper noted just above.
+- **✅ Nested model kept; only rendering flattened.** `[Tag].hierarchy() -> [TagNode]` and the
+  picker's parent-visible `filtered` (both walk `TagNode.children`) are unchanged. A new
+  `[TagNode].flattened() -> [FlatTagNode]` (`Common/Models/Tag.swift`) produces a depth-tagged,
+  pre-order sequence; the shared `TagTreeLabel` gained a `depth` that applies `padding(.leading,
+  depth * indentPerLevel)`, so indentation lives in the one row used by all four sites (depth 0 = no
+  padding, so top-level tags stay aligned with the `Views` section).
+- **✅ Flattened form cached on `TagRepository`, like `tagHierarchy`.** The two sidebars and the Tags
+  tab read a cached `flattenedTagHierarchy` (computed in `derive()` beside `tagHierarchy`, cleared in
+  `reset()`) rather than calling `.flattened()` in the view body — same reasoning that cached
+  `tagHierarchy`: a sidebar body re-evaluates on every selection tap, and re-walking the tree each
+  time would defeat that cache. The picker keeps `filteredHierarchy.flattened()` inline (the filtered
+  set changes per keystroke, so there is nothing to cache); `flattened()` itself uses an append
+  accumulator rather than `[node] + recurse` to avoid per-level array reallocation.
+- **✅ Search composes instead of fighting.** In `TagPickerSheet`, `OutlineGroup` undercut its own
+  search: `filtered` narrowed the set but the collapsed-by-default tree still hid matching children
+  behind a triangle. Flattening the already-filtered `filteredHierarchy` renders every surviving
+  branch visible and indented, so matches appear immediately — no new search mechanism, just a flat
+  render of the existing filtered subset.
+- **✅ Verified.** Both platforms build (iOS Simulator + macOS), `swiftformat --lint` idempotent and
+  `swiftlint lint` 0 violations. Drag-to-tag (`bookmarkTagDropDestination`) stays per-row and the
+  Views-section sentinels are untouched.
 
 ## Drag-and-drop tagging (native apps)
 

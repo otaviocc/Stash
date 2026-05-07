@@ -74,6 +74,25 @@ struct TagNode: Identifiable, Hashable {
     }
 }
 
+// MARK: - FlatTagNode
+
+/// One row of the always-visible, indented tag tree: a tree node plus its nesting depth. The
+/// native sidebars and picker render the tree flattened and indented (mirroring the always-expanded
+/// web sidebar) rather than collapsed, so the whole list is visible without expanding nodes.
+struct FlatTagNode: Identifiable, Hashable {
+
+    // MARK: Properties
+
+    let node: TagNode
+    let depth: Int
+
+    // MARK: Computed Properties
+
+    var id: String {
+        node.slug
+    }
+}
+
 // MARK: - Tag normalization
 
 extension String {
@@ -146,5 +165,29 @@ extension [Tag] {
         }
 
         return build("")
+    }
+}
+
+// MARK: - Tag tree flattening
+
+extension [TagNode] {
+
+    /// Flattens the nested tag tree into a depth-tagged, pre-order sequence for the always-visible,
+    /// indentation-based sidebar (mirroring the always-expanded web sidebar). Each parent precedes
+    /// its children, and the sibling order produced by `hierarchy()` is preserved.
+    func flattened() -> [FlatTagNode] {
+        var result: [FlatTagNode] = []
+        func append(_ nodes: [TagNode], depth: Int) {
+            for node in nodes {
+                result.append(FlatTagNode(node: node, depth: depth))
+                if let children = node.children {
+                    append(children, depth: depth + 1)
+                }
+            }
+        }
+
+        append(self, depth: 0)
+
+        return result
     }
 }

@@ -130,8 +130,8 @@ struct TagPickerSheet: View {
                     makeCreateRow()
                 }
 
-                OutlineGroup(filteredHierarchy, children: \.children) { node in
-                    makeTagRow(node)
+                ForEach(filteredHierarchy.flattened()) { item in
+                    makeTagRow(item.node, depth: item.depth)
                 }
             }
         }
@@ -149,12 +149,12 @@ struct TagPickerSheet: View {
         .buttonStyle(.plain)
     }
 
-    private func makeTagRow(_ node: TagNode) -> some View {
+    private func makeTagRow(_ node: TagNode, depth: Int) -> some View {
         Button {
             toggle(node.slug)
         } label: {
             HStack {
-                TagTreeLabel(node: node)
+                TagTreeLabel(node: node, depth: depth)
 
                 if selectedTags.contains(node.slug) {
                     Image(systemName: "checkmark")

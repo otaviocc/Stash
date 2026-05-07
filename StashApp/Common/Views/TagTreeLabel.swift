@@ -28,9 +28,16 @@ import SwiftUI
 /// The count is hidden for synthetic parents (no count), matching the web sidebar.
 struct TagTreeLabel: View {
 
+    // MARK: Static Properties
+
+    /// Leading inset added per nesting level, conveying tag hierarchy by indentation (mirroring the
+    /// always-expanded web sidebar's per-depth padding).
+    private static let indentPerLevel: CGFloat = 16
+
     // MARK: Properties
 
     let node: TagNode
+    var depth = 0
 
     // MARK: Content Properties
 
@@ -45,6 +52,7 @@ struct TagTreeLabel: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .padding(.leading, CGFloat(depth) * Self.indentPerLevel)
     }
 }
 

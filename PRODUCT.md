@@ -1002,14 +1002,14 @@ Extension reuse (deviation from original memory-only access token spec).
 
 - **iPad:** `NavigationSplitView` — a sidebar with a **Views** section (All,
   Untagged, Today, This Week), an optional **Smart Views** section (one entry per
-  Smart View, shown only when the user has any), and a **collapsible hierarchical
-  tag tree** (`OutlineGroup`, mirroring the web sidebar), all driving the filtered
-  `BookmarkListView` in the detail column. **Drag a bookmark row onto a tag** in the
+  Smart View, shown only when the user has any), and an **always-expanded, indented
+  hierarchical tag tree** (a flattened `ForEach`, mirroring the web sidebar), all
+  driving the filtered `BookmarkListView` in the detail column. **Drag a bookmark row onto a tag** in the
   sidebar to add that tag to the bookmark (iPad and macOS only — where the sidebar
   and list share the screen; disabled on iPhone)
 - **iPhone:** `TabContainerView` — Bookmarks / Tags / Settings tabs, each in its
   own `NavigationStack`. The Tags tab shows the same Views, the optional Smart
-  Views section, and the collapsible tag tree, drilling into a filtered list. Tab
+  Views section, and the always-expanded indented tag tree, drilling into a filtered list. Tab
   bar uses iOS 26 floating Liquid Glass style; collapses on scroll via
   `tabBarMinimizeBehavior`
 - Bookmark rows use closure-based `NavigationLink` (not
@@ -1020,8 +1020,8 @@ Extension reuse (deviation from original memory-only access token spec).
 
 `RootView` → `SetupView` / `LoginView` / `TOTPView` / `RecoveryCodeView` /
 `MainView` → `BookmarkListView` / `BookmarkDetailView` (stub) /
-`AddBookmarkSheet` / `TagBrowserView` (Views + collapsible hierarchical tag tree
-via `OutlineGroup`, rows shared with the iPad/macOS sidebars as `TagTreeLabel`) /
+`AddBookmarkSheet` / `TagBrowserView` (Views + always-expanded indented hierarchical
+tag tree, rows shared with the iPad/macOS sidebars as `TagTreeLabel`) /
 `SettingsView` (server URL, account settings, Sign Out) → `AccountSettingsView`
 
 The tag tree is built client-side from the flat `GET /api/v1/tags` list by
@@ -1079,8 +1079,8 @@ building against the SDK; no explicit modifiers.
 - **Navigation:** `NavigationSplitView` with a sidebar that has a **Views**
   section (All Bookmarks, Untagged, Today, This Week), an optional **Smart Views**
   section (one entry per Smart View, shown only when the user has any), and a
-  **collapsible hierarchical tag tree** (`OutlineGroup`, mirroring the web
-  sidebar) driving the shared `BookmarkListView` in the detail column; selecting a
+  **always-expanded, indented hierarchical tag tree** (a flattened `ForEach`,
+  mirroring the web sidebar) driving the shared `BookmarkListView` in the detail column; selecting a
   bookmark pushes the shared `BookmarkDetailView`. The optional inspector panel
   was not built (the shared list is reused as-is for maximum code sharing).
   **Drag a bookmark row onto a tag** in the sidebar to add that tag to the bookmark

@@ -43,6 +43,11 @@ final class TagRepository: TagAutocompleting {
     /// only when `tags` changes, so observing view bodies never rebuild the tree on every redraw.
     private(set) var tagHierarchy: [TagNode] = []
 
+    /// The depth-tagged, flattened form of `tagHierarchy` consumed by the always-visible sidebars.
+    /// Cached for the same reason as `tagHierarchy` — so a sidebar body re-evaluation (e.g. every
+    /// selection tap) reads it instead of re-walking the tree.
+    private(set) var flattenedTagHierarchy: [FlatTagNode] = []
+
     private let localStore: LocalStore
     private var hasLoaded = false
 
@@ -74,6 +79,7 @@ final class TagRepository: TagAutocompleting {
         hasLoaded = false
         tags = []
         tagHierarchy = []
+        flattenedTagHierarchy = []
     }
 
     /// Returns cached tags matching the given prefix (case-insensitive, per-segment). Synchronous
@@ -94,6 +100,7 @@ final class TagRepository: TagAutocompleting {
             .map { Tag(name: $0.key, count: $0.value) }
             .sorted { $0.name < $1.name }
         tagHierarchy = tags.hierarchy()
+        flattenedTagHierarchy = tagHierarchy.flattened()
         hasLoaded = true
     }
 }
