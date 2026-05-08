@@ -127,11 +127,15 @@ struct TagPickerSheet: View {
         } else {
             List {
                 if showsCreateRow {
-                    makeCreateRow()
+                    Section {
+                        makeCreateRow()
+                    }
                 }
 
-                ForEach(filteredHierarchy.flattened()) { item in
-                    makeTagRow(item.node, depth: item.depth)
+                Section {
+                    ForEach(filteredHierarchy.flattened()) { item in
+                        makeTagRow(item.node, depth: item.depth)
+                    }
                 }
             }
         }
