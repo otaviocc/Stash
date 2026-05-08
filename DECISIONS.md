@@ -743,6 +743,35 @@ Glass adopted automatically by building against the 26 SDKs).
   shortcuts wired: ⌘N (new), ⌘E (edit), ⌘R (refresh), ⌘⌫ (delete the open
   bookmark, with confirmation). ⌘F is left to the system search field rather
   than custom-bound.
+- **✅ Esc dismisses the bookmark detail back to the list.** `BookmarkDetailView`
+  carries a hidden, zero-opacity `Button("Back")` bound to
+  `.keyboardShortcut(.cancelAction)` (Esc) that calls the same
+  `@Environment(\.dismiss)` the delete path already uses — reusing the exact ⌘F
+  "Find" idiom (`Button(…).keyboardShortcut(…).opacity(0).accessibilityHidden(true)`
+  in a `.background`). `.cancelAction` rather than a raw `.escape` so layering is
+  correct for free: when the edit sheet or the delete `confirmationDialog` is
+  presented, that foremost presentation captures the cancel action and Esc
+  dismisses *it* first; Esc only pops the detail when nothing is on top. The
+  binding is applied uniformly — not `#if os(macOS)`-guarded — because it is inert
+  where no Esc key physically exists: always live on macOS, and on iPadOS/iOS only
+  when a hardware keyboard is attached (no on-screen Esc). The detail is the same
+  shared view pushed onto a `NavigationStack` on every platform, so one `dismiss()`
+  pops it everywhere.
+
+  **Why a hidden button and not a "cleaner" API.** SwiftUI has no view-level "when
+  this view is visible, run a closure on Esc" binding — `.keyboardShortcut` is
+  deliberately *control*-bound, so to map a key to an action (rather than a visible
+  control) you attach it to a `Button` and then suppress that button
+  (`opacity(0)` keeps it in the hierarchy and interactive, unlike `.hidden()` /
+  conditional removal; `accessibilityHidden(true)` keeps the phantom out of
+  VoiceOver). It is a common, stable idiom (documented behavior only, no private
+  API) rather than a bespoke hack — and it is the same shape already used for ⌘F.
+  The two more "first-class" alternatives were both worse fits: `.onKeyPress(.escape)`
+  is *focus-scoped*, so inside a `Form` of focusable rows it fires only when focus
+  happens to sit in the subtree — unreliable, whereas `.keyboardShortcut` is active
+  for the whole key window; and `Commands`/`CommandMenu` is the idiomatic macOS home
+  for global shortcuts but is macOS-only and lives at app/scene altitude, wrong for
+  a per-view, cross-platform "pop the current detail" action.
 - **✅ macOS `Settings` scene with three tabs.** General (server URL field + sign
   out), Account (change password with the 12-char rule; 2FA enrol via a QR +
   manual secret + verify → one-time recovery codes, or disable with a current

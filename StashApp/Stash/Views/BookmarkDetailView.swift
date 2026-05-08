@@ -76,6 +76,9 @@ struct BookmarkDetailView: View {
         .formStyle(.grouped)
         .navigationTitle("Bookmark")
         .inlineNavigationTitleStyle()
+        .background {
+            makeEscapeShortcut()
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 makeEditButton()
@@ -209,6 +212,13 @@ struct BookmarkDetailView: View {
                 .foregroundStyle(.red)
                 .font(.footnote)
         }
+    }
+
+    private func makeEscapeShortcut() -> some View {
+        Button("Back") { dismiss() }
+            .keyboardShortcut(.cancelAction)
+            .opacity(0)
+            .accessibilityHidden(true)
     }
 
     private func makeEditButton() -> some View {
