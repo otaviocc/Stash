@@ -1088,8 +1088,9 @@ building against the SDK; no explicit modifiers.
 - **Window:** standard `WindowGroup`, 800×500 minimum
   (`windowResizability(.contentMinSize)`).
 - **Bookmarks:** shared list and rows; right-click context menu (Open in
-  Browser, Copy URL, Archive/Unarchive, Delete); add and edit via shared sheets;
-  delete with confirmation.
+  Browser, Copy URL, Copy Markdown URL, Share…, Archive/Unarchive, Delete); add
+  and edit via shared sheets; delete with confirmation. The detail view's actions
+  section carries the same Copy and Share… actions.
 - **Settings scene (⌘,):** General (server URL, sign out), Account (change
   password, 2FA enrol / disable), Smart Views (create / edit / delete — the shared
   `SmartViewManagementView`), Appearance (Light / Dark / Auto, stored in

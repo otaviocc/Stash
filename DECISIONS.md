@@ -737,9 +737,10 @@ Glass adopted automatically by building against the 26 SDKs).
   delete-with-confirmation) and is shared by the iOS push and the macOS detail
   column; `EditBookmarkView` (URL fixed, like the web edit form) is shared. A
   right-click/long-press context menu on each `BookmarkListView` row (Open in
-  Browser, Copy URL, Copy Markdown URL, Archive/Unarchive, Delete) is also
-  shared; the same copy actions (Copy URL + Copy Markdown URL — the latter emits
-  `[title](url)`) also live in `BookmarkDetailView`'s actions section. Keyboard
+  Browser, Copy URL, Copy Markdown URL, Share…, Archive/Unarchive, Delete) is also
+  shared; the same copy and share actions (Copy URL + Copy Markdown URL — the
+  latter emits `[title](url)` — and Share…) also live in `BookmarkDetailView`'s
+  actions section. Keyboard
   shortcuts wired: ⌘N (new), ⌘E (edit), ⌘R (refresh), ⌘⌫ (delete the open
   bookmark, with confirmation). ⌘F is left to the system search field rather
   than custom-bound.
@@ -3275,3 +3276,15 @@ Four no-behavior-change cleanups from the review.
   live in the **Views** section, not in `tagHierarchy`, so only real tag nodes get the drop
   modifier. Synthetic parent nodes (count `nil`, e.g. `swift`) carry a real `slug` and are valid
   targets. A drop highlights the targeted row with a translucent accent `listRowBackground`.
+
+## Native share (bookmark row menu + detail actions)
+
+- **✅ Native `ShareLink`, not a pasteboard-style `#if` helper.** A **Share…** entry was added to
+  both the bookmark row context menu (`makeRowContextMenu(for:)` in `BookmarkListView`) and the
+  detail actions section (`makeActionsSection()` in `BookmarkDetailView`), placed after the Copy
+  actions and before Archive so read/copy/share group above the mutating Archive/Delete actions.
+  It uses SwiftUI's `ShareLink(item: bookmark.url)`, which is cross-platform and presents the system
+  share sheet itself — no action closure and, unlike `copyToPasteboard(_:)`, no `#if` platform
+  branch. Shares the URL only (the request was "share the URL"); `bookmark.url` is already a typed
+  `URL`, exactly what `ShareLink(item:)` wants. In the detail it carries the sibling
+  `.formButtonRowStyle()`.

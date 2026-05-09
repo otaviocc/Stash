@@ -364,6 +364,10 @@ private struct BookmarkListContent: View {
             Label("Copy Markdown URL", systemImage: "doc.on.doc")
         }
 
+        ShareLink(item: bookmark.url) {
+            Label("Share…", systemImage: "square.and.arrow.up")
+        }
+
         Button {
             setArchived(bookmark, archived: !bookmark.isArchived)
         } label: {

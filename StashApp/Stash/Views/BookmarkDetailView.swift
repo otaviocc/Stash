@@ -181,6 +181,11 @@ struct BookmarkDetailView: View {
             }
             .formButtonRowStyle()
 
+            ShareLink(item: bookmark.url) {
+                Label("Share…", systemImage: "square.and.arrow.up")
+            }
+            .formButtonRowStyle()
+
             Button(action: toggleArchived) {
                 Label(
                     bookmark.isArchived ? "Unarchive" : "Archive",
