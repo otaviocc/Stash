@@ -97,7 +97,7 @@ There is exactly one admin. The admin account is seeded at first boot via enviro
 │                  PostgreSQL 16                        │
 └───────────────────────────────────────────────────────┘
 
-StashKit (Swift Package) — Planned
+StashKit (Swift Package) — ✅ Complete (M6)
   └── Shared by: iOS app, macOS app, CLI
   └── Contains: Models, APIClient
 ```
@@ -678,7 +678,7 @@ stash/
 │   ├── Package.swift
 │   ├── Dockerfile
 │   └── docker-compose.yml
-├── StashKit/                    # Planned
+├── StashKit/                    # ✅ Complete (M6)
 ├── StashApp/                    # Planned
 ├── stash-cli/                   # Planned
 ├── .github/workflows/           # Planned (M4.1)
@@ -782,7 +782,7 @@ Disabled rules: `file_length`, `type_body_length`, `function_body_length`, `firs
 | M4 | Backend: Docker image, docker-compose, first-boot seeding | ✅ Complete |
 | M5 | Web admin dashboard (Leaf) | ✅ Complete |
 | M11 | Web frontend: full CRUD, tag sidebar, tag browser (rename/delete), dark mode, import/export, danger zone | ✅ Complete |
-| M6 | StashKit: models + APIClient | Planned |
+| M6 | StashKit: models + APIClient | ✅ Complete |
 | M7 | CLI: all commands including import/export, tag rename/delete | Planned |
 | M8 | iOS app | Planned |
 | M9 | iOS Share Extension | Planned |

@@ -149,6 +149,79 @@ code, the deviations from the PRD, and the trade-offs accepted.
 
 ---
 
+## M6 — StashKit (shared Swift package)
+
+- **✅ Three-layer split: DTOs, request factories, thin client.** StashKit mirrors the
+  `MicroblogAPI` pattern on top of `MicroClient` (`from: "0.0.27"`). The package has exactly three
+  concerns and no more: `Codable`/`Sendable` **DTOs** matching the API response shapes, **request
+  factories** that return typed `NetworkRequest<RequestModel, ResponseModel>` values, and a thin
+  **`StashClient`** wrapping `MicroClient.NetworkClient`. Swift tools 6.0; platforms iOS 17 / macOS 14.
+- **✅ One factory enum per API domain, all `public static` methods.** `AuthRequestFactory`,
+  `BookmarkRequestFactory`, `TagRequestFactory`, `MetadataRequestFactory`, and `AdminRequestFactory`
+  each own the requests for one domain. Every path is prefixed `/api/v1/`. Factories are pure value
+  builders — they construct a `NetworkRequest` and nothing else (no I/O), so they're trivially
+  testable by inspecting the returned request's `path`/`method`/`queryItems`/`body`.
+- **✅ DTOs only; domain mapping deferred to the app's repository layer.** StashKit decodes the wire
+  shapes into DTOs (`BookmarkDTO`, `TagDTO`, `UserDTO`, `TokenPairDTO`, …) and stops there. Mapping
+  DTOs to domain models is the repository layer's job in the app (M8+); the package contains no
+  business logic and no domain types. `BookmarkPageDTO` is a `typealias` over a generic
+  `PageDTO<T>` matching Vapor's `Page<T>` envelope (`items` + `metadata { page, per, total }`).
+- **✅ `StashClient` is genuinely thin: configure, run, map errors.** It owns the
+  `NetworkConfiguration` (base URL + a single `BearerAuthorizationInterceptor`) and exposes one
+  `run(_:)` that delegates to `NetworkClient`. It does **no** token storage, **no** silent refresh,
+  and **no** business logic — refresh-on-401 is the repository layer's responsibility (PRD §8.1).
+  Its only value-add over `NetworkClient` is error mapping.
+- **✅ `tokenProvider` closure keeps the package storage-agnostic.** The public initializer takes
+  `tokenProvider: @escaping @Sendable () async -> String?`; the app supplies the current access
+  token from wherever it lives (Keychain in M8, in-memory in tests). StashKit defines **no**
+  `TokenStore` protocol and never touches the Keychain — storage is entirely the app's concern. A
+  second internal initializer accepts a `URLSessionProtocol` so tests inject a mock session.
+- **✅ Error mapping `NetworkClientError → StashAPIError` lives in `StashClient.run`.** On a
+  non-2xx response (`NetworkClientError.unacceptableStatusCode`), the client decodes the standard
+  `{ error, code, message, existingID? }` envelope into `APIErrorDTO` and switches on `code` to a
+  typed `StashAPIError` case (e.g. `duplicate_url` + `existingID` → `.duplicateURL(existingID:)`,
+  `internal_error`/any 5xx → `.serverError`). Undecodable bodies and unrecognized codes fall back to
+  `.serverError` (5xx) or `.unknown(error)`. The `cannot_delete_self` backend code has no dedicated
+  `StashAPIError` case (it's a UI-level guard) and maps to `.unknown`.
+- **✅ `.iso8601` date strategy matches the backend.** Vapor's default `ContentConfiguration` uses
+  `JSONEncoder/Decoder.custom(dates: .iso8601)`, so `StashClient` configures its decoder/encoder
+  with `.iso8601` (no fractional seconds) to round-trip `createdAt`/`updatedAt` correctly. Verified
+  against Vapor's source rather than assumed.
+- **⚠️ Hierarchical tag deletion is limited by `MicroClient`'s path model.** `MicroClient` builds
+  URLs via `URL.appendPathComponent`, which (a) treats `/` as a separator and (b) re-encodes a
+  literal `%` (so a pre-encoded `%2F` becomes `%252F`). A single path segment therefore cannot carry
+  an encoded slash. `TagRequestFactory.makeDeleteRequest(tag:)` passes the raw tag and lets
+  `appendPathComponent` percent-encode it — correct for flat tags and for deleting a parent subtree
+  (`swift` removes `swift` and `swift/*`), but it cannot target a specific hierarchical child like
+  `swift/vapor` over this dependency. Accepted for now; revisit if child-specific deletion is needed
+  from a client.
+- **⚠️ `auth/totp/disable` and `admin/users/:id/reset-totp` factories precede their JSON API.**
+  These endpoints currently exist only on the web controllers (M11 / post-M11); the JSON API hasn't
+  added them yet. StashKit defines `makeTOTPDisableRequest`/`makeResetTOTPRequest` at the PRD §9.2/§9.6
+  paths now (the task's factory list mandates them) so the client is ready when the backend exposes
+  them.
+- **✅ Tests: mock `URLSession`, Given/When/Then, "It should …".** `StashKitTests` injects a
+  `MockURLSession` (conforming to `MicroClient.URLSessionProtocol`) that records the last request and
+  replays a canned status + body. Coverage: `BookmarkListQuery` → query items incl. the
+  `__untagged__` sentinel; auth/bookmark factory paths, methods, and body encoding; and
+  `StashClient.run` for success decoding, the `duplicate_url` → `.duplicateURL(existingID:)` mapping,
+  and every enumerated error code → its `StashAPIError` case (parameterized test). 13 tests pass.
+- **⚠️ Depends on `MicroClient`, not "Foundation + URLSession only" (§15).** §15 specifies StashKit
+  has no external dependencies. M6 instead builds on `MicroClient` (the typed `NetworkRequest` /
+  `NetworkClient` / interceptor stack, mirroring `MicroblogAPI`), which is the agreed architecture
+  for this milestone. `MicroClient` is itself Foundation/`URLSession`-only, so the data-ownership
+  spirit holds.
+- **⚠️ The §15 in-memory tag cache (`autocompleteTags(prefix:)`) is not in StashKit.** That cache is
+  a stateful, session-scoped concern that belongs to the app's repository layer (which also owns
+  refresh and storage), not the stateless request/DTO package. `TagRequestFactory.makeListRequest()`
+  provides the data; caching/invalidation is layered on top in the app.
+- **✅ Lint/format config copied from `Backend`.** The same `.swiftformat` and `.swiftlint.yml`
+  (MIT header, type-mode organization, the Fluent-false-positive rule exclusions, idiomatic
+  short-name allowances) apply to StashKit. `swiftformat --lint` is idempotent and `swiftlint lint`
+  reports 0 violations.
+
+---
+
 ## M11 — User-facing web frontend
 
 - **✅ Second session cookie, shared store.** The frontend uses its own `stash_session` cookie
