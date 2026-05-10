@@ -1039,10 +1039,24 @@ endpoint (`GET /api/v1/favicons/:domain`, §9.8) keyed by the bookmark's domain 
 no longer Google directly. A 404 (uncached domain) falls back to the placeholder.
 
 `BookmarkRowView` shows first three tags + `+N` overflow (not a scrolling row —
-avoids gesture conflict in lists).
+avoids gesture conflict in lists). Tags render as `TagPill`s that display a
+hierarchical tag as `swift › server` (middot `›`, U+2023), mirroring the web —
+presentation only; the stored tag and `tag=` filter keep the raw `swift/server`
+slug.
 
 `AddBookmarkSheet` — paste button (`PasteButton`, no `UIKit`), metadata fetch,
-comma-separated tag input with `TagSuggestionView` autocomplete chips.
+and tag editing via `TagPickerSheet`. The form shows a read-only tag summary
+(capsule `TagPill`s, or a muted "No tags") plus an "Add Tags" button that
+presents `TagPickerSheet` — a sheet over the always-expanded, indented
+hierarchical tag tree with single-tap toggle and search-as-create (the search
+field doubles as new-tag input: when the normalized query matches no existing
+tag a `+ Create "…"` row adds it without closing the sheet). `TagSuggestionView`
+autocomplete chips are retained only for `SmartViewFormView`'s single-tag
+condition field.
+
+Each bookmark row carries a context menu (and the detail view an actions
+section) with a native **Share…** (`ShareLink(item: bookmark.url)`, sharing the
+URL) placed after the Copy actions and before Archive.
 
 Context-aware empty states: `ContentUnavailableView.search` for active query,
 tag-specific, archived-specific, first-run.
@@ -1090,7 +1104,13 @@ building against the SDK; no explicit modifiers.
 - **Bookmarks:** shared list and rows; right-click context menu (Open in
   Browser, Copy URL, Copy Markdown URL, Share…, Archive/Unarchive, Delete); add
   and edit via shared sheets; delete with confirmation. The detail view's actions
-  section carries the same Copy and Share… actions.
+  section carries the same Copy and Share… actions (Share… is a native
+  `ShareLink` sharing the bookmark URL, placed after Copy and before Archive).
+  Tags render as `TagPill`s showing `swift › server` (middot `›`, U+2023),
+  mirroring the web; the stored tag keeps the raw slash slug. Tag editing on the
+  add/edit sheets uses the shared `TagPickerSheet` (read-only `TagPill` summary +
+  "Add Tags" button → the always-expanded tag tree with single-tap toggle and
+  search-as-create).
 - **Settings scene (⌘,):** General (server URL, sign out), Account (change
   password, 2FA enrol / disable), Smart Views (create / edit / delete — the shared
   `SmartViewManagementView`), Appearance (Light / Dark / Auto, stored in
@@ -1418,6 +1438,7 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 | M12.1 | Smart Views on the CLI and native apps (consumption-only: list + run) | ✅ Complete |
 | M12.2 | Smart View create / edit / delete in the iOS & macOS apps (Settings) | ✅ Complete |
 | M13 | Offline sync (iOS & macOS): SwiftData local store, `SyncEngine` (pull/push, last-write-wins), optimistic writes, connectivity + background refresh, sync-status UI | ✅ Complete |
+| M14 | Native tag picker (iOS & macOS): `TagPickerSheet` with always-expanded indented tag tree, single-tap toggle, search-as-create; flat-indented (web-parity) tag trees; drag-a-bookmark-onto-a-tag tagging (iPad & macOS); `swift › server` tag pills; native Share… via `ShareLink` | ✅ Complete |
 
 ---
 
