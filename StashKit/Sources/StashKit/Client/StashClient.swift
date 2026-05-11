@@ -68,7 +68,11 @@ public final class StashClient: Sendable {
             defaultDecoder: decoder,
             defaultEncoder: encoder,
             baseURL: baseURL,
-            interceptors: [BearerAuthorizationInterceptor(tokenProvider: tokenProvider)]
+            interceptors: [
+                BearerAuthorizationInterceptor(tokenProvider: tokenProvider),
+                ContentTypeInterceptor(),
+                AcceptHeaderInterceptor()
+            ]
         )
 
         client = NetworkClient(configuration: configuration)

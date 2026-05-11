@@ -68,7 +68,7 @@ There is exactly one admin. The admin account is seeded at first boot via enviro
 | Web frontend (user-facing) | Server-rendered (Leaf) | ✅ Complete |
 | iOS | Native SwiftUI app + Share Extension | Planned (M8, M9) |
 | macOS | Native SwiftUI app + Share Extension | Planned (M10) |
-| CLI (`stash`) | Swift CLI tool | Planned (M7) |
+| CLI (`stash`) | Swift CLI tool | ✅ Complete |
 
 ---
 
@@ -680,7 +680,7 @@ stash/
 │   └── docker-compose.yml
 ├── StashKit/                    # ✅ Complete (M6)
 ├── StashApp/                    # Planned
-├── stash-cli/                   # Planned
+├── CLI/                         # ✅ Complete (M7)
 ├── .github/workflows/           # Planned (M4.1)
 ├── PRODUCT.md
 └── DECISIONS.md
@@ -783,7 +783,7 @@ Disabled rules: `file_length`, `type_body_length`, `function_body_length`, `firs
 | M5 | Web admin dashboard (Leaf) | ✅ Complete |
 | M11 | Web frontend: full CRUD, tag sidebar, tag browser (rename/delete), dark mode, import/export, danger zone | ✅ Complete |
 | M6 | StashKit: models + APIClient | ✅ Complete |
-| M7 | CLI: all commands including import/export, tag rename/delete | Planned |
+| M7 | CLI: all commands including import/export, tag rename/delete | ✅ Complete |
 | M8 | iOS app | Planned |
 | M9 | iOS Share Extension | Planned |
 | M10 | macOS app + Share Extension | Planned |

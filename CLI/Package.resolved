@@ -1,0 +1,24 @@
+{
+  "originHash" : "68496931ac2625c0780f22b520898b32b6a9fb3a6aed91cc52b2eefc498a278b",
+  "pins" : [
+    {
+      "identity" : "microclient",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/otaviocc/MicroClient",
+      "state" : {
+        "revision" : "794c206d1bf811f085f3db08901dead0554437f7",
+        "version" : "0.0.27"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser",
+      "state" : {
+        "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
+        "version" : "1.8.2"
+      }
+    }
+  ],
+  "version" : 3
+}
