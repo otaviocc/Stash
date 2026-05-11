@@ -35,14 +35,24 @@
                         <option value="descriptionContains"#if(c.type == "descriptionContains"): selected#endif>Description contains</option>
                         <option value="createdBefore"#if(c.type == "createdBefore"): selected#endif>Created before</option>
                         <option value="createdAfter"#if(c.type == "createdAfter"): selected#endif>Created after</option>
+                        <option value="olderThan"#if(c.type == "olderThan"): selected#endif>Older than…</option>
+                        <option value="newerThan"#if(c.type == "newerThan"): selected#endif>Newer than…</option>
                         <option value="isArchived"#if(c.type == "isArchived"): selected#endif>Is archived</option>
                         <option value="hasTags"#if(c.type == "hasTags"): selected#endif>Has tags</option>
                     </select>
-                    <input name="conditionValue[]" class="cond-value-text" type="#if(c.isDate):date#else:text#endif" value="#(c.textValue)" autocomplete="off"#if(c.isBool): disabled style="display:none"#endif>
-                    <select name="conditionValue[]" class="cond-value-bool"#if(c.isText): disabled style="display:none"#endif>
+                    <input name="conditionValue[]" class="cond-value-text" type="#(c.textInputType)" value="#(c.textValue)" autocomplete="off"#if(c.isBool): disabled style="display:none"#endif>
+                    <select name="conditionValue[]" class="cond-value-bool"#if(c.hideBool): disabled style="display:none"#endif>
                         <option value="true"#if(c.boolValue == "true"): selected#endif>Yes</option>
                         <option value="false"#if(c.boolValue == "false"): selected#endif>No</option>
                     </select>
+                    <span class="cond-value-duration"#if(c.hideDuration): style="display:none"#endif>
+                        <input class="cond-duration-num" type="number" min="1" step="1" value="#(c.durationAmount)" aria-label="Amount">
+                        <select class="cond-duration-unit" aria-label="Unit">
+                            <option value="d"#if(c.durationUnit == "d"): selected#endif>Days</option>
+                            <option value="m"#if(c.durationUnit == "m"): selected#endif>Months</option>
+                            <option value="y"#if(c.durationUnit == "y"): selected#endif>Years</option>
+                        </select>
+                    </span>
                     <button type="button" class="secondary cond-remove" aria-label="Remove condition">×</button>
                 </div>
                 #endfor
@@ -65,6 +75,8 @@
                 <option value="descriptionContains">Description contains</option>
                 <option value="createdBefore">Created before</option>
                 <option value="createdAfter">Created after</option>
+                <option value="olderThan">Older than…</option>
+                <option value="newerThan">Newer than…</option>
                 <option value="isArchived">Is archived</option>
                 <option value="hasTags">Has tags</option>
             </select>
@@ -73,6 +85,14 @@
                 <option value="true">Yes</option>
                 <option value="false">No</option>
             </select>
+            <span class="cond-value-duration" style="display:none">
+                <input class="cond-duration-num" type="number" min="1" step="1" value="30" aria-label="Amount">
+                <select class="cond-duration-unit" aria-label="Unit">
+                    <option value="d">Days</option>
+                    <option value="m">Months</option>
+                    <option value="y">Years</option>
+                </select>
+            </span>
             <button type="button" class="secondary cond-remove" aria-label="Remove condition">×</button>
         </div>
     </template>

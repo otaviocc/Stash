@@ -55,14 +55,7 @@ struct AppWebController: RouteCollection {
     // MARK: Static Computed Properties
 
     static var defaultField: SmartViewConditionField {
-        SmartViewConditionField(
-            type: "tag",
-            textValue: "",
-            boolValue: "true",
-            isBool: false,
-            isText: true,
-            isDate: false
-        )
+        field(type: "tag", rawValue: "")
     }
 
     // MARK: Static Functions
@@ -172,9 +165,25 @@ struct AppWebController: RouteCollection {
         case let .descriptionContains(value): "Description contains “\(value)”"
         case let .createdBefore(date): "Created before \(SmartViewCondition.iso8601.string(from: date).prefix(10))"
         case let .createdAfter(date): "Created after \(SmartViewCondition.iso8601.string(from: date).prefix(10))"
+        case let .olderThan(value): "Older than \(durationPhrase(value))"
+        case let .newerThan(value): "Newer than \(durationPhrase(value))"
         case let .isArchived(value): "Archived: \(value ? "Yes" : "No")"
         case let .hasTags(value): "Has tags: \(value ? "Yes" : "No")"
         }
+    }
+
+    /// Renders a compact duration string (`"30d"`) as a readable phrase (`"30 days"`), falling back to
+    /// the raw value if it can't be parsed.
+    static func durationPhrase(_ value: String) -> String {
+        guard let duration = SmartViewDuration(string: value) else { return value }
+
+        let unit: String = switch duration.unit {
+        case .days: duration.value == 1 ? "day" : "days"
+        case .months: duration.value == 1 ? "month" : "months"
+        case .years: duration.value == 1 ? "year" : "years"
+        }
+
+        return "\(duration.value) \(unit)"
     }
 
     static func normalizedConditionValue(type: String, value: String) -> String {
@@ -231,15 +240,31 @@ struct AppWebController: RouteCollection {
     static func field(type: String, rawValue: String) -> SmartViewConditionField {
         let isBool = type == "isArchived" || type == "hasTags"
         let isDate = type == "createdBefore" || type == "createdAfter"
+        let isDuration = type == "olderThan" || type == "newerThan"
         let boolValue = (isBool && rawValue.lowercased() == "false") ? "false" : "true"
+        let duration = isDuration ? SmartViewDuration(string: rawValue) : nil
+        let durationAmount = duration.map { String($0.value) } ?? "30"
+        let durationUnit = duration?.unit.rawValue ?? "d"
+
+        let textInputType: String = isDuration ? "hidden" : (isDate ? "date" : "text")
+        let textValue: String = if isBool {
+            ""
+        } else if isDuration {
+            durationAmount + durationUnit
+        } else {
+            rawValue
+        }
 
         return SmartViewConditionField(
             type: type,
-            textValue: isBool ? "" : rawValue,
+            textValue: textValue,
             boolValue: boolValue,
+            durationAmount: durationAmount,
+            durationUnit: durationUnit,
+            textInputType: textInputType,
             isBool: isBool,
-            isText: !isBool,
-            isDate: isDate
+            hideBool: !isBool,
+            hideDuration: !isDuration
         )
     }
 

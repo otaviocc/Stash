@@ -57,15 +57,23 @@ struct AppSmartViewsContext: Content {
 
 // MARK: - SmartViewConditionField
 
-/// One condition row in the Smart View create/edit form, expanded for HTML rendering.
+/// One condition row in the Smart View create/edit form, expanded for HTML rendering. A row renders
+/// exactly one value editor, selected by the flags: a text/date `<input>` (carrier named
+/// `conditionValue[]`, its `textInputType` being `text`, `date`, or `hidden`), a Yes/No `<select>`,
+/// or the compound duration control (`durationAmount` number + `durationUnit` selector, which a script
+/// assembles into the hidden text carrier). The `hide…` flags are positive single-branch tests so the
+/// Leaf template avoids the empty-then-branch gotcha (PRD §21).
 struct SmartViewConditionField: Content {
 
     let type: String
     let textValue: String
     let boolValue: String
+    let durationAmount: String
+    let durationUnit: String
+    let textInputType: String
     let isBool: Bool
-    let isText: Bool
-    let isDate: Bool
+    let hideBool: Bool
+    let hideDuration: Bool
 }
 
 // MARK: - AppSmartViewFormContext

@@ -157,6 +157,14 @@ enum BookmarkFilter {
             guard let date = parseDate(condition.value) else { return false }
 
             return bookmark.createdAt > date
+        case .olderThan:
+            guard let cutoff = SmartViewDuration(string: condition.value)?.cutoff() else { return false }
+
+            return bookmark.createdAt < cutoff
+        case .newerThan:
+            guard let cutoff = SmartViewDuration(string: condition.value)?.cutoff() else { return false }
+
+            return bookmark.createdAt > cutoff
         case .isArchived:
             return bookmark.isArchived == (condition.value == "true")
         case .hasTags:

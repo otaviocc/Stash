@@ -88,6 +88,7 @@ enum SmartViewConditionValueKind {
     case tag
     case date
     case boolean
+    case duration
 }
 
 // MARK: - SmartViewConditionType
@@ -102,6 +103,8 @@ enum SmartViewConditionType: String, CaseIterable, Identifiable {
     case descriptionContains
     case createdBefore
     case createdAfter
+    case olderThan
+    case newerThan
     case isArchived
     case hasTags
 
@@ -119,6 +122,8 @@ enum SmartViewConditionType: String, CaseIterable, Identifiable {
         case .descriptionContains: "Description contains"
         case .createdBefore: "Created before"
         case .createdAfter: "Created after"
+        case .olderThan: "Older than"
+        case .newerThan: "Newer than"
         case .isArchived: "Is archived"
         case .hasTags: "Has tags"
         }
@@ -129,8 +134,90 @@ enum SmartViewConditionType: String, CaseIterable, Identifiable {
         case .tag: .tag
         case .urlContains, .titleContains, .descriptionContains: .text
         case .createdBefore, .createdAfter: .date
+        case .olderThan, .newerThan: .duration
         case .isArchived, .hasTags: .boolean
         }
+    }
+}
+
+// MARK: - DurationUnit
+
+/// The unit suffix of a relative-age duration value (`olderThan` / `newerThan`): `d` days, `m`
+/// months, or `y` years. The `rawValue` is the wire suffix; `label` is the human-facing picker title.
+enum DurationUnit: String, CaseIterable, Identifiable {
+
+    case days = "d"
+    case months = "m"
+    case years = "y"
+
+    // MARK: Computed Properties
+
+    var id: String {
+        rawValue
+    }
+
+    var label: String {
+        switch self {
+        case .days: "Days"
+        case .months: "Months"
+        case .years: "Years"
+        }
+    }
+}
+
+// MARK: - SmartViewDuration
+
+/// A relative-age offset parsed from a compact duration string — a positive integer followed by a
+/// `d`/`m`/`y` unit suffix (`"30d"`, `"3m"`, `"1y"`). Mirrors the backend's `SmartViewDuration` so the
+/// offline Smart View evaluation in `BookmarkFilter` produces the same cutoff. The cutoff is computed
+/// from `Date()` at evaluation time using `Calendar` arithmetic, so months and years are calendar
+/// units, not fixed-second multiples.
+struct SmartViewDuration: Equatable {
+
+    // MARK: Properties
+
+    let amount: Int
+    let unit: DurationUnit
+
+    // MARK: Computed Properties
+
+    /// The canonical wire string for this duration (`"30d"`).
+    var wireValue: String {
+        "\(amount)\(unit.rawValue)"
+    }
+
+    // MARK: Lifecycle
+
+    init(amount: Int, unit: DurationUnit) {
+        self.amount = amount
+        self.unit = unit
+    }
+
+    init?(string: String) {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let suffix = trimmed.last, let unit = DurationUnit(rawValue: String(suffix)) else {
+            return nil
+        }
+        guard let amount = Int(trimmed.dropLast()), amount >= 1 else {
+            return nil
+        }
+
+        self.amount = amount
+        self.unit = unit
+    }
+
+    // MARK: Functions
+
+    func dateComponents() -> DateComponents {
+        switch unit {
+        case .days: DateComponents(day: -amount)
+        case .months: DateComponents(month: -amount)
+        case .years: DateComponents(year: -amount)
+        }
+    }
+
+    func cutoff(from now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        calendar.date(byAdding: dateComponents(), to: now)
     }
 }
 

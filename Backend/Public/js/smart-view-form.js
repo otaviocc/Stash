@@ -7,15 +7,31 @@ document.addEventListener('DOMContentLoaded', function () {
     var knownTags = [];
     try { knownTags = JSON.parse(list.getAttribute('data-known-tags')) || []; } catch (e) {}
 
+    function assembleDuration(row) {
+        var text = row.querySelector('.cond-value-text');
+        var num = row.querySelector('.cond-duration-num');
+        var unit = row.querySelector('.cond-duration-unit');
+        var amount = parseInt(num.value, 10);
+        if (isNaN(amount) || amount < 1) { amount = 1; num.value = '1'; }
+        text.value = amount + unit.value;
+    }
+
     function syncRow(row) {
         var type = row.querySelector('.cond-type').value;
         var text = row.querySelector('.cond-value-text');
         var bool = row.querySelector('.cond-value-bool');
-        if (type === 'isArchived' || type === 'hasTags') {
+        var duration = row.querySelector('.cond-value-duration');
+        var isBool = (type === 'isArchived' || type === 'hasTags');
+        var isDuration = (type === 'olderThan' || type === 'newerThan');
+        bool.disabled = !isBool; bool.style.display = isBool ? '' : 'none';
+        duration.style.display = isDuration ? '' : 'none';
+        if (isBool) {
             text.disabled = true; text.style.display = 'none';
-            bool.disabled = false; bool.style.display = '';
+        } else if (isDuration) {
+            text.disabled = false; text.style.display = 'none';
+            text.type = 'hidden';
+            assembleDuration(row);
         } else {
-            bool.disabled = true; bool.style.display = 'none';
             text.disabled = false; text.style.display = '';
             text.type = (type === 'createdBefore' || type === 'createdAfter') ? 'date' : 'text';
         }
@@ -30,7 +46,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function wireRow(row) {
         var typeSelect = row.querySelector('.cond-type');
-        typeSelect.addEventListener('change', function () { syncRow(row); });
+        typeSelect.addEventListener('change', function () {
+            row.querySelector('.cond-value-text').value = '';
+            syncRow(row);
+        });
+        var num = row.querySelector('.cond-duration-num');
+        var unit = row.querySelector('.cond-duration-unit');
+        if (num) num.addEventListener('input', function () { assembleDuration(row); });
+        if (unit) unit.addEventListener('change', function () { assembleDuration(row); });
         row.querySelector('.cond-remove').addEventListener('click', function () {
             row.remove();
             updateRemoveButtons();

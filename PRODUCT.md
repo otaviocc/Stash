@@ -257,6 +257,8 @@ Each condition is a `{ type, value }` object (all values strings; dates ISO-8601
 | `descriptionContains` | `description` contains `value` (case-insensitive) |
 | `createdBefore` | `createdAt` is before the ISO-8601 date |
 | `createdAfter` | `createdAt` is after the ISO-8601 date |
+| `olderThan` | `createdAt` is more than N days/months/years ago (relative to now) |
+| `newerThan` | `createdAt` is within the last N days/months/years (relative to now) |
 | `isArchived` | `isArchived` equals `true`/`false` |
 | `hasTags` | `tagsSearch` is non-empty (`true`) or empty (`false`) — i.e. the bookmark has any tags |
 
@@ -266,6 +268,14 @@ as full-text search. Multiple conditions of the same type are allowed (with
 `any`, either tag matches). The non-archived default is applied as an outer AND in
 both modes — results are limited to non-archived bookmarks unless an `isArchived`
 condition is present.
+
+The relative-age conditions `olderThan` / `newerThan` carry a compact **duration
+string** as their value — a positive integer followed by a unit suffix: `d` (days),
+`m` (months), or `y` (years), e.g. `"30d"`, `"3m"`, `"1y"`. The cutoff is computed
+from the current time **at query execution, not at Smart View creation** (so "older
+than 6 months" stays current as time passes), using calendar arithmetic — `"1m"` is
+one calendar month, not a fixed 30 days. They join, and do not replace, the absolute
+`createdBefore` / `createdAfter` date conditions.
 
 **Client support.** The web frontend and the native iOS/macOS apps create, edit,
 delete, and browse Smart Views. The apps surface them as a browse-only Smart Views

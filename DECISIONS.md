@@ -3288,3 +3288,40 @@ Four no-behavior-change cleanups from the review.
   branch. Shares the URL only (the request was "share the URL"); `bookmark.url` is already a typed
   `URL`, exactly what `ShareLink(item:)` wants. In the detail it carries the sibling
   `.formButtonRowStyle()`.
+
+## Smart View relative date conditions (olderThan / newerThan)
+
+- **✅ Two new condition types — `olderThan` / `newerThan` — filter by age relative to now.** They
+  join the existing absolute `createdBefore` / `createdAfter` conditions without replacing or altering
+  them (§7.7). `olderThan` matches `createdAt < now - offset`; `newerThan` matches `createdAt > now -
+  offset`. Added to the backend `SmartViewCondition` enum, the web condition builder, the native
+  `SmartViewFormView`, and the offline `BookmarkFilter`.
+- **✅ Value is a compact duration string (`Nd` / `Nm` / `Ny`, N ≥ 1).** A positive integer with a
+  unit suffix — `d` days, `m` months, `y` years (`"30d"`, `"3m"`, `"1y"`). `"0d"`, `"-7d"`, `"1w"`,
+  `"abc"`, `""`, and `"30"` (no unit) are invalid and rejected with `422 validation_failed`, the same
+  way a malformed ISO-8601 date is for the absolute conditions. A shared `SmartViewDuration` value
+  type owns the parse-or-`nil` logic and the cutoff calculation; it is duplicated deliberately on the
+  backend (`Sources/App/Models/SmartView.swift`) and in the native `Common/Models/SmartView.swift`,
+  the same DTO-vs-domain split used elsewhere (StashKit stays a thin wire layer).
+- **✅ Evaluated at query time against `Date()`, with `Calendar` arithmetic.** The cutoff is computed
+  when the query runs (server time on the backend via `Calendar.current`, device time in
+  `BookmarkFilter`), never frozen at Smart View creation — so "older than 6 months" stays current as
+  time passes. Months and years are **calendar** units (`Calendar.date(byAdding:)`), not fixed-second
+  multiples, so `"1m"` is one calendar month rather than 30 days. Same server-timezone trade-off
+  already accepted for the `__today__` / `__this_week__` sentinels.
+- **✅ Code-only — no schema migration.** The `conditions` JSON column already stores arbitrary
+  `{ type, value }` objects, so a new type costs nothing at the storage layer (the precedent set when
+  `hasTags` was added). StashKit's `SmartViewConditionDTO` is unchanged beyond a doc comment — `type`
+  and `value` are already generic strings.
+- **✅ Distinct value editors per surface, both assembling the wire string.** The web condition
+  builder renders a compound control (a number `<input>` + a Days/Months/Years `<select>`) that a
+  small vanilla-JS handler assembles into the hidden `conditionValue[]` carrier on change; the native
+  form renders an `Int`-bound `TextField` (number-pad on iOS, clamped to ≥ 1) plus a segmented unit
+  `Picker`, serialized through `SmartViewDuration.wireValue`. The management table's condition summary
+  renders the duration readably ("older than 30 days") rather than the raw `30d`.
+- **✅ The web form clears a row's value carrier on type change, not on render.** Because the shared
+  text `<input>` doubles as the hidden carrier for the assembled duration, switching a row's type
+  (e.g. `olderThan` → `titleContains`) would otherwise leave the stale `"30d"` visible in the now-text
+  field. The reset lives in the type `<select>`'s `change` handler (fires only on user interaction),
+  never in `syncRow` (which also runs on page load) — so editing an existing Smart View still shows
+  its saved values, while a switch to a duration type is immediately repopulated by `assembleDuration`.

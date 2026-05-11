@@ -252,12 +252,14 @@ private struct ConditionRow: Identifiable {
     var text = ""
     var date = Date()
     var bool = false
+    var duration = DurationValue()
 
     // MARK: Computed Properties
 
     var isComplete: Bool {
         switch type.valueKind {
         case .text, .tag: !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .duration: duration.amount >= 1
         case .date, .boolean: true
         }
     }
@@ -266,6 +268,7 @@ private struct ConditionRow: Identifiable {
         let value: String = switch type.valueKind {
         case .text, .tag: text.trimmingCharacters(in: .whitespacesAndNewlines)
         case .date: SmartViewConditionDate.wireValue(from: date)
+        case .duration: SmartViewDuration(amount: duration.amount, unit: duration.unit).wireValue
         case .boolean: bool ? "true" : "false"
         }
 
@@ -284,10 +287,24 @@ private struct ConditionRow: Identifiable {
             text = condition.value
         case .date:
             date = SmartViewConditionDate.date(from: condition.value)
+        case .duration:
+            if let parsed = SmartViewDuration(string: condition.value) {
+                duration = DurationValue(amount: parsed.amount, unit: parsed.unit)
+            }
         case .boolean:
             bool = condition.value.lowercased() == "true"
         }
     }
+}
+
+// MARK: - DurationValue
+
+/// The editable state of a relative-age duration condition row: a positive amount and a unit, bound to
+/// the row's number field and unit picker. Serialized to the wire value `"\(amount)\(unit.rawValue)"`.
+private struct DurationValue {
+
+    var amount = 30
+    var unit: DurationUnit = .days
 }
 
 // MARK: - ConditionRowView
@@ -404,12 +421,39 @@ private struct ConditionRowView: View {
             DatePicker(row.type.title, selection: $row.date, displayedComponents: .date)
                 .labelsHidden()
 
+        case .duration:
+            makeDurationEditor()
+
         case .boolean:
             Picker(row.type.title, selection: $row.bool) {
                 Text("Yes").tag(true)
                 Text("No").tag(false)
             }
             .pickerStyle(.menu)
+            .labelsHidden()
+            .fixedSize()
+        }
+    }
+
+    private func makeDurationEditor() -> some View {
+        HStack(spacing: 8) {
+            TextField("Amount", value: $row.duration.amount, format: .number)
+                .textFieldStyle(.roundedBorder)
+                .numberFieldStyle()
+                .frame(width: 64)
+                .accessibilityLabel("\(row.type.title) amount")
+                .onChange(of: row.duration.amount) { _, newValue in
+                    if newValue < 1 {
+                        row.duration.amount = 1
+                    }
+                }
+
+            Picker(row.type.title, selection: $row.duration.unit) {
+                ForEach(DurationUnit.allCases) { unit in
+                    Text(unit.label).tag(unit)
+                }
+            }
+            .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
         }

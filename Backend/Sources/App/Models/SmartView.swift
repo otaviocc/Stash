@@ -143,6 +143,8 @@ enum SmartViewCondition: Codable, Equatable {
     case descriptionContains(String)
     case createdBefore(Date)
     case createdAfter(Date)
+    case olderThan(String)
+    case newerThan(String)
     case isArchived(Bool)
     case hasTags(Bool)
 
@@ -172,6 +174,8 @@ enum SmartViewCondition: Codable, Equatable {
         case .descriptionContains: "descriptionContains"
         case .createdBefore: "createdBefore"
         case .createdAfter: "createdAfter"
+        case .olderThan: "olderThan"
+        case .newerThan: "newerThan"
         case .isArchived: "isArchived"
         case .hasTags: "hasTags"
         }
@@ -180,7 +184,7 @@ enum SmartViewCondition: Codable, Equatable {
     var valueString: String {
         switch self {
         case let .tag(value), let .urlContains(value), let .titleContains(value),
-             let .descriptionContains(value):
+             let .descriptionContains(value), let .olderThan(value), let .newerThan(value):
             value
         case let .createdBefore(date), let .createdAfter(date):
             Self.iso8601.string(from: date)
@@ -227,6 +231,24 @@ enum SmartViewCondition: Codable, Equatable {
             }
 
             return .createdAfter(date)
+        case "olderThan":
+            guard let duration = SmartViewDuration(string: trimmed) else {
+                throw APIError
+                    .validationFailed(
+                        "The duration must be a positive number with a unit: 'd', 'm', or 'y' (e.g. '30d')."
+                    )
+            }
+
+            return .olderThan(duration.canonicalString)
+        case "newerThan":
+            guard let duration = SmartViewDuration(string: trimmed) else {
+                throw APIError
+                    .validationFailed(
+                        "The duration must be a positive number with a unit: 'd', 'm', or 'y' (e.g. '7d')."
+                    )
+            }
+
+            return .newerThan(duration.canonicalString)
         case "isArchived":
             switch trimmed.lowercased() {
             case "true": return .isArchived(true)
@@ -272,10 +294,77 @@ enum SmartViewCondition: Codable, Equatable {
             builder.filter(\.$createdAt < date)
         case let .createdAfter(date):
             builder.filter(\.$createdAt > date)
+        case let .olderThan(value):
+            if let cutoff = SmartViewDuration(string: value)?.cutoff() {
+                builder.filter(\.$createdAt < cutoff)
+            }
+        case let .newerThan(value):
+            if let cutoff = SmartViewDuration(string: value)?.cutoff() {
+                builder.filter(\.$createdAt > cutoff)
+            }
         case let .isArchived(value):
             builder.filter(\.$isArchived == value)
         case let .hasTags(value):
             builder.filter(value ? \.$tagsSearch != "" : \.$tagsSearch == "")
         }
+    }
+}
+
+// MARK: - SmartViewDuration
+
+/// A relative-age offset parsed from a compact duration string — a positive integer followed by a
+/// unit suffix (`d` days, `m` months, `y` years), e.g. `"30d"`, `"3m"`, `"1y"`. Backs the
+/// `olderThan` / `newerThan` conditions: the cutoff is computed from `Date()` at query time using
+/// `Calendar` arithmetic, so months and years are calendar units, not fixed-second multiples.
+struct SmartViewDuration: Equatable {
+
+    // MARK: Nested Types
+
+    enum Unit: String {
+
+        case days = "d"
+        case months = "m"
+        case years = "y"
+    }
+
+    // MARK: Properties
+
+    let value: Int
+    let unit: Unit
+
+    // MARK: Computed Properties
+
+    /// The canonical wire string for this duration (`"30d"`), used when storing the condition value.
+    var canonicalString: String {
+        "\(value)\(unit.rawValue)"
+    }
+
+    // MARK: Lifecycle
+
+    init?(string: String) {
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let suffix = trimmed.last, let unit = Unit(rawValue: String(suffix)) else {
+            return nil
+        }
+        guard let value = Int(trimmed.dropLast()), value >= 1 else {
+            return nil
+        }
+
+        self.value = value
+        self.unit = unit
+    }
+
+    // MARK: Functions
+
+    func dateComponents() -> DateComponents {
+        switch unit {
+        case .days: DateComponents(day: -value)
+        case .months: DateComponents(month: -value)
+        case .years: DateComponents(year: -value)
+        }
+    }
+
+    func cutoff(from now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        calendar.date(byAdding: dateComponents(), to: now)
     }
 }

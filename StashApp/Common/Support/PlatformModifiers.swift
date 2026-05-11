@@ -79,6 +79,15 @@ extension View {
         #endif
     }
 
+    /// A whole-number entry field (e.g. a relative-age duration amount): number-pad keyboard on iOS.
+    func numberFieldStyle() -> some View {
+        #if os(iOS)
+            keyboardType(.numberPad)
+        #else
+            self
+        #endif
+    }
+
     /// A numeric one-time-code entry field (six-digit TOTP).
     func oneTimeCodeFieldStyle() -> some View {
         #if os(iOS)

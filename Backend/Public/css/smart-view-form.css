@@ -15,6 +15,17 @@
     flex: 1;
 }
 
+.cond-row .cond-value-duration {
+    flex: 1;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.cond-row .cond-value-duration .cond-duration-num {
+    width: 5rem;
+}
+
 .cond-row .cond-remove {
     padding: 0.35rem 0.6rem;
     line-height: 1;
