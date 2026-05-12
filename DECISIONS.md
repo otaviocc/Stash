@@ -248,12 +248,13 @@ from the PRD, and the trade-offs accepted.
   cannot target a specific hierarchical child like `swift/vapor` over this
   dependency. Accepted for now; revisit if child-specific deletion is needed
   from a client.
-- **⚠️ `auth/totp/disable` and `admin/users/:id/reset-totp` factories precede
-  their JSON API.** These endpoints currently exist only on the web controllers
-  (M11 / post-M11); the JSON API hasn't added them yet. StashKit defines
-  `makeTOTPDisableRequest`/`makeResetTOTPRequest` at the PRD §9.2/§9.6 paths now
-  (the task's factory list mandates them) so the client is ready when the
-  backend exposes them.
+- **✅ `auth/totp/disable` and `admin/users/:id/reset-totp` factories preceded
+  their JSON API — now resolved.** These endpoints first shipped only on the web
+  controllers (M11 / post-M11); StashKit defined
+  `makeTOTPDisableRequest`/`makeResetTOTPRequest` at the PRD §9.2/§9.6 paths ahead
+  of the backend (the task's factory list mandated them) so the client was ready.
+  The backend has since exposed both on the JSON API at exactly those paths — see
+  "2FA disable / reset land on the JSON API" below.
 - **✅ Tests: mock `URLSession`, Given/When/Then, "It should …".**
   `StashKitTests` injects a `MockURLSession` (conforming to
   `MicroClient.URLSessionProtocol`) that records the last request and replays a
@@ -3325,3 +3326,62 @@ Four no-behavior-change cleanups from the review.
   field. The reset lives in the type `<select>`'s `change` handler (fires only on user interaction),
   never in `syncRow` (which also runs on page load) — so editing an existing Smart View still shows
   its saved values, while a switch to a duration type is immediately repopulated by `assembleDuration`.
+
+## OpenAPI specification
+
+- **✅ Hand-written YAML, not generated — zero new dependencies.** `Backend/Public/openapi.yaml` is an
+  OpenAPI 3.0.3 description authored by hand from `PRODUCT.md` §7–§9 / §19.4, `Docs/api.md`, and the
+  backend's `Content` response structs / StashKit DTOs. No code-generation step, no new Swift package,
+  no generated Swift. The spec is the source of truth and lives alongside the other docs.
+- **🔒 Rule — the spec is part of the API contract and is kept in lockstep, by hand.** Because nothing
+  generates it, any change to the `/api/v1/` + `/health` surface — a new or removed endpoint, a renamed
+  or added field, a changed status code, a new error case, a new query param — **must update
+  `Backend/Public/openapi.yaml` in the same commit**, and re-validate (`npx @apidevtools/swagger-cli
+  validate Backend/Public/openapi.yaml`). A spec that lags the code is treated as a bug. The wire shapes
+  mirror the backend `Content` structs and StashKit DTOs — those two and the spec must agree. This rule
+  is also stated in `CLAUDE.md` (Backend conventions) so every session sees it.
+- **✅ Served statically from `Public/openapi.yaml` via the existing `FileMiddleware`.** No new route —
+  the spec and the Swagger UI page are plain static assets picked up by the `FileMiddleware` already
+  registered in `configure.swift`. No Swift source was touched.
+- **✅ Swagger UI served from a CDN at `/docs.html` — no library, no build step.** `Public/docs.html`
+  loads `swagger-ui` 5.29.1 from cdnjs and points it at `/openapi.yaml`. Browsing needs network access
+  (CDN); the spec file itself is self-contained. Served at `/docs.html` rather than a bare `/docs`
+  alias deliberately — the alias would have required a new Swift route, which was out of scope.
+- **✅ Covers `/api/v1/` and `/health` only — web UI routes excluded.** The `/app` and `/admin`
+  surfaces are session-cookie driven and not part of the public token API, so they are left out.
+- **⚠️ Spec reflects the *implemented* API, not the PRD where they diverge.** `Bookmark`, `SmartView`,
+  and `UserProfile` schemas follow the actual wire shapes (no `userID`; `UserProfile` has no `updatedAt`),
+  and `GET /bookmarks/changes` is documented as keyset-paginated (`afterUpdatedAt`/`afterId`), matching
+  the controller rather than the older offset-page wording in `Docs/api.md`. (Initially `POST
+  /auth/totp/disable` and `POST /admin/users/:id/reset-totp` were also omitted as web-only; they were
+  subsequently implemented on the JSON API — see "2FA disable / reset land on the JSON API" below.)
+- **✅ Validated with `@apidevtools/swagger-cli`.** `npx @apidevtools/swagger-cli validate` reports the
+  spec valid. Schema-level `examples` (an OpenAPI 3.1 feature) was reduced to a single 3.0.3 `example`
+  on `SmartViewCondition`; the full per-type value catalogue lives in that schema's `description`.
+
+## 2FA disable / reset land on the JSON API
+
+- **✅ Closed the two PRD §9.2/§9.6 endpoints that previously existed only on the web UI.** `POST
+  /api/v1/auth/totp/disable` (self-service) lives in `UserController` under the existing
+  `auth/totp` group; `POST /api/v1/admin/users/:id/reset-totp` lives in `AdminController` under the
+  `:userID` group (admin-only via `AdminMiddleware`). StashKit's `makeTOTPDisableRequest` /
+  `makeResetTOTPRequest` already targeted these exact paths, so no client change was needed — this only
+  catches the backend up to the spec, PRD, and StashKit.
+- **✅ Both invalidate refresh tokens, matching PRD §8.4/§8.6.** Each handler deletes the user's recovery
+  codes, clears `totpSecret`, sets `isTOTPEnabled = false`, and **deletes all refresh tokens** so other
+  sessions are signed out. (The web self-service disable historically skipped the token revocation; the
+  API does it per spec — a deliberate, spec-aligned divergence from the older web handler.)
+- **✅ Behavioural choices.** Self-service disable requires a current TOTP code; a wrong code — or a call
+  when 2FA isn't enabled — is `401 totp_invalid` (consistent with `verify-setup`). Admin reset needs no
+  code and allows self-reset. Both teardown endpoints return **`204 No Content`** — matching each other and
+  the shipped StashKit `VoidResponse` factories (`makeTOTPDisableRequest`/`makeResetTOTPRequest`). Admin
+  reset is a **true no-op for a user with no 2FA footprint** (`isTOTPEnabled` false *and* `totpSecret`
+  nil): it returns `204` without touching the user, so it never silently revokes the sessions of someone
+  who never had 2FA. (Earlier this endpoint returned `200` + `UserResponse` and ran the teardown
+  unconditionally; both were changed during the `/code-review` pass — the `200`+body drifted from the
+  `VoidResponse` factory and the sibling `204`, and the unconditional teardown signed out non-2FA users.)
+- **✅ Tests + docs in the same change.** Added `TwoFactorTests` cases (disable success revokes
+  codes/tokens, wrong code, not-enabled, unauthenticated) and `AdminTests` cases (reset success,
+  not-enabled no-op, unknown user 404, non-admin 403). Updated `Backend/Public/openapi.yaml`
+  (`disableTOTP` + `adminResetUserTOTP` operations, `TOTPDisableRequest` schema — re-validated) and
+  `Docs/api.md`, per the spec-lockstep rule. PRD §9.2/§9.7 now match the implementation.

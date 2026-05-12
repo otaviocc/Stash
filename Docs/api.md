@@ -27,6 +27,7 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `PUT`  | `/me/password` | access token | `{currentPassword, newPassword}` |
 | `GET`  | `/auth/totp/setup` | access token | Begin 2FA enrolment |
 | `POST` | `/auth/totp/verify-setup` | access token | Confirm; returns 8 recovery codes once |
+| `POST` | `/auth/totp/disable` | access token | Disable own 2FA (requires current TOTP code); revokes sessions (204) |
 | `GET`  | `/bookmarks` | access token | List; `?q=&tag=&archived=&page=&per=` |
 | `POST` | `/bookmarks` | access token | Create; 409 `duplicate_url` (+`existingID`) on dupe |
 | `GET`  | `/bookmarks/:id` | access token | Single bookmark (404 if not yours) |
@@ -51,6 +52,7 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `GET`  | `/admin/users/:id` | admin | Single user (404 if unknown) |
 | `PUT`  | `/admin/users/:id` | admin | Suspend/unsuspend (`isActive`) and/or reset `password` |
 | `DELETE` | `/admin/users/:id` | admin | Hard delete + cascade all owned data (204) |
+| `POST` | `/admin/users/:id/reset-totp` | admin | Reset a user's 2FA (no code required); revokes their sessions (204); no-op if they had no 2FA |
 | `GET`  | `/admin/stats` | admin | Totals + per-user bookmark counts |
 
 Errors use a standard `{ error, code, message, existingID? }` envelope across

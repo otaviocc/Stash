@@ -424,6 +424,113 @@ struct AdminTests {
         }
     }
 
+    // MARK: - Reset TOTP
+
+    @Test("resetting TOTP disables 2FA, clears recovery codes, and revokes sessions")
+    func resetTOTP() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+            let alice = try await app.makeUser(
+                username: "alice", password: "alice-password-123",
+                isTOTPEnabled: true, totpSecret: "JBSWY3DPEHPK3PXP"
+            )
+            let aliceID = try alice.requireID()
+            try await RecoveryCode(userID: aliceID, codeHash: "hash").save(on: app.db)
+            try await RefreshToken(
+                userID: aliceID, tokenHash: "token-hash", expiresAt: Date(timeIntervalSinceNow: 3600)
+            ).save(on: app.db)
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/admin/users/\(aliceID)/reset-totp",
+                headers: headers
+            ) { res async throws in
+                // Then
+                #expect(res.status == .noContent, "It should return 204 No Content")
+            }
+
+            let reloaded = try await User.find(aliceID, on: app.db)
+            #expect(reloaded?.isTOTPEnabled == false, "It should disable 2FA")
+            #expect(reloaded?.totpSecret == nil, "It should clear the TOTP secret")
+
+            let codeCount = try await RecoveryCode.query(on: app.db).filter(\.$user.$id == aliceID).count()
+            #expect(codeCount == 0, "It should delete the recovery codes")
+
+            let tokenCount = try await RefreshToken.query(on: app.db).filter(\.$user.$id == aliceID).count()
+            #expect(tokenCount == 0, "It should revoke all refresh tokens")
+        }
+    }
+
+    @Test("resetting TOTP on a user without 2FA is a no-op that leaves their sessions intact")
+    func resetTOTPWhenNotEnabled() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+            let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
+            let aliceID = try alice.requireID()
+            try await RefreshToken(
+                userID: aliceID, tokenHash: "token-hash", expiresAt: Date(timeIntervalSinceNow: 3600)
+            ).save(on: app.db)
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/admin/users/\(aliceID)/reset-totp",
+                headers: headers
+            ) { res async throws in
+                // Then
+                #expect(res.status == .noContent, "It should return 204 No Content")
+            }
+
+            let tokenCount = try await RefreshToken.query(on: app.db).filter(\.$user.$id == aliceID).count()
+            #expect(tokenCount == 1, "It should not revoke the sessions of a user who had no 2FA")
+        }
+    }
+
+    @Test("resetting TOTP for an unknown user returns 404")
+    func resetTOTPUnknownUser() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/admin/users/\(UUID())/reset-totp",
+                headers: headers
+            ) { res async throws in
+                // Then
+                #expect(res.status == .notFound, "It should return 404 Not Found")
+                #expect(
+                    try res.content.decode(TestError.self).code == "not_found",
+                    "It should return the not_found error code"
+                )
+            }
+        }
+    }
+
+    @Test("a non-admin cannot reset another user's TOTP")
+    func resetTOTPForbiddenForNonAdmin() async throws {
+        try await withTestApp { app in
+            // Given
+            try await app.makeUser(username: "alice", password: "alice-password-123", role: .user)
+            let bob = try await app.makeUser(username: "bob", password: "bob-password-1234", role: .user)
+            let pair = try await app.login(username: "alice", password: "alice-password-123")
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/admin/users/\(bob.requireID())/reset-totp",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                #expect(res.status == .forbidden, "It should return 403 Forbidden")
+                #expect(
+                    try res.content.decode(TestError.self).code == "forbidden",
+                    "It should return the forbidden error code"
+                )
+            }
+        }
+    }
+
     // MARK: - Hard delete
 
     @Test("hard delete removes the user and cascades bookmarks, refresh tokens, recovery codes")

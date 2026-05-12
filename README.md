@@ -35,6 +35,7 @@ A self-hosted bookmark manager with native iOS, macOS, web, and browser-extensio
 | [Releasing a new version](Docs/releasing.md) | Tag, build, and publish the backend image |
 | [Configuration reference](Docs/configuration.md) | Environment variables and per-component config |
 | [API and routes reference](Docs/api.md) | REST API, admin dashboard, and web frontend |
+| [OpenAPI specification](Docs/api-openapi.md) | Machine-readable API spec + Swagger UI (`/docs.html`) |
 | [Building and using the CLI](Docs/cli-build.md) | `stash` command-line tool |
 | [Building the mobile apps](Docs/mobile-build.md) | iOS and macOS apps from source |
 | [StashKit](Docs/stashkit.md) | Shared Swift package (DTOs, request factories, client) |

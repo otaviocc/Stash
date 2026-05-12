@@ -33,6 +33,7 @@ struct UserController: RouteCollection {
         let totp = routes.grouped("auth", "totp")
         totp.get("setup", use: setupTOTP)
         totp.post("verify-setup", use: verifyTOTPSetup)
+        totp.post("disable", use: disableTOTP)
     }
 
     func me(req: Request) async throws -> UserResponse {
@@ -94,5 +95,19 @@ struct UserController: RouteCollection {
         try await user.save(on: req.db)
 
         return RecoveryCodesResponse(recoveryCodes: plainCodes)
+    }
+
+    func disableTOTP(req: Request) async throws -> Response {
+        let input = try req.content.decode(DisableTOTPRequest.self)
+        let user = try req.auth.require(User.self)
+
+        guard user.isTOTPEnabled, let secret = user.totpSecret, let secretData = Base32.decode(secret),
+              TOTP(secret: secretData).validate(input.totpCode)
+        else {
+            throw APIError.totpInvalid
+        }
+
+        try await user.disableTOTP(on: req.db)
+        return Response(status: .noContent)
     }
 }

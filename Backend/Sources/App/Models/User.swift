@@ -115,4 +115,15 @@ extension User {
             createdAt: createdAt ?? Date()
         )
     }
+
+    /// Tears down two-factor auth: deletes the recovery codes, clears the TOTP secret, disables
+    /// TOTP, persists, and revokes every refresh token so other sessions are signed out (PRD §8.4).
+    /// The single owner of this multi-model invariant, shared by self-service disable and admin reset.
+    func disableTOTP(on db: any Database) async throws {
+        try await $recoveryCodes.query(on: db).delete()
+        totpSecret = nil
+        isTOTPEnabled = false
+        try await save(on: db)
+        try await $refreshTokens.query(on: db).delete()
+    }
 }

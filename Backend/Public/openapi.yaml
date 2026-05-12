@@ -1,0 +1,1687 @@
+openapi: 3.0.3
+
+info:
+  title: Stash API
+  version: "1"
+  description: |
+    REST API for Stash — a self-hosted, multi-user bookmark manager.
+
+    All API routes are prefixed `/api/v1/`. Authentication uses JWT Bearer
+    tokens obtained via the `/api/v1/auth/login` endpoint. Access tokens
+    are short-lived (15 minutes); use `/api/v1/auth/refresh` to rotate them.
+
+    The favicon serve endpoint (`GET /api/v1/favicons/{domain}`) and the
+    health check (`GET /health`) are unauthenticated. All other endpoints
+    require a valid Bearer token unless noted otherwise.
+
+    This spec covers the JSON API (`/api/v1/`) and `/health` only. The
+    server-rendered web UIs (`/app`, `/admin`) are session-cookie driven and
+    are not part of the public API surface.
+  contact:
+    name: Otávio
+    url: https://otavio.cc
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://your-instance.example.com
+    description: Self-hosted instance
+
+tags:
+  - name: Auth
+    description: Authentication, token management, and 2FA
+  - name: User
+    description: Current-user profile and password
+  - name: Bookmarks
+    description: Bookmark CRUD, search, and offline sync
+  - name: Tags
+    description: Tag listing, renaming, and deletion
+  - name: Smart Views
+    description: Saved queries over the bookmark collection
+  - name: Metadata
+    description: Page metadata fetching without saving
+  - name: Favicons
+    description: Domain-keyed favicon cache
+  - name: Admin
+    description: User management (admin role only)
+  - name: Health
+    description: Health check
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health check
+      description: |
+        Unversioned liveness probe. Always returns a body of `{ "status": "ok" }`.
+      tags: [Health]
+      security: []
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/v1/auth/login:
+    post:
+      operationId: loginUser
+      summary: Log in with username and password
+      description: |
+        Authenticates a user. Both outcomes return HTTP 200 with different
+        bodies:
+
+        - **No 2FA:** `{ accessToken, refreshToken }` (a `TokenPair`).
+        - **2FA enabled:** `{ requires2FA: true, tempToken }`. The temp token
+          carries a `scope: "2fa"` claim so it cannot be replayed as an access
+          token. Complete the login by calling `/api/v1/auth/totp` or
+          `/api/v1/auth/recovery` with the temp token.
+
+        The response is modelled as `LoginResponse` — a single object whose
+        fields are all optional, covering both shapes.
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Token pair, or a 2FA challenge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Wrong credentials (`invalid_credentials`) or suspended account (`account_suspended`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/auth/totp:
+    post:
+      operationId: verifyLoginTOTP
+      summary: Complete a 2FA login with a TOTP code
+      description: Exchanges the temp token plus a current TOTP code for a token pair.
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TOTPRequest"
+      responses:
+        "200":
+          description: Token pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "401":
+          description: Invalid temp token (`token_invalid`) or wrong code (`totp_invalid`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/auth/recovery:
+    post:
+      operationId: verifyRecoveryCode
+      summary: Complete a 2FA login with a recovery code
+      description: |
+        Exchanges the temp token plus a single-use recovery code for a token
+        pair. The code is marked used and cannot be redeemed again.
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecoveryRequest"
+      responses:
+        "200":
+          description: Token pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "401":
+          description: Invalid temp token (`token_invalid`) or wrong/used code (`totp_invalid`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/auth/refresh:
+    post:
+      operationId: refreshTokens
+      summary: Rotate the refresh token
+      description: |
+        Exchanges a valid refresh token for a fresh token pair. The supplied
+        refresh token is deleted (single-use rotation).
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: New token pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "401":
+          description: Unknown, expired, or revoked refresh token (`token_invalid` / `token_expired`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Invalidate a refresh token
+      description: Deletes the supplied refresh token. Idempotent.
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequest"
+      responses:
+        "204":
+          description: Logged out
+
+  /api/v1/me:
+    get:
+      operationId: getCurrentUser
+      summary: Get the current user's profile
+      tags: [User]
+      responses:
+        "200":
+          description: The authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/me/password:
+    put:
+      operationId: changePassword
+      summary: Change the current user's password
+      description: |
+        Verifies the current password, then sets the new one (minimum 12
+        characters). Existing refresh tokens are not affected by a self-service
+        password change.
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Password changed
+        "401":
+          description: Current password is wrong (`invalid_credentials`) or no/invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/auth/totp/setup:
+    get:
+      operationId: beginTOTPSetup
+      summary: Begin 2FA enrolment
+      description: |
+        Returns a fresh Base32 secret and its `otpauth://` provisioning URI.
+        Enrolment is not complete until the first code is confirmed via
+        `/api/v1/auth/totp/verify-setup`.
+      tags: [Auth]
+      responses:
+        "200":
+          description: TOTP secret and provisioning URI
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TOTPSetupResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/totp/verify-setup:
+    post:
+      operationId: verifyTOTPSetup
+      summary: Confirm 2FA enrolment
+      description: |
+        Confirms enrolment by submitting the first valid TOTP code. On success,
+        2FA is enabled and eight single-use recovery codes are returned **once**
+        — they are never retrievable again.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TOTPVerifyRequest"
+      responses:
+        "200":
+          description: Recovery codes (shown once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryCodesResponse"
+        "400":
+          description: Wrong code or 2FA already enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/totp/disable:
+    post:
+      operationId: disableTOTP
+      summary: Disable the current user's 2FA
+      description: |
+        Self-service 2FA disable. Requires a current TOTP code. On success it
+        clears the TOTP secret, deletes the recovery codes, and revokes all of
+        the user's refresh tokens (so other sessions are signed out). A wrong
+        code — or a request when 2FA is not enabled — returns `401 totp_invalid`.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TOTPDisableRequest"
+      responses:
+        "204":
+          description: 2FA disabled
+        "401":
+          description: Wrong code, 2FA not enabled (`totp_invalid`), or no/invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/bookmarks:
+    get:
+      operationId: listBookmarks
+      summary: List bookmarks
+      description: |
+        Returns a paginated page of the current user's bookmarks, newest first.
+        Combine `q`, `tag`, and `archived` to narrow the results.
+      tags: [Bookmarks]
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Full-text search across URL, title, description, and tags. Case-insensitive.
+          schema:
+            type: string
+          example: vapor
+        - name: tag
+          in: query
+          required: false
+          description: |
+            Hierarchical prefix filter. `swift` matches `swift` and `swift/*`
+            but not `swiftui`. Three sentinel values select the sidebar "Views":
+            `__untagged__` (bookmarks with no tags), `__today__` (created since
+            the start of today), `__this_week__` (created since the most recent
+            Monday).
+          schema:
+            type: string
+          example: swift/vapor
+        - name: archived
+          in: query
+          required: false
+          description: Return archived bookmarks instead of active ones.
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          required: false
+          description: 1-based page number.
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per
+          in: query
+          required: false
+          description: Items per page, clamped to 1–100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: A page of bookmarks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookmarkPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createBookmark
+      summary: Create a bookmark
+      description: |
+        Creates a bookmark for the current user. When `fetchMetadata` is true
+        (the default), the title, description, and favicon are fetched from the
+        page if not supplied. URLs are unique per user — saving a URL that
+        already exists returns `409 duplicate_url` with the existing bookmark's
+        `existingID`.
+      tags: [Bookmarks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookmarkRequest"
+      responses:
+        "201":
+          description: The created bookmark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bookmark"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: A bookmark with this URL already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DuplicateError"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/bookmarks/changes:
+    get:
+      operationId: listBookmarkChanges
+      summary: List changed bookmarks (offline sync)
+      description: |
+        Keyset-paginated feed of bookmarks (archived **included**) with
+        `updatedAt` greater than `since`, sorted ascending by `(updatedAt, id)`.
+        Omit `since` for an initial full sync. To page, echo the response's
+        `nextAfterUpdatedAt` and `nextAfterId` back verbatim as `afterUpdatedAt`
+        and `afterId` — they are opaque cursor values, never interpreted
+        client-side. Continue while `hasMore` is true.
+      tags: [Bookmarks]
+      parameters:
+        - name: since
+          in: query
+          required: false
+          description: ISO-8601 timestamp. Omit for a full sync. A malformed value is a 422.
+          schema:
+            type: string
+            format: date-time
+          example: "2026-06-01T00:00:00Z"
+        - name: afterUpdatedAt
+          in: query
+          required: false
+          description: Keyset cursor — the previous page's `nextAfterUpdatedAt`. Must be sent together with `afterId`.
+          schema:
+            type: string
+        - name: afterId
+          in: query
+          required: false
+          description: Keyset cursor — the previous page's `nextAfterId`. Must be sent together with `afterUpdatedAt`.
+          schema:
+            type: string
+            format: uuid
+        - name: per
+          in: query
+          required: false
+          description: Page size, clamped to 1–500.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: A keyset page of changed bookmarks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangesPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/bookmarks/deleted:
+    get:
+      operationId: listDeletedBookmarks
+      summary: List deletion tombstones (offline sync)
+      description: |
+        Returns a flat array of tombstones for bookmarks hard-deleted after
+        `since`, sorted ascending by `deletedAt` (no pagination). Omit `since`
+        for every tombstone. Every hard delete — API or web, single or bulk —
+        records a tombstone so an offline client learns what to remove locally.
+      tags: [Bookmarks]
+      parameters:
+        - name: since
+          in: query
+          required: false
+          description: ISO-8601 timestamp. Omit to return all tombstones.
+          schema:
+            type: string
+            format: date-time
+          example: "2026-06-01T00:00:00Z"
+      responses:
+        "200":
+          description: Tombstones for deleted bookmarks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeletedBookmark"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/bookmarks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Bookmark UUID.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getBookmark
+      summary: Get a single bookmark
+      tags: [Bookmarks]
+      responses:
+        "200":
+          description: The bookmark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bookmark"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateBookmark
+      summary: Update a bookmark
+      description: All fields optional; omitted fields are left unchanged.
+      tags: [Bookmarks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBookmarkRequest"
+      responses:
+        "200":
+          description: The updated bookmark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bookmark"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The new URL collides with an existing bookmark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DuplicateError"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    delete:
+      operationId: deleteBookmark
+      summary: Delete a bookmark
+      description: Hard-deletes the bookmark and records a tombstone for offline sync.
+      tags: [Bookmarks]
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/tags:
+    get:
+      operationId: listTags
+      summary: List all tags with counts
+      description: Distinct tags across the current user's bookmarks, each with its usage count.
+      tags: [Tags]
+      responses:
+        "200":
+          description: Tags with counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tag"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tags/rename:
+    post:
+      operationId: renameTag
+      summary: Rename a tag and its children
+      description: |
+        Renames the exact tag and all hierarchical children (`foo/x` → `bar/x`).
+        If the target already exists the tags are merged and de-duplicated.
+        `from == to` or an unused `from` is an idempotent no-op returning
+        `affectedBookmarks: 0`. Both names are normalized (trimmed, lowercased)
+        on receipt; empty `from`/`to` is a 422.
+      tags: [Tags]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameTagRequest"
+      responses:
+        "200":
+          description: Rename result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RenameTagResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/tags/{tag}:
+    delete:
+      operationId: deleteTag
+      summary: Delete a tag and its children
+      description: |
+        Removes the exact tag and all children from every affected bookmark.
+        Bookmarks themselves are never deleted. Unused tag is an idempotent
+        no-op returning `affectedBookmarks: 0`. An empty tag is a 422.
+      tags: [Tags]
+      parameters:
+        - name: tag
+          in: path
+          required: true
+          description: Tag slug (normalized on receipt).
+          schema:
+            type: string
+          example: swift/vapor
+      responses:
+        "200":
+          description: Delete result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteTagResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/smart-views:
+    get:
+      operationId: listSmartViews
+      summary: List the current user's Smart Views
+      tags: [Smart Views]
+      responses:
+        "200":
+          description: Smart Views, sorted by name
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SmartView"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createSmartView
+      summary: Create a Smart View
+      description: |
+        Validates a non-empty `name` (≤ 100 chars), an optional `matchMode`
+        (`all`/`any`, defaulting to `all`), and at least one valid condition —
+        otherwise `422 validation_failed`.
+      tags: [Smart Views]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SmartViewRequest"
+      responses:
+        "201":
+          description: The created Smart View
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmartView"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/smart-views/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Smart View UUID.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getSmartView
+      summary: Get a single Smart View
+      tags: [Smart Views]
+      responses:
+        "200":
+          description: The Smart View
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmartView"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateSmartView
+      summary: Update a Smart View
+      description: Same validation as create. Omitting `matchMode` leaves the existing value unchanged.
+      tags: [Smart Views]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SmartViewRequest"
+      responses:
+        "200":
+          description: The updated Smart View
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmartView"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    delete:
+      operationId: deleteSmartView
+      summary: Delete a Smart View
+      tags: [Smart Views]
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/smart-views/{id}/bookmarks:
+    get:
+      operationId: runSmartView
+      summary: Run a Smart View query
+      description: |
+        Evaluates the Smart View live and returns a page of matching bookmarks.
+        Results are limited to non-archived bookmarks unless the view contains
+        an `isArchived` condition.
+      tags: [Smart Views]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Smart View UUID.
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: A page of matching bookmarks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookmarkPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/metadata:
+    post:
+      operationId: fetchMetadata
+      summary: Fetch page metadata without saving
+      description: Fetches the title, description, and favicon URL for a URL without creating a bookmark.
+      tags: [Metadata]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetadataRequest"
+      responses:
+        "200":
+          description: The fetched metadata (any field may be null)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetadataResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/favicons/{domain}:
+    get:
+      operationId: serveFavicon
+      summary: Serve a domain's cached favicon
+      description: |
+        **Unauthenticated** so `<img>` tags can load it without credentials.
+        A `cached` row returns the raw image bytes with its stored `Content-Type`,
+        `Cache-Control: public, max-age=2592000, immutable` (30 days), and
+        `X-Content-Type-Options: nosniff`. A `failed`, `pending`, or missing
+        row returns `404` so the UI degrades gracefully to no icon.
+      tags: [Favicons]
+      security: []
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: Lowercased hostname, `www.` stripped, explicit port kept (e.g. `github.com`, `192.168.1.5:8080`).
+          schema:
+            type: string
+          example: github.com
+      responses:
+        "200":
+          description: The favicon image bytes
+          headers:
+            Cache-Control:
+              description: Always `public, max-age=2592000, immutable`.
+              schema:
+                type: string
+            X-Content-Type-Options:
+              description: Always `nosniff`.
+              schema:
+                type: string
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No cached image (uncached, pending, or failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/favicons/{domain}/refresh:
+    post:
+      operationId: refreshFavicon
+      summary: Re-fetch a domain's favicon
+      description: |
+        Deletes the cached row and triggers a detached re-fetch, returning
+        immediately. Requires an authenticated active user (favicons are shared,
+        not privileged, but auth prevents anonymous abuse).
+      tags: [Favicons]
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: Domain key, same normalization as the serve endpoint.
+          schema:
+            type: string
+          example: github.com
+      responses:
+        "202":
+          description: Re-fetch accepted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/admin/users:
+    get:
+      operationId: adminListUsers
+      summary: List all users
+      tags: [Admin]
+      responses:
+        "200":
+          description: All users with stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: adminCreateUser
+      summary: Create a user
+      description: |
+        Creates an account, always with the `user` role (any `role` field in the
+        body is ignored). Password minimum is 12 characters. A taken username is
+        `409 username_taken`.
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: The created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Username already exists (`username_taken`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /api/v1/admin/users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: User UUID.
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: adminGetUser
+      summary: Get a single user
+      tags: [Admin]
+      responses:
+        "200":
+          description: The user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: adminUpdateUser
+      summary: Suspend/unsuspend or reset a user's password
+      description: |
+        Sets `isActive` and/or resets `password` (minimum 12 characters).
+        Suspending a user or resetting their password invalidates all of their
+        refresh tokens. An admin cannot suspend their own account
+        (`400 cannot_suspend_self`).
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: The updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "400":
+          description: Admin attempting to suspend their own account (`cannot_suspend_self`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    delete:
+      operationId: adminDeleteUser
+      summary: Hard-delete a user
+      description: |
+        Hard-deletes the user and cascades all owned data. An admin cannot
+        delete their own account (`400 cannot_delete_self`).
+      tags: [Admin]
+      responses:
+        "204":
+          description: Deleted
+        "400":
+          description: Admin attempting to delete their own account (`cannot_delete_self`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/users/{id}/reset-totp:
+    post:
+      operationId: adminResetUserTOTP
+      summary: Reset a user's 2FA
+      description: |
+        Admin 2FA reset — no confirmation code required. Clears the target's
+        TOTP secret, deletes their recovery codes, and revokes all of their
+        refresh tokens (signing the user out). Self-reset is allowed. Idempotent:
+        a user with no 2FA footprint is left untouched — sessions are not revoked
+        — and the call still returns 204.
+      tags: [Admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User UUID.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: 2FA reset (or a no-op for a user with no 2FA)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/admin/stats:
+    get:
+      operationId: adminStats
+      summary: Aggregate instance stats
+      description: Totals plus a per-user bookmark count breakdown.
+      tags: [Admin]
+      responses:
+        "200":
+          description: Aggregate statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token obtained from POST /api/v1/auth/login.
+        Lifetime: 15 minutes. Rotate using POST /api/v1/auth/refresh.
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid access token (`token_invalid` / `token_expired`)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Insufficient role (admin required) (`forbidden`)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found (`not_found`)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ValidationFailed:
+      description: Validation error (`validation_failed`)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    # ---- Auth ----
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          example: alice
+        password:
+          type: string
+          format: password
+          example: correct-horse-battery
+
+    LoginResponse:
+      type: object
+      description: |
+        One of two shapes, both returned as HTTP 200:
+
+        - **Token pair:** `accessToken` and `refreshToken` are present.
+        - **2FA challenge:** `requires2FA` is `true` and `tempToken` is present;
+          complete the login via `/api/v1/auth/totp` or `/api/v1/auth/recovery`.
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        requires2FA:
+          type: boolean
+        tempToken:
+          type: string
+
+    TOTPRequest:
+      type: object
+      required: [tempToken, totpCode]
+      properties:
+        tempToken:
+          type: string
+        totpCode:
+          type: string
+          example: "123456"
+
+    RecoveryRequest:
+      type: object
+      required: [tempToken, recoveryCode]
+      properties:
+        tempToken:
+          type: string
+        recoveryCode:
+          type: string
+          example: A1B2-C3D4
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    LogoutRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken]
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token, valid for 15 minutes.
+        refreshToken:
+          type: string
+          description: Opaque 256-bit hex token, valid 90 days, rotated on use.
+
+    TOTPSetupResponse:
+      type: object
+      required: [secret, otpauthURI]
+      properties:
+        secret:
+          type: string
+          description: Base32-encoded TOTP secret.
+          example: JBSWY3DPEHPK3PXP
+        otpauthURI:
+          type: string
+          example: otpauth://totp/Stash:alice?secret=JBSWY3DPEHPK3PXP&issuer=Stash
+
+    TOTPVerifyRequest:
+      type: object
+      required: [totpCode]
+      properties:
+        totpCode:
+          type: string
+          example: "123456"
+
+    RecoveryCodesResponse:
+      type: object
+      required: [recoveryCodes]
+      properties:
+        recoveryCodes:
+          type: array
+          description: Eight single-use recovery codes, shown only once.
+          items:
+            type: string
+          example: ["A1B2-C3D4", "E5F6-G7H8"]
+
+    TOTPDisableRequest:
+      type: object
+      required: [totpCode]
+      properties:
+        totpCode:
+          type: string
+          description: A current TOTP code, required to confirm the disable.
+          example: "123456"
+
+    # ---- User ----
+    UserProfile:
+      type: object
+      required: [id, username, role, isActive, isTOTPEnabled, bookmarkCount, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+        isActive:
+          type: boolean
+        isTOTPEnabled:
+          type: boolean
+        bookmarkCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+        newPassword:
+          type: string
+          format: password
+          minLength: 12
+
+    # ---- Bookmarks ----
+    Bookmark:
+      type: object
+      required: [id, url, title, tags, isArchived, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        title:
+          type: string
+          description: Auto-fetched, overridable. Falls back to the URL if blank.
+        description:
+          type: string
+          nullable: true
+        faviconURL:
+          type: string
+          format: uri
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          description: Flat or hierarchical (e.g. `swift/vapor`).
+        isArchived:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      example:
+        id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        url: https://vapor.codes
+        title: Vapor — Server-side Swift web framework
+        description: A web framework for Swift.
+        faviconURL: http://localhost:8080/api/v1/favicons/vapor.codes
+        tags: ["swift", "swift/vapor"]
+        isArchived: false
+        createdAt: "2026-06-01T09:30:00Z"
+        updatedAt: "2026-06-01T09:30:00Z"
+
+    CreateBookmarkRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+        title:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isArchived:
+          type: boolean
+          default: false
+        fetchMetadata:
+          type: boolean
+          default: true
+          description: Fetch title/description/favicon from the page when title/description are omitted.
+
+    UpdateBookmarkRequest:
+      type: object
+      description: All fields optional; omitted fields are left unchanged.
+      properties:
+        url:
+          type: string
+          format: uri
+        title:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isArchived:
+          type: boolean
+
+    BookmarkPage:
+      type: object
+      required: [items, metadata]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Bookmark"
+        metadata:
+          $ref: "#/components/schemas/PageMetadata"
+
+    ChangesPage:
+      type: object
+      required: [items, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Bookmark"
+        hasMore:
+          type: boolean
+        nextAfterUpdatedAt:
+          type: string
+          nullable: true
+          description: Opaque keyset cursor — echo back as `afterUpdatedAt` for the next page.
+        nextAfterId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Opaque keyset cursor — echo back as `afterId` for the next page.
+
+    DeletedBookmark:
+      type: object
+      required: [id, deletedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The deleted bookmark's ID.
+        deletedAt:
+          type: string
+          format: date-time
+
+    # ---- Tags ----
+    Tag:
+      type: object
+      required: [name, count]
+      properties:
+        name:
+          type: string
+          example: swift/vapor
+        count:
+          type: integer
+          example: 12
+
+    RenameTagRequest:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          example: foo-bar
+        to:
+          type: string
+          example: foobar
+
+    RenameTagResponse:
+      type: object
+      required: [from, to, affectedBookmarks]
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        affectedBookmarks:
+          type: integer
+
+    DeleteTagResponse:
+      type: object
+      required: [tag, affectedBookmarks]
+      properties:
+        tag:
+          type: string
+        affectedBookmarks:
+          type: integer
+
+    # ---- Smart Views ----
+    SmartViewCondition:
+      type: object
+      required: [type, value]
+      description: |
+        A single condition. All values are strings. Valid `type` values and
+        their expected `value` format:
+
+        - `tag` — tag slug, prefix match (e.g. `swift/vapor`)
+        - `urlContains` — substring (case-insensitive)
+        - `titleContains` — substring (case-insensitive)
+        - `descriptionContains` — substring (case-insensitive)
+        - `createdBefore` — ISO-8601 date string
+        - `createdAfter` — ISO-8601 date string
+        - `olderThan` — duration string: positive integer + `d`/`m`/`y` (e.g. `30d`, `3m`, `1y`)
+        - `newerThan` — duration string, same format
+        - `isArchived` — `"true"` or `"false"`
+        - `hasTags` — `"true"` (has any tags) or `"false"` (untagged)
+      properties:
+        type:
+          type: string
+          enum:
+            - tag
+            - urlContains
+            - titleContains
+            - descriptionContains
+            - createdBefore
+            - createdAfter
+            - olderThan
+            - newerThan
+            - isArchived
+            - hasTags
+        value:
+          type: string
+      example:
+        type: tag
+        value: swift/vapor
+
+    SmartView:
+      type: object
+      required: [id, name, matchMode, conditions, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        matchMode:
+          type: string
+          enum: [all, any]
+          description: "`all` = every condition (AND); `any` = at least one (OR)."
+        conditions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SmartViewCondition"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SmartViewRequest:
+      type: object
+      required: [name, conditions]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        matchMode:
+          type: string
+          enum: [all, any]
+          default: all
+          description: Optional. Defaults to `all` on create; leaves the existing value unchanged on update.
+        conditions:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/SmartViewCondition"
+
+    # ---- Metadata ----
+    MetadataRequest:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+
+    MetadataResponse:
+      type: object
+      properties:
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        faviconURL:
+          type: string
+          format: uri
+          nullable: true
+
+    # ---- Admin ----
+    AdminUser:
+      type: object
+      description: |
+        Admin-facing user projection (`passwordHash` and `totpSecret` are never
+        exposed). Same shape as `UserProfile`.
+      required: [id, username, role, isActive, isTOTPEnabled, bookmarkCount, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+        isActive:
+          type: boolean
+        isTOTPEnabled:
+          type: boolean
+        bookmarkCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateUserRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+          minLength: 12
+
+    UpdateUserRequest:
+      type: object
+      description: All fields optional.
+      properties:
+        isActive:
+          type: boolean
+        password:
+          type: string
+          format: password
+          minLength: 12
+
+    AdminStats:
+      type: object
+      required: [totalUsers, totalBookmarks, users]
+      properties:
+        totalUsers:
+          type: integer
+        totalBookmarks:
+          type: integer
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserStat"
+
+    UserStat:
+      type: object
+      required: [id, username, bookmarkCount, isActive]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        bookmarkCount:
+          type: integer
+        isActive:
+          type: boolean
+
+    # ---- Shared ----
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    PageMetadata:
+      type: object
+      required: [page, per, total]
+      properties:
+        page:
+          type: integer
+          example: 1
+        per:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 142
+
+    ErrorResponse:
+      type: object
+      required: [error, code, message]
+      description: |
+        Standard envelope for every non-2xx response, including routing 404s
+        and validation failures. Known `code` values and their HTTP status:
+
+        | code | status | meaning |
+        |------|--------|---------|
+        | `invalid_credentials` | 401 | Wrong username or password |
+        | `account_suspended` | 401 | Account is inactive |
+        | `token_expired` | 401 | Access token expired |
+        | `token_invalid` | 401 | Malformed or unrecognised token |
+        | `totp_required` | 401 | Login requires TOTP |
+        | `totp_invalid` | 401 | Wrong TOTP or recovery code |
+        | `forbidden` | 403 | Insufficient role |
+        | `not_found` | 404 | Resource not found |
+        | `duplicate_url` | 409 | URL already saved (adds `existingID`) |
+        | `username_taken` | 409 | Username already exists |
+        | `cannot_delete_self` | 400 | Admin deleting own account |
+        | `cannot_suspend_self` | 400 | Admin suspending own account |
+        | `validation_failed` | 422 | Validation error |
+        | `internal_error` | 500 | Unexpected server error |
+      properties:
+        error:
+          type: boolean
+          example: true
+        code:
+          type: string
+          example: not_found
+        message:
+          type: string
+          example: Resource not found.
+
+    DuplicateError:
+      type: object
+      description: The 409 envelope for a duplicate URL, extended with the existing bookmark's ID.
+      required: [error, code, message, existingID]
+      properties:
+        error:
+          type: boolean
+          example: true
+        code:
+          type: string
+          example: duplicate_url
+        message:
+          type: string
+          example: A bookmark with this URL already exists.
+        existingID:
+          type: string
+          format: uuid

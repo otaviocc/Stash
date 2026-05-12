@@ -35,6 +35,7 @@ struct AdminController: RouteCollection {
             user.get(use: getUser)
             user.put(use: updateUser)
             user.delete(use: deleteUser)
+            user.post("reset-totp", use: resetTOTP)
         }
 
         routes.get("stats", use: stats)
@@ -128,6 +129,18 @@ struct AdminController: RouteCollection {
         try await user.$refreshTokens.query(on: req.db).delete()
         try await user.$recoveryCodes.query(on: req.db).delete()
         try await user.delete(on: req.db)
+
+        return Response(status: .noContent)
+    }
+
+    func resetTOTP(req: Request) async throws -> Response {
+        let user = try await requireUser(req)
+
+        guard user.isTOTPEnabled || user.totpSecret != nil else {
+            return Response(status: .noContent)
+        }
+
+        try await user.disableTOTP(on: req.db)
 
         return Response(status: .noContent)
     }

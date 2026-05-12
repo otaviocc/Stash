@@ -197,6 +197,111 @@ struct TwoFactorTests {
         }
     }
 
+    @Test("disable with a valid code turns 2FA off, clears recovery codes, and revokes sessions")
+    func disableSucceeds() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser(username: "otavio", password: "correct-horse-battery")
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            let (secret, _) = try await enrol(app, accessToken: pair.accessToken)
+            let code = TOTP(secret: Base32.decode(secret)!).generate()
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/auth/totp/disable",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(DisableTOTPRequest(totpCode: code))
+                },
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(res.status == .noContent, "It should return 204 No Content")
+                }
+            )
+
+            let reloaded = try await User.find(user.requireID(), on: app.db)
+            #expect(reloaded?.isTOTPEnabled == false, "It should disable 2FA")
+            #expect(reloaded?.totpSecret == nil, "It should clear the TOTP secret")
+
+            let codeCount = try await reloaded!.$recoveryCodes.query(on: app.db).count()
+            #expect(codeCount == 0, "It should delete the recovery codes")
+
+            let tokenCount = try await reloaded!.$refreshTokens.query(on: app.db).count()
+            #expect(tokenCount == 0, "It should revoke all refresh tokens")
+        }
+    }
+
+    @Test("disable with a wrong code is rejected and leaves 2FA enabled")
+    func disableWrongCode() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser(username: "otavio", password: "correct-horse-battery")
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            _ = try await enrol(app, accessToken: pair.accessToken)
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/auth/totp/disable",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(DisableTOTPRequest(totpCode: "000000"))
+                },
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(res.status == .unauthorized, "It should return 401 Unauthorized")
+                    let err = try res.content.decode(TestError.self)
+                    #expect(err.code == "totp_invalid", "It should return the totp_invalid code")
+                }
+            )
+
+            let reloaded = try await User.find(user.requireID(), on: app.db)
+            #expect(reloaded?.isTOTPEnabled == true, "It should leave 2FA enabled")
+        }
+    }
+
+    @Test("disable is rejected when 2FA is not enabled")
+    func disableWhenNotEnabled() async throws {
+        try await withTestApp { app in
+            // Given
+            try await app.makeUser(username: "otavio", password: "correct-horse-battery")
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/auth/totp/disable",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(DisableTOTPRequest(totpCode: "000000"))
+                },
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(res.status == .unauthorized, "It should return 401 Unauthorized")
+                    let err = try res.content.decode(TestError.self)
+                    #expect(err.code == "totp_invalid", "It should return the totp_invalid code")
+                }
+            )
+        }
+    }
+
+    @Test("disable requires authentication")
+    func disableUnauthenticated() async throws {
+        try await withTestApp { app in
+            // Given — no token
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/auth/totp/disable",
+                beforeRequest: { req in
+                    try req.content.encode(DisableTOTPRequest(totpCode: "123456"))
+                },
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(res.status == .unauthorized, "It should return 401 Unauthorized")
+                }
+            )
+        }
+    }
+
     private func enrol(_ app: Application, accessToken: String) async throws -> (secret: String, codes: [String]) {
         var secret: String?
         try await app.testing().test(

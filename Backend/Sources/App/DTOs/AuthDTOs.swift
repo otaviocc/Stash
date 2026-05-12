@@ -82,6 +82,14 @@ struct VerifySetupRequest: Content {
     let totpCode: String
 }
 
+// MARK: - DisableTOTPRequest
+
+/// `POST /auth/totp/disable` body — self-service 2FA disable requires the current TOTP code.
+struct DisableTOTPRequest: Content {
+
+    let totpCode: String
+}
+
 // MARK: - ChangePasswordRequest
 
 /// `POST /auth/change-password` body.
