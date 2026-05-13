@@ -1849,6 +1849,13 @@ Glass adopted automatically by building against the 26 SDKs).
   760px/520px. No controller or `LandingPageContext` change — the page still renders
   from `chrome` + `aboutText` only. Markdown URL copy was deliberately **not**
   advertised here: it is a native-app action, off-topic for the web landing page.
+- **✅ API docs CTA added to the hero.** Now that the Swagger UI is served at
+  `/docs.html` (see *OpenAPI specification*), the hero carries a third, secondary
+  CTA — *API docs →* `/docs.html` — alongside *Sign in* and *Admin*. It is a
+  same-tab static page like the other two CTAs, reuses the existing
+  `.landing-cta a.secondary` style (the row already wraps, so no CSS change), and
+  surfaces the machine-readable API surface to anyone evaluating a self-hosted
+  instance without making them guess the URL.
 
 ---
 

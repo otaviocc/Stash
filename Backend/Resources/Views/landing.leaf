@@ -9,6 +9,7 @@
         <div class="landing-cta">
             <a class="primary" href="/app">Sign in &rarr;</a>
             <a class="secondary" href="/admin">Admin &rarr;</a>
+            <a class="secondary" href="/docs.html">API docs &rarr;</a>
         </div>
         <ul class="platform-badges" aria-hidden="true">
             <li class="badge">iOS</li>
