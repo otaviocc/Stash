@@ -1044,7 +1044,8 @@ toolbars and navigation bars gain glass background. No explicit `.liquidGlass`
 calls needed; compiling against iOS 26 SDK is sufficient.
 
 `FaviconView` (`AsyncImage`, fallback `"link"` SF Symbol, `RoundFaviconModifier`
-16×16 4pt corners) loads favicons from the configured Stash instance's cached
+a 16×16 icon with 4pt corners on an 18×18 always-light background so icons designed
+for white backdrops stay legible in dark mode) loads favicons from the configured Stash instance's cached
 endpoint (`GET /api/v1/favicons/:domain`, §9.8) keyed by the bookmark's domain —
 no longer Google directly. A 404 (uncached domain) falls back to the placeholder.
 

@@ -74,12 +74,16 @@ struct FaviconView: View {
 
 // MARK: - RoundFaviconModifier
 
-/// Applies standard favicon styling: fixed 16×16 size with rounded corners.
+/// Applies standard favicon styling: fixed 18×18 size with rounded corners over an
+/// always-light background, so favicons designed for white backdrops stay legible in dark mode.
 struct RoundFaviconModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
             .frame(width: 16, height: 16)
+            .padding(1)
+            .background(.white)
+            .frame(width: 18, height: 18)
             .clipShape(.rect(cornerRadius: 4))
     }
 }

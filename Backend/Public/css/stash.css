@@ -349,6 +349,11 @@ form.inline {
     vertical-align: text-bottom;
     margin-right: 0.4rem;
     object-fit: contain;
+    /* Always-light backdrop so favicons designed for white backgrounds stay legible in dark mode;
+       content-box keeps the icon at 16×16 and grows the chip to 18×18 with the padding. */
+    background: #fff;
+    padding: 1px;
+    box-sizing: content-box;
 }
 
 .favicon-lg {

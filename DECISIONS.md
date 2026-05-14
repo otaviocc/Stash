@@ -467,8 +467,11 @@ edit/delete screens are deliberately deferred.
   the same screen serves both layouts and the Tags tab's drill-in.
 - **✅ `FaviconView` vendored from Triton with a local `roundedFavicon()`
   modifier.** Copied verbatim, `public` modifiers dropped for the app target;
-  the `RoundFaviconModifier` (16×16, 4 pt corner radius) is implemented locally
-  as instructed.
+  the `RoundFaviconModifier` (16×16 icon, 4 pt corner radius) is implemented locally
+  as instructed. It draws the icon on an **always-light (white) background** with
+  a 1 pt inset (growing the chip to 18×18, the icon kept at 16×16) — some favicons are designed for white backdrops and look poor on
+  the dark-mode surface, so the background is fixed light regardless of color
+  scheme rather than following it.
 - **✅ Bookmark list: `.searchable`, pull-to-refresh, load-more, archived
   toggle.** Search reloads on submit (and on clear) rather than per keystroke;
   `loadNextPage()` fires from the last row's `onAppear` when `hasMore`; the
@@ -2120,6 +2123,14 @@ from Firefox or Chrome (including Zen). It talks directly to the REST API
   is duplicated in Swift on both sides because no module spans the backend and the
   app (StashKit, the shared layer, is deliberately logic-free) — the property
   carries a comment pointing at the server source of truth.
+- **✅ Favicons render on an always-light backdrop.** Both the native
+  `RoundFaviconModifier` and the web `.favicon` CSS draw the icon over a fixed
+  white background regardless of color scheme — many favicons are designed for
+  white backgrounds and look poor on the dark-mode surface, so the chip stays
+  light in both modes rather than following the theme. The icon keeps its nominal
+  16×16 size and a 1 px inset grows the chip to 18×18 (the app re-frames after the
+  background; the web CSS uses `box-sizing: content-box`) — earlier the inset ate
+  into the icon, shrinking it.
 - **✅ Verified.** Backend: `swift build` clean, `swift test --no-parallel` green
   (133 tests incl. 23 favicon tests across domain extraction, the fetcher, the
   per-domain import backfill, and the serve/refresh endpoints). Apps: `Stash`
