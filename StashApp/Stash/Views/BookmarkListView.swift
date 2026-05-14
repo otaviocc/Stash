@@ -315,31 +315,56 @@ private struct BookmarkListContent: View {
     private func makeEmptyState() -> some View {
         let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if let smartView {
-            ContentUnavailableView(
-                "No Bookmarks",
-                systemImage: "line.3.horizontal.decrease.circle",
-                description: Text("No bookmarks match “\(smartView.name)”.")
+        if smartView != nil {
+            BookmarkEmptyState(
+                symbol: "line.3.horizontal.decrease.circle",
+                title: "No bookmarks match",
+                message: "Try adjusting the conditions for this Smart View."
             )
         } else if !trimmedSearch.isEmpty {
             ContentUnavailableView.search(text: trimmedSearch)
         } else if let tag {
-            ContentUnavailableView(
-                "No Bookmarks",
-                systemImage: "bookmark",
-                description: Text(emptyDescription(for: tag))
-            )
+            makeTagEmptyState(for: tag)
         } else if showArchived {
-            ContentUnavailableView(
-                "No Archived Bookmarks",
-                systemImage: "archivebox",
-                description: Text("Bookmarks you archive will appear here.")
+            BookmarkEmptyState(
+                symbol: "archivebox",
+                title: "No archived bookmarks",
+                message: "Bookmarks you archive will appear here."
             )
         } else {
-            ContentUnavailableView(
-                "No Bookmarks",
-                systemImage: "bookmark",
-                description: Text("Tap + to save your first bookmark.")
+            BookmarkEmptyState(
+                symbol: "bookmark",
+                title: "No bookmarks yet",
+                message: "Save your first bookmark using the + button, the Share Extension, or the browser extension."
+            )
+        }
+    }
+
+    private func makeTagEmptyState(for tag: String) -> some View {
+        switch tag {
+        case BookmarkListQuery.untaggedTag:
+            BookmarkEmptyState(
+                symbol: "tag",
+                title: "No untagged bookmarks",
+                message: "Every bookmark here has at least one tag."
+            )
+        case BookmarkListQuery.todayTag:
+            BookmarkEmptyState(
+                symbol: "calendar",
+                title: "Nothing saved today",
+                message: "Bookmarks you save today will appear here."
+            )
+        case BookmarkListQuery.thisWeekTag:
+            BookmarkEmptyState(
+                symbol: "calendar",
+                title: "Nothing saved this week",
+                message: "Bookmarks you save this week will appear here."
+            )
+        default:
+            BookmarkEmptyState(
+                symbol: "tag",
+                title: "No bookmarks tagged \(tagDisplayName(for: tag))",
+                message: "Bookmarks you tag with this will appear here."
             )
         }
     }
@@ -386,13 +411,8 @@ private struct BookmarkListContent: View {
 
     // MARK: Functions
 
-    private func emptyDescription(for tag: String) -> String {
-        switch tag {
-        case BookmarkListQuery.untaggedTag: "Every bookmark here has at least one tag."
-        case BookmarkListQuery.todayTag: "No bookmarks were saved today."
-        case BookmarkListQuery.thisWeekTag: "No bookmarks were saved this week."
-        default: "No bookmarks are tagged this way."
-        }
+    private func tagDisplayName(for tag: String) -> String {
+        tag.components(separatedBy: "/").joined(separator: " › ")
     }
 
     private func reload() {

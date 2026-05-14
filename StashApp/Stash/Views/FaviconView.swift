@@ -50,6 +50,12 @@ struct FaviconView: View {
         return URL(string: "\(base)/api/v1/favicons/\(domain)")
     }
 
+    private var monogram: String {
+        guard let first = domain?.first else { return "?" }
+
+        return String(first).uppercased()
+    }
+
     // MARK: Lifecycle
 
     init(domain: String?) {
@@ -65,10 +71,23 @@ struct FaviconView: View {
             image
                 .resizable()
                 .scaledToFit()
+                .roundedFavicon()
         } placeholder: {
-            Image(systemName: "link")
+            makeMonogram()
         }
-        .roundedFavicon()
+    }
+
+    // MARK: Content Methods
+
+    private func makeMonogram() -> some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(.quaternary)
+            .frame(width: 18, height: 18)
+            .overlay {
+                Text(monogram)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
     }
 }
 

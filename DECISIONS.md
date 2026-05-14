@@ -3403,3 +3403,43 @@ Four no-behavior-change cleanups from the review.
   not-enabled no-op, unknown user 404, non-admin 403). Updated `Backend/Public/openapi.yaml`
   (`disableTOTP` + `adminResetUserTOTP` operations, `TOTPDisableRequest` schema — re-validated) and
   `Docs/api.md`, per the spec-lockstep rule. PRD §9.2/§9.7 now match the implementation.
+
+## Visual polish — bookmark list, detail, empty states (native apps)
+
+- **✅ A content-first polish pass on the bookmark row, detail header, and empty states — no new
+  features, no navigation or data-flow changes.** Aesthetic reference is Things / Craft: structured,
+  generous whitespace, refined typographic details, chrome that disappears.
+- **Typographic hierarchy — three levels via semantic styles.** Each row reads as a clear scale instead
+  of three equal-weight elements: **title** primary (`.body` weight `.medium`, `.primary`, 2-line),
+  **domain** secondary (`.caption` weight `.medium`, `.secondary`), **tags** tertiary (`.caption2`,
+  `.tertiary`). The same scale is applied in the detail header (`.title2` semibold title, identical
+  domain line, `.caption` `.secondary` URL). No hardcoded point sizes — semantic text styles throughout,
+  so Dynamic Type and dark mode work for free.
+- **Domain as the visual anchor.** The row's secondary line is now `favicon + domain`
+  (`bookmark.faviconDomain ?? hostname`, `www.`-stripped) rather than the full URL — more scannable and
+  more meaningful. The favicon sits on the domain line, vertically centred. The detail view keeps the
+  full URL too, but demoted to a quiet `.caption` `.secondary` `Link` *below* the domain line.
+- **Tags text-only in the list row; styled capsule retained in the detail view.** `TagPill` gained an
+  `isPlain` parameter: the default is the accent-tinted capsule (used in the detail Tags section and the
+  add/edit summary), `isPlain: true` drops the background to quiet `.tertiary` text for the row. The
+  `swift › server` hierarchy rendering and the 3-tags-+N overflow logic are unchanged — only the
+  treatment.
+- **Increased row padding.** Row vertical padding went `4` → `10`, inner `VStack` spacing `4` → `6`, so
+  rows breathe. No fixed row height — content drives it.
+- **Favicon monogram fallback.** `FaviconView`'s placeholder (shown while loading and on a 404) is now a
+  rounded-square monogram of the domain's first letter (`.quaternary` fill, `.secondary` text, matching
+  the 18×18 / 4pt-radius favicon frame) instead of the `link` SF Symbol — a calmer, less broken-looking
+  empty state.
+- **`BookmarkEmptyState` — one shared empty-state component with specific, actionable copy per context.**
+  Symbol (`.system(size: 44)`, `.quaternary`) → title (`.title3` semibold) → message (`.body`
+  `.secondary`, centred, max width 280pt), centred in the available space. Replaces the per-context
+  `ContentUnavailableView` calls for the first-run, archived, tag-filter, and Smart-View cases with copy
+  that names the active filter and says what to do next ("No bookmarks yet" → "Save your first bookmark
+  using the + button, the Share Extension, or the browser extension"; tag filter shows the
+  `›`-separated display name; the untagged/today/this-week sentinels keep their own tailored copy).
+  The active-search case keeps Apple's `ContentUnavailableView.search(text:)` — already well-designed.
+  No buttons on any empty state: the toolbar `+` already provides the action.
+- **Scope.** Touched only `BookmarkRowView`, `BookmarkDetailView` (header section only — the grouped
+  `Form` and its action rows are unchanged), `BookmarkListView` (empty states), `TagPill`, `FaviconView`,
+  and added `BookmarkEmptyState`. No backend / StashKit / CLI / web / extension changes; no app unit
+  tests (§19.6). Builds clean on both iOS and macOS.

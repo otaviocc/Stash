@@ -24,52 +24,75 @@ import SwiftUI
 
 // MARK: - BookmarkRowView
 
-/// A single bookmark row: favicon, title, hostname, and tag pills.
+/// A single bookmark row laid out as a three-level hierarchy: the domain (with favicon) as the
+/// scannable anchor, the title as the primary content, and text-only tags as a quiet tertiary line.
 struct BookmarkRowView: View {
 
     // MARK: Properties
 
     let bookmark: Bookmark
 
+    // MARK: Computed Properties
+
+    private var domain: String {
+        bookmark.faviconDomain ?? bookmark.hostname
+    }
+
     // MARK: Content Properties
 
     // MARK: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                FaviconView(domain: bookmark.faviconDomain)
-                Text(bookmark.title)
-                    .font(.headline)
-                    .lineLimit(2)
+        VStack(alignment: .leading, spacing: 6) {
+            makeDomainLine()
+            makeTitle()
+            makeTags()
+        }
+        .padding(.vertical, 10)
+    }
 
-                if bookmark.isPendingSync || bookmark.hasSyncError {
-                    Spacer(minLength: 8)
-                    PendingSyncBadge(failed: bookmark.hasSyncError)
-                }
-            }
+    // MARK: Content Methods
 
-            Text(bookmark.hostname)
-                .font(.subheadline)
+    private func makeDomainLine() -> some View {
+        HStack(spacing: 6) {
+            FaviconView(domain: bookmark.faviconDomain)
+            Text(domain)
+                .font(.caption)
+                .fontWeight(.medium)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
-            if !bookmark.tags.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(bookmark.tags.prefix(3), id: \.self) { tag in
-                        TagPill(name: tag)
-                    }
-
-                    if bookmark.tags.count > 3 {
-                        Text("+\(bookmark.tags.count - 3)")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .lineLimit(1)
+            if bookmark.isPendingSync || bookmark.hasSyncError {
+                Spacer(minLength: 8)
+                PendingSyncBadge(failed: bookmark.hasSyncError)
             }
         }
-        .padding(.vertical, 4)
+    }
+
+    private func makeTitle() -> some View {
+        Text(bookmark.title)
+            .font(.body)
+            .fontWeight(.medium)
+            .foregroundStyle(.primary)
+            .lineLimit(2)
+    }
+
+    @ViewBuilder
+    private func makeTags() -> some View {
+        if !bookmark.tags.isEmpty {
+            HStack(spacing: 10) {
+                ForEach(bookmark.tags.prefix(3), id: \.self) { tag in
+                    TagPill(name: tag, isPlain: true)
+                }
+
+                if bookmark.tags.count > 3 {
+                    Text("+\(bookmark.tags.count - 3)")
+                        .font(.caption2)
+                        .foregroundStyle(.quaternary)
+                }
+            }
+            .lineLimit(1)
+        }
     }
 }
 

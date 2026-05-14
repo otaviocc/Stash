@@ -105,23 +105,38 @@ struct BookmarkDetailView: View {
 
     private func makeHeaderSection() -> some View {
         Section {
-            HStack(spacing: 8) {
-                FaviconView(domain: bookmark.faviconDomain)
-                Text(bookmark.title)
-                    .font(.headline)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(bookmark.title)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                if bookmark.isPendingSync || bookmark.hasSyncError {
-                    Spacer(minLength: 8)
-                    PendingSyncBadge(failed: bookmark.hasSyncError)
+                    if bookmark.isPendingSync || bookmark.hasSyncError {
+                        PendingSyncBadge(failed: bookmark.hasSyncError)
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    FaviconView(domain: bookmark.faviconDomain)
+                    Text(bookmark.faviconDomain ?? bookmark.hostname)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Link(destination: bookmark.url) {
+                    Text(bookmark.url.absoluteString)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-
-            Link(destination: bookmark.url) {
-                Text(bookmark.url.absoluteString)
-                    .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+            .padding(.vertical, 4)
         }
     }
 

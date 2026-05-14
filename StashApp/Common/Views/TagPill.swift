@@ -24,13 +24,16 @@ import SwiftUI
 
 // MARK: - TagPill
 
-/// A small capsule label for a tag. Shared by the bookmark rows, the detail view, and the add/edit
-/// tag summary so a tag reads the same everywhere.
+/// A label for a tag, rendering the hierarchical `swift/server` source as a `swift › server` display.
+/// Shared by the bookmark rows, the detail view, and the add/edit tag summary so a tag reads the same
+/// everywhere. The default styled capsule suits the detail and form summaries; the `isPlain` variant
+/// drops the background to a quiet, text-only treatment for the content-first list row.
 struct TagPill: View {
 
     // MARK: Properties
 
     let name: String
+    var isPlain = false
 
     // MARK: Computed Properties
 
@@ -43,20 +46,33 @@ struct TagPill: View {
     // MARK: Content
 
     var body: some View {
-        Text(displayName)
-            .font(.caption2)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Color.accentColor.opacity(0.15), in: .capsule)
-            .foregroundStyle(Color.accentColor)
+        if isPlain {
+            Text(displayName)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        } else {
+            Text(displayName)
+                .font(.caption2)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.accentColor.opacity(0.15), in: .capsule)
+                .foregroundStyle(Color.accentColor)
+        }
     }
 }
 
 #if DEBUG
     #Preview {
-        HStack {
-            TagPill(name: "swift")
-            TagPill(name: "swift/server")
+        VStack(spacing: 16) {
+            HStack {
+                TagPill(name: "swift")
+                TagPill(name: "swift/server")
+            }
+
+            HStack {
+                TagPill(name: "swift", isPlain: true)
+                TagPill(name: "swift/server", isPlain: true)
+            }
         }
         .padding()
     }
