@@ -45,6 +45,7 @@ struct AddBookmarkView: View {
     @State private var title = ""
     @State private var description = ""
     @State private var selectedTags: [String] = []
+    @State private var fetchedDomain: String?
     @State private var isFetching = false
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -61,8 +62,12 @@ struct AddBookmarkView: View {
 
     // MARK: Computed Properties
 
+    private var trimmedURL: String {
+        urlText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private var parsedURL: URL? {
-        let trimmed = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = trimmedURL
         guard
             let url = URL(string: trimmed),
             url.scheme != nil,
@@ -102,15 +107,27 @@ struct AddBookmarkView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                makeURLSection()
-                makeDetailsSection()
+            ScrollView {
+                VStack(spacing: 0) {
+                    makeURLSection()
+                    Divider().opacity(0.3)
+                    makeMetadataPreview()
+                    makeTitleSection()
+                    Divider().opacity(0.3)
+                    makeDescriptionSection()
+                    Divider().opacity(0.3)
 
-                TagSummarySection(selectedTags: $selectedTags, tagHierarchy: tagStore.tagHierarchy)
-
-                makeErrorMessage()
+                    TagSummarySection(selectedTags: $selectedTags, tagHierarchy: tagStore.tagHierarchy)
+                }
             }
-            .formStyle(.grouped)
+            .scrollDismissesKeyboard(.interactively)
+            .onChange(of: urlText) {
+                if fetchedDomain != nil {
+                    withAnimation {
+                        fetchedDomain = nil
+                    }
+                }
+            }
             .navigationTitle("Add Bookmark")
             .inlineNavigationTitleStyle()
             .toolbar {
@@ -119,8 +136,7 @@ struct AddBookmarkView: View {
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
-                        .disabled(parsedURL == nil || isSaving)
+                    makeSaveButton()
                 }
             }
             .task {
@@ -160,11 +176,25 @@ struct AddBookmarkView: View {
         }
     #endif
 
+    @ViewBuilder
+    private func makeSaveButton() -> some View {
+        if isSaving {
+            ProgressView()
+                .controlSize(.small)
+        } else {
+            Button("Save", action: save)
+                .disabled(parsedURL == nil)
+        }
+    }
+
     private func makeURLSection() -> some View {
-        Section("URL") {
+        VStack(alignment: .leading, spacing: 8) {
+            FieldLabel(text: "URL")
+
             if isURLEditable {
-                HStack {
-                    TextField("URL", text: $urlText)
+                HStack(spacing: 8) {
+                    TextField("https://…", text: $urlText)
+                        .textFieldStyle(.plain)
                         .urlFieldStyle()
 
                     PasteButton(payloadType: String.self) { strings in
@@ -176,39 +206,86 @@ struct AddBookmarkView: View {
                     }
                     .labelStyle(.iconOnly)
                     .buttonBorderShape(.circle)
-                }
 
-                Button(action: fetchMetadata) {
-                    if isFetching {
-                        ProgressView()
-                    } else {
-                        Text("Fetch Metadata")
-                    }
+                    makeFetchButton()
                 }
-                .disabled(parsedURL == nil || isFetching)
             } else {
                 Text(urlText)
+                    .font(.body)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(3)
                     .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+
+            makeInlineError()
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
     }
 
-    private func makeDetailsSection() -> some View {
-        Section("Details") {
-            TextField("Title", text: $title)
-            TextField("Description", text: $description, axis: .vertical)
-                .lineLimit(2...5)
+    @ViewBuilder
+    private func makeFetchButton() -> some View {
+        if isFetching {
+            ProgressView()
+                .controlSize(.small)
+        } else if !trimmedURL.isEmpty, fetchedDomain == nil {
+            Button("Fetch", action: fetchMetadata)
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+                .disabled(parsedURL == nil)
         }
     }
 
     @ViewBuilder
-    private func makeErrorMessage() -> some View {
+    private func makeMetadataPreview() -> some View {
+        if let fetchedDomain {
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    MetadataFaviconView(domain: fetchedDomain, size: 24)
+                    Text(fetchedDomain)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+
+                Divider().opacity(0.3)
+            }
+            .transition(.opacity)
+        }
+    }
+
+    private func makeTitleSection() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            FieldLabel(text: "Title")
+            TextField("Title", text: $title, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(1...3)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+    }
+
+    private func makeDescriptionSection() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            FieldLabel(text: "Description")
+            TextField("Description", text: $description, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(3...6)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+    }
+
+    @ViewBuilder
+    private func makeInlineError() -> some View {
         if let errorMessage {
             Text(errorMessage)
+                .font(.caption)
                 .foregroundStyle(.red)
-                .font(.footnote)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -233,6 +310,10 @@ struct AddBookmarkView: View {
 
                 if let fetchedDescription = metadata.description, !fetchedDescription.isEmpty {
                     description = fetchedDescription
+                }
+
+                withAnimation {
+                    fetchedDomain = Bookmark.faviconDomain(for: url)
                 }
             } catch {
                 errorMessage = error.stashUserMessage

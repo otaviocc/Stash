@@ -3443,3 +3443,45 @@ Four no-behavior-change cleanups from the review.
   `Form` and its action rows are unchanged), `BookmarkListView` (empty states), `TagPill`, `FaviconView`,
   and added `BookmarkEmptyState`. No backend / StashKit / CLI / web / extension changes; no app unit
   tests (§19.6). Builds clean on both iOS and macOS.
+
+## Add/Edit Bookmark — custom layout (native apps)
+
+- **✅ Replaced the grouped `Form` in both the add (`AddBookmarkView`) and edit (`EditBookmarkView`)
+  screens with a plain `ScrollView` + `VStack(spacing: 0)` of field groups.** The grouped form's
+  table-cell chrome (inset rounded sections, separators, system row insets) is gone; spacing and thin
+  dividers do the structural work instead, giving precise control over a calmer, more breathable layout.
+  Same Things / Craft direction as the bookmark-list polish.
+- **Label-above-field pattern (Things-style).** Each field group is a small `FieldLabel` (`.caption`
+  `.medium` `.secondary`, the same tertiary level as the list/detail scale) floating above a `.body`
+  field, rather than a `Form` section header to the left. New shared `FieldLabel` view in `Common/`.
+  Each group is padded `.horizontal 20` / `.vertical 14`, separated by `Divider().opacity(0.3)`.
+- **Borderless fields.** Text fields use `.textFieldStyle(.plain)` and sit directly on the sheet
+  background (no per-field box). Title/description are `axis: .vertical` with `lineLimit(1...3)` /
+  `lineLimit(3...6)` so they grow in place. `.scrollDismissesKeyboard(.interactively)` keeps the
+  keyboard out of the way as the user scrolls.
+- **Metadata preview row.** After a successful fetch (manual on the app, auto-on-appear in the
+  extension) a compact `favicon 24×24 + domain` row fades in (`.transition(.opacity)`) between the URL
+  and title groups — visual confirmation of *which* site was fetched, without a separate status line.
+  Editing the URL clears it (and re-shows the Fetch button). The Fetch button itself shows only while
+  the URL is non-empty and unfetched, becoming a small `ProgressView` while in flight.
+- **Favicon across the target boundary.** `FaviconView` is app-only (it reads the `@Observable`
+  `AppSettings`), but the add form lives in `Common/` and compiles into the Share Extension, which has
+  no `AppSettings`. Rather than push that dependency into the extension, the shared favicon **styling**
+  (`RoundFaviconModifier` / `roundedFavicon(size:)`) and the **monogram fallback** (`FaviconMonogram`)
+  moved to `Common/Views/FaviconStyle.swift`, and a sibling `MetadataFaviconView` (also `Common/`) reads
+  the server URL straight from the App Group's shared `UserDefaults` (`AppGroup.serverURLKey` — the same
+  value `AppSettings` writes through). The app's `FaviconView` data flow is unchanged; list/detail
+  favicons are untouched. Both views now share one look. `FaviconView` also gained a `size` parameter
+  (default 18) so the preview can render at 24.
+- **Save/Cancel stay in the navigation toolbar** (cancellation/confirmation placements) on all
+  platforms, consistent with the rest of the app's chrome; Save is disabled until the URL parses and
+  becomes a `ProgressView` while saving. The macOS Share Extension's inline bottom action bar
+  (`usesInlineActionBar` → `.safeAreaInset(edge: .bottom)`) is preserved.
+- **Share Extension compatibility preserved.** `isURLEditable` (read-only `.body` URL text, no paste /
+  fetch when locked), `autoFetchOnAppear` (fetch in `.task`), and `usesInlineActionBar` all continue to
+  work unchanged. `TagSummarySection` was reworked from a `Form` `Section` into the label-above-field
+  layout (up to three `TagPill` chips + `+N`, trailing "Add Tags →" button presenting the unchanged
+  `TagPickerSheet`); it is shared by both forms so tag editing stays identical everywhere.
+- **Scope.** No backend / StashKit / CLI / web / extension-folder changes; `TagPickerSheet` untouched
+  (a later pass); no data-layer changes; no app unit tests (§19.6). Builds clean on iOS and macOS
+  (extension target included).

@@ -22,16 +22,14 @@
 
 import SwiftUI
 
-// MARK: - FaviconView
+// MARK: - MetadataFaviconView
 
-/// A view that displays a favicon served from the configured Stash instance, keyed by domain.
-/// Falls back to a `FaviconMonogram` (the domain's first letter) while loading and when the instance
-/// has no cached icon (404).
-struct FaviconView: View {
-
-    // MARK: SwiftUI Properties
-
-    @Environment(AppSettings.self) private var appSettings
+/// The favicon shown in the shared add-bookmark form's metadata preview. A `Common` sibling of the
+/// app's `FaviconView`: it must compile into the Share Extension too, where the app-only `AppSettings`
+/// is unavailable, so it reads the configured server URL straight from the App Group's shared
+/// `UserDefaults` (the same value `AppSettings` writes through). Shares the `roundedFavicon` styling
+/// and `FaviconMonogram` fallback so it looks identical to the list/detail favicons.
+struct MetadataFaviconView: View {
 
     // MARK: Properties
 
@@ -43,7 +41,9 @@ struct FaviconView: View {
     private var iconURL: URL? {
         guard let domain, !domain.isEmpty else { return nil }
 
-        var base = appSettings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let defaults = AppGroup.makeSharedDefaults()
+        var base = (defaults.string(forKey: AppGroup.serverURLKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         while base.hasSuffix("/") {
             base = String(base.dropLast())
         }
@@ -77,8 +77,7 @@ struct FaviconView: View {
 
 #if DEBUG
     #Preview {
-        FaviconView(domain: "swift.org")
-            .environment(AppSettings.preview)
+        MetadataFaviconView(domain: "swift.org", size: 24)
             .padding()
     }
 #endif

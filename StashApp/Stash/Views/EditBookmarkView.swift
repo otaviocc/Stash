@@ -67,18 +67,22 @@ struct EditBookmarkView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                makeURLSection()
-                makeDetailsSection()
+            ScrollView {
+                VStack(spacing: 0) {
+                    makeURLSection()
+                    Divider().opacity(0.3)
+                    makeTitleSection()
+                    Divider().opacity(0.3)
+                    makeDescriptionSection()
+                    Divider().opacity(0.3)
 
-                TagSummarySection(
-                    selectedTags: $selectedTags,
-                    tagHierarchy: environment.tagRepository.tagHierarchy
-                )
-
-                makeErrorMessage()
+                    TagSummarySection(
+                        selectedTags: $selectedTags,
+                        tagHierarchy: environment.tagRepository.tagHierarchy
+                    )
+                }
             }
-            .formStyle(.grouped)
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Edit Bookmark")
             .inlineNavigationTitleStyle()
             .toolbar {
@@ -87,8 +91,7 @@ struct EditBookmarkView: View {
                 }
 
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
-                        .disabled(isSaving)
+                    makeSaveButton()
                 }
             }
             .task {
@@ -102,31 +105,61 @@ struct EditBookmarkView: View {
 
     // MARK: Content Methods
 
-    private func makeURLSection() -> some View {
-        Section("URL") {
-            Text(bookmark.url.absoluteString)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .textSelection(.enabled)
+    @ViewBuilder
+    private func makeSaveButton() -> some View {
+        if isSaving {
+            ProgressView()
+                .controlSize(.small)
+        } else {
+            Button("Save", action: save)
         }
     }
 
-    private func makeDetailsSection() -> some View {
-        Section("Details") {
-            TextField("Title", text: $title)
-                .labelsHidden()
-            TextField("Description", text: $description, axis: .vertical)
-                .labelsHidden()
-                .lineLimit(2...5)
+    private func makeURLSection() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            FieldLabel(text: "URL")
+            Text(bookmark.url.absoluteString)
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            makeInlineError()
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+    }
+
+    private func makeTitleSection() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            FieldLabel(text: "Title")
+            TextField("Title", text: $title, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(1...3)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+    }
+
+    private func makeDescriptionSection() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            FieldLabel(text: "Description")
+            TextField("Description", text: $description, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(3...6)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
     }
 
     @ViewBuilder
-    private func makeErrorMessage() -> some View {
+    private func makeInlineError() -> some View {
         if let errorMessage {
             Text(errorMessage)
+                .font(.caption)
                 .foregroundStyle(.red)
-                .font(.footnote)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
