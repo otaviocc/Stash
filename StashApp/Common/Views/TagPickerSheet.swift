@@ -76,8 +76,10 @@ struct TagPickerSheet: View {
             VStack(spacing: 0) {
                 makeSearchField()
                 Divider()
+                makeSelectedChips()
                 makeContent()
             }
+            .animation(.default, value: selectedTags.isEmpty)
             .navigationTitle("Tags")
             .inlineNavigationTitleStyle()
             .toolbar {
@@ -121,6 +123,28 @@ struct TagPickerSheet: View {
     }
 
     @ViewBuilder
+    private func makeSelectedChips() -> some View {
+        if !selectedTags.isEmpty {
+            VStack(spacing: 0) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(selectedTags, id: \.self) { tag in
+                            SelectedTagChip(tag: tag) {
+                                selectedTags.removeAll { $0 == tag }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
+
+                Divider()
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    @ViewBuilder
     private func makeContent() -> some View {
         if filteredHierarchy.isEmpty, !showsCreateRow {
             makeEmptyState()
@@ -143,43 +167,52 @@ struct TagPickerSheet: View {
 
     private func makeCreateRow() -> some View {
         Button(action: createTag) {
-            Label {
+            HStack(spacing: 12) {
+                Image(systemName: "plus.circle.fill")
+                    .imageScale(.medium)
+                    .foregroundStyle(Color.accentColor)
                 Text("Create \"\(normalizedQuery)\"")
-            } icon: {
-                Image(systemName: "plus")
-            }
-            .foregroundStyle(Color.accentColor)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func makeTagRow(_ node: TagNode, depth: Int) -> some View {
-        Button {
-            toggle(node.slug)
-        } label: {
-            HStack {
-                TagTreeLabel(node: node, depth: depth)
-
-                if selectedTags.contains(node.slug) {
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(Color.accentColor)
-                }
+                    .font(.body)
+                    .fontWeight(.medium)
+                Spacer()
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
+    private func makeTagRow(_ node: TagNode, depth: Int) -> some View {
+        let isSelected = selectedTags.contains(node.slug)
+
+        return Button {
+            toggle(node.slug)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: isSelected ? "circle.fill" : "circle")
+                    .imageScale(.medium)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                TagTreeLabel(node: node, depth: depth)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
     private func makeEmptyState() -> some View {
-        ContentUnavailableView(
-            searchText.isEmpty ? "No Tags Yet" : "No Matches",
-            systemImage: "tag",
-            description: Text(
-                searchText.isEmpty
-                    ? "Type above to create your first tag."
-                    : "No tag matches your search."
+        if searchText.isEmpty {
+            BookmarkEmptyState(
+                symbol: "tag",
+                title: "No tags yet",
+                message: "Type a name above to create your first tag."
             )
-        )
+        } else {
+            ContentUnavailableView(
+                "No Matches",
+                systemImage: "magnifyingglass",
+                description: Text("No tag matches your search.")
+            )
+        }
     }
 
     // MARK: Static Functions
@@ -235,6 +268,53 @@ struct TagPickerSheet: View {
         }
 
         searchText = ""
+    }
+}
+
+// MARK: - SelectedTagChip
+
+/// A muted, removable chip for the tag picker's selected-tags strip. Renders the tag in the same
+/// `›`-separated display format as `TagPill`, but with a quiet `.quaternary` capsule (rather than the
+/// accent tint) so the strip does not compete with the accent selection circles in the list below.
+/// Distinct from `TagPill`, which stays the styled summary chip for the detail view and forms.
+struct SelectedTagChip: View {
+
+    // MARK: Properties
+
+    let tag: String
+    let onRemove: () -> Void
+
+    // MARK: Computed Properties
+
+    private var displayName: String {
+        tag.components(separatedBy: "/").joined(separator: " › ")
+    }
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(displayName)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(.primary)
+
+            Button(action: onRemove) {
+                Image(systemName: "xmark")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .padding(2)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Remove \(displayName)")
+        }
+        .padding(.leading, 10)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+        .background(.quaternary, in: .capsule)
     }
 }
 

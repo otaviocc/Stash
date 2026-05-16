@@ -3485,3 +3485,37 @@ Four no-behavior-change cleanups from the review.
 - **Scope.** No backend / StashKit / CLI / web / extension-folder changes; `TagPickerSheet` untouched
   (a later pass); no data-layer changes; no app unit tests (§19.6). Builds clean on iOS and macOS
   (extension target included).
+
+## Tag Picker Sheet — visual polish (native apps)
+
+- **✅ A visual polish pass on `TagPickerSheet` matching the bookmark-list / Add-Edit aesthetic.**
+  Functional behaviour is unchanged — single-tap toggles, search-as-create, Done commits. Two visible
+  improvements plus minor row/empty-state refinements.
+- **Leading selection circle replaces the trailing checkmark.** Each tag row now leads with
+  `circle` (unselected, `.secondary`) / `circle.fill` (selected, accent), the iOS multi-select pattern
+  from Mail / Reminders / Shortcuts. The circle is flush-left for every row; `TagTreeLabel` (unchanged)
+  still carries the per-depth indent, so the hierarchy reads from the label's inset while the circles
+  form a clean leading column. Row stays fully tappable (`contentShape(Rectangle())`).
+- **Selected-tags chip strip above the list.** When `selectedTags` is non-empty a horizontally
+  scrollable strip of chips appears between the search field and the list, in insertion order (the
+  `[String]` selection already preserves order). It animates in/out with
+  `.transition(.move(edge: .top).combined(with: .opacity))` driven by
+  `.animation(.default, value: selectedTags.isEmpty)`, so it slides in on the first selection and out
+  when the last is removed. The strip's horizontal scroll and the list's vertical scroll don't conflict.
+- **`SelectedTagChip` — a new view in `Common/Views/TagPickerSheet.swift`.** Renders the tag in the
+  same `›`-separated format as `TagPill` (logic re-derived, not a dependency) with a `×` remove button,
+  but on a muted `.quaternary` capsule rather than the accent tint — deliberately quiet so the strip
+  doesn't compete with the accent selection circles below. Kept distinct from `TagPill`, which remains
+  the styled summary chip for the detail view and the add/edit forms.
+- **Create row distinguished from tag rows.** The search-as-create row now leads with
+  `plus.circle.fill` in the accent colour and a `.body` `.medium` label, instead of a plain `circle`,
+  so the create action reads as an action rather than another selectable tag.
+- **Empty state reuses `BookmarkEmptyState`.** That component (pure SwiftUI, no app dependencies)
+  moved from `Stash/Views/` to `Common/Views/` so the shared picker — which compiles into the Share
+  Extension — can use it; the bookmark list (in `Stash/`) still references it unchanged. The no-tags
+  state shows the calm symbol / title / message ("No tags yet" / "Type a name above to create your
+  first tag."); the no-search-match case keeps a `magnifyingglass` `ContentUnavailableView`.
+- **Scope.** Only `TagPickerSheet.swift` changed (plus relocating `BookmarkEmptyState`); `TagTreeLabel`,
+  `TagPill`, the selection/normalisation logic, and `TagPickerSheet`'s interface are all untouched. No
+  backend / StashKit / CLI / web / extension-folder changes; no data-layer changes; no app unit tests
+  (§19.6). Builds clean on iOS and macOS (extension target included).
