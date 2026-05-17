@@ -394,6 +394,27 @@ Extension (M9), full settings, tag rename/delete, and edit/delete screens are de
   already present at launch. Replaced with a plain tracked `var serverURL` whose `didSet` writes
   through to the same `serverURL` UserDefaults key (still read by `StashClientProvider`), so the change
   is observed and routing is reactive while persistence and the key are unchanged.
+- **✅ Per-view `BookmarkRepository`, not one shared instance.** `AppEnvironment` originally held a
+  single `bookmarkRepository`, so the Bookmarks tab, a Tags-tab tag drill-in, and the iPad detail all
+  mutated the same `bookmarks` array — browsing a tag in the Tags tab left the Bookmarks tab showing
+  that tag's results. `AppEnvironment` now exposes `makeBookmarkRepository()` (sharing the client and
+  session) instead, and `BookmarkListView` is a thin wrapper owning its own repository in `@State`
+  (created lazily on first appearance), rendering a private `BookmarkListContent` bound to it. Each
+  list is therefore independent. `AuthRepository` and `TagRepository` stay shared singletons (auth
+  state and the tag cache are intentionally global); `AddBookmarkSheet` receives the presenting list's
+  repository so a saved bookmark lands in that list.
+- **✅ Bookmark navigation is closure-based, not `navigationDestination(for:)`.** `BookmarkListView`
+  declared `.navigationDestination(for: Bookmark.self)` *inside itself*, but it is reused at multiple
+  stack depths (root of the Bookmarks tab, pushed under the Tags tab, iPad detail column). A pushed
+  copy re-declared the same destination, so SwiftUI logged "a navigationDestination for Stash.Bookmark
+  was declared earlier on the stack" and kept only the root-most one — tapping a bookmark in the Tags
+  flow re-pushed the list instead of the detail, with the real detail buried (off-by-one back button).
+  It also mixed value-based links (`NavigationLink(value:)`) with closure-based links
+  (TagBrowserView's tag link) in one stack. Fixed by making the bookmark rows closure-based
+  (`NavigationLink { BookmarkDetailView(…) }`) and removing the `navigationDestination` entirely:
+  closure links resolve at any depth with no registration, so all bookmark navigation is now uniform.
+  (`LoginView` keeps a single `navigationDestination(for: String.self)` for the 2FA push — correct,
+  since it is declared once at the stack root.)
 - **✅ Search field disables autocapitalization/autocorrection.** `.searchable` defaults to
   sentence-case, so typing `casio` became `Casio` and matched nothing (see the search fix below).
   `BookmarkListView` applies `.textInputAutocapitalization(.never)` + `.autocorrectionDisabled()` to

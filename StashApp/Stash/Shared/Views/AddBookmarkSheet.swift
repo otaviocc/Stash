@@ -39,6 +39,11 @@ struct AddBookmarkSheet: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
 
+    // MARK: Properties
+
+    /// The list's repository, so a saved bookmark appears in the list that presented this sheet.
+    let repository: BookmarkRepository
+
     // MARK: Computed Properties
 
     private var parsedURL: URL? {
@@ -173,7 +178,7 @@ struct AddBookmarkSheet: View {
             defer { isFetching = false }
 
             do {
-                let metadata = try await environment.bookmarkRepository.fetchMetadata(for: url)
+                let metadata = try await repository.fetchMetadata(for: url)
                 if let fetchedTitle = metadata.title, !fetchedTitle.isEmpty {
                     title = fetchedTitle
                 }
@@ -222,7 +227,7 @@ struct AddBookmarkSheet: View {
             )
 
             do {
-                _ = try await environment.bookmarkRepository.create(input)
+                _ = try await repository.create(input)
                 environment.tagRepository.invalidateCache()
                 dismiss()
             } catch {

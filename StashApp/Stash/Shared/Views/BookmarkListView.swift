@@ -22,12 +22,50 @@
 
 import SwiftUI
 
+// MARK: - BookmarkListView
+
 /// The main bookmark list: searchable, paginated, with a tag filter and an archived toggle.
+///
+/// Each instance owns its own `BookmarkRepository` so the Bookmarks tab, a Tags-tab drill-in, and the
+/// iPad detail column keep independent contents — browsing a tag in one does not change the others.
 struct BookmarkListView: View {
 
     // MARK: SwiftUI Properties
 
     @Environment(AppEnvironment.self) private var environment
+    @State private var repository: BookmarkRepository?
+
+    // MARK: Properties
+
+    /// An externally-supplied tag filter (the iPad sidebar selection / Tags tab); `nil` shows all.
+    let tag: String?
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        Group {
+            if let repository {
+                BookmarkListContent(tag: tag, repository: repository)
+            } else {
+                ProgressView()
+            }
+        }
+        .task {
+            if repository == nil {
+                repository = environment.makeBookmarkRepository()
+            }
+        }
+    }
+}
+
+// MARK: - BookmarkListContent
+
+/// The bookmark list bound to a specific repository instance.
+private struct BookmarkListContent: View {
+
+    // MARK: SwiftUI Properties
 
     @State private var searchText = ""
     @State private var showArchived = false
@@ -37,14 +75,10 @@ struct BookmarkListView: View {
 
     // MARK: Properties
 
-    /// An externally-supplied tag filter (the iPad sidebar selection); `nil` shows all bookmarks.
     let tag: String?
+    let repository: BookmarkRepository
 
     // MARK: Computed Properties
-
-    private var repository: BookmarkRepository {
-        environment.bookmarkRepository
-    }
 
     private var query: BookmarkQuery {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -70,7 +104,9 @@ struct BookmarkListView: View {
     var body: some View {
         List {
             ForEach(repository.bookmarks) { bookmark in
-                NavigationLink(value: bookmark) {
+                NavigationLink {
+                    BookmarkDetailView(bookmark: bookmark)
+                } label: {
                     BookmarkRowView(bookmark: bookmark)
                 }
                 .onAppear {
@@ -96,9 +132,6 @@ struct BookmarkListView: View {
             }
         }
         .navigationTitle(navigationTitle)
-        .navigationDestination(for: Bookmark.self) { bookmark in
-            BookmarkDetailView(bookmark: bookmark)
-        }
         .searchable(text: $searchText, prompt: "Search bookmarks")
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
@@ -139,7 +172,7 @@ struct BookmarkListView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            AddBookmarkSheet()
+            AddBookmarkSheet(repository: repository)
         }
         .task {
             guard !didLoad else {
