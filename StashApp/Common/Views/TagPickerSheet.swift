@@ -271,53 +271,6 @@ struct TagPickerSheet: View {
     }
 }
 
-// MARK: - SelectedTagChip
-
-/// A muted, removable chip for the tag picker's selected-tags strip. Renders the tag in the same
-/// `›`-separated display format as `TagPill`, but with a quiet `.quaternary` capsule (rather than the
-/// accent tint) so the strip does not compete with the accent selection circles in the list below.
-/// Distinct from `TagPill`, which stays the styled summary chip for the detail view and forms.
-struct SelectedTagChip: View {
-
-    // MARK: Properties
-
-    let tag: String
-    let onRemove: () -> Void
-
-    // MARK: Computed Properties
-
-    private var displayName: String {
-        tag.components(separatedBy: "/").joined(separator: " › ")
-    }
-
-    // MARK: Content Properties
-
-    // MARK: Content
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text(displayName)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundStyle(.primary)
-
-            Button(action: onRemove) {
-                Image(systemName: "xmark")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .padding(2)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Remove \(displayName)")
-        }
-        .padding(.leading, 10)
-        .padding(.trailing, 6)
-        .padding(.vertical, 6)
-        .background(.quaternary, in: .capsule)
-    }
-}
-
 #if DEBUG
     #Preview {
         @Previewable @State var selected = ["swift/server"]

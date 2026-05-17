@@ -24,11 +24,12 @@ import SwiftUI
 
 // MARK: - TagSummarySection
 
-/// The "Tags" field on the add and edit bookmark forms: a `FieldLabel`, a read-only summary of the
-/// selected tags (up to three `TagPill` chips plus a `+N` overflow), and a trailing "Add Tags" button
-/// that presents `TagPickerSheet`. Shared by both forms (and so by the Share Extension) so tag editing
-/// is identical everywhere, and styled to match the custom label-above-field layout. It owns the picker
-/// presentation state; the selection is a binding the picker updates live.
+/// The "Tags" field on the add and edit bookmark forms: a `FieldLabel`, a horizontally scrollable
+/// strip of removable `SelectedTagChip`s (the same chip used in `TagPickerSheet`), and a trailing
+/// "Add Tags" button that presents the picker. Tapping a chip's `×` removes that tag from the binding
+/// directly, without reopening the picker. Shared by both forms (and so by the Share Extension) so tag
+/// editing is identical everywhere, and styled to match the custom label-above-field layout. It owns
+/// the picker presentation state; the selection is a binding the picker updates live.
 struct TagSummarySection: View {
 
     // MARK: SwiftUI Properties
@@ -46,10 +47,10 @@ struct TagSummarySection: View {
     // MARK: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             FieldLabel(text: "Tags")
 
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
+            HStack(spacing: 0) {
                 makeSummary()
                 Spacer(minLength: 12)
                 makeAddButton()
@@ -72,33 +73,26 @@ struct TagSummarySection: View {
     @ViewBuilder
     private func makeSummary() -> some View {
         if !selectedTags.isEmpty {
-            HStack(spacing: 6) {
-                ForEach(selectedTags.prefix(3), id: \.self) { tag in
-                    TagPill(name: tag)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(selectedTags, id: \.self) { tag in
+                        SelectedTagChip(tag: tag) {
+                            selectedTags.removeAll { $0 == tag }
+                        }
+                    }
                 }
-
-                if selectedTags.count > 3 {
-                    Text("+\(selectedTags.count - 3)")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                .padding(.vertical, 2)
             }
-            .lineLimit(1)
         }
     }
 
     private func makeAddButton() -> some View {
-        Button {
+        Button("Add Tags") {
             isShowingPicker = true
-        } label: {
-            HStack(spacing: 4) {
-                Text("Add Tags")
-                Image(systemName: "arrow.right")
-                    .font(.caption)
-            }
         }
         .buttonStyle(.plain)
         .foregroundStyle(Color.accentColor)
+        .font(.body)
     }
 }
 

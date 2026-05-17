@@ -3519,3 +3519,21 @@ Four no-behavior-change cleanups from the review.
   `TagPill`, the selection/normalisation logic, and `TagPickerSheet`'s interface are all untouched. No
   backend / StashKit / CLI / web / extension-folder changes; no data-layer changes; no app unit tests
   (§19.6). Builds clean on iOS and macOS (extension target included).
+
+## Add/Edit Bookmark — tag chip strip (native apps)
+
+- **✅ Follow-up to the Add/Edit custom layout: the tag row (`TagSummarySection`) now uses the
+  removable `SelectedTagChip` strip instead of static `TagPill`s.** Selected tags render as the same
+  muted `.quaternary` capsules with a `×` dismiss as in `TagPickerSheet`; tapping `×` removes the tag
+  from the binding immediately (`selectedTags.removeAll { $0 == tag }`) — no need to reopen the picker
+  to drop a tag. The strip scrolls horizontally and the trailing "Add Tags" button (arrow dropped, the
+  chips make the context clear) stays put to add more. With no tags selected the strip is absent and the
+  button is the only element, as before.
+- **`SelectedTagChip` moved to its own `Common/Views/SelectedTagChip.swift`** (it had been file-scoped
+  in `TagPickerSheet.swift`) so it reads as the shared chip it now is — used by both the picker's
+  selected-tags strip and the forms' tag row, and compiled into the Share Extension. Pure SwiftUI, no
+  app dependencies. `TagPickerSheet` is otherwise unchanged.
+- **Scope.** Only `TagSummarySection` (chip strip) and the `SelectedTagChip` relocation; `TagPickerSheet`
+  selection logic/interface and `TagPill` untouched. No backend / StashKit / CLI / web / extension-folder
+  changes; no data-layer changes; no app unit tests (§19.6). Builds clean on iOS and macOS (extension
+  included).
