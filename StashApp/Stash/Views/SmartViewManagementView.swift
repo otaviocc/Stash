@@ -48,11 +48,10 @@ struct SmartViewManagementView: View {
     // MARK: Content
 
     var body: some View {
-        List {
-            makeNewButtonRow()
-            makeContentSection()
+        VStack(alignment: .leading, spacing: 0) {
+            makeNewButton()
+            makeContent()
         }
-        .settingsChromeStyle()
         .navigationTitle("Smart Views")
         .inlineNavigationTitleStyle()
         .sheet(item: $presentedForm) { presentation in
@@ -102,26 +101,27 @@ struct SmartViewManagementView: View {
 
     // MARK: Content Methods
 
-    private func makeNewButtonRow() -> some View {
-        Section {
-            Button {
-                presentedForm = .create
-            } label: {
-                Label("New Smart View", systemImage: "plus")
-            }
+    private func makeNewButton() -> some View {
+        Button {
+            presentedForm = .create
+        } label: {
+            Label("New Smart View", systemImage: "plus")
         }
+        .buttonStyle(.borderedProminent)
+        .padding(.horizontal)
+        .padding(.vertical, 12)
     }
 
     @ViewBuilder
-    private func makeContentSection() -> some View {
+    private func makeContent() -> some View {
         if smartViews.isEmpty {
-            Section {
-                Text("No Smart Views yet. Create one to save a query you use often.")
-                    .foregroundStyle(.secondary)
-                    .font(.footnote)
-            }
+            BookmarkEmptyState(
+                symbol: "line.3.horizontal.decrease.circle",
+                title: "No Smart Views",
+                message: "Create a saved filter to quickly find bookmarks matching specific conditions."
+            )
         } else {
-            Section {
+            List {
                 ForEach(smartViews) { smartView in
                     makeRow(for: smartView)
                 }
@@ -135,6 +135,9 @@ struct SmartViewManagementView: View {
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(smartView.name)
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.primary)
 
                 Text(summary(for: smartView))
                     .font(.caption)

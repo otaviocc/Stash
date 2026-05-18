@@ -62,12 +62,14 @@ struct AccountSettingsView: View {
     // MARK: Content
 
     var body: some View {
-        Form {
-            makeChangePasswordSection()
-            makeTwoFactorSection()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 32) {
+                makeChangePasswordSection()
+                makeTwoFactorSection()
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .formStyle(.grouped)
-        .settingsChromeStyle()
         .task {
             await loadUser()
         }
@@ -80,11 +82,41 @@ struct AccountSettingsView: View {
 
     // MARK: Content Methods
 
+    private func makeSectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.headline)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func makeField(_ label: String, @ViewBuilder field: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            FieldLabel(text: label)
+            field()
+        }
+    }
+
     private func makeChangePasswordSection() -> some View {
-        Section {
-            SecureField("Current password", text: $currentPassword)
-            SecureField("New password", text: $newPassword)
-            SecureField("Confirm new password", text: $confirmPassword)
+        VStack(alignment: .leading, spacing: 16) {
+            makeSectionHeader("Change Password")
+
+            makeField("Current password") {
+                SecureField("Current password", text: $currentPassword)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            makeField("New password") {
+                SecureField("New password", text: $newPassword)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            makeField("Confirm new password") {
+                SecureField("Confirm new password", text: $confirmPassword)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            Text("At least \(Self.minimumPasswordLength) characters.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             if let passwordMessage {
                 Text(passwordMessage)
@@ -93,18 +125,15 @@ struct AccountSettingsView: View {
             }
 
             Button("Change Password", action: changePassword)
+                .buttonStyle(.bordered)
                 .disabled(!canChangePassword)
-        } header: {
-            Text("Change Password")
-        } footer: {
-            Text("At least \(Self.minimumPasswordLength) characters.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .padding(.top, 4)
         }
     }
 
     private func makeTwoFactorSection() -> some View {
-        Section("Two-Factor Authentication") {
+        VStack(alignment: .leading, spacing: 16) {
+            makeSectionHeader("Two-Factor Authentication")
             makeTwoFactorContent()
         }
     }
@@ -115,17 +144,28 @@ struct AccountSettingsView: View {
             ProgressView()
         } else if user?.isTOTPEnabled == true {
             Text("Two-factor authentication is on.")
+                .font(.body)
                 .foregroundStyle(.secondary)
-            TextField("Current 6-digit code", text: $disableCode)
-                .oneTimeCodeFieldStyle()
+
+            makeField("Current 6-digit code") {
+                TextField("Current 6-digit code", text: $disableCode)
+                    .textFieldStyle(.roundedBorder)
+                    .oneTimeCodeFieldStyle()
+            }
+
             Button("Disable Two-Factor", role: .destructive, action: disableTwoFactor)
+                .buttonStyle(.bordered)
+                .tint(.red)
                 .disabled(disableCode.isEmpty || isDisabling)
         } else {
             Text("Two-factor authentication is off.")
+                .font(.body)
                 .foregroundStyle(.secondary)
+
             Button("Enable Two-Factor") {
                 showingEnroll = true
             }
+            .buttonStyle(.bordered)
         }
 
         if let twoFactorMessage {

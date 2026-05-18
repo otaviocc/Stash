@@ -3537,3 +3537,38 @@ Four no-behavior-change cleanups from the review.
   selection logic/interface and `TagPill` untouched. No backend / StashKit / CLI / web / extension-folder
   changes; no data-layer changes; no app unit tests (§19.6). Builds clean on iOS and macOS (extension
   included).
+
+## Settings — visual polish (native apps)
+
+- **✅ A polish pass on the Settings screens (iOS `SettingsView`, macOS `GeneralSettingsView`, the
+  shared `AccountSettingsView` / `SmartViewManagementView` / `SyncStatusSection`).** Same Things / Craft
+  direction. The recurring problem was in-place action buttons inheriting `Form` cell styling (full-width
+  tappable rows) and cramped, undifferentiated sections.
+- **In-place actions now look like buttons.** Buttons that act in place — Sync Now, Sign Out, Change
+  Password, Enable/Disable Two-Factor, New Smart View — are explicit `.bordered` / `.borderedProminent`
+  buttons, sized to content and left-aligned, not `Form` rows. Navigation rows (Account →, Smart Views →)
+  stay as `NavigationLink`s, the correct native pattern. Destructive actions (Sign Out, Disable
+  Two-Factor) use `.bordered` + `.tint(.red)`; the primary New Smart View action uses
+  `.borderedProminent` (accent fill).
+- **iOS `SettingsView` / macOS General stay `Form`-based** (appropriate for a compact settings list and
+  the editable macOS server URL field) — only the buttons changed: Sync Now and Sign Out are now
+  left-aligned bordered buttons (`HStack { … ; Spacer() }` inside their section), Sign Out red-tinted in
+  its own section so it reads as a standalone dangerous action rather than a row tucked under Sync Now.
+  `SyncStatusSection` is shared by both, so the Sync Now restyle lands in one place; its spinner-while-
+  syncing behaviour is preserved.
+- **`AccountSettingsView` converted from `Form` to a `ScrollView` + `VStack`** with the label-above-field
+  pattern from Add/Edit: a `FieldLabel` floats above each `SecureField` (kept `.roundedBorder` so a
+  password box still reads as an input), `spacing: 16` between fields, `spacing: 32` between the Change
+  Password and Two-Factor sections for clear air. Section headers are `.headline`; the "At least 12
+  characters" helper is `.caption .secondary`; the 2FA status is a `.body .secondary` line (a status, not
+  a cell) above its bordered action. The password-change and 2FA enrol/disable logic is unchanged.
+- **`SmartViewManagementView` restructured.** The "New Smart View" button moved out of the `List` to the
+  top of a `VStack` as a left-aligned `.borderedProminent` button (was a chip-like `Form` row), removing
+  the redundant section divider that sat between it and the list. Rows now show a two-level hierarchy —
+  name `.body .medium .primary`, condition summary `.caption .secondary` — and keep their swipe-to-delete
+  and context menu (still a `List` below the button). The empty state uses the shared `BookmarkEmptyState`
+  ("No Smart Views" / "Create a saved filter to quickly find bookmarks matching specific conditions.").
+- **Scope.** Touched only the Settings views listed above; no navigation/routing changes, no behavioural
+  changes to any settings action, `SmartViewFormView` untouched. No backend / StashKit / CLI / web /
+  extension-folder changes; no data-layer changes; no app unit tests (§19.6). Builds clean on iOS and
+  macOS (extension target included).

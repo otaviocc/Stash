@@ -131,14 +131,19 @@ struct SyncStatusSection: View {
     }
 
     private func makeSyncButton() -> some View {
-        Button(action: syncNow) {
-            if environment.syncEngine.isSyncing {
-                ProgressView()
-            } else {
-                Text("Sync Now")
+        HStack {
+            Button(action: syncNow) {
+                if environment.syncEngine.isSyncing {
+                    ProgressView()
+                } else {
+                    Text("Sync Now")
+                }
             }
+            .buttonStyle(.bordered)
+            .disabled(environment.syncEngine.isSyncing)
+
+            Spacer()
         }
-        .disabled(environment.syncEngine.isSyncing)
     }
 
     // MARK: Functions

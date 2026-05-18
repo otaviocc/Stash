@@ -106,10 +106,20 @@
                 SyncStatusSection()
 
                 Section {
-                    Button(role: .destructive, action: signOut) {
-                        Text("Sign Out")
+                    HStack {
+                        Button(action: signOut) {
+                            if isSigningOut {
+                                ProgressView()
+                            } else {
+                                Text("Sign Out")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.red)
+                        .disabled(isSigningOut)
+
+                        Spacer()
                     }
-                    .disabled(isSigningOut)
                 }
             }
             .formStyle(.grouped)
