@@ -3572,3 +3572,35 @@ Four no-behavior-change cleanups from the review.
   changes to any settings action, `SmartViewFormView` untouched. No backend / StashKit / CLI / web /
   extension-folder changes; no data-layer changes; no app unit tests (§19.6). Builds clean on iOS and
   macOS (extension target included).
+
+## Share Extension — visual polish (native apps)
+
+- **✅ A refinement pass on the four Share Extension states (loading, signed out, add form,
+  confirmation).** The add form is the shared `AddBookmarkView` and already carries the redesigned
+  layout (label-above-field, metadata preview, tag chip strip) plus the iOS toolbar / macOS inline
+  action bar — that flows through untouched, so this pass is the extension-specific chrome only. Same
+  Things / Craft direction; semantic colours throughout.
+- **Loading.** Replaced the `ProgressView` + "Stash" text label with a large `.quaternary`
+  `bookmark.fill` ribbon mark above a `.secondary`-tinted spinner — a quiet, distinctive presence with
+  no redundant label, centred in the popover.
+- **Signed out.** Replaced the generic `ContentUnavailableView` with the shared `BookmarkEmptyState`
+  (`person.crop.circle`, "Sign in to Stash", "Open the Stash app to sign in, then share this page
+  again.") — calm and directive rather than apologetic. The toolbar Cancel to dismiss the extension is
+  kept.
+- **Confirmation.** Reworked into a calmer moment: `checkmark.circle.fill` (48pt, `.green`), "Saved to
+  Stash" (`.title3 .semibold`), the saved bookmark's **domain** (`faviconDomain`, `.body .secondary`) as
+  a concrete confirmation of what was saved, the bookmark's **tags** as read-only `SelectedTagChip`s
+  (shown only when present), and an unobtrusive `.plain` `.secondary` "Undo" text button (was a bordered
+  destructive button). The form→confirmation swap cross-fades via `.transition(.opacity)` wrapped in
+  `withAnimation`.
+- **`SelectedTagChip` gained `showsDismissButton: Bool = true`** so the confirmation can render the
+  read-only (no-`×`) variant while the picker/forms keep the removable one; existing call sites are
+  unaffected by the defaulted parameter.
+- **Auto-dismiss shortened from 3s to 1.5s.** The confirmation's `Task.sleep` before
+  `completeRequest` is now 1.5 seconds; the Undo button still cancels the task by removing the view, and
+  the delete-on-undo logic is unchanged.
+- **Scope.** Only `ShareExtensionView.swift` (the four state views + timer) and the `SelectedTagChip`
+  parameter changed; `AddBookmarkView`, `SharedItemLoader`, the `Phase` enum / transition logic, the
+  view controllers, and the extension repositories/session are untouched. No backend / StashKit / CLI /
+  web / extension-folder changes; no data-layer changes; no app unit tests (§19.6). Builds clean on iOS
+  and macOS (extension target included).

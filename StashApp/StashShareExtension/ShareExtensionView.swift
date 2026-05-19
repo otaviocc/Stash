@@ -97,7 +97,9 @@ struct ShareExtensionView: View {
                 bookmarkStore: bookmarkRepository,
                 tagStore: tagRepository,
                 onSaved: { bookmark in
-                    phase = .confirmation(bookmark)
+                    withAnimation {
+                        phase = .confirmation(bookmark)
+                    }
                 },
                 onCancel: cancel
             )
@@ -108,26 +110,29 @@ struct ShareExtensionView: View {
                 onUndo: { undo(bookmark) },
                 onDismiss: complete
             )
+            .transition(.opacity)
         }
     }
 
     private func makeLoadingView() -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
+            Image(systemName: "bookmark.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(.quaternary)
+
             ProgressView()
-            Text("Stash")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+                .tint(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func makeSignedOutView() -> some View {
         NavigationStack {
-            ContentUnavailableView {
-                Label("Sign In to Stash", systemImage: "person.crop.circle.badge.exclamationmark")
-            } description: {
-                Text("Open Stash to sign in before saving bookmarks.")
-            }
+            BookmarkEmptyState(
+                symbol: "person.crop.circle",
+                title: "Sign in to Stash",
+                message: "Open the Stash app to sign in, then share this page again."
+            )
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: cancel)
@@ -158,7 +163,10 @@ struct ShareExtensionView: View {
     private func undo(_ bookmark: Bookmark) {
         Task {
             try? await bookmarkRepository.deleteBookmark(id: bookmark.id)
-            phase = .add(bookmark.url)
+
+            withAnimation {
+                phase = .add(bookmark.url)
+            }
         }
     }
 
@@ -173,8 +181,9 @@ struct ShareExtensionView: View {
 
 // MARK: - ConfirmationView
 
-/// The post-save confirmation: a checkmark, the saved title, and an Undo button. Auto-dismisses
-/// after three seconds unless Undo is tapped first (which cancels the timer via the view's removal).
+/// The post-save confirmation: a checkmark, "Saved to Stash", the saved bookmark's domain, its tags
+/// (read-only), and an unobtrusive Undo button. Auto-dismisses after 1.5 seconds unless Undo is tapped
+/// first (which cancels the timer via the view's removal).
 private struct ConfirmationView: View {
 
     // MARK: Properties
@@ -183,38 +192,63 @@ private struct ConfirmationView: View {
     let onUndo: () -> Void
     let onDismiss: () -> Void
 
+    // MARK: Computed Properties
+
+    private var domain: String {
+        Bookmark.faviconDomain(for: bookmark.url) ?? bookmark.hostname
+    }
+
     // MARK: Content Properties
 
     // MARK: Content
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
+                .font(.system(size: 48))
                 .foregroundStyle(.green)
 
-            VStack(spacing: 6) {
-                Text("Saved to Stash")
-                    .font(.title2.bold())
-                Text(bookmark.title)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-            }
+            Text("Saved to Stash")
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundStyle(.primary)
 
-            Button("Undo", role: .destructive, action: onUndo)
-                .buttonStyle(.bordered)
+            Text(domain)
+                .font(.body)
+                .foregroundStyle(.secondary)
+
+            makeTags()
+
+            Button("Undo", action: onUndo)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: .seconds(1.5))
             guard !Task.isCancelled else {
                 return
             }
 
             onDismiss()
+        }
+    }
+
+    // MARK: Content Methods
+
+    @ViewBuilder
+    private func makeTags() -> some View {
+        if !bookmark.tags.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(bookmark.tags, id: \.self) { tag in
+                        SelectedTagChip(tag: tag, showsDismissButton: false) {}
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
         }
     }
 }
