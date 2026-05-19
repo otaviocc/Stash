@@ -50,13 +50,18 @@ struct BookmarkRowView: View {
                 .lineLimit(1)
 
             if !bookmark.tags.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(bookmark.tags, id: \.self) { tag in
-                            TagPill(name: tag)
-                        }
+                HStack(spacing: 6) {
+                    ForEach(bookmark.tags.prefix(3), id: \.self) { tag in
+                        TagPill(name: tag)
+                    }
+
+                    if bookmark.tags.count > 3 {
+                        Text("+\(bookmark.tags.count - 3)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
+                .lineLimit(1)
             }
         }
         .padding(.vertical, 4)
