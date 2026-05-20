@@ -3604,3 +3604,22 @@ Four no-behavior-change cleanups from the review.
   view controllers, and the extension repositories/session are untouched. No backend / StashKit / CLI /
   web / extension-folder changes; no data-layer changes; no app unit tests (§19.6). Builds clean on iOS
   and macOS (extension target included).
+
+## Settings — General tab follow-up (macOS)
+
+- **✅ Fixed the macOS General tab, which the first Settings pass missed.** It was still a grouped
+  `Form`, so "Sync Now" and "Sign Out" rendered as full-width cells (the `.bordered` styling was being
+  swallowed by the section-row chrome) and the tab carried noticeably more empty space than the
+  `ScrollView`/`VStack`-based Account and Smart Views tabs.
+- **Converted `GeneralSettingsView` to `ScrollView` + `VStack`** matching `AccountSettingsView` — same
+  `.padding(20)`, `.headline` section headers, `spacing: 32` between sections — so all three tabs start
+  at the same vertical position and share horizontal margins. "Sync Now" and "Sign Out" are now genuine
+  left-aligned bordered buttons (Sign Out red-tinted, separated by the 32pt section gap). The Server URL
+  stays an editable `LabeledContent`-style value row (label leading, trailing inline field).
+- **`SyncStatusSection` split into `SyncStatusSection` + `SyncStatusRows`** to share the rows across the
+  two containers without disturbing iOS. `SyncStatusRows` is a flat `Group`, so the iOS settings `Form`
+  still renders each row as its own cell (`SyncStatusSection` remains the thin `Section("Sync")`
+  wrapper, unchanged in appearance) while the macOS `VStack` stacks the same rows under its own "Sync"
+  header. The once-per-appearance `refreshPendingCount()` `.task` now hangs off the single always-present
+  "Last synced" row rather than the container, so it still fires exactly once. iOS `SettingsView` is
+  unchanged (a `Form` remains appropriate there).

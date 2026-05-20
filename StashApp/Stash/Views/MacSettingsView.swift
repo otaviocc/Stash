@@ -97,33 +97,55 @@
         var body: some View {
             @Bindable var settings = settings
 
-            Form {
-                Section("Server") {
-                    TextField("URL", text: $settings.serverURL)
-                        .urlFieldStyle()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 32) {
+                    makeServerSection(serverURL: $settings.serverURL)
+                    makeSyncSection()
+                    makeSignOutButton()
                 }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
 
-                SyncStatusSection()
+        // MARK: Content Methods
 
-                Section {
-                    HStack {
-                        Button(action: signOut) {
-                            if isSigningOut {
-                                ProgressView()
-                            } else {
-                                Text("Sign Out")
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.red)
-                        .disabled(isSigningOut)
+        private func makeSectionHeader(_ title: String) -> some View {
+            Text(title)
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
 
-                        Spacer()
-                    }
+        private func makeServerSection(serverURL: Binding<String>) -> some View {
+            VStack(alignment: .leading, spacing: 16) {
+                makeSectionHeader("Server")
+                LabeledContent("URL") {
+                    TextField("URL", text: serverURL)
+                        .urlFieldStyle()
+                        .multilineTextAlignment(.trailing)
+                        .textFieldStyle(.plain)
                 }
             }
-            .formStyle(.grouped)
-            .padding()
+        }
+
+        private func makeSyncSection() -> some View {
+            VStack(alignment: .leading, spacing: 16) {
+                makeSectionHeader("Sync")
+                SyncStatusRows()
+            }
+        }
+
+        private func makeSignOutButton() -> some View {
+            Button(action: signOut) {
+                if isSigningOut {
+                    ProgressView()
+                } else {
+                    Text("Sign Out")
+                }
+            }
+            .buttonStyle(.bordered)
+            .tint(.red)
+            .disabled(isSigningOut)
         }
 
         // MARK: Functions
