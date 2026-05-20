@@ -3623,3 +3623,10 @@ Four no-behavior-change cleanups from the review.
   header. The once-per-appearance `refreshPendingCount()` `.task` now hangs off the single always-present
   "Last synced" row rather than the container, so it still fires exactly once. iOS `SettingsView` is
   unchanged (a `Form` remains appropriate there).
+
+## Settings — General tab URL field follow-up (macOS)
+
+- **✅ The General tab's Server URL converted from a `LabeledContent` value row to the label-above-field
+  pattern** — a `FieldLabel("Server URL")` over a `.roundedBorder` `TextField` (keeping `.urlFieldStyle`)
+  — matching the Account tab's field styling so it reads as an editable input rather than a static data
+  row. No change to URL validation or how it persists to `AppSettings`.

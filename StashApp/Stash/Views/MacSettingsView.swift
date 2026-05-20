@@ -119,11 +119,11 @@
         private func makeServerSection(serverURL: Binding<String>) -> some View {
             VStack(alignment: .leading, spacing: 16) {
                 makeSectionHeader("Server")
-                LabeledContent("URL") {
-                    TextField("URL", text: serverURL)
+                VStack(alignment: .leading, spacing: 6) {
+                    FieldLabel(text: "Server URL")
+                    TextField("Server URL", text: serverURL)
                         .urlFieldStyle()
-                        .multilineTextAlignment(.trailing)
-                        .textFieldStyle(.plain)
+                        .textFieldStyle(.roundedBorder)
                 }
             }
         }
