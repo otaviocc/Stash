@@ -3630,3 +3630,10 @@ Four no-behavior-change cleanups from the review.
   pattern** — a `FieldLabel("Server URL")` over a `.roundedBorder` `TextField` (keeping `.urlFieldStyle`)
   — matching the Account tab's field styling so it reads as an editable input rather than a static data
   row. No change to URL validation or how it persists to `AppSettings`.
+
+## Smart View form — condition row buttons follow-up (native apps)
+
+- **✅ The condition row's small bordered `−`/`+` buttons replaced with `minus.circle` / `plus.circle`
+  SF Symbol buttons** (`.plain` style, `.title3` size): `minus.circle` in `.secondary` (neutral remove),
+  `plus.circle` in `Color.accentColor` (primary add). The remove button keeps its single-condition
+  disabled state, now shown as `.opacity(0.3)`. Add/remove logic unchanged.

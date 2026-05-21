@@ -460,22 +460,23 @@ private struct ConditionRowView: View {
     }
 
     private func makeRowButtons() -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 8) {
             Button(action: onRemove) {
-                Image(systemName: "minus")
-                    .frame(width: 16, height: 16)
+                Image(systemName: "minus.circle")
+                    .foregroundStyle(.secondary)
             }
             .disabled(!canRemove)
+            .opacity(canRemove ? 1 : 0.3)
             .accessibilityLabel("Remove Condition")
 
             Button(action: onAdd) {
-                Image(systemName: "plus")
-                    .frame(width: 16, height: 16)
+                Image(systemName: "plus.circle")
+                    .foregroundStyle(Color.accentColor)
             }
             .accessibilityLabel("Add Condition")
         }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
+        .buttonStyle(.plain)
+        .font(.title3)
     }
 
     @ViewBuilder
