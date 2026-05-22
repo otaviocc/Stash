@@ -54,8 +54,12 @@ struct SettingsView: View {
     // MARK: Content Methods
 
     private func makeServerSection() -> some View {
-        Section("Server") {
+        Section {
             LabeledContent("URL", value: settings.serverURL)
+        } header: {
+            Text("Server")
+        } footer: {
+            Text("Sign out to connect to a different server.")
         }
     }
 

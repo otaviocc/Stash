@@ -95,11 +95,9 @@
         // MARK: Content
 
         var body: some View {
-            @Bindable var settings = settings
-
             ScrollView {
                 VStack(alignment: .leading, spacing: 32) {
-                    makeServerSection(serverURL: $settings.serverURL)
+                    makeServerSection()
                     makeSyncSection()
                     makeSignOutButton()
                 }
@@ -116,14 +114,19 @@
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
 
-        private func makeServerSection(serverURL: Binding<String>) -> some View {
+        private func makeServerSection() -> some View {
             VStack(alignment: .leading, spacing: 16) {
                 makeSectionHeader("Server")
                 VStack(alignment: .leading, spacing: 6) {
                     FieldLabel(text: "Server URL")
-                    TextField("Server URL", text: serverURL)
-                        .urlFieldStyle()
-                        .textFieldStyle(.roundedBorder)
+                    Text(settings.serverURL)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("Sign out to connect to a different server.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

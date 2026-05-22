@@ -3637,3 +3637,15 @@ Four no-behavior-change cleanups from the review.
   SF Symbol buttons** (`.plain` style, `.title3` size): `minus.circle` in `.secondary` (neutral remove),
   `plus.circle` in `Color.accentColor` (primary add). The remove button keeps its single-condition
   disabled state, now shown as `.opacity(0.3)`. Add/remove logic unchanged.
+
+## Settings — Server URL is read-only while signed in (native apps)
+
+- **✅ The macOS General tab's Server URL is now read-only, matching iOS.** The Settings screens are only
+  reachable while signed in, and changing servers requires a fresh login + setup against the new
+  instance — so an editable field there was misleading (the earlier macOS "editable field" follow-up
+  was wrong). macOS now shows the URL as a read-only `Text` under the `FieldLabel` (replacing the
+  `TextField`); `GeneralSettingsView` no longer needs the `@Bindable` server-URL binding. iOS already
+  displayed it read-only (`LabeledContent`) and is unchanged in that respect.
+- **Both platforms gained a "Sign out to connect to a different server." footnote** so the read-only
+  field is self-explanatory (a `Section` footer on iOS, a `.caption .secondary` line on macOS). No
+  change to how the server URL is stored or validated.
