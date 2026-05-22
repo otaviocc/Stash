@@ -21,7 +21,6 @@
 // SOFTWARE.
 
 import SwiftUI
-import UIKit
 
 /// A form for saving a new bookmark, with metadata fetch and tag autocomplete.
 struct AddBookmarkSheet: View {
@@ -96,12 +95,15 @@ struct AddBookmarkSheet: View {
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        Button {
-                            paste()
-                        } label: {
-                            Image(systemName: "doc.on.clipboard")
+                        PasteButton(payloadType: String.self) { strings in
+                            guard let pasted = strings.first else {
+                                return
+                            }
+
+                            urlText = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
                         }
-                        .buttonStyle(.borderless)
+                        .labelStyle(.iconOnly)
+                        .buttonBorderShape(.circle)
                     }
 
                     Button(action: fetchMetadata) {
@@ -159,12 +161,6 @@ struct AddBookmarkSheet: View {
     }
 
     // MARK: Functions
-
-    private func paste() {
-        if let string = UIPasteboard.general.string {
-            urlText = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-    }
 
     private func fetchMetadata() {
         guard let url = parsedURL else {

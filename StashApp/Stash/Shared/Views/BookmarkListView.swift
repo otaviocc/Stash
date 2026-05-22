@@ -124,11 +124,7 @@ private struct BookmarkListContent: View {
         }
         .overlay {
             if repository.bookmarks.isEmpty, !repository.isLoading {
-                ContentUnavailableView(
-                    "No Bookmarks",
-                    systemImage: "bookmark",
-                    description: Text("Tap + to save your first bookmark.")
-                )
+                emptyState
             }
         }
         .navigationTitle(navigationTitle)
@@ -192,6 +188,33 @@ private struct BookmarkListContent: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
+        }
+    }
+
+    @ViewBuilder
+    private var emptyState: some View {
+        let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !trimmedSearch.isEmpty {
+            ContentUnavailableView.search(text: trimmedSearch)
+        } else if tag != nil {
+            ContentUnavailableView(
+                "No Bookmarks",
+                systemImage: "bookmark",
+                description: Text("No bookmarks are tagged this way.")
+            )
+        } else if showArchived {
+            ContentUnavailableView(
+                "No Archived Bookmarks",
+                systemImage: "archivebox",
+                description: Text("Bookmarks you archive will appear here.")
+            )
+        } else {
+            ContentUnavailableView(
+                "No Bookmarks",
+                systemImage: "bookmark",
+                description: Text("Tap + to save your first bookmark.")
+            )
         }
     }
 

@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - LoginView
+
 /// Username and password sign-in. Pushes the TOTP screen when the server requests 2FA.
 struct LoginView: View {
 
@@ -34,7 +36,7 @@ struct LoginView: View {
     @State private var password = ""
     @State private var errorMessage: String?
     @State private var isSubmitting = false
-    @State private var path: [String] = []
+    @State private var path: [LoginRoute] = []
 
     // MARK: Computed Properties
 
@@ -80,8 +82,11 @@ struct LoginView: View {
                 .disabled(!canSubmit)
             }
             .navigationTitle("Sign In")
-            .navigationDestination(for: String.self) { tempToken in
-                TOTPView(tempToken: tempToken)
+            .navigationDestination(for: LoginRoute.self) { route in
+                switch route {
+                case let .twoFactor(tempToken):
+                    TOTPView(tempToken: tempToken)
+                }
             }
         }
     }
@@ -102,11 +107,19 @@ struct LoginView: View {
                 )
 
                 if case let .requires2FA(tempToken) = result {
-                    path.append(tempToken)
+                    path.append(.twoFactor(tempToken: tempToken))
                 }
             } catch {
                 errorMessage = error.stashUserMessage
             }
         }
     }
+}
+
+// MARK: - LoginRoute
+
+/// A destination pushed onto the login navigation stack.
+private enum LoginRoute: Hashable {
+
+    case twoFactor(tempToken: String)
 }
