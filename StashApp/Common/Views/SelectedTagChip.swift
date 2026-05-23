@@ -41,7 +41,7 @@ struct SelectedTagChip: View {
     // MARK: Computed Properties
 
     private var displayName: String {
-        tag.components(separatedBy: "/").joined(separator: " › ")
+        tag.tagDisplayName
     }
 
     // MARK: Content Properties

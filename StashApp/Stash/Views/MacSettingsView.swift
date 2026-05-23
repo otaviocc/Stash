@@ -108,15 +108,9 @@
 
         // MARK: Content Methods
 
-        private func makeSectionHeader(_ title: String) -> some View {
-            Text(title)
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-
         private func makeServerSection() -> some View {
             VStack(alignment: .leading, spacing: 16) {
-                makeSectionHeader("Server")
+                SettingsSectionHeader(title: "Server")
                 VStack(alignment: .leading, spacing: 6) {
                     FieldLabel(text: "Server URL")
                     Text(settings.serverURL)
@@ -133,7 +127,7 @@
 
         private func makeSyncSection() -> some View {
             VStack(alignment: .leading, spacing: 16) {
-                makeSectionHeader("Sync")
+                SettingsSectionHeader(title: "Sync")
                 SyncStatusRows()
             }
         }

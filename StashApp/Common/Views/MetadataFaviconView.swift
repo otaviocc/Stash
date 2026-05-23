@@ -39,17 +39,9 @@ struct MetadataFaviconView: View {
     // MARK: Computed Properties
 
     private var iconURL: URL? {
-        guard let domain, !domain.isEmpty else { return nil }
+        let base = AppGroup.makeSharedDefaults().string(forKey: AppGroup.serverURLKey) ?? ""
 
-        let defaults = AppGroup.makeSharedDefaults()
-        var base = (defaults.string(forKey: AppGroup.serverURLKey) ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        while base.hasSuffix("/") {
-            base = String(base.dropLast())
-        }
-        guard !base.isEmpty else { return nil }
-
-        return URL(string: "\(base)/api/v1/favicons/\(domain)")
+        return .stashFavicon(base: base, domain: domain)
     }
 
     // MARK: Lifecycle

@@ -46,6 +46,7 @@ struct AddBookmarkView: View {
     @State private var description = ""
     @State private var selectedTags: [String] = []
     @State private var fetchedDomain: String?
+    @State private var fetchTask: Task<Void, Never>?
     @State private var isFetching = false
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -122,6 +123,8 @@ struct AddBookmarkView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: urlText) {
+                fetchTask?.cancel()
+
                 if fetchedDomain != nil {
                     withAnimation {
                         fetchedDomain = nil
@@ -220,8 +223,7 @@ struct AddBookmarkView: View {
 
             makeInlineError()
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .fieldSectionPadding()
     }
 
     @ViewBuilder
@@ -248,8 +250,7 @@ struct AddBookmarkView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 14)
+                .fieldSectionPadding()
 
                 Divider().opacity(0.3)
             }
@@ -264,8 +265,7 @@ struct AddBookmarkView: View {
                 .textFieldStyle(.plain)
                 .lineLimit(1...3)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .fieldSectionPadding()
     }
 
     private func makeDescriptionSection() -> some View {
@@ -275,8 +275,7 @@ struct AddBookmarkView: View {
                 .textFieldStyle(.plain)
                 .lineLimit(3...6)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .fieldSectionPadding()
     }
 
     @ViewBuilder
@@ -298,12 +297,17 @@ struct AddBookmarkView: View {
 
         errorMessage = nil
         isFetching = true
+        fetchTask?.cancel()
 
-        Task {
+        fetchTask = Task {
             defer { isFetching = false }
 
             do {
                 let metadata = try await bookmarkStore.fetchMetadata(for: url)
+                guard !Task.isCancelled else {
+                    return
+                }
+
                 if let fetchedTitle = metadata.title, !fetchedTitle.isEmpty {
                     title = fetchedTitle
                 }

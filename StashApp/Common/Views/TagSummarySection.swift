@@ -56,8 +56,7 @@ struct TagSummarySection: View {
                 makeAddButton()
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .fieldSectionPadding()
         .sheet(isPresented: $isShowingPicker) {
             TagPickerSheet(
                 selectedTags: $selectedTags,

@@ -82,12 +82,6 @@ struct AccountSettingsView: View {
 
     // MARK: Content Methods
 
-    private func makeSectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.headline)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private func makeField(_ label: String, @ViewBuilder field: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             FieldLabel(text: label)
@@ -97,7 +91,7 @@ struct AccountSettingsView: View {
 
     private func makeChangePasswordSection() -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            makeSectionHeader("Change Password")
+            SettingsSectionHeader(title: "Change Password")
 
             makeField("Current password") {
                 SecureField("Current password", text: $currentPassword)
@@ -133,7 +127,7 @@ struct AccountSettingsView: View {
 
     private func makeTwoFactorSection() -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            makeSectionHeader("Two-Factor Authentication")
+            SettingsSectionHeader(title: "Two-Factor Authentication")
             makeTwoFactorContent()
         }
     }

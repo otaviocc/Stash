@@ -22,6 +22,32 @@
 
 import SwiftUI
 
+// MARK: - Favicon endpoint
+
+extension URL {
+
+    /// Builds the Stash favicon endpoint URL (`<base>/api/v1/favicons/<domain>`) for a domain against a
+    /// server base, normalizing the base (trim whitespace, strip trailing slashes). Returns `nil` when
+    /// the domain or the resolved base is empty. Shared by the app's `FaviconView` (base from
+    /// `AppSettings`) and the extension-safe `MetadataFaviconView` (base from the App Group defaults).
+    static func stashFavicon(base: String, domain: String?) -> URL? {
+        guard let domain, !domain.isEmpty else {
+            return nil
+        }
+
+        var trimmed = base.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        while trimmed.hasSuffix("/") {
+            trimmed = String(trimmed.dropLast())
+        }
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+
+        return URL(string: "\(trimmed)/api/v1/favicons/\(domain)")
+    }
+}
+
 // MARK: - RoundFaviconModifier
 
 /// Applies standard favicon styling: a square frame with rounded corners over an always-light

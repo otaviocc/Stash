@@ -97,6 +97,17 @@ struct FlatTagNode: Identifiable, Hashable {
 
 extension String {
 
+    // MARK: Computed Properties
+
+    /// Renders a `/`-delimited tag slug as its ` › `-separated display form (`swift/vapor` →
+    /// `swift › vapor`). The single place this hierarchy formatting lives, shared by the tag pills,
+    /// the selected-tag chips, and the list's tag-filter empty state.
+    var tagDisplayName: String {
+        components(separatedBy: "/").joined(separator: " › ")
+    }
+
+    // MARK: Functions
+
     /// Normalizes a raw tag string the way the backend's `Bookmark.normalizeTagQuery` does: trim,
     /// lowercase, strip wrapping slashes, and drop pipes. The single place the native clients
     /// normalize a tag before sending it, so the tag picker's "Create" path and the offline filter

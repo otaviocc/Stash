@@ -363,7 +363,7 @@ private struct BookmarkListContent: View {
         default:
             BookmarkEmptyState(
                 symbol: "tag",
-                title: "No bookmarks tagged \(tagDisplayName(for: tag))",
+                title: "No bookmarks tagged \(tag.tagDisplayName)",
                 message: "Bookmarks you tag with this will appear here."
             )
         }
@@ -410,10 +410,6 @@ private struct BookmarkListContent: View {
     }
 
     // MARK: Functions
-
-    private func tagDisplayName(for tag: String) -> String {
-        tag.components(separatedBy: "/").joined(separator: " › ")
-    }
 
     private func reload() {
         Task { await load() }

@@ -38,7 +38,7 @@ struct TagPill: View {
     // MARK: Computed Properties
 
     private var displayName: String {
-        name.components(separatedBy: "/").joined(separator: " › ")
+        name.tagDisplayName
     }
 
     // MARK: Content Properties

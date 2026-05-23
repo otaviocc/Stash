@@ -22,55 +22,33 @@
 
 import SwiftUI
 
-// MARK: - FaviconView
+// MARK: - SettingsSectionHeader
 
-/// A view that displays a favicon served from the configured Stash instance, keyed by domain.
-/// Falls back to a `FaviconMonogram` (the domain's first letter) while loading and when the instance
-/// has no cached icon (404).
-struct FaviconView: View {
-
-    // MARK: SwiftUI Properties
-
-    @Environment(AppSettings.self) private var appSettings
+/// The bold header above a section in the custom (non-`Form`) settings layouts — the account screen
+/// and the macOS General tab. One source for the section-header type so the two screens stay in step.
+struct SettingsSectionHeader: View {
 
     // MARK: Properties
 
-    private let domain: String?
-    private let size: CGFloat
-
-    // MARK: Computed Properties
-
-    private var iconURL: URL? {
-        .stashFavicon(base: appSettings.serverURL, domain: domain)
-    }
-
-    // MARK: Lifecycle
-
-    init(domain: String?, size: CGFloat = 18) {
-        self.domain = domain
-        self.size = size
-    }
+    let title: String
 
     // MARK: Content Properties
 
     // MARK: Content
 
     var body: some View {
-        AsyncImage(url: iconURL) { image in
-            image
-                .resizable()
-                .scaledToFit()
-                .roundedFavicon(size: size)
-        } placeholder: {
-            FaviconMonogram(domain: domain, size: size)
-        }
+        Text(title)
+            .font(.headline)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 #if DEBUG
     #Preview {
-        FaviconView(domain: "swift.org")
-            .environment(AppSettings.preview)
-            .padding()
+        VStack(alignment: .leading, spacing: 16) {
+            SettingsSectionHeader(title: "Server")
+            SettingsSectionHeader(title: "Two-Factor Authentication")
+        }
+        .padding()
     }
 #endif

@@ -46,6 +46,19 @@ struct FieldLabel: View {
     }
 }
 
+// MARK: - View + FieldSectionPadding
+
+extension View {
+
+    /// The standard insets for one field group in the custom label-above-field layout (the add/edit
+    /// bookmark forms and the tag summary row). One source for the spacing so every section breathes
+    /// identically.
+    func fieldSectionPadding() -> some View {
+        padding(.horizontal, 20)
+            .padding(.vertical, 14)
+    }
+}
+
 #if DEBUG
     #Preview {
         VStack(alignment: .leading, spacing: 14) {

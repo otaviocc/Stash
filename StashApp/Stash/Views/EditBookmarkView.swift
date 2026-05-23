@@ -127,8 +127,7 @@ struct EditBookmarkView: View {
 
             makeInlineError()
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .fieldSectionPadding()
     }
 
     private func makeTitleSection() -> some View {
@@ -138,8 +137,7 @@ struct EditBookmarkView: View {
                 .textFieldStyle(.plain)
                 .lineLimit(1...3)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .fieldSectionPadding()
     }
 
     private func makeDescriptionSection() -> some View {
@@ -149,8 +147,7 @@ struct EditBookmarkView: View {
                 .textFieldStyle(.plain)
                 .lineLimit(3...6)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .fieldSectionPadding()
     }
 
     @ViewBuilder
