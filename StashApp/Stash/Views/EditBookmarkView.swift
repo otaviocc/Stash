@@ -67,22 +67,20 @@ struct EditBookmarkView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    makeURLSection()
-                    Divider().opacity(0.3)
-                    makeTitleSection()
-                    Divider().opacity(0.3)
-                    makeDescriptionSection()
-                    Divider().opacity(0.3)
+            VStack(spacing: 0) {
+                makeURLSection()
+                Divider().opacity(0.3)
+                makeTitleSection()
+                Divider().opacity(0.3)
+                makeDescriptionSection()
+                Divider().opacity(0.3)
 
-                    TagSummarySection(
-                        selectedTags: $selectedTags,
-                        tagHierarchy: environment.tagRepository.tagHierarchy
-                    )
-                }
+                TagSummarySection(
+                    selectedTags: $selectedTags,
+                    tagHierarchy: environment.tagRepository.tagHierarchy
+                )
             }
-            .scrollDismissesKeyboard(.interactively)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .navigationTitle("Edit Bookmark")
             .inlineNavigationTitleStyle()
             .toolbar {
@@ -143,11 +141,10 @@ struct EditBookmarkView: View {
     private func makeDescriptionSection() -> some View {
         VStack(alignment: .leading, spacing: 8) {
             FieldLabel(text: "Description")
-            TextField("Description", text: $description, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(3...6)
+            DescriptionEditor(text: $description)
         }
         .fieldSectionPadding()
+        .frame(maxHeight: .infinity)
     }
 
     @ViewBuilder

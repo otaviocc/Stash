@@ -3649,3 +3649,19 @@ Four no-behavior-change cleanups from the review.
 - **Both platforms gained a "Sign out to connect to a different server." footnote** so the read-only
   field is self-explanatory (a `Section` footer on iOS, a `.caption .secondary` line on macOS). No
   change to how the server URL is stored or validated.
+
+## Add/Edit Bookmark — description field fill + scroll (native apps)
+
+- **✅ The description field converted from `TextField(axis: .vertical)` to a `TextEditor`** (new shared
+  `DescriptionEditor` in `Common/Views/`, used by both forms and the Share Extension). `TextField` isn't
+  a scroll view, so on macOS it ignored the mouse wheel once the text overflowed; `TextEditor` is a
+  proper scrollable text view (wheel on macOS, touch on iOS). Quirks handled: the placeholder is drawn
+  manually in a `ZStack` (TextEditor has no placeholder), and `.scrollContentBackground(.hidden)` +
+  `.background(.clear)` keep the borderless look from the form redesign; `.font(.body)` set explicitly.
+- **✅ The description now fills the sheet's remaining vertical space**, removing the dead gap between the
+  tags section and the action buttons when the description is short. The form holder no longer scrolls:
+  each body is a fixed `VStack` pinned to `maxHeight: .infinity` (top-aligned), and the description
+  section is the lone `maxHeight: .infinity` sibling (120pt floor), so it absorbs the slack while the
+  URL/title/tags and the action buttons stay put. Only the description scrolls — internally, within the
+  `TextEditor` — when its text overflows; the surrounding view does not. This dropped the outer
+  `ScrollView` (and with it `.scrollDismissesKeyboard`), which was the holder that previously scrolled.

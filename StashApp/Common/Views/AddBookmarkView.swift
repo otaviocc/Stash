@@ -108,20 +108,18 @@ struct AddBookmarkView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    makeURLSection()
-                    Divider().opacity(0.3)
-                    makeMetadataPreview()
-                    makeTitleSection()
-                    Divider().opacity(0.3)
-                    makeDescriptionSection()
-                    Divider().opacity(0.3)
+            VStack(spacing: 0) {
+                makeURLSection()
+                Divider().opacity(0.3)
+                makeMetadataPreview()
+                makeTitleSection()
+                Divider().opacity(0.3)
+                makeDescriptionSection()
+                Divider().opacity(0.3)
 
-                    TagSummarySection(selectedTags: $selectedTags, tagHierarchy: tagStore.tagHierarchy)
-                }
+                TagSummarySection(selectedTags: $selectedTags, tagHierarchy: tagStore.tagHierarchy)
             }
-            .scrollDismissesKeyboard(.interactively)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onChange(of: urlText) {
                 fetchTask?.cancel()
 
@@ -271,11 +269,10 @@ struct AddBookmarkView: View {
     private func makeDescriptionSection() -> some View {
         VStack(alignment: .leading, spacing: 8) {
             FieldLabel(text: "Description")
-            TextField("Description", text: $description, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(3...6)
+            DescriptionEditor(text: $description)
         }
         .fieldSectionPadding()
+        .frame(maxHeight: .infinity)
     }
 
     @ViewBuilder
