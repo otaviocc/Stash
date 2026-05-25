@@ -130,6 +130,18 @@ extension View {
         #endif
     }
 
+    /// The system grouped background behind a custom (non-`Form`) settings layout, so it matches the
+    /// grouped background the `Form`-based Settings screens get for free. UIKit's
+    /// `.systemGroupedBackground` is iOS-only; macOS uses the window background, matching its other
+    /// Settings tabs. Adapts to light/dark automatically.
+    func groupedBackgroundStyle() -> some View {
+        #if os(iOS)
+            background(Color(uiColor: .systemGroupedBackground))
+        #else
+            background(Color(nsColor: .windowBackgroundColor))
+        #endif
+    }
+
     /// Applies the inline navigation-title display mode on iOS; a no-op on macOS, which has no
     /// large-title concept.
     func inlineNavigationTitleStyle() -> some View {

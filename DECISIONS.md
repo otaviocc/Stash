@@ -3665,3 +3665,18 @@ Four no-behavior-change cleanups from the review.
   URL/title/tags and the action buttons stay put. Only the description scrolls — internally, within the
   `TextEditor` — when its text overflows; the surrounding view does not. This dropped the outer
   `ScrollView` (and with it `.scrollDismissesKeyboard`), which was the holder that previously scrolled.
+
+## Settings — grouped background for custom-layout sheets (native apps)
+
+- **✅ Restored the system grouped background on the custom (non-`Form`) settings/Smart View sheets.**
+  Root cause: a grouped `Form`/`List` supplies `systemGroupedBackground` automatically; once
+  `AccountSettingsView` and `SmartViewFormView` moved to a plain `ScrollView + VStack` (for the
+  label-above-field layout / custom condition rows), they fell through to the plain white system
+  background on iOS — visibly inconsistent with the `Form`-based Settings and the `List`-based Smart
+  Views screens. (macOS was unaffected: a plain `ScrollView` there already shows the window background,
+  matching the other tabs.)
+- **A shared `groupedBackgroundStyle()` view modifier** lives in `PlatformModifiers.swift` (where the
+  repo concentrates `#if os` chrome): iOS uses `Color(uiColor: .systemGroupedBackground)`, macOS
+  `Color(nsColor: .windowBackgroundColor)` — `.systemGroupedBackground` is UIKit-only, so an inline
+  modifier wouldn't compile on macOS. Applied to both `AccountSettingsView` and `SmartViewFormView`; the
+  second call site is what confirmed this is a reusable pattern rather than a one-off paint job.

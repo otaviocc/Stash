@@ -70,6 +70,7 @@ struct AccountSettingsView: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .groupedBackgroundStyle()
         .task {
             await loadUser()
         }

@@ -105,6 +105,7 @@ struct SmartViewFormView: View {
                 }
                 .padding()
             }
+            .groupedBackgroundStyle()
             .navigationTitle(isEditing ? "Edit Smart View" : "New Smart View")
             .inlineNavigationTitleStyle()
             .toolbar {
