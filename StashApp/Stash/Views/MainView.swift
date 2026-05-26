@@ -105,6 +105,7 @@ import SwiftUI
                 NavigationStack {
                     makeDetail()
                 }
+                .id(selection)
             }
             .sheet(isPresented: $showingSettings) {
                 makeSettingsSheet()

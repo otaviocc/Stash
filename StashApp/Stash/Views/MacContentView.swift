@@ -74,6 +74,7 @@
                 NavigationStack {
                     makeDetail()
                 }
+                .id(selection)
             }
         }
 

@@ -3708,3 +3708,33 @@ Four no-behavior-change cleanups from the review.
   uses the default, showing the active count as plain text — a picker is about finding and selecting
   tags, so archival state is not relevant there. Defaulting to `false` is what keeps the picker's call
   site (and behavior) unchanged while the sidebars opt in.
+
+## Sidebar selection occasionally stops refreshing the detail list
+
+- **Problem.** On the iPad (`SidebarSplitView`) and macOS (`MacContentView`) split views, the sidebar
+  selection would, intermittently, stop driving the detail list: tapping a different tag/View
+  re-highlighted the sidebar row but the bookmark list never changed, and once it happened it stayed
+  stuck for every subsequent selection until the app was relaunched. Hard to reproduce because it is
+  navigation-history- and timing-dependent.
+- **Root cause — not a missing reload trigger.** The reload path was already wired
+  (`BookmarkListContent.onChange(of: source)` → `reload()`), and `BookmarkRepository.load` is synchronous
+  main-actor work (it filters the local store), so whenever that fires the list *does* update. The
+  fragility was the detail column: `detail: { NavigationStack { makeDetail() } }` had **no stable
+  identity and no path binding**, while two things mutated the stack's *root*: `makeDetail()` returns
+  `BookmarkListView` from two distinct `if/else` branches (`.smartView` vs the tag list — separate
+  `_ConditionalContent` identities), and bookmark rows push `BookmarkDetailView` *into* that same stack
+  via closure-based `NavigationLink`s. Changing the selection while a detail was pushed (or across the
+  Smart View ↔ tag branch flip) swapped the stack's root underneath its pushed view; with nothing keying
+  the stack, its internal navigation state desynced from the swapped root and wedged. After that the
+  root list was no longer re-presented, so further selection changes updated `selection` (sidebar
+  highlight) but never refreshed the detail column.
+- **✅ Fix — key the detail `NavigationStack` to the selection.** Both split views apply
+  `.id(selection)` to the detail `NavigationStack`. Each selection now deterministically builds a fresh
+  stack — discarding any pushed `BookmarkDetailView` and any wedged state — with a fresh
+  `BookmarkListView` that loads the new filter from its initial `.task`. This is the idiomatic pattern
+  for a selection-driven detail column and has the welcome side effect that selecting a new tag resets
+  the detail to the top of that tag's list (and clears the per-tag search), rather than stranding a
+  pushed detail from the previous selection. The in-place `onChange(of: source)` reload becomes
+  redundant for selection changes (source is now fixed per stack identity) but is harmless and left in
+  place. Scope: one line each in `MacContentView` and `MainView`; no repository, StashKit, or backend
+  change.
