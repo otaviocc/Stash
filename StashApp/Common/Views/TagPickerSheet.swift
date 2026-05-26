@@ -239,6 +239,7 @@ struct TagPickerSheet: View {
                     slug: node.slug,
                     label: node.label,
                     count: node.count,
+                    totalCount: node.totalCount,
                     children: filteredChildren
                 )
             }

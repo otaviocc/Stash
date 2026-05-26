@@ -141,7 +141,7 @@ import SwiftUI
         private func makeTagsSection() -> some View {
             Section("Tags") {
                 ForEach(environment.tagRepository.flattenedTagHierarchy) { item in
-                    TagTreeLabel(node: item.node, depth: item.depth)
+                    TagTreeLabel(node: item.node, depth: item.depth, showsCountBadge: true)
                         .tag(SidebarItem.tag(item.node.slug))
                         .bookmarkTagDropDestination(slug: item.node.slug)
                 }

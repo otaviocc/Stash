@@ -3680,3 +3680,31 @@ Four no-behavior-change cleanups from the review.
   `Color(nsColor: .windowBackgroundColor)` — `.systemGroupedBackground` is UIKit-only, so an inline
   modifier wouldn't compile on macOS. Applied to both `AccountSettingsView` and `SmartViewFormView`; the
   second call site is what confirmed this is a reusable pattern rather than a one-off paint job.
+
+## Tag count badge (native apps)
+
+- **The plain tag-count number in the sidebar tag tree is now a styled badge that surfaces archived
+  items.** `Tag` gains a second count: `count` is the active (non-archived) bookmarks carrying the tag,
+  `totalCount` includes archived ones (the badge derives "has archived items" inline as `totalCount >
+  count`). `TagRepository.derive()` computes both in one pass over the local SwiftData store — `fetchActive()`
+  already excludes soft-deleted records (`locallyDeletedAt == nil`), so it just splits each tag's tally
+  by `isArchived`. The tag map is keyed off the total tally so a tag whose bookmarks are *all* archived
+  still appears (active 0, total N). The backend `/tags` endpoint and StashKit `TagDTO` are unchanged —
+  they return the active count only; `totalCount` is a purely client-side derivation (the DTO init sets
+  both equal).
+- **`TagNode` / `FlatTagNode` propagate both counts.** `TagNode` gains `totalCount: Int?` (still `nil`
+  for synthetic parents); its initializer defaults `totalCount` to `nil` so `TagPickerSheet`'s
+  `filtered()` rebuild — which doesn't carry the total — keeps compiling unchanged. `hierarchy()` builds
+  a parallel `totals` dictionary alongside `counts`.
+- **`TagCountBadge` (`Common/Views/`) is the shared badge.** The colour language is consistent: accent
+  always means "visible", dimmed always means "hidden/archived". A plain **accent** capsule (white text)
+  when `count == totalCount` (everything is visible); a split pill when `totalCount > count` — accent
+  left half (visible count, white text), a hairline divider, and a muted right half showing the
+  **hidden** count (`totalCount - count`), *not* the total. So `4|2` reads "4 visible, 2 hidden" with no
+  mental math, and an all-archived tag reads `0|5`.
+- **`TagTreeLabel` gained `showsCountBadge` (default `false`).** The three sidebar call sites (iPhone
+  size-class sidebar `MainView`, the Tags tab `TagBrowserView`, and the macOS `MacContentView`) opt in
+  with `showsCountBadge: true` to render the badge. `TagPickerSheet` is deliberately left untouched: it
+  uses the default, showing the active count as plain text — a picker is about finding and selecting
+  tags, so archival state is not relevant there. Defaulting to `false` is what keeps the picker's call
+  site (and behavior) unchanged while the sidebars opt in.

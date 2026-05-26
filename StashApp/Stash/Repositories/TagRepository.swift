@@ -90,14 +90,19 @@ final class TagRepository: TagAutocompleting {
 
     private func derive() {
         var counts: [String: Int] = [:]
+        var totals: [String: Int] = [:]
         for bookmark in localStore.fetchActive() {
             for tag in bookmark.tags {
-                counts[tag, default: 0] += 1
+                totals[tag, default: 0] += 1
+
+                if !bookmark.isArchived {
+                    counts[tag, default: 0] += 1
+                }
             }
         }
 
-        tags = counts
-            .map { Tag(name: $0.key, count: $0.value) }
+        tags = totals
+            .map { Tag(name: $0.key, count: counts[$0.key] ?? 0, totalCount: $0.value) }
             .sorted { $0.name < $1.name }
         tagHierarchy = tags.hierarchy()
         flattenedTagHierarchy = tagHierarchy.flattened()

@@ -25,13 +25,16 @@ import StashKit
 
 // MARK: - Tag
 
-/// A tag with its usage count.
+/// A tag with its usage counts: `count` is the active (non-archived) bookmarks carrying the tag,
+/// `totalCount` includes archived ones. Both are derived locally from the SwiftData store; the
+/// backend `/tags` endpoint returns only the active count.
 struct Tag: Identifiable, Hashable {
 
     // MARK: Properties
 
     let name: String
     let count: Int
+    let totalCount: Int
 
     // MARK: Computed Properties
 
@@ -49,6 +52,7 @@ extension Tag {
     ) {
         name = dto.name
         count = dto.count
+        totalCount = dto.count
     }
 }
 
@@ -56,8 +60,9 @@ extension Tag {
 
 /// One node of the hierarchical tag tree shown in the sidebars. A `/`-delimited tag like
 /// `swift/vapor` becomes a `swift` node with a `vapor` child; `label` is the node's own path
-/// component, `slug` its full path (the value sent as the `tag` filter). `count` is `nil` for
-/// synthetic parents that exist only to nest their children, so no count is shown for them.
+/// component, `slug` its full path (the value sent as the `tag` filter). `count` (active) and
+/// `totalCount` (including archived) are both `nil` for synthetic parents that exist only to nest
+/// their children, so no count is shown for them.
 struct TagNode: Identifiable, Hashable {
 
     // MARK: Properties
@@ -65,12 +70,29 @@ struct TagNode: Identifiable, Hashable {
     let slug: String
     let label: String
     let count: Int?
+    let totalCount: Int?
     let children: [TagNode]?
 
     // MARK: Computed Properties
 
     var id: String {
         slug
+    }
+
+    // MARK: Lifecycle
+
+    init(
+        slug: String,
+        label: String,
+        count: Int?,
+        totalCount: Int? = nil,
+        children: [TagNode]?
+    ) {
+        self.slug = slug
+        self.label = label
+        self.count = count
+        self.totalCount = totalCount
+        self.children = children
     }
 }
 
@@ -147,6 +169,7 @@ extension [Tag] {
     /// are alphabetical at every level.
     func hierarchy() -> [TagNode] {
         let counts = Dictionary(map { ($0.name, $0.count) }) { lhs, _ in lhs }
+        let totals = Dictionary(map { ($0.name, $0.totalCount) }) { lhs, _ in lhs }
         var children: [String: [String]] = [:]
         var seen = Set<String>()
         for tag in self {
@@ -170,6 +193,7 @@ extension [Tag] {
                     slug: slug,
                     label: label,
                     count: counts[slug],
+                    totalCount: totals[slug],
                     children: kids.isEmpty ? nil : kids
                 )
             }

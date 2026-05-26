@@ -98,7 +98,7 @@ struct TagBrowserView: View {
                     NavigationLink {
                         BookmarkListView(tag: item.node.slug)
                     } label: {
-                        TagTreeLabel(node: item.node, depth: item.depth)
+                        TagTreeLabel(node: item.node, depth: item.depth, showsCountBadge: true)
                     }
                 }
             }

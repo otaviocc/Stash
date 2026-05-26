@@ -69,10 +69,10 @@
     extension Tag {
 
         static let samples: [Tag] = [
-            Tag(name: "swift", count: 24),
-            Tag(name: "swift/server", count: 8),
-            Tag(name: "ios", count: 15),
-            Tag(name: "functional", count: 3)
+            Tag(name: "swift", count: 24, totalCount: 24),
+            Tag(name: "swift/server", count: 8, totalCount: 12),
+            Tag(name: "ios", count: 15, totalCount: 15),
+            Tag(name: "functional", count: 0, totalCount: 3)
         ]
     }
 
