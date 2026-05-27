@@ -22,7 +22,11 @@
 
 import SwiftUI
 
-/// A form for saving a new bookmark, with metadata fetch and tag autocomplete.
+/// Presents the shared `AddBookmarkView` as a sheet in the main app.
+///
+/// The URL is editable here (the user types or pastes it) and metadata is fetched on demand. A
+/// saved bookmark invalidates the tag cache and dismisses the sheet; it also lands in the presenting
+/// list because the shared `AddBookmarkView` writes through the list's repository.
 struct AddBookmarkSheet: View {
 
     // MARK: SwiftUI Properties
@@ -30,205 +34,26 @@ struct AddBookmarkSheet: View {
     @Environment(AppEnvironment.self) private var environment
     @Environment(\.dismiss) private var dismiss
 
-    @State private var urlText = ""
-    @State private var title = ""
-    @State private var description = ""
-    @State private var tagText = ""
-    @State private var isFetching = false
-    @State private var isSaving = false
-    @State private var errorMessage: String?
-
     // MARK: Properties
 
     /// The list's repository, so a saved bookmark appears in the list that presented this sheet.
     let repository: BookmarkRepository
-
-    // MARK: Computed Properties
-
-    private var parsedURL: URL? {
-        let trimmed = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard
-            let url = URL(string: trimmed),
-            url.scheme != nil,
-            url.host() != nil
-        else {
-            return nil
-        }
-
-        return url
-    }
-
-    private var tags: [String] {
-        tagText
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-    }
-
-    private var suggestions: [Tag] {
-        let segment = currentTagSegment
-        guard !segment.isEmpty else {
-            return []
-        }
-
-        return environment.tagRepository
-            .autocompleteTags(prefix: segment)
-            .filter { !tags.dropLast().contains($0.name) }
-    }
-
-    private var currentTagSegment: String {
-        let segment = tagText.split(separator: ",", omittingEmptySubsequences: false).last
-        return segment.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
-    }
 
     // MARK: Content Properties
 
     // MARK: Content
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("URL") {
-                    HStack {
-                        TextField("https://example.com", text: $urlText)
-                            .textContentType(.URL)
-                            .keyboardType(.URL)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                        PasteButton(payloadType: String.self) { strings in
-                            guard let pasted = strings.first else {
-                                return
-                            }
-
-                            urlText = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
-                        }
-                        .labelStyle(.iconOnly)
-                        .buttonBorderShape(.circle)
-                    }
-
-                    Button(action: fetchMetadata) {
-                        if isFetching {
-                            ProgressView()
-                        } else {
-                            Text("Fetch Metadata")
-                        }
-                    }
-                    .disabled(parsedURL == nil || isFetching)
-                }
-
-                Section("Details") {
-                    TextField("Title", text: $title)
-                    TextField("Description", text: $description, axis: .vertical)
-                        .lineLimit(2...5)
-                }
-
-                Section("Tags") {
-                    TextField("comma, separated, tags", text: $tagText)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    if !suggestions.isEmpty {
-                        TagSuggestionView(suggestions: suggestions) { tag in
-                            appendSuggestion(tag)
-                        }
-                    }
-                }
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .foregroundStyle(.red)
-                        .font(.footnote)
-                }
-            }
-            .navigationTitle("Add Bookmark")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
-                        .disabled(parsedURL == nil || isSaving)
-                }
-            }
-            .task {
-                try? await environment.tagRepository.load()
-            }
-        }
-    }
-
-    // MARK: Functions
-
-    private func fetchMetadata() {
-        guard let url = parsedURL else {
-            return
-        }
-
-        errorMessage = nil
-        isFetching = true
-
-        Task {
-            defer { isFetching = false }
-
-            do {
-                let metadata = try await repository.fetchMetadata(for: url)
-                if let fetchedTitle = metadata.title, !fetchedTitle.isEmpty {
-                    title = fetchedTitle
-                }
-
-                if let fetchedDescription = metadata.description, !fetchedDescription.isEmpty {
-                    description = fetchedDescription
-                }
-            } catch {
-                errorMessage = error.stashUserMessage
-            }
-        }
-    }
-
-    private func appendSuggestion(_ tag: Tag) {
-        var components = tagText.split(separator: ",", omittingEmptySubsequences: false)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-
-        if components.isEmpty {
-            components = [tag.name]
-        } else {
-            components[components.count - 1] = tag.name
-        }
-
-        tagText = components.joined(separator: ", ") + ", "
-    }
-
-    private func save() {
-        guard let url = parsedURL else {
-            return
-        }
-
-        errorMessage = nil
-        isSaving = true
-
-        Task {
-            defer { isSaving = false }
-
-            let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            let trimmedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
-            let input = CreateBookmarkInput(
-                url: url,
-                title: trimmedTitle.isEmpty ? nil : trimmedTitle,
-                description: trimmedDescription.isEmpty ? nil : trimmedDescription,
-                tags: tags,
-                fetchMetadata: true
-            )
-
-            do {
-                _ = try await repository.create(input)
+        AddBookmarkView(
+            isURLEditable: true,
+            autoFetchOnAppear: false,
+            bookmarkStore: repository,
+            tagStore: environment.tagRepository,
+            onSaved: { _ in
                 environment.tagRepository.invalidateCache()
                 dismiss()
-            } catch {
-                errorMessage = error.stashUserMessage
-            }
-        }
+            },
+            onCancel: { dismiss() }
+        )
     }
 }

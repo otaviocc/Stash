@@ -463,6 +463,83 @@ state-management, performance, view-composition, navigation, and list references
 
 ---
 
+## M9 — iOS Share Extension
+
+Scope: save a URL to Stash from Safari (or any app) via the system share sheet, presenting the same
+add-bookmark UX as the app and confirming the save with an undo option. No login flow inside the
+extension — the user authenticates in the main app first.
+
+- **✅ A `StashShareExtension` `app-extension` target (`cc.otavio.stash.ShareExtension`).** Added to
+  the XcodeGen `project.yml` (still the single source of truth; `Stash.xcodeproj` stays gitignored).
+  Its `NSExtension` Info.plist is `com.apple.share-services` with an activation rule of
+  `NSExtensionActivationSupportsWebURLWithMaxCount: 1` (URLs only), principal class
+  `$(PRODUCT_MODULE_NAME).ShareViewController`, iOS 17 minimum, the same `MicroClient` + local
+  `StashKit` dependencies as the app, and `NSAllowsArbitraryLoads` for the same plain-HTTP
+  local-network deployments (§16). The app target gains a `target: StashShareExtension` dependency so
+  the `.appex` is embedded under `PlugIns/`.
+- **✅ Shared sources extracted to `StashApp/Shared/`, a second source root on both targets.** What
+  the extension genuinely needs — `KeychainStore`, `TokenManager`, `StashClientProvider`, the domain
+  models (`Bookmark`/`Tag`/`PageMetadata`/`CreateBookmarkInput`), the error mapping
+  (`AppError`/`ErrorMessage`), `TagSuggestionView`, and the new `AddBookmarkView` — moved out of
+  `Stash/Shared/` into a top-level `StashApp/Shared/` listed in both targets' `sources`. App-only
+  code (repositories, `AppEnvironment`, `RootView`/`LoginView`/etc.) stays under `Stash/`. No code is
+  duplicated across the two binaries; each just compiles the shared files in.
+- **✅ Tokens shared via a Keychain access group; the server URL via the App Group `UserDefaults`
+  suite.** A single `AppGroup` enum owns the group identifier, the two token account keys, and the
+  `serverURL` key. The app's `AppEnvironment` now builds its two `KeychainStore`s with
+  `accessGroup: "group.cc.otavio.stash"` (the M8 placeholder for this, noted there, is now real), and
+  the extension builds the *same two* stores with the same keys and group, so it reads the tokens the
+  app wrote. The server URL was the other half: `AppSettings` wrote it to `UserDefaults.standard`,
+  which a separate process can't see, so both `AppSettings` (write) and `StashClientProvider` (read)
+  now use `AppGroup.sharedDefaults` (the group suite). ⚠️ Because the app's tokens now live in the
+  access group, an existing M8 install (tokens stored with no group) will not find them after this
+  change — the user signs in once more; this is the planned M8→M9 transition.
+- **✅ The extension is process-isolated, with its own lightweight repositories.** It can't share the
+  app's live `@Observable` repositories (different process), so it builds its own:
+  `ExtensionBookmarkRepository` (create / fetch-metadata / delete only — no list or pagination) and
+  `ExtensionTagRepository` (load once + local `autocompleteTags(prefix:)` — no cache invalidation,
+  since the extension is short-lived). Both go through one `ExtensionSession`, which mirrors
+  `AuthRepository.refreshIfNeeded()`: before each request it rotates the access token via
+  `AuthRequestFactory.makeRefreshRequest` if it is expiring soon and writes the pair back to the
+  shared Keychain. `ExtensionBookmarkRepository` is a plain class (the views need no observable state
+  from it); `ExtensionTagRepository` is `@Observable` so the suggestion chips refresh when the tag
+  list arrives.
+- **✅ `AddBookmarkView` extracted as the shared form behind two narrow protocols.** The M8
+  `AddBookmarkSheet` was tied to `AppEnvironment`/`BookmarkRepository`. Its body moved into a shared
+  `AddBookmarkView` that depends only on `BookmarkCreating` (`create`/`fetchMetadata`) and
+  `TagAutocompleting` (`tags`/`load`/`autocompleteTags`); the app's `BookmarkRepository`/
+  `TagRepository` and the extension's repositories all conform. The view reports results through
+  `onSaved`/`onCancel` callbacks rather than dismissing itself, so each host decides what happens
+  next. `AddBookmarkSheet` is now a thin wrapper (URL editable, paste + "Fetch Metadata" buttons,
+  dismiss on save, invalidate the tag cache); the extension passes `isURLEditable: false` (URL comes
+  from the share sheet, shown read-only) and `autoFetchOnAppear: true` (metadata fetched on load).
+  Duplicate-URL still surfaces inline via the shared `stashUserMessage` ("This URL is already
+  saved.") — same as the app.
+- **✅ Three-state bootstrap UI driven by a `Phase` enum.** `ShareExtensionView` shows: a brief
+  **loading** state (a `ProgressView` + "Stash") while it reads tokens and resolves the shared URL; a
+  **signed-out** state (`ContentUnavailableView`, "Open Stash to sign in before saving bookmarks." +
+  Cancel) when there's no configured server, no refresh token, or no URL could be extracted; and the
+  **add** state (the shared `AddBookmarkView`). The URL is pulled from `extensionContext.inputItems`
+  by `SharedItemLoader`, which prefers a `public.url` attachment and falls back to the first link
+  found in a `public.plain-text` attachment (via `NSDataDetector`). It is `@MainActor`-isolated so
+  the non-`Sendable` `NSExtensionItem`/`NSItemProvider` never cross an actor boundary — only the
+  resolved `URL`/`String` is returned across the `loadItem` continuation.
+- **✅ Confirmation + undo with a self-cancelling timer.** A save advances to a **confirmation**
+  state ("Saved to Stash ✓" + the bookmark title) with an Undo button. The confirmation view's
+  `.task` sleeps three seconds then calls `completeRequest(returningItems:)`; tapping Undo instead
+  changes the phase back to the add form, which removes the confirmation view and cancels its task
+  (so the auto-dismiss never fires), then issues `DELETE /api/v1/bookmarks/:id` for the just-saved
+  bookmark. Cancel anywhere calls `cancelRequest(withError:)`. Returning to the add form after undo
+  lets the user re-save with different tags or cancel.
+- **✅ Entry point.** `ShareViewController` (the principal class) hosts `ShareExtensionView` in a
+  `UIHostingController` pinned to its edges, handing it the `extensionContext`.
+- **✅ Style and verification.** `Shared/` and the extension follow the same conventions (American
+  English, `///` on types only, no inline comments, the shared `.swiftformat`/`.swiftlint.yml`).
+  `swiftformat --lint` is idempotent, `swiftlint lint` reports 0 violations, and the app + embedded
+  `.appex` build clean (no warnings) for the iOS 17 simulator. No unit tests per §19.6.
+
+---
+
 ## M11 — User-facing web frontend
 
 - **✅ Second session cookie, shared store.** The frontend uses its own `stash_session` cookie

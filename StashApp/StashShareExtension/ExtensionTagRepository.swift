@@ -23,27 +23,26 @@
 import Foundation
 import StashKit
 
-/// Provides access to the current user's tags with local caching.
+/// The Share Extension's tag store: load once, then offer local prefix autocomplete.
 ///
-/// Tags are fetched once and cached in memory for synchronous, local autocomplete. A bookmark
-/// mutation that may change the tag set should call `invalidateCache()` so the next `load()`
-/// refetches.
+/// A smaller counterpart to the app's `TagRepository` with no cache-invalidation surface — the
+/// extension is short-lived, so the tag list is loaded once per invocation. It is `@Observable` so
+/// the shared `AddBookmarkView` re-renders its suggestion chips when the list arrives, and conforms
+/// to `TagAutocompleting`.
 @MainActor
 @Observable
-final class TagRepository: TagAutocompleting {
+final class ExtensionTagRepository: TagAutocompleting {
 
     // MARK: Properties
 
     private(set) var tags: [Tag] = []
 
-    private let clientProvider: StashClientProvider
-    private let session: SessionRefreshing
+    private let session: ExtensionSession
     private var hasLoaded = false
 
     // MARK: Lifecycle
 
-    init(clientProvider: StashClientProvider, session: SessionRefreshing) {
-        self.clientProvider = clientProvider
+    init(session: ExtensionSession) {
         self.session = session
     }
 
@@ -54,19 +53,12 @@ final class TagRepository: TagAutocompleting {
             return
         }
 
-        try await session.refreshIfNeeded()
-
-        guard let client = clientProvider.client() else {
-            throw AppError.notConfigured
-        }
-
+        let client = try await session.authenticatedClient()
         let dtos = try await client.run(TagRequestFactory.makeListRequest()).value
         tags = dtos.map(Tag.init(dto:))
         hasLoaded = true
     }
 
-    /// Returns cached tags whose name has the given prefix (case-insensitive). Synchronous and
-    /// local — it never performs a request.
     func autocompleteTags(prefix: String) -> [Tag] {
         let needle = prefix.trimmingCharacters(in: .whitespaces).lowercased()
         guard !needle.isEmpty else {
@@ -74,10 +66,5 @@ final class TagRepository: TagAutocompleting {
         }
 
         return tags.filter { $0.name.lowercased().hasPrefix(needle) }
-    }
-
-    func invalidateCache() {
-        hasLoaded = false
-        tags = []
     }
 }

@@ -22,34 +22,35 @@
 
 import Foundation
 
-/// Holds app-wide configuration persisted in UserDefaults.
+// MARK: - BookmarkCreating
+
+/// A store that can create a bookmark and fetch page metadata.
 ///
-/// `serverURL` is a tracked `@Observable` property backed by UserDefaults rather than `@AppStorage`:
-/// an `@ObservationIgnored @AppStorage` property is excluded from observation, so mutating it would
-/// not notify SwiftUI and `RootView` would never re-route after setup. It is written through to the
-/// App Group's `UserDefaults` suite so both `StashClientProvider` and the Share Extension (a
-/// separate process) read the server the user configured.
+/// The shared `AddBookmarkView` depends on this narrow protocol rather than a concrete repository,
+/// so the same form serves the main app's `BookmarkRepository` and the Share Extension's
+/// `ExtensionBookmarkRepository` without either knowing about the other.
 @MainActor
-@Observable
-final class AppSettings {
+protocol BookmarkCreating: AnyObject {
 
-    // MARK: Properties
+    func create(_ input: CreateBookmarkInput) async throws -> Bookmark
+    func fetchMetadata(for url: URL) async throws -> PageMetadata
+}
 
-    var serverURL: String {
-        didSet {
-            AppGroup.sharedDefaults.set(serverURL, forKey: AppGroup.serverURLKey)
-        }
-    }
+// MARK: - TagAutocompleting
+
+/// A store that loads the user's tags and offers local prefix autocomplete.
+///
+/// Like `BookmarkCreating`, this lets the shared `AddBookmarkView` drive its tag suggestions from
+/// either the app's `TagRepository` or the extension's `ExtensionTagRepository`.
+@MainActor
+protocol TagAutocompleting: AnyObject {
 
     // MARK: Computed Properties
 
-    var isConfigured: Bool {
-        !serverURL.isEmpty
-    }
+    var tags: [Tag] { get }
 
-    // MARK: Lifecycle
+    // MARK: Functions
 
-    init() {
-        serverURL = AppGroup.sharedDefaults.string(forKey: AppGroup.serverURLKey) ?? ""
-    }
+    func load() async throws
+    func autocompleteTags(prefix: String) -> [Tag]
 }
