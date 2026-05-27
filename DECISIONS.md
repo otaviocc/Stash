@@ -3738,3 +3738,32 @@ Four no-behavior-change cleanups from the review.
   redundant for selection changes (source is now fixed per stack identity) but is harmless and left in
   place. Scope: one line each in `MacContentView` and `MainView`; no repository, StashKit, or backend
   change.
+
+## Tag sidebar refreshes after a sync (not just after a local write)
+
+A bug closing the Phase 3/4 "cross-repository live-refresh-on-sync" limitation, scoped to the tag list.
+
+- **Symptom.** After launch (or a manual "Sync Now" / pull-to-refresh / reconnect), the bookmark list
+  updated with newly pulled bookmarks, but the **sidebar tag list did not** — a bookmark synced in with a
+  brand-new tag showed in the list while its tag was missing from the Views/Tags sidebar. The tag only
+  appeared after fully quitting and relaunching the app.
+- **Root cause.** `TagRepository` derives its tags from the local store and is a shared singleton, but
+  the sidebars (`SidebarSplitView`, `MacContentView`, `TagBrowserView`) only called `load()` once on
+  appearance (a no-op after the first derive) — they never re-derived when a sync mutated the store. Only
+  *local* bookmark writes refreshed it (`AddBookmarkSheet`, `EditBookmarkView`, the tag drop modifier all
+  call `tagRepository.refresh()`). A sync's pulled changes had no such trigger, so the cached tag tree
+  went stale. `BookmarkListView` already had the right pattern — `.onChange(of: syncEngine.isSyncing)`
+  re-filtering the list when a cycle ends — but no sidebar mirrored it for tags.
+- **✅ Fix — refresh tags when a sync completes.** Each of the three tag sidebars now re-derives its tags
+  on the sync engine's syncing-to-idle transition. `refresh()` re-derives from the local store and leaves
+  the current tags visible until the new set is ready (no empty flash). Scope: the two split-view sidebars
+  (`MainView`, `MacContentView`) and the iPhone Tags tab (`TagBrowserView`); no repository, StashKit, or
+  backend change. The pending-row cross-repository limitation noted in Phase 4 is unrelated and still
+  stands.
+- **✅ Shared `.onSyncCompleted` modifier (cleanup).** The observation was originally a near-identical
+  `onChange(of: syncEngine.isSyncing)` block inlined at each call site — three new copies plus the one
+  `BookmarkListView` already had. All four now use a single `.onSyncCompleted { … }` view modifier
+  (`Stash/Support/SyncModifiers.swift`, app-only since it reads `AppEnvironment` — which the shared
+  `Common/` target lacks). The per-view opt-in is kept deliberately (views own their refresh triggers, per
+  Phase 3/4); the modifier only removes the duplication, it does not centralize the trigger into
+  `SyncEngine`.

@@ -101,6 +101,9 @@ import SwiftUI
                 .task {
                     try? await environment.smartViewRepository.load()
                 }
+                .onSyncCompleted {
+                    environment.tagRepository.refresh()
+                }
             } detail: {
                 NavigationStack {
                     makeDetail()

@@ -206,10 +206,8 @@ private struct BookmarkListContent: View {
             .onChange(of: showArchived) {
                 reload()
             }
-            .onChange(of: environment.syncEngine.isSyncing) { _, isSyncing in
-                if !isSyncing {
-                    repository.refresh()
-                }
+            .onSyncCompleted {
+                repository.refresh()
             }
             .toolbar {
                 if smartView == nil {

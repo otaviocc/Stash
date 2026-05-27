@@ -62,6 +62,9 @@ struct TagBrowserView: View {
         .task {
             await load(force: false)
         }
+        .onSyncCompleted {
+            environment.tagRepository.refresh()
+        }
     }
 
     // MARK: Content Methods
