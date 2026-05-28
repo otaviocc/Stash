@@ -60,9 +60,13 @@ struct AppWebController: RouteCollection {
 
     // MARK: Static Functions
 
-    static func buildSidebar(counts: [String: Int], activeTag: String) -> [SidebarTag] {
+    static func buildSidebar(
+        counts: [String: Int],
+        totalCounts: [String: Int],
+        activeTag: String
+    ) -> [SidebarTag] {
         var slugs = Set<String>()
-        for key in counts.keys {
+        for key in totalCounts.keys {
             let parts = key.split(separator: "/").map(String.init)
             guard !parts.isEmpty else { continue }
 
@@ -80,10 +84,14 @@ struct AppWebController: RouteCollection {
         }
         return ordered.map { slug in
             let comps = slug.split(separator: "/").map(String.init)
+            let count = counts[slug] ?? 0
+            let totalCount = totalCounts[slug] ?? 0
             return SidebarTag(
                 label: comps.last ?? slug,
                 href: tagHref(slug),
-                count: counts[slug] ?? 0,
+                count: count,
+                totalCount: totalCount,
+                hiddenCount: max(0, totalCount - count),
                 depth: comps.count - 1,
                 isActive: slug == activeTag
             )
@@ -280,6 +288,20 @@ struct AppWebController: RouteCollection {
         return components.string ?? "/app"
     }
 
+    static func archiveToggleURL(_ query: BookmarkListQuery, showArchived: Bool) -> String {
+        var components = URLComponents()
+        components.path = "/app"
+        var items: [URLQueryItem] = []
+        if let q = query.q?.nonEmpty { items.append(.init(name: "q", value: q)) }
+
+        if let tag = query.tag?.nonEmpty { items.append(.init(name: "tag", value: tag)) }
+
+        if showArchived { items.append(.init(name: "archived", value: "true")) }
+
+        components.queryItems = items.isEmpty ? nil : items
+        return components.string ?? "/app"
+    }
+
     static func message(for ok: String?) -> String? {
         switch ok {
         case "created": "Bookmark saved."
@@ -465,6 +487,7 @@ struct AppWebController: RouteCollection {
             tag: rawTag ?? "",
             tagDisplay: tagDisplay,
             archived: archived,
+            archiveToggleURL: Self.archiveToggleURL(query, showArchived: !archived),
             total: total,
             page: page,
             pageCount: pageCount,
@@ -697,6 +720,7 @@ struct AppWebController: RouteCollection {
             tag: "",
             tagDisplay: "",
             archived: archived,
+            archiveToggleURL: "",
             total: total,
             page: page,
             pageCount: pageCount,
@@ -1152,6 +1176,7 @@ struct AppWebController: RouteCollection {
             .filter(\.$user.$id == user.requireID())
             .all()
         var counts: [String: Int] = [:]
+        var totalCounts: [String: Int] = [:]
         var untaggedCount = 0
         var todayCount = 0
         var thisWeekCount = 0
@@ -1165,10 +1190,16 @@ struct AppWebController: RouteCollection {
             }
 
             for tag in bookmark.tags {
-                counts[tag, default: 0] += 1
+                totalCounts[tag, default: 0] += 1
+                if !bookmark.isArchived { counts[tag, default: 0] += 1 }
             }
         }
-        return (Self.buildSidebar(counts: counts, activeTag: activeTag), untaggedCount, todayCount, thisWeekCount)
+        return (
+            Self.buildSidebar(counts: counts, totalCounts: totalCounts, activeTag: activeTag),
+            untaggedCount,
+            todayCount,
+            thisWeekCount
+        )
     }
 
     private func setArchived(_ req: Request, _ archived: Bool) async throws -> Response {

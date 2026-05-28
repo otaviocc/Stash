@@ -3709,6 +3709,26 @@ Four no-behavior-change cleanups from the review.
   tags, so archival state is not relevant there. Defaulting to `false` is what keeps the picker's call
   site (and behavior) unchanged while the sidebars opt in.
 
+## Tag count badge (web frontend)
+
+- **The web `/app` sidebar tag tree gained the same split count badge** so the web UI reads identically
+  to the native apps. Previously the sidebar showed a single muted `(N)` per tag where `N` was the
+  *total* (active + archived) tally — misleading, since the list itself defaults to active-only. The
+  count is now split the same way the native apps split it: `count` is the visible (non-archived) tally,
+  `totalCount` includes archived, and the badge is accent-visible / muted-hidden.
+- **`SidebarTag` carries `count`, `totalCount`, and a precomputed `hiddenCount`** (`totalCount - count`).
+  Leaf has no arithmetic, so the hidden tally is computed server-side rather than in the template.
+  `AppWebController.sidebarTags` tallies both maps in its single pass over the user's bookmarks (every
+  tag into `totalCounts`, non-archived also into `counts`); `buildSidebar` iterates `totalCounts.keys`
+  (the superset) so an all-archived tag still produces a row. Synthetic parents — slugs with no exact
+  bookmark — land at `totalCount == 0` and render no badge, matching the native `count == nil` rule and
+  the prior `count > 0` guard.
+- **The badge is pure CSS in `stash.css` (`.count-badge` / `.count-badge.split`)**, reusing `--accent`
+  for the visible half and `--tag-bg` / `--text-muted` for the hidden half — the same colour language as
+  `TagCountBadge` (accent = visible, muted = hidden). The Views section (All / Untagged / Today / This
+  Week) keeps its plain `(N)` count: those are not real tags and the native Views rows carry no badge
+  either.
+
 ## Sidebar selection occasionally stops refreshing the detail list
 
 - **Problem.** On the iPad (`SidebarSplitView`) and macOS (`MacContentView`) split views, the sidebar

@@ -555,6 +555,43 @@ form.inline {
     font-size: 0.85rem;
 }
 
+/* Tag count badge — mirrors the native split pill: accent always means
+   "visible", muted always means "hidden" (archived). A plain accent capsule
+   shows the count when nothing is archived; a split pill surfaces the hidden
+   tally on its muted right half when a tag has archived bookmarks. */
+.tag-tree .count-badge {
+    display: inline-flex;
+    align-items: stretch;
+    margin-left: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 999px;
+    overflow: hidden;
+    vertical-align: middle;
+}
+
+.tag-tree .count-badge:not(.split) {
+    padding: 0.12rem 0.45rem;
+    background: var(--accent);
+    color: var(--btn-text);
+}
+
+.tag-tree .count-badge.split .badge-visible,
+.tag-tree .count-badge.split .badge-hidden {
+    padding: 0.12rem 0.45rem;
+}
+
+.tag-tree .count-badge.split .badge-visible {
+    background: var(--accent);
+    color: var(--btn-text);
+}
+
+.tag-tree .count-badge.split .badge-hidden {
+    background: var(--tag-bg);
+    color: var(--text-muted);
+}
+
 @media (max-width: 767px) {
     .tag-sidebar {
         display: none;

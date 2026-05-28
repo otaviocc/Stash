@@ -753,6 +753,9 @@ a dead end for them).
 ### Bookmark List Features
 
 - Search (`?q=`), tag filter (`?tag=`), archived toggle (`?archived=true`)
+- The archived toggle ("View archived" / "← Active bookmarks") preserves the
+  active search and tag filter — toggling archive on a filtered view shows that
+  tag's archived items rather than dropping the filter, matching the native apps
 - Pagination with prev/next links preserving active filters
 - Two-column layout: bookmark list (left/main) + tag sidebar (right, 220px)
 - Mobile (<768px): sidebar hidden, filter pills used instead
@@ -786,9 +789,15 @@ a dead end for them).
 - "This Week" link (highlighted when `?tag=__this_week__`; bookmarks created
   since the most recent Monday; count shown when > 0)
 - Full hierarchical tag tree, alphabetical at every level
-- Parent tags with children shown via indentation; synthetic parents (count 0)
+- Parent tags with children shown via indentation; synthetic parents (no count)
   included so children always nest
-- Tag counts in muted colour; active tag highlighted with accent colour
+- Each real tag carries a **count badge** mirroring the native apps: a single
+  accent capsule with the visible (non-archived) count when nothing is archived,
+  or a split pill — accent "visible" left half, muted "hidden" (archived) right
+  half — when the tag has archived bookmarks, so a tag whose bookmarks are all
+  archived still appears (e.g. `0|5`). Synthetic parents and tags with no
+  bookmarks show no badge.
+- Active tag highlighted with accent colour
 - Aligned with the search bar via `margin-top`
 
 ### Add / Edit Bookmark

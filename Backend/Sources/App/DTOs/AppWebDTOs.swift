@@ -122,11 +122,16 @@ struct TagLink: Content {
 // MARK: - SidebarTag
 
 /// One row of the flattened, pre-ordered tag tree shown in the bookmark-list sidebar.
+/// `count` is the visible (non-archived) tally; `totalCount` includes archived bookmarks, and
+/// `hiddenCount` is their difference — so the sidebar can render the same split count badge as the
+/// native apps (accent "visible" half, muted "hidden" half) without arithmetic in the template.
 struct SidebarTag: Content {
 
     let label: String
     let href: String
     let count: Int
+    let totalCount: Int
+    let hiddenCount: Int
     let depth: Int
     let isActive: Bool
 }
@@ -159,6 +164,7 @@ struct AppBookmarksContext: Content {
     let tag: String
     let tagDisplay: String
     let archived: Bool
+    let archiveToggleURL: String
     let total: Int
     let page: Int
     let pageCount: Int
