@@ -24,8 +24,9 @@ import SwiftUI
 
 // MARK: - BookmarkRowView
 
-/// A single bookmark row laid out as a three-level hierarchy: the domain (with favicon) as the
-/// scannable anchor, the title as the primary content, and text-only tags as a quiet tertiary line.
+/// A single bookmark row laid out as a hierarchy: the domain (with favicon) as the scannable anchor,
+/// the title as the primary content, a two-line description excerpt, and text-only tags as a quiet
+/// tertiary line.
 struct BookmarkRowView: View {
 
     // MARK: Properties
@@ -46,6 +47,7 @@ struct BookmarkRowView: View {
         VStack(alignment: .leading, spacing: 6) {
             makeDomainLine()
             makeTitle()
+            makeDescription()
             makeTags()
         }
         .padding(.vertical, 10)
@@ -78,6 +80,16 @@ struct BookmarkRowView: View {
     }
 
     @ViewBuilder
+    private func makeDescription() -> some View {
+        if let description = bookmark.description, !description.isEmpty {
+            Text(description)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+    }
+
+    @ViewBuilder
     private func makeTags() -> some View {
         if !bookmark.tags.isEmpty {
             HStack(spacing: 10) {
@@ -87,8 +99,8 @@ struct BookmarkRowView: View {
 
                 if bookmark.tags.count > 3 {
                     Text("+\(bookmark.tags.count - 3)")
-                        .font(.caption2)
-                        .foregroundStyle(.quaternary)
+                        .font(.subheadline)
+                        .foregroundStyle(.tertiary)
                 }
             }
             .lineLimit(1)

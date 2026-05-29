@@ -48,8 +48,8 @@ struct TagPill: View {
     var body: some View {
         if isPlain {
             Text(displayName)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         } else {
             Text(displayName)
                 .font(.caption2)

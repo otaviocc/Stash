@@ -3443,6 +3443,13 @@ Four no-behavior-change cleanups from the review.
   `Form` and its action rows are unchanged), `BookmarkListView` (empty states), `TagPill`, `FaviconView`,
   and added `BookmarkEmptyState`. No backend / StashKit / CLI / web / extension changes; no app unit
   tests (§19.6). Builds clean on both iOS and macOS.
+- **Follow-up — two-line description in the row (native apps).** The original pass kept description
+  detail-only; the row was domain → title → tags. After the web list adopted a two-line description
+  excerpt (see *Visual polish — bookmark list mirrors the native row (web frontend)*), the native
+  `BookmarkRowView` was brought back to parity: a `makeDescription()` line (`.subheadline`, `.secondary`,
+  `lineLimit(2)`) now sits between the title and the tags, shown only when the bookmark has a non-empty
+  description. The web's two-line clamp and the native `lineLimit(2)` are the same idea — a short,
+  proportionate excerpt rather than a fixed character count. iOS/iPadOS/macOS share the one row view.
 
 ## Add/Edit Bookmark — custom layout (native apps)
 
@@ -3758,6 +3765,30 @@ Four no-behavior-change cleanups from the review.
   redundant for selection changes (source is now fixed per stack identity) but is harmless and left in
   place. Scope: one line each in `MacContentView` and `MainView`; no repository, StashKit, or backend
   change.
+
+## Visual polish — bookmark list mirrors the native row (web frontend)
+
+- **✅ The `/app` bookmark list now reads with the same content-first hierarchy as the native apps'
+  `BookmarkRowView`** (see *Visual polish — bookmark list, detail, empty states (native apps)*). A
+  presentation-only pass on `app-bookmarks.leaf` rows — no new fields, no controller, StashKit, or
+  backend change; the same context (`faviconDomain`, `tags[].display`, `description`, `createdAt`) feeds
+  the new layout.
+- **Domain replaces the full URL as the row's source line.** The prominent green full-URL line under the
+  title is gone; in its place a muted **domain eyebrow** (`favicon + faviconDomain`) sits *above* the
+  title — more scannable and meaningful, matching the native row's domain anchor. The domain still links
+  to the bookmark's URL (`target=_blank`); the title links to the `/app` detail page as before.
+- **Typographic hierarchy.** Title is the hero (`1.1rem`, weight `600`); domain and date are quiet
+  `0.8rem` `--text-muted`; description stays readable (`--text-2`) but is sized down to `0.9rem` and
+  clamped to two lines (`-webkit-line-clamp`) so rows stay even. Per the answered design choice the web
+  keeps the description and date that the native row omits — the web is a denser reading surface.
+- **Tags are text-only in the list.** Scoped `.list-item .tags .tag` overrides drop the filled capsule to
+  muted middot-separated text links (`background: none`, `--text-muted`, accent + underline on hover),
+  mirroring the native row's `isPlain` tags. The capsule `.tag` style is unchanged everywhere else (the
+  "Filtered by tag" pill, the tag browser). The `swift › server` display rendering is untouched.
+- **Cards retained.** Per the answered design choice the rows keep their bordered-card container
+  (`--surface` + border + radius) rather than switching to hairline dividers — only the inner hierarchy
+  changed. The detail page (`app-bookmark-detail.leaf`) is unchanged and still shows the full URL via the
+  retained `.url` style.
 
 ## Tag sidebar refreshes after a sync (not just after a local write)
 
