@@ -129,8 +129,8 @@ struct BookmarkDetailView: View {
 
                 Link(destination: bookmark.url) {
                     Text(bookmark.url.absoluteString)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.footnote)
+                        .foregroundStyle(.tint)
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
