@@ -38,7 +38,7 @@ enum BackgroundSyncScheduler {
 
     // MARK: Static Properties
 
-    static let taskIdentifier = "cc.otavio.stash.backgroundSync"
+    static let taskIdentifier = "\(AppGroup.bundleBase).backgroundSync"
 
     // MARK: Static Functions
 

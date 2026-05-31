@@ -1,6 +1,9 @@
 # Secrets — never commit
 .env
 
+# Per-machine signing override (developer account / bundle prefix)
+StashApp/Config/Stash.local.xcconfig
+
 # SwiftPM / Xcode build artifacts
 .build/
 build/

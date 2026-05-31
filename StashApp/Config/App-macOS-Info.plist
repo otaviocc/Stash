@@ -20,9 +20,11 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>STBundleBase</key>
+	<string>$(STASH_BUNDLE_PREFIX).stash</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>cc.otavio.stash.backgroundSync</string>
+		<string>$(STASH_BUNDLE_PREFIX).stash.backgroundSync</string>
 	</array>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
@@ -35,7 +37,7 @@
 	<array>
 		<dict>
 			<key>UTTypeIdentifier</key>
-			<string>cc.otavio.stash.bookmark</string>
+			<string>$(STASH_BUNDLE_PREFIX).stash.bookmark</string>
 			<key>UTTypeDescription</key>
 			<string>Stash Bookmark</string>
 			<key>UTTypeConformsTo</key>

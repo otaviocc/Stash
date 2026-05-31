@@ -25,8 +25,8 @@ import Foundation
 /// Holds all app-wide dependencies.
 ///
 /// Constructed once at launch and injected into the SwiftUI environment. The token stores use the
-/// `group.cc.otavio.stash` Keychain access group so the Share Extension reads the same tokens the
-/// app writes.
+/// `AppGroup.identifier` (`group.<STASH_BUNDLE_PREFIX>.stash`) Keychain access group so the Share
+/// Extension reads the same tokens the app writes.
 ///
 /// `authRepository` and `tagRepository` are shared singletons (auth state and the tag cache are
 /// global), but bookmark-list state is *not*: each independent list (the Bookmarks tab, a tag drill-in

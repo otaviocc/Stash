@@ -92,7 +92,7 @@ extension UTType {
     /// The drag-and-drop payload type for a `Bookmark`, used when dragging a bookmark row onto a tag
     /// in the iPad/macOS sidebar. A dedicated type keeps the drop destination from accepting arbitrary
     /// JSON; intra-app drags need no Info.plist declaration.
-    static let stashBookmark = UTType(exportedAs: "cc.otavio.stash.bookmark")
+    static let stashBookmark = UTType(exportedAs: "\(AppGroup.bundleBase).bookmark")
 }
 
 // MARK: - Bookmark + Transferable

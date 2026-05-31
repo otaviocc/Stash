@@ -61,6 +61,44 @@ xcodebuild -scheme Stash -destination 'platform=macOS' \
 
 `xcuserdata/` is gitignored; the shared `Stash` scheme is committed.
 
+## Signing & bundle identifier (per machine)
+
+The developer team and the bundle-identifier prefix are **not hardcoded in the
+project** — they come from `StashApp/Config/Stash.xcconfig`, which sets two build
+settings:
+
+```
+STASH_BUNDLE_PREFIX = cc.otavio   # reverse-DNS org prefix (everything before .stash)
+DEVELOPMENT_TEAM = S9X9XY5GF8
+```
+
+`STASH_BUNDLE_PREFIX` drives **every** bundle-keyed identifier in lockstep: the
+app and extension bundle IDs, the App Group (which is also the Keychain access
+group and the shared `UserDefaults` suite), the background-task identifier, and
+the exported drag-and-drop UTType. Entitlements and `Info.plist` files reference
+`$(STASH_BUNDLE_PREFIX)`; the runtime reads the resolved base back from the
+`STBundleBase` `Info.plist` key (`AppGroup.bundleBase`), so the build settings
+and the Swift constants can never drift apart.
+
+**To build under a different Apple ID / prefix** (e.g. a personal account on
+another machine), do **not** edit `Stash.xcconfig`. Create a gitignored
+`StashApp/Config/Stash.local.xcconfig` overriding either setting:
+
+```
+STASH_BUNDLE_PREFIX = com.otaviocc
+DEVELOPMENT_TEAM = ABCDE12345
+```
+
+`Stash.xcconfig` ends with `#include? "Stash.local.xcconfig"` (the `?` makes it
+optional), so the local file wins when present and is simply absent otherwise.
+The committed defaults keep the maintainer's primary machine building with no
+local file. Verify a machine's resolved values with:
+
+```bash
+xcodebuild -scheme Stash -destination 'platform=macOS' -showBuildSettings \
+  | grep -E 'STASH_BUNDLE_PREFIX|DEVELOPMENT_TEAM|PRODUCT_BUNDLE_IDENTIFIER'
+```
+
 ## Targets
 
 There are two targets, each multiplatform (one target builds for both iOS and
@@ -68,8 +106,8 @@ macOS, selected by destination):
 
 | Target | Platforms | Bundle ID |
 |--------|-----------|-----------|
-| `Stash` | iOS 26+ / macOS 26+ | `cc.otavio.stash` |
-| `StashShareExtension` | iOS 26+ / macOS 26+ | `cc.otavio.stash.ShareExtension` |
+| `Stash` | iOS 26+ / macOS 26+ | `$(STASH_BUNDLE_PREFIX).stash` (default `cc.otavio.stash`) |
+| `StashShareExtension` | iOS 26+ / macOS 26+ | `$(STASH_BUNDLE_PREFIX).stash.ShareExtension` |
 
 ## Project layout
 
@@ -87,10 +125,12 @@ folder-level:
 
 The main app and the Share Extension share the access/refresh tokens (via a
 Keychain access group) and the configured server URL (via the App Group's
-`UserDefaults` suite) through the App Group `group.cc.otavio.stash`. This is
-configured in the per-platform entitlements files under `StashApp/Config/` and
-requires a matching entitlement in your provisioning profile for physical-device
-builds.
+`UserDefaults` suite) through the App Group `group.$(STASH_BUNDLE_PREFIX).stash`
+(default `group.cc.otavio.stash`). The group is declared with that variable in
+the per-platform entitlements files under `StashApp/Config/`, so it tracks
+whatever prefix the machine builds with (see *Signing & bundle identifier*
+above), and requires a matching entitlement in your provisioning profile for
+physical-device builds.
 
 ## Connecting to a backend
 

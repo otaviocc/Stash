@@ -1,0 +1,11 @@
+// Per-machine signing override — TEMPLATE.
+//
+// Copy this file to `Stash.local.xcconfig` (same directory) and fill in your own values to build
+// under a different developer account / bundle prefix. `Stash.local.xcconfig` is gitignored;
+// `Stash.xcconfig` includes it optionally via `#include? "Stash.local.xcconfig"`, so it overrides the
+// committed defaults when present and is ignored when absent.
+//
+//     cp Stash.local.xcconfig.example Stash.local.xcconfig
+
+STASH_BUNDLE_PREFIX = com.otaviocc
+DEVELOPMENT_TEAM = ABCDE12345

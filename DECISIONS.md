@@ -3818,3 +3818,40 @@ A bug closing the Phase 3/4 "cross-repository live-refresh-on-sync" limitation, 
   `Common/` target lacks). The per-view opt-in is kept deliberately (views own their refresh triggers, per
   Phase 3/4); the modifier only removes the duplication, it does not centralize the trigger into
   `SyncEngine`.
+
+## Per-machine signing & bundle identifier (xcconfig)
+
+The maintainer builds the app under two different Apple developer accounts on two machines — one uses
+the `cc.otavio.stash*` bundle prefix, the other `com.otaviocc.stash*`. Previously the team id and the
+prefix were hardcoded throughout the committed `Stash.xcodeproj`, four entitlements, four `Info.plist`s,
+and several Swift constants, so switching machines meant editing tracked files (and risking a commit of
+the wrong account).
+
+- **✅ One source of truth — `StashApp/Config/Stash.xcconfig`.** A committed base xcconfig defines two
+  settings: `STASH_BUNDLE_PREFIX` (the reverse-DNS org prefix, everything before `.stash`) and
+  `DEVELOPMENT_TEAM`. It is wired as the `baseConfigurationReference` on the **project-level** Debug/Release
+  configs, so both targets inherit the values. The committed defaults (`cc.otavio` / `S9X9XY5GF8`) keep the
+  primary machine building with no extra file.
+- **Machine-local override via optional include.** The base xcconfig ends with
+  `#include? "Stash.local.xcconfig"` — the `?` makes it optional. A second machine drops a gitignored
+  `Config/Stash.local.xcconfig` (templated by the committed `Stash.local.xcconfig.example`) overriding
+  either setting; it wins when present and is silently absent otherwise. `Stash.local.xcconfig` is in the
+  root `.gitignore`.
+- **The prefix drives every bundle-keyed identifier in lockstep.** `PRODUCT_BUNDLE_IDENTIFIER` for the app
+  (`$(STASH_BUNDLE_PREFIX).stash`) and extension (`…​.stash.ShareExtension`) reference it directly; the
+  four entitlements declare the App Group as `group.$(STASH_BUNDLE_PREFIX).stash`; the two app `Info.plist`s
+  build the `BGTaskSchedulerPermittedIdentifiers` and the exported `UTType` from it. Build-setting
+  substitution in entitlements/plists is standard Xcode behaviour (the "Process Product Packaging" step).
+- **Runtime reads it back, never hardcodes it.** Each `Info.plist` carries `STBundleBase =
+  $(STASH_BUNDLE_PREFIX).stash`. `AppGroup.bundleBase` reads that key from `Bundle.main` (fallback
+  `cc.otavio.stash` for previews, which have no bundle) and **derives** `AppGroup.identifier` (the App
+  Group / Keychain access group / defaults suite), the token/cursor keys, `BackgroundSyncScheduler.taskIdentifier`,
+  and `UTType.stashBookmark`. So the build settings and the Swift constants can never drift — change the
+  one xcconfig line and the whole graph follows. The Keychain item *account names* and the
+  `UserDefaults` suite both move with the prefix; the actual cross-process sharing is scoped by the App
+  Group, which is the same derived value in both processes.
+- **Verified.** `xcodebuild -showBuildSettings` resolves the prefix, team, and bundle IDs at the target
+  level (proving project→target inheritance); the built `Info.plist`s show `cc.otavio.stash`-derived
+  values; and a temporary `Stash.local.xcconfig` flips the resolved prefix to `com.otaviocc.stash` and the
+  team, confirming the override path. Builds clean on iOS and macOS; the token-key *names* changing shape
+  per machine is harmless (they are account names within the App Group, not OS-registered identifiers).

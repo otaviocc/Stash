@@ -39,6 +39,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		B1A5C0FFEE0000000000C0DE /* Stash.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Stash.xcconfig"; path = "Config/Stash.xcconfig"; sourceTree = "<group>"; };
 		6D6D4815818C2E1477136D6E /* Ext-iOS.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = "Ext-iOS.entitlements"; path = "Config/Ext-iOS.entitlements"; sourceTree = "<group>"; };
 		70F0C9B22707C664BF8E47D3 /* Ext-iOS-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "Ext-iOS-Info.plist"; path = "Config/Ext-iOS-Info.plist"; sourceTree = "<group>"; };
 		90485FBFA402AB41F16C4778 /* Ext-macOS.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; name = "Ext-macOS.entitlements"; path = "Config/Ext-macOS.entitlements"; sourceTree = "<group>"; };
@@ -130,6 +131,7 @@
 		449D180E757E2E423D11402F /* Config */ = {
 			isa = PBXGroup;
 			children = (
+				B1A5C0FFEE0000000000C0DE /* Stash.xcconfig */,
 				DDC508A3CDEB626F13418038 /* App-iOS-Info.plist */,
 				96B51537E096397DED5EED53 /* App-macOS-Info.plist */,
 				A3EDAEA75882F36960ADD705 /* App-iOS.entitlements */,
@@ -303,7 +305,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(STASH_BUNDLE_PREFIX).stash";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
@@ -338,7 +340,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(STASH_BUNDLE_PREFIX).stash";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
@@ -353,6 +355,7 @@
 		};
 		A8E1652CCA19D907F3FA6073 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B1A5C0FFEE0000000000C0DE /* Stash.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -388,7 +391,6 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = S9X9XY5GF8;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -438,7 +440,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash.ShareExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(STASH_BUNDLE_PREFIX).stash.ShareExtension";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
@@ -453,6 +455,7 @@
 		};
 		F5B4F721C8EDFDD0EA888EF8 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B1A5C0FFEE0000000000C0DE /* Stash.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -488,7 +491,6 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = S9X9XY5GF8;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -531,7 +533,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash.ShareExtension;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(STASH_BUNDLE_PREFIX).stash.ShareExtension";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
