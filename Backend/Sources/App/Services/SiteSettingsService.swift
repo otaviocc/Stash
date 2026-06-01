@@ -124,12 +124,20 @@ enum SiteSettingsService {
         app.storage[SiteSettingsCacheKey.self] = SiteSettingsCache(SiteSettingsSnapshot(settings))
     }
 
+    /// Replaces the cached snapshot in place after the admin saves the appearance form.
+    ///
+    /// The cache is seeded by `loadAndCache` during `configure`, before the server accepts
+    /// connections, so the holder always exists by the time any request can call this. Updating it in
+    /// place only touches the `NSLock`-guarded snapshot — it never mutates `Application.storage`, which
+    /// is an unsynchronized dictionary that must not be written while request handlers read it
+    /// concurrently. If the holder is somehow absent, page renders fall back to `.default` until the
+    /// next boot rather than racing a runtime `storage` write.
     static func refreshCache(with settings: SiteSettings, on app: Application) {
-        let snapshot = SiteSettingsSnapshot(settings)
-        if let cache = app.storage[SiteSettingsCacheKey.self] {
-            cache.update(snapshot)
-        } else {
-            app.storage[SiteSettingsCacheKey.self] = SiteSettingsCache(snapshot)
+        guard let cache = app.storage[SiteSettingsCacheKey.self] else {
+            app.logger.error("SiteSettingsCache missing at refresh; it is seeded at boot by loadAndCache")
+            return
         }
+
+        cache.update(SiteSettingsSnapshot(settings))
     }
 }

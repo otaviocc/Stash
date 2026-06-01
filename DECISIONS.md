@@ -1505,6 +1505,16 @@ Glass adopted automatically by building against the 26 SDKs).
   per-request DB query**: the values come from an app-level cache
   (`SiteSettingsCache` on `Application.storage`, behind an `NSLock`) loaded once
   at boot and refreshed in place when the admin saves the appearance form.
+- **✅ `refreshCache` only mutates the lock-guarded snapshot, never
+  `Application.storage`.** The cache holder is seeded by `loadAndCache` during
+  `configure`, before the server accepts connections, so it always exists by the
+  time a request can trigger a refresh. `refreshCache` therefore only calls
+  `cache.update(...)` (which takes the `NSLock`); it does **not** write back into
+  `Application.storage`, an unsynchronized dictionary that would data-race the
+  concurrent `req.siteChrome()` reads if mutated at runtime. The earlier
+  `else { storage[...] = … }` fallback was unreachable but encoded exactly that
+  unsafe write, so it was removed — a missing holder now logs and leaves renders
+  on the `.default` snapshot until the next boot rather than racing storage.
 - **⚠️ Chrome is a nested `chrome` field on every web context, not a flattened
   merge.** Both web controllers pass `chrome: req.siteChrome()` (footer + accent
   + about text) into every page context, and `layout.leaf` / `_footer.leaf` read
