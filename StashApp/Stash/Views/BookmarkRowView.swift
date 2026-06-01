@@ -94,7 +94,7 @@ struct BookmarkRowView: View {
         if !bookmark.tags.isEmpty {
             HStack(spacing: 10) {
                 ForEach(bookmark.tags.prefix(3), id: \.self) { tag in
-                    TagPill(name: tag, isPlain: true)
+                    TagPill(name: tag)
                 }
 
                 if bookmark.tags.count > 3 {

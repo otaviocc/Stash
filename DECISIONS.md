@@ -3855,3 +3855,17 @@ the wrong account).
   values; and a temporary `Stash.local.xcconfig` flips the resolved prefix to `com.otaviocc.stash` and the
   team, confirming the override path. Builds clean on iOS and macOS; the token-key *names* changing shape
   per machine is harmless (they are account names within the App Group, not OS-registered identifiers).
+
+## Bookmark row tags — accent capsules (native apps)
+
+- **✅ The list row's tags now use the accent-tinted capsule `TagPill`, not the plain text-only
+  variant.** The row was otherwise colourless — grey domain, primary title, secondary description,
+  `.tertiary` text tags — with the favicon the only spot of colour. Dropping `isPlain: true` in
+  `BookmarkRowView.makeTags()` gives the row a deliberate touch of the app accent while keeping the
+  content-first typographic hierarchy intact (the capsule is `.caption2`, still the smallest, quietest
+  line). This reverses the earlier *Visual polish — bookmark list* call ("Tags text-only in the list
+  row; styled capsule retained in the detail view"); the row and detail view now share the one styled
+  treatment, so a tag reads identically everywhere.
+- **Scope.** One line in `BookmarkRowView`; `TagPill`'s `isPlain` parameter is retained (still used by
+  other call sites). The `swift › server` rendering and 3-tags-+N overflow are unchanged. No backend /
+  StashKit / CLI / web changes; builds clean on macOS.
