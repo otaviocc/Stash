@@ -56,6 +56,12 @@ final class SyncEngine {
     private let defaults: UserDefaults
     private var inflightSync: Task<Void, Never>?
 
+    /// Bumped each time a cycle is registered in `inflightSync`. A finishing cycle clears the slot only
+    /// when the generation still matches its own, so a cycle that `reset()` cancelled mid-flight cannot
+    /// null out a newer cycle's registration on resume — which would otherwise let a third caller start
+    /// a second concurrent cycle.
+    private var syncGeneration = 0
+
     // MARK: Computed Properties
 
     /// Whether a successful cycle has ever completed. `false` means the local store still needs its
@@ -120,10 +126,15 @@ final class SyncEngine {
             return
         }
 
+        syncGeneration += 1
+        let generation = syncGeneration
         let task = Task { await performSync() }
         inflightSync = task
         await task.value
-        inflightSync = nil
+
+        if syncGeneration == generation {
+            inflightSync = nil
+        }
     }
 
     /// Pushes queued local changes **without** a preceding pull. Used after a write: the device just
@@ -136,10 +147,15 @@ final class SyncEngine {
             return
         }
 
+        syncGeneration += 1
+        let generation = syncGeneration
         let task = Task { await performPush() }
         inflightSync = task
         await task.value
-        inflightSync = nil
+
+        if syncGeneration == generation {
+            inflightSync = nil
+        }
     }
 
     /// Runs a cycle and then schedules the next background refresh. Called from the background-refresh

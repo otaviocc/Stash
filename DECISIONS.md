@@ -2991,6 +2991,17 @@ Two cross-user bugs from the full-feature code review (findings #1 and #2).
   do not interleave; `pull()` and `push()` each call `try Task.checkCancellation()` at
   entry (plus the cancellation-aware `URLSession` awaits), so a cancelled cycle aborts
   before `save()`/`setLastSyncedAt` rather than completing.
+- **✅ A finishing cycle clears `inflightSync` only if it still owns the slot.** `sync()`
+  and `pushPending()` previously ended with an unconditional `inflightSync = nil`. When
+  `reset()` cancelled a cycle mid-flight and a new cycle then registered, the old cycle's
+  resume would null out the *new* cycle's registration — letting a third caller see an
+  empty slot and start a second concurrent cycle (two cycles sharing one `@MainActor`
+  `ModelContext`, double-pushing the same pending rows). Each registration now bumps a
+  `syncGeneration` counter and captures its value; the completion clears `inflightSync`
+  only when `syncGeneration` still matches, so a cancelled cycle's resume is a no-op once
+  a newer cycle has taken the slot. Narrow (needs a sync racing sign-out) and largely
+  self-healing — a double create surfaces as `duplicate_url`, which `resolveDuplicate`
+  handles — but the guard is trivial and removes the race outright.
 - **Residual (not in scope here).** Reads (`LocalStore.fetchActive`, used by
   `BookmarkRepository` and `TagRepository`) are still **not** user-scoped, so a
   previous user's preserved/pulled records could be *visible* in a new user's list
