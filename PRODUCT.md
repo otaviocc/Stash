@@ -68,7 +68,7 @@ There is exactly one admin. The admin account is seeded at first boot via enviro
 | Web frontend (user-facing) | Server-rendered (Leaf) | ✅ Complete |
 | CLI (`stash`) | Swift CLI tool | ✅ Complete |
 | iOS | Native SwiftUI app + Share Extension | ✅ Complete (M8 + M9) |
-| macOS | Native SwiftUI app + Share Extension | Planned (M10) |
+| macOS | Native SwiftUI app + Share Extension | ✅ Complete (M10) |
 
 ---
 
@@ -633,11 +633,25 @@ Full Settings (password change, 2FA management), edit/delete bookmark, tag renam
 
 ---
 
-## 17. macOS App (Planned — M10)
+## 17. macOS App ✅ Complete (M10)
 
-Same SwiftUI target as iOS (multiplatform). macOS 26.0 minimum. Share Extension. Full feature parity with iOS app.
+A native macOS app (`StashMac` target, macOS 26.0 minimum) sharing the iOS source tree — a single
+`@main App` branches per platform with `#if os(macOS)`. Adopts the macOS 26 design language (Liquid
+Glass) automatically by building against the SDK; no explicit modifiers.
 
-Adopts macOS 26 design language automatically — Liquid Glass materials on toolbars and sidebars. `NavigationSplitView` with tag sidebar and bookmark detail column. Toolbar glass effect on navigation bar items. Collapsible `Section` headers in tag browser and bookmark list where appropriate.
+- **Navigation:** `NavigationSplitView` with a tag sidebar (All Bookmarks, Untagged, the tag list)
+  driving the shared `BookmarkListView` in the detail column; selecting a bookmark pushes the shared
+  `BookmarkDetailView`. The optional inspector panel was not built (the shared list is reused as-is
+  for maximum code sharing).
+- **Window:** standard `WindowGroup`, 800×500 minimum (`windowResizability(.contentMinSize)`).
+- **Bookmarks:** shared list and rows; right-click context menu (Open in Browser, Copy URL,
+  Archive/Unarchive, Delete); add and edit via shared sheets; delete with confirmation.
+- **Settings scene (⌘,):** General (server URL, sign out), Account (change password, 2FA enrol /
+  disable), Appearance (Light / Dark / Auto, stored in `UserDefaults` — no theme cookie on native).
+- **Keyboard shortcuts:** ⌘N new, ⌘E edit, ⌘R refresh, ⌘⌫ delete (with confirmation).
+- **Share Extension:** `StashMacShareExtension` reuses the iOS extension's SwiftUI (same three states
+  and confirmation-with-undo); only the principal `NSViewController` differs from iOS's
+  `UIViewController`.
 
 ---
 
@@ -873,7 +887,7 @@ SwiftLint + SwiftFormat. `swiftlint lint` 0 violations, `swiftformat --lint` ide
 | M7 | CLI: all commands including import/export, tag rename/delete | ✅ Complete |
 | M8 | iOS app: auth, bookmark list, add bookmark | ✅ Core complete |
 | M9 | iOS Share Extension | ✅ Complete |
-| M10 | macOS app + Share Extension | Planned |
+| M10 | macOS app + Share Extension | ✅ Complete |
 | M4.1 | CI/CD: GitHub Actions, publish to ghcr.io | Planned (after M10) |
 
 ---

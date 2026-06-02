@@ -51,8 +51,7 @@ struct RecoveryCodeView: View {
         Form {
             Section {
                 TextField("XXXX-XXXX", text: $code)
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
+                    .uppercasedFieldStyle()
             } header: {
                 Text("Recovery code")
             } footer: {
@@ -75,7 +74,7 @@ struct RecoveryCodeView: View {
             .disabled(!canSubmit)
         }
         .navigationTitle("Recovery Code")
-        .navigationBarTitleDisplayMode(.inline)
+        .inlineNavigationTitleStyle()
     }
 
     // MARK: Functions

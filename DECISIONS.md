@@ -540,6 +540,77 @@ extension — the user authenticates in the main app first.
 
 ---
 
+## M10 — macOS app (+ deployment-target bump to 26)
+
+Scope: a native macOS app sharing the iOS source tree, plus a macOS Share Extension; and a bump of
+both platform minimums to iOS 26 / macOS 26 (Liquid Glass adopted automatically by building against
+the 26 SDKs).
+
+- **✅ Deployment targets raised to iOS 26 / macOS 26.** `project.yml`, `StashKit/Package.swift`
+  (`.iOS(.v26)`/`.macOS(.v26)`, tools 6.2), and `CLI/Package.swift` (`.macOS(.v26)`, tools 6.2) were
+  bumped. The iPhone tab bar gained `.tabBarMinimizeBehavior(.onScrollDown)` so the floating Liquid
+  Glass bar collapses on scroll. No explicit `.liquidGlass` calls — the look comes from the SDK.
+  Verified: StashKit, CLI, the iOS app, and the macOS app + extension all build on the Swift 6.2 /
+  macOS 26 toolchain.
+- **✅ One `@main App` for both platforms; macOS adds scenes.** Rather than a second entry point,
+  `StashApp` stays the single `@main` and branches its `body` with `#if os(macOS)`: macOS adds a
+  `Settings` scene (⌘,), `windowResizability(.contentMinSize)` with a 800×500 minimum, and
+  `SidebarCommands()`. `RootView` routes the authenticated state to `MainView` on iOS and
+  `MacContentView` on macOS.
+- **⚠️ macOS uses a two-column split that reuses `BookmarkListView`, not a bespoke inspector.** The
+  brief sketched a three-column layout with an optional inspector. To honor "maximum code sharing
+  with minimal `#if`", `MacContentView` is a `NavigationSplitView` whose sidebar (All Bookmarks,
+  Untagged, then the tag list — flat, matching the iPad sidebar) drives the *same* shared
+  `BookmarkListView` in the detail column inside a `NavigationStack`; selecting a bookmark pushes the
+  shared `BookmarkDetailView` there, exactly as on iPad. The inspector panel (explicitly optional in
+  the brief) was not built — it would have required a selection-driven variant of the shared list and
+  more platform divergence for little gain. The system-provided sidebar toggle and the list's own
+  toolbar (add, archived, refresh) cover the macOS toolbar requirements.
+- **✅ Platform differences concentrated in `PlatformModifiers` + thin `#if` shells.** iOS-only
+  text-field/title modifiers (`keyboardType`, `textContentType`, `textInputAutocapitalization`,
+  `navigationBarTitleDisplayMode`) live behind cross-platform helpers
+  (`urlFieldStyle`/`usernameFieldStyle`/`passwordFieldStyle`/`oneTimeCodeFieldStyle`/
+  `lowercasedFieldStyle`/`uppercasedFieldStyle`/`inlineNavigationTitleStyle`/`searchInputStyle`) so
+  the shared leaf views read as plain SwiftUI. SwiftUI has no cross-platform copy API, so a single
+  `copyToPasteboard(_:)` free function is the one place `UIPasteboard`/`NSPasteboard` are touched.
+  Whole-view `#if` guards are reserved for genuine platform shells: `MainView`/`TabContainerView`
+  (iOS, size-class + tab bar) and `MacContentView`/`MacSettingsView`/`AccountSettingsView` (macOS).
+  `BookmarkListView`'s one iOS-only toolbar placement (`.topBarLeading`) is selected via a computed
+  `ToolbarItemPlacement` (`.automatic` on macOS).
+- **✅ Shared edit / delete / archive, surfaced per platform.** `BookmarkRepository` gained
+  `update`/`setArchived`/`delete`; `BookmarkDetailView` became read-write (edit sheet, archive,
+  delete-with-confirmation) and is shared by the iOS push and the macOS detail column;
+  `EditBookmarkView` (URL fixed, like the web edit form) is shared. A right-click/long-press context
+  menu on each `BookmarkListView` row (Open in Browser, Copy URL, Archive/Unarchive, Delete) is also
+  shared. Keyboard shortcuts wired: ⌘N (new), ⌘E (edit), ⌘R (refresh), ⌘⌫ (delete the open bookmark,
+  with confirmation). ⌘F is left to the system search field rather than custom-bound.
+- **✅ macOS `Settings` scene with three tabs.** General (server URL field + sign out), Account
+  (change password with the 12-char rule; 2FA enrol via a QR + manual secret + verify → one-time
+  recovery codes, or disable with a current code), and Appearance (Light / Dark / Auto). This drove
+  StashKit additions — `ChangePasswordRequest` + `UserRequestFactory` (`/me`, `/me/password`) — and
+  `AuthRepository` methods (`currentUser`, `changePassword`, `beginTOTPSetup`, `completeTOTPSetup`,
+  `disableTOTP`) over the existing TOTP factories, plus `CurrentUser`/`TOTPSetup` models and a
+  cross-platform `QRCodeView` (CoreImage `CIFilter.qrCodeGenerator`, available on both platforms).
+- **✅ Appearance lives in `UserDefaults`, not a cookie.** The web frontend stores Light/Dark/Auto in
+  a `stash_theme` cookie; the native clients have no browser, so `AppSettings.appearance`
+  (`AppAppearance`) is a tracked property in standard `UserDefaults` (app-only — the extension never
+  themes), applied app-wide via `.preferredColorScheme` at the scene root. `serverURL` stays in the
+  App Group `UserDefaults` suite since the extension reads it.
+- **✅ macOS Share Extension reuses the iOS extension's SwiftUI.** `StashMacShareExtension`
+  (`cc.otavio.stash.macShareExtension`, app group, sandbox + network client) shares
+  `ShareExtensionView`, `ExtensionSession`, `ExtensionBookmarkRepository`, `ExtensionTagRepository`,
+  and `SharedItemLoader` verbatim — they are all SwiftUI/Foundation with no UIKit. Only the principal
+  controller differs: the iOS `ShareViewController` (`UIViewController`/`UIHostingController`) is
+  guarded `#if os(iOS)` and a new `MacShareViewController` (`NSViewController`/`NSHostingController`)
+  is guarded `#if os(macOS)`, both living in the one `StashShareExtension/` source folder that both
+  extension targets compile. Same three-state UI and confirmation-with-undo as M9.
+- **✅ Style and verification.** American English, `///` on types only, no inline comments, the shared
+  `.swiftformat`/`.swiftlint.yml`. `swiftformat --lint` is idempotent and `swiftlint lint` reports 0
+  violations; the iOS app, the macOS app, and both embedded `.appex` bundles build clean (no
+  warnings). No unit tests per §19.6.
+
+---
+
 ## M11 — User-facing web frontend
 
 - **✅ Second session cookie, shared store.** The frontend uses its own `stash_session` cookie

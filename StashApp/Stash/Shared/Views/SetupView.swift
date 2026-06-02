@@ -48,10 +48,7 @@ struct SetupView: View {
             Form {
                 Section {
                     TextField("https://stash.example.com", text: $serverURL)
-                        .textContentType(.URL)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .urlFieldStyle()
                 } header: {
                     Text("Server URL")
                 } footer: {

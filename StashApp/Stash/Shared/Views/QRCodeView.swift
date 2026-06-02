@@ -20,31 +20,48 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+import CoreImage.CIFilterBuiltins
 import SwiftUI
 
-/// Routes between the setup, login, and main app flows based on configuration and auth state.
-struct RootView: View {
+/// Renders a string (here an `otpauth://` URI) as a scannable QR code. Uses CoreImage, which is
+/// available on both iOS and macOS, so the same view serves every native client.
+struct QRCodeView: View {
 
-    // MARK: SwiftUI Properties
+    // MARK: Properties
 
-    @Environment(AppSettings.self) private var settings
-    @Environment(AppEnvironment.self) private var environment
+    let string: String
 
     // MARK: Content Properties
 
     // MARK: Content
 
     var body: some View {
-        if !settings.isConfigured {
-            SetupView()
-        } else if !environment.authRepository.isAuthenticated {
-            LoginView()
+        if let image = Self.makeImage(from: string) {
+            Image(decorative: image, scale: 1)
+                .interpolation(.none)
+                .resizable()
+                .scaledToFit()
         } else {
-            #if os(macOS)
-                MacContentView()
-            #else
-                MainView()
-            #endif
+            Image(systemName: "qrcode")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(.secondary)
         }
+    }
+
+    // MARK: Static Functions
+
+    private static func makeImage(from string: String) -> CGImage? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(string.utf8)
+        filter.correctionLevel = "M"
+
+        guard let output = filter.outputImage else {
+            return nil
+        }
+
+        let scaled = output.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
+
+        return CIContext().createCGImage(scaled, from: scaled.extent)
     }
 }

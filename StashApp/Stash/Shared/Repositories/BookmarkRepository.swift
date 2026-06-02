@@ -108,6 +108,62 @@ final class BookmarkRepository: BookmarkCreating {
         return bookmark
     }
 
+    func update(
+        id: UUID,
+        title: String?,
+        description: String?,
+        tags: [String]
+    ) async throws -> Bookmark {
+        let client = try await authenticatedClient()
+        let request = BookmarkRequestFactory.makeUpdateRequest(
+            id: id,
+            body: UpdateBookmarkRequest(
+                title: title,
+                description: description,
+                tags: tags
+            )
+        )
+        let bookmark = try await Bookmark(dto: client.run(request).value)
+
+        if let index = bookmarks.firstIndex(where: { $0.id == id }) {
+            bookmarks[index] = bookmark
+        }
+
+        return bookmark
+    }
+
+    func setArchived(id: UUID, archived: Bool) async throws -> Bookmark {
+        let client = try await authenticatedClient()
+        let request = BookmarkRequestFactory.makeUpdateRequest(
+            id: id,
+            body: UpdateBookmarkRequest(isArchived: archived)
+        )
+        let bookmark = try await Bookmark(dto: client.run(request).value)
+
+        if bookmark.isArchived == currentQuery.archived {
+            if let index = bookmarks.firstIndex(where: { $0.id == id }) {
+                bookmarks[index] = bookmark
+            }
+        } else if let index = bookmarks.firstIndex(where: { $0.id == id }) {
+            bookmarks.remove(at: index)
+            total = max(0, total - 1)
+            updateHasMore()
+        }
+
+        return bookmark
+    }
+
+    func delete(id: UUID) async throws {
+        let client = try await authenticatedClient()
+        _ = try await client.run(BookmarkRequestFactory.makeDeleteRequest(id: id))
+
+        if let index = bookmarks.firstIndex(where: { $0.id == id }) {
+            bookmarks.remove(at: index)
+            total = max(0, total - 1)
+            updateHasMore()
+        }
+    }
+
     func fetchMetadata(for url: URL) async throws -> PageMetadata {
         let client = try await authenticatedClient()
         let dto = try await client.run(MetadataRequestFactory.makeFetchRequest(url: url)).value

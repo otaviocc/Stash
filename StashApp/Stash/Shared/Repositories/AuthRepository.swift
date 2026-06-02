@@ -130,6 +130,50 @@ final class AuthRepository: SessionRefreshing {
         }
     }
 
+    func currentUser() async throws -> CurrentUser {
+        let client = try await authenticatedClient()
+        let dto = try await client.run(UserRequestFactory.makeMeRequest()).value
+
+        return CurrentUser(dto: dto)
+    }
+
+    func changePassword(current: String, new: String) async throws {
+        let client = try await authenticatedClient()
+        _ = try await client.run(
+            UserRequestFactory.makeChangePasswordRequest(
+                ChangePasswordRequest(currentPassword: current, newPassword: new)
+            )
+        )
+    }
+
+    func beginTOTPSetup() async throws -> TOTPSetup {
+        let client = try await authenticatedClient()
+        let dto = try await client.run(AuthRequestFactory.makeTOTPSetupRequest()).value
+
+        return TOTPSetup(secret: dto.secret, otpauthURI: dto.otpauthURI)
+    }
+
+    func completeTOTPSetup(code: String) async throws -> [String] {
+        let client = try await authenticatedClient()
+
+        return try await client.run(AuthRequestFactory.makeTOTPVerifyRequest(code: code)).value.recoveryCodes
+    }
+
+    func disableTOTP(code: String) async throws {
+        let client = try await authenticatedClient()
+        _ = try await client.run(AuthRequestFactory.makeTOTPDisableRequest(totpCode: code))
+    }
+
+    private func authenticatedClient() async throws -> StashClient {
+        try await refreshIfNeeded()
+
+        guard let client = clientProvider.client() else {
+            throw AppError.notConfigured
+        }
+
+        return client
+    }
+
     private func completeLogin(accessToken: String, refreshToken: String) {
         tokenManager.save(accessToken: accessToken, refreshToken: refreshToken)
         isAuthenticated = true

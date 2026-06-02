@@ -67,6 +67,8 @@ private struct BookmarkListContent: View {
 
     // MARK: SwiftUI Properties
 
+    @Environment(\.openURL) private var openURL
+
     @State private var searchText = ""
     @State private var showArchived = false
     @State private var showingAddSheet = false
@@ -91,10 +93,18 @@ private struct BookmarkListContent: View {
 
     private var navigationTitle: String {
         if let tag {
-            return tag
+            return tag == "__untagged__" ? "Untagged" : tag
         }
 
         return showArchived ? "Archived" : "Bookmarks"
+    }
+
+    private var optionsPlacement: ToolbarItemPlacement {
+        #if os(iOS)
+            .topBarLeading
+        #else
+            .automatic
+        #endif
     }
 
     // MARK: Content Properties
@@ -105,12 +115,15 @@ private struct BookmarkListContent: View {
         List {
             ForEach(repository.bookmarks) { bookmark in
                 NavigationLink {
-                    BookmarkDetailView(bookmark: bookmark)
+                    BookmarkDetailView(bookmark: bookmark, repository: repository)
                 } label: {
                     BookmarkRowView(bookmark: bookmark)
                 }
                 .onAppear {
                     loadMoreIfNeeded(currentItem: bookmark)
+                }
+                .contextMenu {
+                    rowContextMenu(for: bookmark)
                 }
             }
 
@@ -129,8 +142,7 @@ private struct BookmarkListContent: View {
         }
         .navigationTitle(navigationTitle)
         .searchable(text: $searchText, prompt: "Search bookmarks")
-        .textInputAutocapitalization(.never)
-        .autocorrectionDisabled()
+        .searchInputStyle()
         .onSubmit(of: .search) {
             reload()
         }
@@ -155,13 +167,21 @@ private struct BookmarkListContent: View {
                 } label: {
                     Label("Add Bookmark", systemImage: "plus")
                 }
+                .keyboardShortcut("n", modifiers: .command)
             }
 
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: optionsPlacement) {
                 Menu {
                     Toggle(isOn: $showArchived) {
                         Label("Show Archived", systemImage: "archivebox")
                     }
+
+                    Button {
+                        reload()
+                    } label: {
+                        Label("Refresh", systemImage: "arrow.clockwise")
+                    }
+                    .keyboardShortcut("r", modifiers: .command)
                 } label: {
                     Label("Options", systemImage: "ellipsis.circle")
                 }
@@ -218,10 +238,62 @@ private struct BookmarkListContent: View {
         }
     }
 
+    // MARK: Content Methods
+
+    @ViewBuilder
+    private func rowContextMenu(for bookmark: Bookmark) -> some View {
+        Button {
+            openURL(bookmark.url)
+        } label: {
+            Label("Open in Browser", systemImage: "safari")
+        }
+
+        Button {
+            copyToPasteboard(bookmark.url.absoluteString)
+        } label: {
+            Label("Copy URL", systemImage: "doc.on.doc")
+        }
+
+        Button {
+            setArchived(bookmark, archived: !bookmark.isArchived)
+        } label: {
+            Label(
+                bookmark.isArchived ? "Unarchive" : "Archive",
+                systemImage: bookmark.isArchived ? "tray.and.arrow.up" : "archivebox"
+            )
+        }
+
+        Button(role: .destructive) {
+            delete(bookmark)
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
+    }
+
     // MARK: Functions
 
     private func reload() {
         Task { await load() }
+    }
+
+    private func setArchived(_ bookmark: Bookmark, archived: Bool) {
+        Task {
+            do {
+                _ = try await repository.setArchived(id: bookmark.id, archived: archived)
+            } catch {
+                errorMessage = error.stashUserMessage
+            }
+        }
+    }
+
+    private func delete(_ bookmark: Bookmark) {
+        Task {
+            do {
+                try await repository.delete(id: bookmark.id)
+            } catch {
+                errorMessage = error.stashUserMessage
+            }
+        }
     }
 
     private func load() async {
