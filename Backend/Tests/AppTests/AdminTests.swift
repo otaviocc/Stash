@@ -32,26 +32,27 @@ struct AdminTests {
 
     // MARK: - Access control
 
-    @Test("non-admin is blocked from /admin/* with 403 and the standard envelope")
-    func nonAdminForbidden() async throws {
+    @Test(
+        "non-admin is blocked from /admin/* with 403 and the standard envelope",
+        arguments: ["api/v1/admin/users", "api/v1/admin/stats"]
+    )
+    func nonAdminForbidden(path: String) async throws {
         try await withTestApp { app in
             // Given
             try await app.makeUser(username: "alice", password: "alice-password-123", role: .user)
             let pair = try await app.login(username: "alice", password: "alice-password-123")
 
             // When
-            for path in ["api/v1/admin/users", "api/v1/admin/stats"] {
-                try await app.testing().test(
-                    .GET, path,
-                    headers: bearer(pair.accessToken)
-                ) { res async throws in
-                    // Then
-                    #expect(res.status == .forbidden, "It should return 403 Forbidden")
-                    let err = try res.content.decode(TestError.self)
-                    #expect(err.error == true, "It should flag the response as an error")
-                    #expect(err.code == "forbidden", "It should return the forbidden error code")
-                    #expect(!err.message.isEmpty, "It should include a non-empty error message")
-                }
+            try await app.testing().test(
+                .GET, path,
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                #expect(res.status == .forbidden, "It should return 403 Forbidden for \(path)")
+                let err = try res.content.decode(TestError.self)
+                #expect(err.error == true, "It should flag the response as an error")
+                #expect(err.code == "forbidden", "It should return the forbidden error code")
+                #expect(!err.message.isEmpty, "It should include a non-empty error message")
             }
         }
     }

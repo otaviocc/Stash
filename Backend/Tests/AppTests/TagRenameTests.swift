@@ -118,29 +118,33 @@ struct TagRenameTests {
         }
     }
 
-    @Test("empty from or to is rejected with 422")
-    func renameEmptyValidation() async throws {
+    @Test(
+        "empty from or to is rejected with 422",
+        arguments: [("", "x"), ("x", ""), ("///", "x"), ("x", "  ")]
+    )
+    func renameEmptyValidation(from: String, to: String) async throws {
         try await withTestApp { app in
             // Given
             try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
 
             // When
-            for (from, to) in [("", "x"), ("x", ""), ("///", "x"), ("x", "  ")] {
-                try await app.testing().test(
-                    .POST, "api/v1/tags/rename",
-                    headers: bearer(pair.accessToken),
-                    beforeRequest: { req in try req.content.encode(TagRenameRequest(from: from, to: to)) },
-                    afterResponse: { res async throws in
-                        // Then
-                        #expect(res.status == .unprocessableEntity, "It should return 422 Unprocessable Entity")
-                        #expect(
-                            try res.content.decode(TestError.self).code == "validation_failed",
-                            "It should return the validation_failed code"
-                        )
-                    }
-                )
-            }
+            try await app.testing().test(
+                .POST, "api/v1/tags/rename",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in try req.content.encode(TagRenameRequest(from: from, to: to)) },
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(
+                        res.status == .unprocessableEntity,
+                        "It should reject from:'\(from)' to:'\(to)' with 422 Unprocessable Entity"
+                    )
+                    #expect(
+                        try res.content.decode(TestError.self).code == "validation_failed",
+                        "It should return the validation_failed code"
+                    )
+                }
+            )
         }
     }
 

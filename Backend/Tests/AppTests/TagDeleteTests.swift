@@ -102,26 +102,27 @@ struct TagDeleteTests {
         }
     }
 
-    @Test("an empty tag is rejected with 422")
-    func deleteEmptyValidation() async throws {
+    @Test("an empty tag is rejected with 422", arguments: ["%2F%2F%2F", "%20%20"])
+    func deleteEmptyValidation(tag: String) async throws {
         try await withTestApp { app in
             // Given
             try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
 
             // When
-            for tag in ["%2F%2F%2F", "%20%20"] {
-                try await app.testing().test(
-                    .DELETE, "api/v1/tags/\(tag)",
-                    headers: bearer(pair.accessToken)
-                ) { res async throws in
-                    // Then
-                    #expect(res.status == .unprocessableEntity, "It should return 422 Unprocessable Entity")
-                    #expect(
-                        try res.content.decode(TestError.self).code == "validation_failed",
-                        "It should return the validation_failed code"
-                    )
-                }
+            try await app.testing().test(
+                .DELETE, "api/v1/tags/\(tag)",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                #expect(
+                    res.status == .unprocessableEntity,
+                    "It should reject '\(tag)' with 422 Unprocessable Entity"
+                )
+                #expect(
+                    try res.content.decode(TestError.self).code == "validation_failed",
+                    "It should return the validation_failed code"
+                )
             }
         }
     }
