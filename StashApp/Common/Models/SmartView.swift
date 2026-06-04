@@ -195,10 +195,10 @@ struct SmartViewDuration: Equatable {
 
     init?(string: String) {
         let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let suffix = trimmed.last, let unit = DurationUnit(rawValue: String(suffix)) else {
-            return nil
-        }
-        guard let amount = Int(trimmed.dropLast()), amount >= 1 else {
+        guard let suffix = trimmed.last,
+              let unit = DurationUnit(rawValue: String(suffix)),
+              let amount = Int(trimmed.dropLast()), amount >= 1
+        else {
             return nil
         }
 

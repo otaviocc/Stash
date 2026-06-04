@@ -279,13 +279,11 @@ struct BookmarkController: RouteCollection {
 
     private func requireBookmark(_ req: Request) async throws -> Bookmark {
         let user = try req.auth.require(User.self)
-        guard let id = req.parameters.get("bookmarkID", as: UUID.self) else {
-            throw APIError.notFound
-        }
-        guard let bookmark = try await Bookmark.query(on: req.db)
-            .filter(\.$user.$id == user.requireID())
-            .filter(\.$id == id)
-            .first()
+        guard let id = req.parameters.get("bookmarkID", as: UUID.self),
+              let bookmark = try await Bookmark.query(on: req.db)
+                  .filter(\.$user.$id == user.requireID())
+                  .filter(\.$id == id)
+                  .first()
         else {
             throw APIError.notFound
         }

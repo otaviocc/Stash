@@ -153,13 +153,11 @@ struct SmartViewController: RouteCollection {
 
     private func requireSmartView(_ req: Request) async throws -> SmartView {
         let user = try req.auth.require(User.self)
-        guard let id = req.parameters.get("smartViewID", as: UUID.self) else {
-            throw APIError.smartViewNotFound
-        }
-        guard let smartView = try await SmartView.query(on: req.db)
-            .filter(\.$user.$id == user.requireID())
-            .filter(\.$id == id)
-            .first()
+        guard let id = req.parameters.get("smartViewID", as: UUID.self),
+              let smartView = try await SmartView.query(on: req.db)
+                  .filter(\.$user.$id == user.requireID())
+                  .filter(\.$id == id)
+                  .first()
         else {
             throw APIError.smartViewNotFound
         }
