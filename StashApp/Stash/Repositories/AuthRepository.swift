@@ -62,7 +62,7 @@ final class AuthRepository: SessionRefreshing {
     ) {
         self.clientProvider = clientProvider
         self.tokenManager = tokenManager
-        isAuthenticated = tokenManager.accessToken != nil
+        isAuthenticated = tokenManager.refreshToken != nil
     }
 
     // MARK: Static Functions
@@ -220,6 +220,14 @@ final class AuthRepository: SessionRefreshing {
         return client
     }
 
+    /// Rotates the token pair using the stored refresh token.
+    ///
+    /// On a definitive authentication failure the session is cleared — but only if the refresh token
+    /// in the Keychain is still the one this call attempted with. The app and the Share Extension share
+    /// one single-use refresh token across processes, so the other process may have legitimately
+    /// rotated it between our read and the server's reply; in that race our token is rejected as
+    /// already-used while a valid successor sits in the Keychain. Re-reading guards against that
+    /// spurious logout — the next request picks up the rotated token instead.
     private func performRefresh() async throws {
         guard let client = clientProvider.client(), let refreshToken = tokenManager.refreshToken else {
             clearSession()
@@ -232,7 +240,7 @@ final class AuthRepository: SessionRefreshing {
                 .value
             tokenManager.save(accessToken: pair.accessToken, refreshToken: pair.refreshToken)
         } catch {
-            if Self.isAuthenticationFailure(error) {
+            if Self.isAuthenticationFailure(error), tokenManager.refreshToken == refreshToken {
                 clearSession()
             }
 

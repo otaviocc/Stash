@@ -1588,6 +1588,21 @@ Glass adopted automatically by building against the 26 SDKs).
   and revoked (suspend / password reset / 2FA reset, §8.6) — so the logout
   behaviour for genuinely dead tokens is unchanged; only transient failures are
   spared.
+- **✅ The clear-on-auth-failure is also guarded against a *cross-process*
+  rotation race.** `inflightRefresh` coalesces concurrent refreshes within a
+  single process, but the app and the Share Extension are separate processes
+  sharing one single-use refresh token in the Keychain access group (M9). If both
+  refresh near the same instant, the loser POSTs a token the winner already
+  rotated away → `token_invalid` → the old `catch` would `clearSession()` even
+  though a valid successor token is sitting in the Keychain. `performRefresh()`
+  now clears only when `tokenManager.refreshToken` is still the token this call
+  attempted with; if it changed underneath us, another process rotated it
+  legitimately, so the failure is rethrown (the caller's request fails once) and
+  the next `refreshIfNeeded()` picks up the rotated token instead of dropping the
+  user to login. Relatedly, `AuthRepository.isAuthenticated` is now seeded from
+  the **refresh** token (not the access token) at launch — the refresh token is
+  what actually sustains the session; an expired-but-present access token must
+  still restore, and a refresh on launch re-mints the access token.
 
 ---
 
