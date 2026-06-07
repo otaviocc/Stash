@@ -3890,3 +3890,25 @@ the wrong account).
 - **Scope.** One line in `BookmarkRowView`; `TagPill`'s `isPlain` parameter is retained (still used by
   other call sites). The `swift › server` rendering and 3-tags-+N overflow are unchanged. No backend /
   StashKit / CLI / web changes; builds clean on macOS.
+
+## Documentation — Podman runtime & local-dev compose override
+
+- **✅ Podman documented as a supported container runtime alongside Docker.** `Docs/backend-docker.md`
+  now lists Podman 4+ as a prerequisite option and adds a *Running with Podman* section. Rationale:
+  Podman is API-compatible, so the published image and committed `docker-compose.yml` run unchanged —
+  the only work is on the operator's machine (point the `docker` CLI at Podman's socket, or use `podman
+  compose`), so **nothing in the repo changes** to support it. The committed Makefile and compose files
+  stay Docker-native by design (CI builds/pushes the image with Docker buildx on GitHub runners, and the
+  published artifacts are unaffected); documenting Podman at the CLI level rather than editing the
+  Makefile keeps a personal-machine runtime choice out of shared code. The macOS/Windows `podman machine
+  start`-after-reboot caveat is called out (no always-on daemon like Docker Desktop). Machine-specific
+  setup troubleshooting (provider choice, stale forwarder processes) is deliberately kept out of the
+  user guide.
+- **✅ The local-dev compose override is now documented.** `Docs/backend-docker.md` gains a *Local
+  development (build from source)* section explaining `Backend/docker-compose.override.yml` — Compose
+  auto-merges it from `Backend/`, switching the `app` service from `ghcr.io/otaviocc/stash:latest` to a
+  build of the working tree (`image: stash-local` + `build: .`) — and how the `Backend/Makefile` targets
+  (`make build-up`, `up`/`down`/`logs`/`migrate`) wrap it. Previously this workflow lived only in the
+  Makefile and `CLAUDE.md`, not the user-facing docs.
+- **Scope.** Docs only — two sections plus a prerequisite line in `Docs/backend-docker.md`. No new doc
+  file (so no root `README.md` table entry), and no code, Makefile, or compose changes.

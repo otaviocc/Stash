@@ -6,7 +6,8 @@ recommended way to run Stash.
 ## Prerequisites
 
 - Docker Desktop (Mac/Windows), or Docker Engine + the Docker Compose plugin
-  (Linux).
+  (Linux), or [Podman](https://podman.io) 4+ (see [Running with
+  Podman](#running-with-podman) below).
 
 ## Quick start
 
@@ -43,6 +44,54 @@ docker compose logs -f app                   # Tail logs
 docker compose down                          # Stop
 docker compose pull && docker compose up -d  # Update to latest image
 ```
+
+## Running with Podman
+
+[Podman](https://podman.io) is a daemonless, rootless-capable drop-in for Docker
+and runs Stash unchanged — same `docker-compose.yml`, same published image. Pick
+either approach:
+
+- **Use `podman compose`** — Podman delegates to an installed Compose provider
+  (the `docker-compose` plugin or `podman-compose`). Replace `docker` with
+  `podman` in the commands above, e.g. `podman compose up -d`.
+- **Keep the `docker` commands** — install the standalone Docker CLI + Compose
+  plugin (no Docker Desktop needed) and point them at Podman's socket with
+  `DOCKER_HOST`. Every `docker compose …` command above — including the
+  [Caddy HTTPS](backend-docker-caddy.md) variants — then works verbatim.
+
+On **Linux**, Podman runs containers natively; there is nothing else to set up.
+On **macOS and Windows**, Podman runs them inside a managed VM that you start
+once and again after each reboot (there is no always-on background app like
+Docker Desktop):
+
+```bash
+podman machine init    # one time
+podman machine start   # and after each reboot
+```
+
+Rootless Podman can publish the default `8080` port with no extra privileges.
+
+## Local development (build from source)
+
+For working on the backend itself, the repository's `Backend/` directory ships a
+`docker-compose.override.yml` that Compose merges automatically when you run
+commands from that directory. It switches the `app` service from the published
+image to a build of your local working tree:
+
+```yaml
+services:
+  app:
+    image: stash-local
+    build: .
+```
+
+So from `Backend/`, `docker compose up -d --build` builds the image from your
+checkout (the `Dockerfile` plus current sources) instead of pulling
+`ghcr.io/otaviocc/stash:latest`, while still starting the same PostgreSQL
+service. Re-run with `--build` to pick up source changes. The `Backend/Makefile`
+wraps this: `make build-up` rebuilds and restarts the stack, and `make up`,
+`make down`, `make logs`, and `make migrate` cover day-to-day use. This works the
+same under Podman.
 
 ## Data persistence
 
