@@ -45,7 +45,9 @@ struct StashApp: App {
                 rootView
                     .frame(minWidth: 800, minHeight: 500)
             }
+            .defaultSize(width: 1000, height: 650)
             .windowResizability(.contentMinSize)
+            .windowToolbarStyle(.unified)
             .commands {
                 SidebarCommands()
             }

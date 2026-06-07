@@ -34,7 +34,7 @@ struct BookmarkDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var bookmark: Bookmark
-    @State private var showingEdit = false
+    @State private var editingBookmark: Bookmark?
     @State private var showingDeleteConfirmation = false
     @State private var isWorking = false
     @State private var errorMessage: String?
@@ -135,7 +135,7 @@ struct BookmarkDetailView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    showingEdit = true
+                    editingBookmark = bookmark
                 } label: {
                     Label("Edit", systemImage: "pencil")
                 }
@@ -143,8 +143,8 @@ struct BookmarkDetailView: View {
                 .disabled(isWorking)
             }
         }
-        .sheet(isPresented: $showingEdit) {
-            EditBookmarkView(bookmark: bookmark, repository: repository) { updated in
+        .sheet(item: $editingBookmark) { item in
+            EditBookmarkView(bookmark: item, repository: repository) { updated in
                 bookmark = updated
             }
         }
