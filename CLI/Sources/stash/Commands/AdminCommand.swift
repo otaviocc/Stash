@@ -320,7 +320,7 @@ struct AdminStats: AsyncParsableCommand {
 }
 
 /// Resolves a username to its account by listing users, since the admin API is keyed by UUID.
-private func resolveUser(_ username: String, client: StashClient) async throws -> UserDTO {
+private func resolveUser(_ username: String, client: AuthorizedClient) async throws -> UserDTO {
     let users = try await client.run(AdminRequestFactory.makeUsersRequest()).value
 
     guard let user = users.first(where: { $0.username.lowercased() == username.lowercased() }) else {

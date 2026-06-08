@@ -37,14 +37,12 @@ final class SmartViewRepository {
 
     private(set) var smartViews: [SmartView] = []
 
-    private let clientProvider: StashClientProvider
     private let session: SessionRefreshing
     private var hasLoaded = false
 
     // MARK: Lifecycle
 
-    init(clientProvider: StashClientProvider, session: SessionRefreshing) {
-        self.clientProvider = clientProvider
+    init(session: SessionRefreshing) {
         self.session = session
     }
 
@@ -72,7 +70,7 @@ final class SmartViewRepository {
         matchMode: String,
         conditions: [SmartViewCondition]
     ) async throws -> SmartView {
-        let client = try await authenticatedClient()
+        let client = try await session.authorizedClient()
         let request = SmartViewRequestFactory.makeCreateRequest(
             SmartViewRequest(
                 name: name,
@@ -94,7 +92,7 @@ final class SmartViewRepository {
         matchMode: String,
         conditions: [SmartViewCondition]
     ) async throws -> SmartView {
-        let client = try await authenticatedClient()
+        let client = try await session.authorizedClient()
         let request = SmartViewRequestFactory.makeUpdateRequest(
             id: id,
             body: SmartViewRequest(
@@ -117,19 +115,9 @@ final class SmartViewRepository {
     }
 
     func delete(id: UUID) async throws {
-        let client = try await authenticatedClient()
+        let client = try await session.authorizedClient()
         _ = try await client.run(SmartViewRequestFactory.makeDeleteRequest(id: id))
         smartViews.removeAll { $0.id == id }
-    }
-
-    private func authenticatedClient() async throws -> StashClient {
-        try await session.refreshIfNeeded()
-
-        guard let client = clientProvider.client() else {
-            throw AppError.notConfigured
-        }
-
-        return client
     }
 
     private func sortByName() {
@@ -137,7 +125,7 @@ final class SmartViewRepository {
     }
 
     private func performLoad() async throws {
-        let client = try await authenticatedClient()
+        let client = try await session.authorizedClient()
         let dtos = try await client.run(SmartViewRequestFactory.makeListRequest()).value
         smartViews = dtos.map(SmartView.init(dto:))
         hasLoaded = true

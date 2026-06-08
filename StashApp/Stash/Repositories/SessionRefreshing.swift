@@ -22,15 +22,16 @@
 
 import Foundation
 
-/// A session capable of silently refreshing the access token before an authenticated request.
+/// A session that vends a client which keeps the access token fresh across an authenticated request.
 ///
-/// `AuthRepository` provides the concrete implementation; the bookmark and tag repositories depend
-/// on this narrow protocol so they can ensure a fresh token without owning the auth state.
-/// `refreshIfNeeded()` refreshes only when the token is expiring soon, coalesces concurrent callers
-/// onto one in-flight refresh, and logs the session out only on a definitive authentication failure —
-/// any other error is rethrown with the session intact.
+/// `AuthRepository` provides the concrete implementation; the bookmark, smart-view, and sync layers
+/// depend on this narrow protocol so they can make authenticated requests without owning the auth
+/// state. The returned `AuthorizedClient` refreshes the token before the request when it is expiring
+/// soon, and — if the server rejects an apparently-valid token — forces one refresh and retries once.
+/// Refreshes are coalesced onto a single in-flight task, and the session is logged out only on a
+/// definitive authentication failure; any other error is rethrown with the session intact.
 @MainActor
 protocol SessionRefreshing: AnyObject {
 
-    func refreshIfNeeded() async throws
+    func authorizedClient() async throws -> AuthorizedClient
 }

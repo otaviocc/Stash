@@ -84,7 +84,7 @@ struct ImportCommand: AsyncParsableCommand {
         }
     }
 
-    private func importSmartViews(_ smartViews: [ParsedSmartView], client: StashClient) async throws {
+    private func importSmartViews(_ smartViews: [ParsedSmartView], client: AuthorizedClient) async throws {
         let existing = try await client.run(SmartViewRequestFactory.makeListRequest()).value
         var idsByName = Dictionary(existing.map { ($0.name, $0.id) }) { first, _ in first }
 
@@ -141,7 +141,7 @@ struct ImportCommand: AsyncParsableCommand {
         return data
     }
 
-    private func submit(_ record: ParsedBookmark, client: StashClient) async throws -> ImportOutcome {
+    private func submit(_ record: ParsedBookmark, client: AuthorizedClient) async throws -> ImportOutcome {
         guard let url = record.url.flatMap(BookmarkInput.validatedURL) else {
             return .skipped
         }

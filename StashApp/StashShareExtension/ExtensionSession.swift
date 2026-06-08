@@ -71,14 +71,16 @@ final class ExtensionSession {
 
     // MARK: Functions
 
-    func authenticatedClient() async throws -> StashClient {
+    func authenticatedClient() async throws -> AuthorizedClient {
         try await refreshIfNeeded()
 
         guard let client = clientProvider.client() else {
             throw AppError.notConfigured
         }
 
-        return client
+        return AuthorizedClient(client: client) { [weak self] in
+            try await self?.coalescedRefresh()
+        }
     }
 
     private func refreshIfNeeded() async throws {
@@ -86,6 +88,10 @@ final class ExtensionSession {
             return
         }
 
+        try await coalescedRefresh()
+    }
+
+    private func coalescedRefresh() async throws {
         if let inflightRefresh {
             return try await inflightRefresh.value
         }

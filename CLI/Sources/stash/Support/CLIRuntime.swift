@@ -51,7 +51,11 @@ enum CLIRuntime {
     }
 
     /// Prepares a client for authenticated commands, refreshing the access token if it is expiring.
-    static func authenticatedClient(store: ConfigStore) async throws -> StashClient {
+    ///
+    /// The returned `AuthorizedClient` also recovers reactively: if the server rejects an
+    /// apparently-valid token, it forces one refresh — swapping the rotated token into the holder the
+    /// client reads from — and replays the request once.
+    static func authenticatedClient(store: ConfigStore) async throws -> AuthorizedClient {
         var config = try store.load()
         let baseURL = try requireBaseURL(config)
 
@@ -64,9 +68,19 @@ enum CLIRuntime {
             token = try await refresh(store: store, config: &config, baseURL: baseURL)
         }
 
-        let activeToken = token
+        let holder = TokenHolder(token)
+        let client = StashClient(baseURL: baseURL) { holder.current }
 
-        return StashClient(baseURL: baseURL) { activeToken }
+        return AuthorizedClient(client: client) {
+            let refreshed = try await forceRefresh(store: store, baseURL: baseURL)
+            holder.update(refreshed)
+        }
+    }
+
+    private static func forceRefresh(store: ConfigStore, baseURL: URL) async throws -> String {
+        var config = try store.load()
+
+        return try await refresh(store: store, config: &config, baseURL: baseURL)
     }
 
     private static func refresh(

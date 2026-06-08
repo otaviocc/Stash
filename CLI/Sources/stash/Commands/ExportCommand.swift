@@ -77,7 +77,7 @@ struct ExportCommand: AsyncParsableCommand {
         }
     }
 
-    private func fetchAll(archived: Bool, client: StashClient) async throws -> [BookmarkDTO] {
+    private func fetchAll(archived: Bool, client: AuthorizedClient) async throws -> [BookmarkDTO] {
         var all: [BookmarkDTO] = []
         var page = 1
 

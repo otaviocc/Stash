@@ -101,7 +101,9 @@ final class SyncEngine {
     /// Whether a push error will never succeed on retry, so the record should be marked failed and
     /// removed from the queue rather than retried forever. Connectivity, auth, and transient server
     /// (5xx) errors are recoverable and left pending; a `422`/`403`/etc. the server keeps rejecting is
-    /// permanent.
+    /// permanent. A `token_expired`/`token_invalid` reaching here has *already* been retried once by
+    /// `AuthorizedClient` after a forced refresh, so it means the refresh could not recover the session
+    /// this cycle — still recoverable (the next cycle re-tries with a token from a fresh login).
     private static func isPermanentFailure(_ error: Error) -> Bool {
         guard let apiError = error as? StashAPIError else {
             return false
@@ -221,7 +223,7 @@ final class SyncEngine {
         let userID = currentUserID
 
         do {
-            let client = try await authenticatedClient()
+            let client = try await session.authorizedClient()
             try await pull(client: client, since: lastSyncedAt, userID: userID)
             localStore.save()
             try await push(client: client, userID: userID)
@@ -245,7 +247,7 @@ final class SyncEngine {
         let userID = currentUserID
 
         do {
-            let client = try await authenticatedClient()
+            let client = try await session.authorizedClient()
             try await push(client: client, userID: userID)
             localStore.save()
         } catch {
@@ -258,7 +260,7 @@ final class SyncEngine {
 
     // MARK: - Pull
 
-    private func pull(client: StashClient, since: Date?, userID: String) async throws {
+    private func pull(client: AuthorizedClient, since: Date?, userID: String) async throws {
         try Task.checkCancellation()
 
         var afterUpdatedAt: String?
@@ -318,7 +320,7 @@ final class SyncEngine {
 
     // MARK: - Push
 
-    private func push(client: StashClient, userID: String) async throws {
+    private func push(client: AuthorizedClient, userID: String) async throws {
         try Task.checkCancellation()
 
         for record in localStore.fetchPending(userID: userID) {
@@ -326,7 +328,7 @@ final class SyncEngine {
         }
     }
 
-    private func push(_ record: LocalBookmark, client: StashClient) async throws {
+    private func push(_ record: LocalBookmark, client: AuthorizedClient) async throws {
         do {
             if record.locallyDeletedAt != nil {
                 try await pushDelete(record, client: client)
@@ -350,7 +352,7 @@ final class SyncEngine {
         }
     }
 
-    private func pushCreate(_ record: LocalBookmark, client: StashClient) async throws {
+    private func pushCreate(_ record: LocalBookmark, client: AuthorizedClient) async throws {
         let request = BookmarkRequestFactory.makeCreateRequest(
             CreateBookmarkRequest(
                 url: record.url,
@@ -370,7 +372,7 @@ final class SyncEngine {
         }
     }
 
-    private func pushUpdate(_ record: LocalBookmark, client: StashClient) async throws {
+    private func pushUpdate(_ record: LocalBookmark, client: AuthorizedClient) async throws {
         let request = BookmarkRequestFactory.makeUpdateRequest(
             id: record.serverID,
             body: UpdateBookmarkRequest(
@@ -389,7 +391,7 @@ final class SyncEngine {
         }
     }
 
-    private func pushDelete(_ record: LocalBookmark, client: StashClient) async throws {
+    private func pushDelete(_ record: LocalBookmark, client: AuthorizedClient) async throws {
         guard !record.isLocalOnly else {
             localStore.delete(record)
             return
@@ -407,7 +409,7 @@ final class SyncEngine {
     /// server-side (saved on another device). Local content wins — we `PUT` the local title,
     /// description, and tags onto the existing server record, then collapse onto whichever local copy
     /// holds that server ID.
-    private func resolveDuplicate(_ record: LocalBookmark, existingID: UUID, client: StashClient) async throws {
+    private func resolveDuplicate(_ record: LocalBookmark, existingID: UUID, client: AuthorizedClient) async throws {
         let request = BookmarkRequestFactory.makeUpdateRequest(
             id: existingID,
             body: UpdateBookmarkRequest(
@@ -432,15 +434,5 @@ final class SyncEngine {
     private func setLastSyncedAt(_ date: Date) {
         lastSyncedAt = date
         defaults.set(date, forKey: AppGroup.lastSyncedAtKey)
-    }
-
-    private func authenticatedClient() async throws -> StashClient {
-        try await session.refreshIfNeeded()
-
-        guard let client = clientProvider.client() else {
-            throw AppError.notConfigured
-        }
-
-        return client
     }
 }

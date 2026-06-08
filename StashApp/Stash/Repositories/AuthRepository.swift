@@ -148,11 +148,72 @@ final class AuthRepository: SessionRefreshing {
         }
     }
 
-    func refreshIfNeeded() async throws {
+    func authorizedClient() async throws -> AuthorizedClient {
+        try await refreshIfNeeded()
+
+        guard let client = clientProvider.client() else {
+            throw AppError.notConfigured
+        }
+
+        return AuthorizedClient(client: client) { [weak self] in
+            try await self?.coalescedRefresh()
+        }
+    }
+
+    func currentUser() async throws -> CurrentUser {
+        let client = try await authorizedClient()
+        let dto = try await client.run(UserRequestFactory.makeMeRequest()).value
+
+        return CurrentUser(dto: dto)
+    }
+
+    func changePassword(
+        current: String,
+        new: String
+    ) async throws {
+        let client = try await authorizedClient()
+        _ = try await client.run(
+            UserRequestFactory.makeChangePasswordRequest(
+                ChangePasswordRequest(currentPassword: current, newPassword: new)
+            )
+        )
+    }
+
+    func beginTOTPSetup() async throws -> TOTPSetup {
+        let client = try await authorizedClient()
+        let dto = try await client.run(AuthRequestFactory.makeTOTPSetupRequest()).value
+
+        return TOTPSetup(secret: dto.secret, otpauthURI: dto.otpauthURI)
+    }
+
+    func completeTOTPSetup(
+        code: String
+    ) async throws -> [String] {
+        let client = try await authorizedClient()
+
+        return try await client.run(
+            AuthRequestFactory.makeTOTPVerifyRequest(code: code)
+        ).value.recoveryCodes
+    }
+
+    func disableTOTP(
+        code: String
+    ) async throws {
+        let client = try await authorizedClient()
+        _ = try await client.run(
+            AuthRequestFactory.makeTOTPDisableRequest(totpCode: code)
+        )
+    }
+
+    private func refreshIfNeeded() async throws {
         guard tokenManager.isAccessTokenExpiringSoon() else {
             return
         }
 
+        try await coalescedRefresh()
+    }
+
+    private func coalescedRefresh() async throws {
         if let inflightRefresh {
             return try await inflightRefresh.value
         }
@@ -163,61 +224,6 @@ final class AuthRepository: SessionRefreshing {
         defer { inflightRefresh = nil }
 
         try await task.value
-    }
-
-    func currentUser() async throws -> CurrentUser {
-        let client = try await authenticatedClient()
-        let dto = try await client.run(UserRequestFactory.makeMeRequest()).value
-
-        return CurrentUser(dto: dto)
-    }
-
-    func changePassword(
-        current: String,
-        new: String
-    ) async throws {
-        let client = try await authenticatedClient()
-        _ = try await client.run(
-            UserRequestFactory.makeChangePasswordRequest(
-                ChangePasswordRequest(currentPassword: current, newPassword: new)
-            )
-        )
-    }
-
-    func beginTOTPSetup() async throws -> TOTPSetup {
-        let client = try await authenticatedClient()
-        let dto = try await client.run(AuthRequestFactory.makeTOTPSetupRequest()).value
-
-        return TOTPSetup(secret: dto.secret, otpauthURI: dto.otpauthURI)
-    }
-
-    func completeTOTPSetup(
-        code: String
-    ) async throws -> [String] {
-        let client = try await authenticatedClient()
-
-        return try await client.run(
-            AuthRequestFactory.makeTOTPVerifyRequest(code: code)
-        ).value.recoveryCodes
-    }
-
-    func disableTOTP(
-        code: String
-    ) async throws {
-        let client = try await authenticatedClient()
-        _ = try await client.run(
-            AuthRequestFactory.makeTOTPDisableRequest(totpCode: code)
-        )
-    }
-
-    private func authenticatedClient() async throws -> StashClient {
-        try await refreshIfNeeded()
-
-        guard let client = clientProvider.client() else {
-            throw AppError.notConfigured
-        }
-
-        return client
     }
 
     /// Rotates the token pair using the stored refresh token.

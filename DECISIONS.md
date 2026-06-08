@@ -1603,6 +1603,37 @@ Glass adopted automatically by building against the 26 SDKs).
   the **refresh** token (not the access token) at launch — the refresh token is
   what actually sustains the session; an expired-but-present access token must
   still restore, and a refresh on launch re-mints the access token.
+- **✅ Reactive refresh-and-retry on a rejected token, via an `AuthorizedClient`
+  wrapper.** The proactive `refreshIfNeeded()` only fires when the client's own
+  clock says the access token expires within 60 s. A token the client believes
+  valid can still be rejected by the server — clock skew, a backend `JWT_SECRET`
+  rotation, or the cross-process rotation above — and the request would surface a
+  "session expired" error to the user even though the session is recoverable.
+  **MicroClient's own `RetryStrategy` (`.retry(count:)`) is the wrong tool here:**
+  it retries on *any* thrown error (so it would replay a `422`/`409`), has no
+  backoff, and — fatally — re-reads the same token between attempts with no way to
+  refresh, so it would just re-send the rejected token N times. So the retry is
+  implemented explicitly. `AuthorizedClient` wraps a `StashClient`, exposing a
+  `run(_:)` with the *same* signature; on a retryable auth failure
+  (`token_expired` / `token_invalid`, via `StashAPIError.isRetryableAuthFailure`)
+  it forces one refresh and replays the request exactly once. Replay is safe
+  because the auth middleware rejects an unauthenticated request *before* the
+  route runs, so a `401` carries no side effects — even a `POST`/`PUT`/`DELETE` is
+  safe to repeat. Because the method signature matches `StashClient.run`, call
+  sites stay `client.run(req)` unchanged; only the type the session vends changed.
+- **✅ One wrapper, three homes; refresh stays out of StashKit.** In the app,
+  `AuthRepository.authorizedClient()` is the single entry (replacing each
+  repository's private `authenticatedClient()`); `SessionRefreshing` now vends an
+  `AuthorizedClient`, and `BookmarkRepository` / `SmartViewRepository` / `SyncEngine`
+  route through it. The Share Extension's `ExtensionSession` does the same in its
+  own process. The CLI mirrors it in `CLIRuntime.authenticatedClient(store:)`,
+  which returns an `AuthorizedClient` whose forced-refresh closure swaps the
+  rotated token into a `TokenHolder` the `StashClient` reads from (the CLI builds
+  its client with a fixed token closure, unlike the app's `TokenManager`-backed
+  one, so it needs the holder to pick up the new token without rebuilding). The
+  wrapper is duplicated in the app's `Common/` and the CLI rather than living in
+  StashKit, because StashKit is deliberately free of refresh logic — the same
+  reason the refresh code itself is already duplicated between the two.
 
 ---
 

@@ -94,10 +94,7 @@ final class AppEnvironment {
         let tagRepository = TagRepository(localStore: localStore)
         self.tagRepository = tagRepository
 
-        let smartViewRepository = SmartViewRepository(
-            clientProvider: clientProvider,
-            session: authRepository
-        )
+        let smartViewRepository = SmartViewRepository(session: authRepository)
         self.smartViewRepository = smartViewRepository
 
         let syncEngine = SyncEngine(

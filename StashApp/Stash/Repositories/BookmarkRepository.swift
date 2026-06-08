@@ -137,7 +137,7 @@ final class BookmarkRepository: BookmarkCreating {
     }
 
     func fetchMetadata(for url: URL) async throws -> PageMetadata {
-        let client = try await authenticatedClient()
+        let client = try await session.authorizedClient()
         let dto = try await client.run(MetadataRequestFactory.makeFetchRequest(url: url)).value
 
         return PageMetadata(dto: dto)
@@ -259,15 +259,5 @@ final class BookmarkRepository: BookmarkCreating {
         record.syncError = nil
         localStore.save()
         refreshVisible()
-    }
-
-    private func authenticatedClient() async throws -> StashClient {
-        try await session.refreshIfNeeded()
-
-        guard let client = clientProvider.client() else {
-            throw AppError.notConfigured
-        }
-
-        return client
     }
 }
