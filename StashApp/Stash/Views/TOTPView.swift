@@ -82,6 +82,7 @@ struct TOTPView: View {
                 RecoveryCodeView(tempToken: tempToken)
             }
         }
+        .formStyle(.grouped)
         .navigationTitle("Two-Factor")
         .inlineNavigationTitleStyle()
     }

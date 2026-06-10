@@ -66,6 +66,7 @@ struct SetupView: View {
                 Button("Continue", action: save)
                     .disabled(!isValid)
             }
+            .formStyle(.grouped)
             .navigationTitle("Welcome to Stash")
         }
     }

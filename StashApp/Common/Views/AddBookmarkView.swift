@@ -116,6 +116,7 @@ struct AddBookmarkView: View {
                         .font(.footnote)
                 }
             }
+            .formStyle(.grouped)
             .navigationTitle("Add Bookmark")
             .inlineNavigationTitleStyle()
             .toolbar {
@@ -136,6 +137,9 @@ struct AddBookmarkView: View {
                 }
             }
         }
+        #if os(macOS)
+        .frame(minWidth: 460, minHeight: 520)
+        #endif
     }
 
     private var urlSection: some View {
