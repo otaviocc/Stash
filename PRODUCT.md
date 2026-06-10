@@ -583,7 +583,7 @@ No storage, no refresh logic, no business logic. `tokenProvider: @escaping @Send
 
 ### Project
 
-- Generated with XcodeGen (`StashApp/project.yml` is source of truth; `.xcodeproj` is gitignored)
+- `StashApp/Stash.xcodeproj` is committed and uses synchronized folder groups (XcodeGen was retired — see `DECISIONS.md`)
 - Single SwiftUI target `Stash`, iOS 26.0 minimum
 - Bundle ID: `cc.otavio.stash`
 - App Group: `group.cc.otavio.stash`
@@ -756,16 +756,12 @@ stash/
 │   │   ├── DTOs/
 │   │   └── Factories/
 │   └── Tests/StashKitTests/
-├── StashApp/                    # ✅ Core complete (M8)
-│   ├── project.yml              # XcodeGen source of truth
-│   ├── Stash/
-│   │   ├── App/
-│   │   ├── Keychain/
-│   │   ├── Auth/
-│   │   ├── Repositories/
-│   │   ├── Models/
-│   │   └── Views/
-│   └── StashApp.xcodeproj       # gitignored, generated
+├── StashApp/                    # ✅ Complete (M8–M10)
+│   ├── Common/                  # compiled into the app + both Share Extensions
+│   ├── Stash/                   # app-only code (iOS + macOS); @main entry
+│   ├── StashShareExtension/     # both Share Extensions (#if-guarded controllers)
+│   ├── StashMac/ · StashMacShareExtension/   # macOS Info.plist + entitlements
+│   └── Stash.xcodeproj          # committed; synchronized folder groups
 ├── CLI/                         # ✅ Complete (M7)
 │   ├── Sources/stash/
 │   ├── Package.swift
