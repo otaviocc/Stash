@@ -52,6 +52,17 @@
 		FF2AED5E66FAB2122C8437E2 /* Stash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Stash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		EAC00ED52FD9C7A0007F9831 /* Exceptions for "Common" folder in "StashShareExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Models/CurrentUser.swift,
+				Models/LoginResult.swift,
+			);
+			target = 0380D86B31E80D88BE091745 /* StashShareExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		EA04358E2FD9BD7400CCF5A6 /* StashShareExtension */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -60,6 +71,9 @@
 		};
 		EA0436012FD9BD9300CCF5A6 /* Common */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EAC00ED52FD9C7A0007F9831 /* Exceptions for "Common" folder in "StashShareExtension" target */,
+			);
 			path = Common;
 			sourceTree = "<group>";
 		};

@@ -44,7 +44,10 @@ final class AuthRepository: SessionRefreshing {
 
     // MARK: Lifecycle
 
-    init(clientProvider: StashClientProvider, tokenManager: TokenManager) {
+    init(
+        clientProvider: StashClientProvider,
+        tokenManager: TokenManager
+    ) {
         self.clientProvider = clientProvider
         self.tokenManager = tokenManager
         isAuthenticated = tokenManager.accessToken != nil
@@ -52,7 +55,10 @@ final class AuthRepository: SessionRefreshing {
 
     // MARK: Functions
 
-    func login(username: String, password: String) async throws -> LoginResult {
+    func login(
+        username: String,
+        password: String
+    ) async throws -> LoginResult {
         guard let client = clientProvider.client() else {
             throw AppError.notConfigured
         }
@@ -78,7 +84,10 @@ final class AuthRepository: SessionRefreshing {
         return .authenticated
     }
 
-    func submitTOTP(tempToken: String, code: String) async throws {
+    func submitTOTP(
+        tempToken: String,
+        code: String
+    ) async throws {
         guard let client = clientProvider.client() else {
             throw AppError.notConfigured
         }
@@ -90,7 +99,10 @@ final class AuthRepository: SessionRefreshing {
         completeLogin(accessToken: pair.accessToken, refreshToken: pair.refreshToken)
     }
 
-    func submitRecoveryCode(tempToken: String, code: String) async throws {
+    func submitRecoveryCode(
+        tempToken: String,
+        code: String
+    ) async throws {
         guard let client = clientProvider.client() else {
             throw AppError.notConfigured
         }
@@ -137,7 +149,10 @@ final class AuthRepository: SessionRefreshing {
         return CurrentUser(dto: dto)
     }
 
-    func changePassword(current: String, new: String) async throws {
+    func changePassword(
+        current: String,
+        new: String
+    ) async throws {
         let client = try await authenticatedClient()
         _ = try await client.run(
             UserRequestFactory.makeChangePasswordRequest(
@@ -153,15 +168,23 @@ final class AuthRepository: SessionRefreshing {
         return TOTPSetup(secret: dto.secret, otpauthURI: dto.otpauthURI)
     }
 
-    func completeTOTPSetup(code: String) async throws -> [String] {
+    func completeTOTPSetup(
+        code: String
+    ) async throws -> [String] {
         let client = try await authenticatedClient()
 
-        return try await client.run(AuthRequestFactory.makeTOTPVerifyRequest(code: code)).value.recoveryCodes
+        return try await client.run(
+            AuthRequestFactory.makeTOTPVerifyRequest(code: code)
+        ).value.recoveryCodes
     }
 
-    func disableTOTP(code: String) async throws {
+    func disableTOTP(
+        code: String
+    ) async throws {
         let client = try await authenticatedClient()
-        _ = try await client.run(AuthRequestFactory.makeTOTPDisableRequest(totpCode: code))
+        _ = try await client.run(
+            AuthRequestFactory.makeTOTPDisableRequest(totpCode: code)
+        )
     }
 
     private func authenticatedClient() async throws -> StashClient {

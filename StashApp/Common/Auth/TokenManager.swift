@@ -51,14 +51,20 @@ final class TokenManager: Sendable {
 
     // MARK: Lifecycle
 
-    init(accessTokenStore: KeychainStore, refreshTokenStore: KeychainStore) {
+    init(
+        accessTokenStore: KeychainStore,
+        refreshTokenStore: KeychainStore
+    ) {
         self.accessTokenStore = accessTokenStore
         self.refreshTokenStore = refreshTokenStore
     }
 
     // MARK: Functions
 
-    func save(accessToken: String, refreshToken: String) {
+    func save(
+        accessToken: String,
+        refreshToken: String
+    ) {
         accessTokenStore.wrappedValue = accessToken
         refreshTokenStore.wrappedValue = refreshToken
     }
@@ -98,6 +104,7 @@ final class TokenManager: Sendable {
             .replacingOccurrences(of: "_", with: "/")
 
         let remainder = base64.count % 4
+
         if remainder > 0 {
             base64 += String(repeating: "=", count: 4 - remainder)
         }
