@@ -7,150 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		017FF9FBCA86E13FA148A2D4 /* ExtensionSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6615AB21432F51BD4AB257BF /* ExtensionSession.swift */; };
-		03E3766662FC6E1F19BC7B68 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D65F58FFA733E4FAC07334F /* AppSettings.swift */; };
-		04DBFFF6E5269985E7C46432 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C445AA4ACC3C3D8519F1584 /* MacContentView.swift */; };
-		092617BFBB52AAAF251BD0E7 /* AddBookmarkStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C1C387AEFEB40A7FC84E3AF /* AddBookmarkStores.swift */; };
-		094F06BA964CB59F82173D26 /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC1F15C693A4452AF6998F6 /* AppError.swift */; };
 		0982A0803732D608F65ACDF3 /* MicroClient in Frameworks */ = {isa = PBXBuildFile; productRef = 00692837826171A9B021D888 /* MicroClient */; };
 		0AC6496AB54899EFF2E51E19 /* StashMacShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AA8DB388B44A6297152852D7 /* StashMacShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		0C7664E81F6F06C6C4137D10 /* SessionRefreshing.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D05DE2105265229BD48C13 /* SessionRefreshing.swift */; };
-		0CA2ED5FA8B69F313CC21478 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 020A52405B30F34A676E596D /* AppEnvironment.swift */; };
 		0E6665FDC3E123AF01137911 /* MicroClient in Frameworks */ = {isa = PBXBuildFile; productRef = 2A5E64F4BCCAF031F86D1CD1 /* MicroClient */; };
-		1059D79A3BFF4E41972687B7 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F3CA5273FA0021831A02B3 /* Bookmark.swift */; };
-		135A039E7BD7C426D44B8CA4 /* BookmarkDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EFA1C2CF0F67121492CD1D8 /* BookmarkDetailView.swift */; };
-		160FD2FC519BC560666104E7 /* BookmarkRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B03A1E69FADAAC1C2CB076 /* BookmarkRepository.swift */; };
-		1691216E3E0BA72AC11AFBD3 /* CreateBookmarkInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D339B4F4732F77708800402 /* CreateBookmarkInput.swift */; };
-		169269733B164B697B32D154 /* TagRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76D1145E4E99B41B0A98AE6 /* TagRepository.swift */; };
-		17F833C0A0920BEE3EBD1AF0 /* MacSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA23F7BF586328513E392EA /* MacSettingsView.swift */; };
-		1A8A0C5228ECD9DF5785736A /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26075248C67E3E6D7550E32 /* MainView.swift */; };
-		1AA3EF28CE91BB88D24A6A27 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A66F46CD44BFB8101E0AF3 /* KeychainStore.swift */; };
-		1BB457DC12277700BEFAA54B /* RecoveryCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33B3DCEC3E35C7CB113E359C /* RecoveryCodeView.swift */; };
-		1C02C348E6111B939F9CD284 /* ShareExtensionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176C20D5C706FB5C1FCFD118 /* ShareExtensionView.swift */; };
-		1EC99B0D9D6AB523CCB444F2 /* CreateBookmarkInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D339B4F4732F77708800402 /* CreateBookmarkInput.swift */; };
-		1F9BD1F5EF509D0021B92D28 /* TOTPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C09B9011C483B99D17D8BFDF /* TOTPView.swift */; };
-		29EBA23135ECAFC218ABDAC1 /* MacSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA23F7BF586328513E392EA /* MacSettingsView.swift */; };
-		2B5CFA2869777AE3B4A70235 /* TagRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76D1145E4E99B41B0A98AE6 /* TagRepository.swift */; };
-		2CE549E9B24FF717496B4696 /* PageMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B8323415A2E901FF1ED807B /* PageMetadata.swift */; };
-		2D2942822508AA678DEC1796 /* AddBookmarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B24A6C175798BC80B76AFC71 /* AddBookmarkView.swift */; };
-		2D55E7EE0999BB14029D7B9B /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC1F15C693A4452AF6998F6 /* AppError.swift */; };
-		301EB33C39D40030DE271124 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5375C9C1BA47E6C50C0DA7 /* AppGroup.swift */; };
-		35D46C40A85D3ECE8A491CCE /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC1F15C693A4452AF6998F6 /* AppError.swift */; };
 		365C683A0E55DD701874AB7E /* MicroClient in Frameworks */ = {isa = PBXBuildFile; productRef = B2CD20C8A65AA185FFCC4D8E /* MicroClient */; };
-		36AAD8CDE31F733D367FBC1F /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85EE5F3984E27383B8E8833A /* LoginView.swift */; };
-		39716F46FD602273EE8BD78C /* SessionRefreshing.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3D05DE2105265229BD48C13 /* SessionRefreshing.swift */; };
-		398EF65416103E01C4525ECA /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5375C9C1BA47E6C50C0DA7 /* AppGroup.swift */; };
-		3C9594EFC4BB4EBAA63E9487 /* PlatformModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DBFF5E915D25047203DB663 /* PlatformModifiers.swift */; };
 		42E5666501C266F111959655 /* StashKit in Frameworks */ = {isa = PBXBuildFile; productRef = DE79593A8144A167324B4632 /* StashKit */; };
-		4712D36056B7265A2BB31BF0 /* TokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6355C968870F6B9E485FE99C /* TokenManager.swift */; };
-		49F1A81B551C4DCF3696028E /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3F93798A3D81F039E22BF8 /* Tag.swift */; };
-		4A35A15DF8D3E6E51355134B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00461288B6B8EC5E24A8D88 /* SettingsView.swift */; };
-		4ABC5F74D2C361C0431B2911 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE48DBAB68E9E944D7AA11A7 /* Assets.xcassets */; };
-		4B98E9554C4DBB3673536106 /* AddBookmarkStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C1C387AEFEB40A7FC84E3AF /* AddBookmarkStores.swift */; };
-		4BC43CC1EDB3178D136F93C6 /* ExtensionBookmarkRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D16E68E2D1BD1816456620B /* ExtensionBookmarkRepository.swift */; };
-		4C0DA143846860A739CC8D8C /* CurrentUser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8E0BFD4887C27A0D518FD4 /* CurrentUser.swift */; };
-		4DAD2BD4B747A62188F32CD2 /* LoginResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FC04868020EB6645C3CDD25 /* LoginResult.swift */; };
-		4E41C0031F665FF03E75CD1C /* ErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C37BF0BA8D701D757A6E3CD /* ErrorMessage.swift */; };
-		4E98E1F885C93E343E7AB1FD /* LoginResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FC04868020EB6645C3CDD25 /* LoginResult.swift */; };
-		4F6AAC3A5610BB2F59F473C1 /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5375C9C1BA47E6C50C0DA7 /* AppGroup.swift */; };
-		526691913AF63331C767ED22 /* AddBookmarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B24A6C175798BC80B76AFC71 /* AddBookmarkView.swift */; };
-		52B03D17390D5834AA0E772C /* AuthRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8057287008AF8BA1159E3452 /* AuthRepository.swift */; };
-		53AFB517F3AF435DCDEE97AD /* StashClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E9C425EF4D94EF6E81FCF6E /* StashClientProvider.swift */; };
-		5519C05EF47396078FE89AF5 /* SharedItemLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 134271E44925114A552F0F4C /* SharedItemLoader.swift */; };
-		556EA7D07F0DDEF1851D8FE3 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FB0FE92F4B2DA1E7CC7DF3AD /* Info.plist */; };
-		55E89BBB972FEFFF15AF841B /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C5DD66518BCAA4F74A7E8CB /* SetupView.swift */; };
-		579CA0EC1DD75BDE1ED208C3 /* PlatformModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DBFF5E915D25047203DB663 /* PlatformModifiers.swift */; };
-		5A6159CA4D9B60522062C95E /* StashClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E9C425EF4D94EF6E81FCF6E /* StashClientProvider.swift */; };
-		5AFC84974D9063562F78D175 /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 020A52405B30F34A676E596D /* AppEnvironment.swift */; };
-		5BC0616930422A8FFB8D0B32 /* AddBookmarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B24A6C175798BC80B76AFC71 /* AddBookmarkView.swift */; };
-		5D16CC2260D75EFAD88F7ED3 /* AddBookmarkStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C1C387AEFEB40A7FC84E3AF /* AddBookmarkStores.swift */; };
-		63C90B217C6346007F852F2B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00461288B6B8EC5E24A8D88 /* SettingsView.swift */; };
-		6434CE0A0F27B547B4C9E16F /* TagBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C2C2DC57A89A971C017D2A /* TagBrowserView.swift */; };
-		64D66699368BFB8A368BDBFC /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 9762C2A7FC6CBAD9CE7AD72E /* Info.plist */; };
-		64EA6F66DE57C38E351A0C3E /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D786C555A034FCFE97B5E4F /* AccountSettingsView.swift */; };
-		66875786081CF0C25A40FE01 /* SharedItemLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 134271E44925114A552F0F4C /* SharedItemLoader.swift */; };
-		6B76E23C4DC27D60BF03E4B0 /* AddBookmarkStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C1C387AEFEB40A7FC84E3AF /* AddBookmarkStores.swift */; };
-		6D6E9584D4EA681B090E1353 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F3CA5273FA0021831A02B3 /* Bookmark.swift */; };
-		71BC0D32E90136E41B54C99D /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A66F46CD44BFB8101E0AF3 /* KeychainStore.swift */; };
-		74B55A13841ECDF86777C6D8 /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3F93798A3D81F039E22BF8 /* Tag.swift */; };
-		750491A926457A027C43FDBF /* AuthRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8057287008AF8BA1159E3452 /* AuthRepository.swift */; };
-		758CE58634209822595A4631 /* BookmarkRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B03A1E69FADAAC1C2CB076 /* BookmarkRepository.swift */; };
-		767D5C6913181A35F2447BF4 /* TagSuggestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29275C5DCE4FE0ACC355271 /* TagSuggestionView.swift */; };
-		77EAE6FDE9DB92CA60184976 /* TagBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C2C2DC57A89A971C017D2A /* TagBrowserView.swift */; };
-		7B143F70CC8C9FFA942C8027 /* AddBookmarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B24A6C175798BC80B76AFC71 /* AddBookmarkView.swift */; };
-		7F56B052988C0DB5A08AE6A0 /* FaviconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC4DED9223AC5459A8CA3A2 /* FaviconView.swift */; };
-		7F65F4D71816B7C28D7AA4E9 /* StashApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18DBCC4E2EF53EB5BDC7A134 /* StashApp.swift */; };
-		803EB8C56730EB914E8375CF /* TagInputSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872E286BBC9E76F04BCF42D7 /* TagInputSection.swift */; };
-		82DFAC5BFF12009FAC4A4319 /* BookmarkListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 727DC2BAB7E839F86432F044 /* BookmarkListView.swift */; };
-		8307B5E536FAD305D2F21108 /* PageMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B8323415A2E901FF1ED807B /* PageMetadata.swift */; };
-		85E122138403401A5F7BE9FF /* PlatformModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DBFF5E915D25047203DB663 /* PlatformModifiers.swift */; };
-		8632E23D5D1199A64315B06C /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85EE5F3984E27383B8E8833A /* LoginView.swift */; };
-		87A98C8A8B9B464379A78553 /* FaviconView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC4DED9223AC5459A8CA3A2 /* FaviconView.swift */; };
-		87A9DC921CA1DE093A6B3C28 /* MacContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C445AA4ACC3C3D8519F1584 /* MacContentView.swift */; };
-		8D39C0F7842D6AA7A3ACF026 /* MacShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205E58CC0B41D34824EE48EA /* MacShareViewController.swift */; };
-		8D965DF6BC9098FB4AAC139E /* AppGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF5375C9C1BA47E6C50C0DA7 /* AppGroup.swift */; };
-		8F2F2F6571C10DA6AD585546 /* AddBookmarkSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 189159F08F868D0365BACF58 /* AddBookmarkSheet.swift */; };
-		9021BB8C493A693F8CCBCEFF /* BookmarkRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62C56B894EF09B3C885DD69D /* BookmarkRowView.swift */; };
-		958F50A7B2E44B5D7C14D1BE /* PageMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B8323415A2E901FF1ED807B /* PageMetadata.swift */; };
-		96C5262A178E556EFD1862E4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FE48DBAB68E9E944D7AA11A7 /* Assets.xcassets */; };
-		9906A693B73A67DD63BF3E28 /* CurrentUser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8E0BFD4887C27A0D518FD4 /* CurrentUser.swift */; };
-		99297A3FB43C661E7DA0EF55 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CCB0C3FA3794331CE1B8D60 /* ShareViewController.swift */; };
-		999B7314EA2D7ABF181F1FBC /* ExtensionBookmarkRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D16E68E2D1BD1816456620B /* ExtensionBookmarkRepository.swift */; };
-		9A0C22AD1D5FA42A8379812A /* AddBookmarkSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 189159F08F868D0365BACF58 /* AddBookmarkSheet.swift */; };
-		9D79D98FF534968F8F6BC534 /* EditBookmarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDDBBA160E706DFF889E85A4 /* EditBookmarkView.swift */; };
-		9E76ADEF544BC0FFBEC7400C /* ErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C37BF0BA8D701D757A6E3CD /* ErrorMessage.swift */; };
-		A0B02D5B8875A3B7001B9443 /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858C3B03FE76089A3DD23EC4 /* QRCodeView.swift */; };
-		A13B1215E963CC12E89A72A2 /* ErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C37BF0BA8D701D757A6E3CD /* ErrorMessage.swift */; };
-		A238078272640A342D1E0E62 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C5DD66518BCAA4F74A7E8CB /* SetupView.swift */; };
-		A5B9D48B7B71A04CCE626F15 /* TagInputSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872E286BBC9E76F04BCF42D7 /* TagInputSection.swift */; };
-		A844369515B7A85ADC0CD516 /* TokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6355C968870F6B9E485FE99C /* TokenManager.swift */; };
-		A8F4502753E78F40C1AAF4CC /* TokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6355C968870F6B9E485FE99C /* TokenManager.swift */; };
-		AEB8D48F28D5CF1A8F6ED6BB /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CCB0C3FA3794331CE1B8D60 /* ShareViewController.swift */; };
-		B14035E96D6CF3EE0719109A /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858C3B03FE76089A3DD23EC4 /* QRCodeView.swift */; };
-		B25A9940FDF089FD1BDBE971 /* CreateBookmarkInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D339B4F4732F77708800402 /* CreateBookmarkInput.swift */; };
-		B3757AB356D5376C87F30EE1 /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F3CA5273FA0021831A02B3 /* Bookmark.swift */; };
-		B6DC63E83D7E1346AC5511DB /* TagSuggestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29275C5DCE4FE0ACC355271 /* TagSuggestionView.swift */; };
-		B790160B7DAAC2FA787342DD /* StashApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18DBCC4E2EF53EB5BDC7A134 /* StashApp.swift */; };
 		B7F72CC68CB5E9ADB863FDA1 /* MicroClient in Frameworks */ = {isa = PBXBuildFile; productRef = CF2C86B463BBE9CEA182B532 /* MicroClient */; };
-		B84BEE9714DD3DE389752904 /* TabContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD6C1D0C7DB85AA1E7EB801 /* TabContainerView.swift */; };
-		B8F1F18592285BB64646D332 /* ErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C37BF0BA8D701D757A6E3CD /* ErrorMessage.swift */; };
-		BA6277A92764BDCE0FDD2F6F /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFC1F15C693A4452AF6998F6 /* AppError.swift */; };
-		BC16806C25DF05445702728C /* Bookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F3CA5273FA0021831A02B3 /* Bookmark.swift */; };
 		BE3874FD0795B6E3470327DC /* StashShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AC09DB3F1BE98B141748668D /* StashShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		BF4B337CBDC50D79D3C9FD32 /* StashClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E9C425EF4D94EF6E81FCF6E /* StashClientProvider.swift */; };
-		C091BD34ADF6A7EA9A73E07E /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35EFDC9B64A31656B09D2BDD /* RootView.swift */; };
-		C28947635B3072DA789E27B8 /* ExtensionTagRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5186FD03A646B38011BF7EC /* ExtensionTagRepository.swift */; };
-		C350BF3071CB603C7F42F429 /* CreateBookmarkInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D339B4F4732F77708800402 /* CreateBookmarkInput.swift */; };
 		CA0A92D0C0516D6AD0AC01ED /* StashKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0AA7B5161A2056903CC44344 /* StashKit */; };
-		D08CE0B086E140473F339FB5 /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3F93798A3D81F039E22BF8 /* Tag.swift */; };
-		D199575B7F390781199E960F /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A66F46CD44BFB8101E0AF3 /* KeychainStore.swift */; };
-		D3E4F562B54D546640E348D1 /* PlatformModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DBFF5E915D25047203DB663 /* PlatformModifiers.swift */; };
-		D5AD32BFE8668BA3ABE40F83 /* TabContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD6C1D0C7DB85AA1E7EB801 /* TabContainerView.swift */; };
-		D6131EF9818DD8B2582CA600 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D65F58FFA733E4FAC07334F /* AppSettings.swift */; };
-		D6E4D3700FE6E8CAD42AAC26 /* RecoveryCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33B3DCEC3E35C7CB113E359C /* RecoveryCodeView.swift */; };
-		DDDF7A67B2C6EC2F5143357D /* TagInputSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872E286BBC9E76F04BCF42D7 /* TagInputSection.swift */; };
-		E012437D21801544C67DB76B /* StashClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E9C425EF4D94EF6E81FCF6E /* StashClientProvider.swift */; };
-		E0C78232CBA789D6133E5576 /* EditBookmarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDDBBA160E706DFF889E85A4 /* EditBookmarkView.swift */; };
-		E29DD08C34CD3C15F3AB2BB2 /* BookmarkRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62C56B894EF09B3C885DD69D /* BookmarkRowView.swift */; };
-		E39CFB4D1D885E083AB46FD1 /* TagSuggestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29275C5DCE4FE0ACC355271 /* TagSuggestionView.swift */; };
-		E8BA94DAB902EAC64F61B4AD /* TagSuggestionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C29275C5DCE4FE0ACC355271 /* TagSuggestionView.swift */; };
-		EA6DEE8C8839530C0267CB36 /* BookmarkListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 727DC2BAB7E839F86432F044 /* BookmarkListView.swift */; };
-		EB7978E6DCF618AD788E780F /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26075248C67E3E6D7550E32 /* MainView.swift */; };
-		ED5BFC663B94074DB16AF6F3 /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D786C555A034FCFE97B5E4F /* AccountSettingsView.swift */; };
-		ED72817864AA5F27D292F9E5 /* TagInputSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872E286BBC9E76F04BCF42D7 /* TagInputSection.swift */; };
-		EDC3665FC39F9A3DE7A9C49D /* BookmarkDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EFA1C2CF0F67121492CD1D8 /* BookmarkDetailView.swift */; };
-		EE2C8B374B96C96A55EF18B1 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A66F46CD44BFB8101E0AF3 /* KeychainStore.swift */; };
-		F2E67EF528808C11E6624954 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35EFDC9B64A31656B09D2BDD /* RootView.swift */; };
-		F4C377BC0DAB291079D93B54 /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3F93798A3D81F039E22BF8 /* Tag.swift */; };
-		F66D598DD420ACF6C24C0317 /* ShareExtensionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 176C20D5C706FB5C1FCFD118 /* ShareExtensionView.swift */; };
-		F72679F8614E4EA13EBA641A /* ExtensionSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6615AB21432F51BD4AB257BF /* ExtensionSession.swift */; };
-		F7E6846686DD58B46E8086BF /* ExtensionTagRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5186FD03A646B38011BF7EC /* ExtensionTagRepository.swift */; };
-		FBA6AC7BF11A1DC6CE259013 /* MacShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205E58CC0B41D34824EE48EA /* MacShareViewController.swift */; };
-		FE67B4F879F42ECA311A6F66 /* PageMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B8323415A2E901FF1ED807B /* PageMetadata.swift */; };
-		FEFF165864EE424A699BE441 /* TOTPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C09B9011C483B99D17D8BFDF /* TOTPView.swift */; };
 		FF316D690520A4502E1857AE /* StashKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5AE40B536E0414C6AE377A1B /* StashKit */; };
 		FF436F5052A87D99037D944C /* StashKit in Frameworks */ = {isa = PBXBuildFile; productRef = C3FA39A6C6E77FD87D2DCBBB /* StashKit */; };
-		FFF5D8D60087A7AA019926B1 /* TokenManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6355C968870F6B9E485FE99C /* TokenManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -196,67 +62,43 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		020A52405B30F34A676E596D /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
-		0C37BF0BA8D701D757A6E3CD /* ErrorMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorMessage.swift; sourceTree = "<group>"; };
-		0D16E68E2D1BD1816456620B /* ExtensionBookmarkRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionBookmarkRepository.swift; sourceTree = "<group>"; };
-		134271E44925114A552F0F4C /* SharedItemLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedItemLoader.swift; sourceTree = "<group>"; };
-		176C20D5C706FB5C1FCFD118 /* ShareExtensionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareExtensionView.swift; sourceTree = "<group>"; };
-		189159F08F868D0365BACF58 /* AddBookmarkSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddBookmarkSheet.swift; sourceTree = "<group>"; };
-		18DBCC4E2EF53EB5BDC7A134 /* StashApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StashApp.swift; sourceTree = "<group>"; };
-		205E58CC0B41D34824EE48EA /* MacShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacShareViewController.swift; sourceTree = "<group>"; };
-		320F7C11A1446E642285C4D4 /* Stash.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Stash.entitlements; sourceTree = "<group>"; };
-		33B3DCEC3E35C7CB113E359C /* RecoveryCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryCodeView.swift; sourceTree = "<group>"; };
-		35EFDC9B64A31656B09D2BDD /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		44F3CA5273FA0021831A02B3 /* Bookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bookmark.swift; sourceTree = "<group>"; };
-		4B8323415A2E901FF1ED807B /* PageMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageMetadata.swift; sourceTree = "<group>"; };
-		4C445AA4ACC3C3D8519F1584 /* MacContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacContentView.swift; sourceTree = "<group>"; };
-		4D786C555A034FCFE97B5E4F /* AccountSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSettingsView.swift; sourceTree = "<group>"; };
-		4FC04868020EB6645C3CDD25 /* LoginResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginResult.swift; sourceTree = "<group>"; };
-		5C1C387AEFEB40A7FC84E3AF /* AddBookmarkStores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddBookmarkStores.swift; sourceTree = "<group>"; };
-		5CCB0C3FA3794331CE1B8D60 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
-		62C56B894EF09B3C885DD69D /* BookmarkRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkRowView.swift; sourceTree = "<group>"; };
-		6355C968870F6B9E485FE99C /* TokenManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenManager.swift; sourceTree = "<group>"; };
-		6615AB21432F51BD4AB257BF /* ExtensionSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionSession.swift; sourceTree = "<group>"; };
-		6D339B4F4732F77708800402 /* CreateBookmarkInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateBookmarkInput.swift; sourceTree = "<group>"; };
-		727DC2BAB7E839F86432F044 /* BookmarkListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkListView.swift; sourceTree = "<group>"; };
-		7D65F58FFA733E4FAC07334F /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
-		7DBFF5E915D25047203DB663 /* PlatformModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformModifiers.swift; sourceTree = "<group>"; };
-		7E9C425EF4D94EF6E81FCF6E /* StashClientProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StashClientProvider.swift; sourceTree = "<group>"; };
-		8057287008AF8BA1159E3452 /* AuthRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRepository.swift; sourceTree = "<group>"; };
-		858C3B03FE76089A3DD23EC4 /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
-		85EE5F3984E27383B8E8833A /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
-		872E286BBC9E76F04BCF42D7 /* TagInputSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagInputSection.swift; sourceTree = "<group>"; };
-		8C5DD66518BCAA4F74A7E8CB /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
-		8EFA1C2CF0F67121492CD1D8 /* BookmarkDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkDetailView.swift; sourceTree = "<group>"; };
-		92A66F46CD44BFB8101E0AF3 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
-		9762C2A7FC6CBAD9CE7AD72E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		9C8E0BFD4887C27A0D518FD4 /* CurrentUser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentUser.swift; sourceTree = "<group>"; };
-		A00461288B6B8EC5E24A8D88 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		A5186FD03A646B38011BF7EC /* ExtensionTagRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionTagRepository.swift; sourceTree = "<group>"; };
 		AA8DB388B44A6297152852D7 /* StashMacShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StashMacShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		AAD6C1D0C7DB85AA1E7EB801 /* TabContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabContainerView.swift; sourceTree = "<group>"; };
-		AC09DB3F1BE98B141748668D /* StashShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = StashShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		B24A6C175798BC80B76AFC71 /* AddBookmarkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddBookmarkView.swift; sourceTree = "<group>"; };
-		B5B03A1E69FADAAC1C2CB076 /* BookmarkRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkRepository.swift; sourceTree = "<group>"; };
-		BA3F93798A3D81F039E22BF8 /* Tag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tag.swift; sourceTree = "<group>"; };
-		BAA23F7BF586328513E392EA /* MacSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacSettingsView.swift; sourceTree = "<group>"; };
-		BC7C72BF5316EF0F460EC27A /* StashShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = StashShareExtension.entitlements; sourceTree = "<group>"; };
-		C09B9011C483B99D17D8BFDF /* TOTPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TOTPView.swift; sourceTree = "<group>"; };
-		C29275C5DCE4FE0ACC355271 /* TagSuggestionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagSuggestionView.swift; sourceTree = "<group>"; };
-		C3D05DE2105265229BD48C13 /* SessionRefreshing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRefreshing.swift; sourceTree = "<group>"; };
-		C410C9A58E8C18BCFCA433B6 /* StashMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StashMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		CAC4DED9223AC5459A8CA3A2 /* FaviconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconView.swift; sourceTree = "<group>"; };
-		DDDBBA160E706DFF889E85A4 /* EditBookmarkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditBookmarkView.swift; sourceTree = "<group>"; };
-		E76D1145E4E99B41B0A98AE6 /* TagRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagRepository.swift; sourceTree = "<group>"; };
-		EF5375C9C1BA47E6C50C0DA7 /* AppGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroup.swift; sourceTree = "<group>"; };
-		F26075248C67E3E6D7550E32 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
-		F7C2C2DC57A89A971C017D2A /* TagBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagBrowserView.swift; sourceTree = "<group>"; };
+		AC09DB3F1BE98B141748668D /* StashShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StashShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C410C9A58E8C18BCFCA433B6 /* StashMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = StashMac.app; path = Stash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F94E0C2AC0442925F4351C90 /* StashKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = StashKit; path = ../StashKit; sourceTree = SOURCE_ROOT; };
-		FB0FE92F4B2DA1E7CC7DF3AD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		FE48DBAB68E9E944D7AA11A7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		FF2AED5E66FAB2122C8437E2 /* Stash.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Stash.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		FFC1F15C693A4452AF6998F6 /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
+		FF2AED5E66FAB2122C8437E2 /* Stash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Stash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		EA04369E2FD9BE5E00CCF5A6 /* Exceptions for "Stash" folder in "Stash" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9FAC94805FFDB4939741D3EE /* Stash */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		EA04358E2FD9BD7400CCF5A6 /* StashShareExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = StashShareExtension;
+			sourceTree = "<group>";
+		};
+		EA0436012FD9BD9300CCF5A6 /* Common */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Common;
+			sourceTree = "<group>";
+		};
+		EA0436612FD9BE5D00CCF5A6 /* Stash */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EA04369E2FD9BE5E00CCF5A6 /* Exceptions for "Stash" folder in "Stash" target */,
+			);
+			path = Stash;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		8478DD281C5012AD3229F395 /* Frameworks */ = {
@@ -298,26 +140,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		153D8F7C7EECFD52E286CDD3 /* Support */ = {
-			isa = PBXGroup;
-			children = (
-				5C1C387AEFEB40A7FC84E3AF /* AddBookmarkStores.swift */,
-				FFC1F15C693A4452AF6998F6 /* AppError.swift */,
-				EF5375C9C1BA47E6C50C0DA7 /* AppGroup.swift */,
-				0C37BF0BA8D701D757A6E3CD /* ErrorMessage.swift */,
-				7DBFF5E915D25047203DB663 /* PlatformModifiers.swift */,
-			);
-			path = Support;
-			sourceTree = "<group>";
-		};
-		1AF747D02C7036D779B22D8C /* Client */ = {
-			isa = PBXGroup;
-			children = (
-				7E9C425EF4D94EF6E81FCF6E /* StashClientProvider.swift */,
-			);
-			path = Client;
-			sourceTree = "<group>";
-		};
 		22E5CCC3596340D277183E6B /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -329,151 +151,15 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		35B3D8CD5781E3CABC14F610 /* Shared */ = {
-			isa = PBXGroup;
-			children = (
-				618FB9CAAEEFD5C28590D070 /* Models */,
-				88C3C2994098DCD5F140D009 /* Repositories */,
-				A37F4BD165B9CCF16C7F7A6F /* Views */,
-				020A52405B30F34A676E596D /* AppEnvironment.swift */,
-				7D65F58FFA733E4FAC07334F /* AppSettings.swift */,
-			);
-			path = Shared;
-			sourceTree = "<group>";
-		};
-		35FD623033F34E4DF8705B86 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				B24A6C175798BC80B76AFC71 /* AddBookmarkView.swift */,
-				872E286BBC9E76F04BCF42D7 /* TagInputSection.swift */,
-				C29275C5DCE4FE0ACC355271 /* TagSuggestionView.swift */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
 		3882CD9E441306002BF13144 = {
 			isa = PBXGroup;
 			children = (
-				53E95BA1E36D3E59DBDF09B5 /* Common */,
+				EA0436012FD9BD9300CCF5A6 /* Common */,
+				EA0436612FD9BE5D00CCF5A6 /* Stash */,
+				EA04358E2FD9BD7400CCF5A6 /* StashShareExtension */,
 				D3636DAEFA73AAEB340B5027 /* Packages */,
-				C4C0CBBA2BDF41FDCA7DE4C5 /* Stash */,
-				C39FA7CAB8CAF730B6236357 /* StashShareExtension */,
 				22E5CCC3596340D277183E6B /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		428BD6C369BBC4E001669643 /* Auth */ = {
-			isa = PBXGroup;
-			children = (
-				6355C968870F6B9E485FE99C /* TokenManager.swift */,
-			);
-			path = Auth;
-			sourceTree = "<group>";
-		};
-		53E95BA1E36D3E59DBDF09B5 /* Common */ = {
-			isa = PBXGroup;
-			children = (
-				428BD6C369BBC4E001669643 /* Auth */,
-				1AF747D02C7036D779B22D8C /* Client */,
-				D063C42CB3D086B3175FB647 /* Keychain */,
-				8A36E121489702B05FC0DDC4 /* Models */,
-				153D8F7C7EECFD52E286CDD3 /* Support */,
-				35FD623033F34E4DF8705B86 /* Views */,
-			);
-			path = Common;
-			sourceTree = "<group>";
-		};
-		618FB9CAAEEFD5C28590D070 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				9C8E0BFD4887C27A0D518FD4 /* CurrentUser.swift */,
-				4FC04868020EB6645C3CDD25 /* LoginResult.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		88C3C2994098DCD5F140D009 /* Repositories */ = {
-			isa = PBXGroup;
-			children = (
-				8057287008AF8BA1159E3452 /* AuthRepository.swift */,
-				B5B03A1E69FADAAC1C2CB076 /* BookmarkRepository.swift */,
-				C3D05DE2105265229BD48C13 /* SessionRefreshing.swift */,
-				E76D1145E4E99B41B0A98AE6 /* TagRepository.swift */,
-			);
-			path = Repositories;
-			sourceTree = "<group>";
-		};
-		8A36E121489702B05FC0DDC4 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				44F3CA5273FA0021831A02B3 /* Bookmark.swift */,
-				6D339B4F4732F77708800402 /* CreateBookmarkInput.swift */,
-				4B8323415A2E901FF1ED807B /* PageMetadata.swift */,
-				BA3F93798A3D81F039E22BF8 /* Tag.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		A37F4BD165B9CCF16C7F7A6F /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				4D786C555A034FCFE97B5E4F /* AccountSettingsView.swift */,
-				189159F08F868D0365BACF58 /* AddBookmarkSheet.swift */,
-				8EFA1C2CF0F67121492CD1D8 /* BookmarkDetailView.swift */,
-				727DC2BAB7E839F86432F044 /* BookmarkListView.swift */,
-				62C56B894EF09B3C885DD69D /* BookmarkRowView.swift */,
-				DDDBBA160E706DFF889E85A4 /* EditBookmarkView.swift */,
-				CAC4DED9223AC5459A8CA3A2 /* FaviconView.swift */,
-				85EE5F3984E27383B8E8833A /* LoginView.swift */,
-				4C445AA4ACC3C3D8519F1584 /* MacContentView.swift */,
-				BAA23F7BF586328513E392EA /* MacSettingsView.swift */,
-				F26075248C67E3E6D7550E32 /* MainView.swift */,
-				858C3B03FE76089A3DD23EC4 /* QRCodeView.swift */,
-				33B3DCEC3E35C7CB113E359C /* RecoveryCodeView.swift */,
-				35EFDC9B64A31656B09D2BDD /* RootView.swift */,
-				A00461288B6B8EC5E24A8D88 /* SettingsView.swift */,
-				8C5DD66518BCAA4F74A7E8CB /* SetupView.swift */,
-				AAD6C1D0C7DB85AA1E7EB801 /* TabContainerView.swift */,
-				F7C2C2DC57A89A971C017D2A /* TagBrowserView.swift */,
-				C09B9011C483B99D17D8BFDF /* TOTPView.swift */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
-		C39FA7CAB8CAF730B6236357 /* StashShareExtension */ = {
-			isa = PBXGroup;
-			children = (
-				0D16E68E2D1BD1816456620B /* ExtensionBookmarkRepository.swift */,
-				6615AB21432F51BD4AB257BF /* ExtensionSession.swift */,
-				A5186FD03A646B38011BF7EC /* ExtensionTagRepository.swift */,
-				9762C2A7FC6CBAD9CE7AD72E /* Info.plist */,
-				205E58CC0B41D34824EE48EA /* MacShareViewController.swift */,
-				134271E44925114A552F0F4C /* SharedItemLoader.swift */,
-				176C20D5C706FB5C1FCFD118 /* ShareExtensionView.swift */,
-				5CCB0C3FA3794331CE1B8D60 /* ShareViewController.swift */,
-				BC7C72BF5316EF0F460EC27A /* StashShareExtension.entitlements */,
-			);
-			path = StashShareExtension;
-			sourceTree = "<group>";
-		};
-		C4C0CBBA2BDF41FDCA7DE4C5 /* Stash */ = {
-			isa = PBXGroup;
-			children = (
-				35B3D8CD5781E3CABC14F610 /* Shared */,
-				FE48DBAB68E9E944D7AA11A7 /* Assets.xcassets */,
-				FB0FE92F4B2DA1E7CC7DF3AD /* Info.plist */,
-				320F7C11A1446E642285C4D4 /* Stash.entitlements */,
-				18DBCC4E2EF53EB5BDC7A134 /* StashApp.swift */,
-			);
-			path = Stash;
-			sourceTree = "<group>";
-		};
-		D063C42CB3D086B3175FB647 /* Keychain */ = {
-			isa = PBXGroup;
-			children = (
-				92A66F46CD44BFB8101E0AF3 /* KeychainStore.swift */,
-			);
-			path = Keychain;
 			sourceTree = "<group>";
 		};
 		D3636DAEFA73AAEB340B5027 /* Packages */ = {
@@ -498,6 +184,10 @@
 			);
 			dependencies = (
 			);
+			fileSystemSynchronizedGroups = (
+				EA04358E2FD9BD7400CCF5A6 /* StashShareExtension */,
+				EA0436012FD9BD9300CCF5A6 /* Common */,
+			);
 			name = StashShareExtension;
 			packageProductDependencies = (
 				0AA7B5161A2056903CC44344 /* StashKit */,
@@ -520,6 +210,10 @@
 			);
 			dependencies = (
 				2D24C2DADEA627609BC764F3 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				EA0436012FD9BD9300CCF5A6 /* Common */,
+				EA0436612FD9BE5D00CCF5A6 /* Stash */,
 			);
 			name = StashMac;
 			packageProductDependencies = (
@@ -544,6 +238,10 @@
 			dependencies = (
 				3DB4CD09B2C0A2772EC6633F /* PBXTargetDependency */,
 			);
+			fileSystemSynchronizedGroups = (
+				EA0436012FD9BD9300CCF5A6 /* Common */,
+				EA0436612FD9BE5D00CCF5A6 /* Stash */,
+			);
 			name = Stash;
 			packageProductDependencies = (
 				C3FA39A6C6E77FD87D2DCBBB /* StashKit */,
@@ -564,6 +262,10 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				EA04358E2FD9BD7400CCF5A6 /* StashShareExtension */,
+				EA0436012FD9BD9300CCF5A6 /* Common */,
 			);
 			name = StashMacShareExtension;
 			packageProductDependencies = (
@@ -632,7 +334,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				64D66699368BFB8A368BDBFC /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -640,7 +341,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4ABC5F74D2C361C0431B2911 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -648,8 +348,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				96C5262A178E556EFD1862E4 /* Assets.xcassets in Resources */,
-				556EA7D07F0DDEF1851D8FE3 /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -660,49 +358,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ED5BFC663B94074DB16AF6F3 /* AccountSettingsView.swift in Sources */,
-				8F2F2F6571C10DA6AD585546 /* AddBookmarkSheet.swift in Sources */,
-				092617BFBB52AAAF251BD0E7 /* AddBookmarkStores.swift in Sources */,
-				2D2942822508AA678DEC1796 /* AddBookmarkView.swift in Sources */,
-				0CA2ED5FA8B69F313CC21478 /* AppEnvironment.swift in Sources */,
-				094F06BA964CB59F82173D26 /* AppError.swift in Sources */,
-				8D965DF6BC9098FB4AAC139E /* AppGroup.swift in Sources */,
-				D6131EF9818DD8B2582CA600 /* AppSettings.swift in Sources */,
-				52B03D17390D5834AA0E772C /* AuthRepository.swift in Sources */,
-				1059D79A3BFF4E41972687B7 /* Bookmark.swift in Sources */,
-				EDC3665FC39F9A3DE7A9C49D /* BookmarkDetailView.swift in Sources */,
-				EA6DEE8C8839530C0267CB36 /* BookmarkListView.swift in Sources */,
-				160FD2FC519BC560666104E7 /* BookmarkRepository.swift in Sources */,
-				E29DD08C34CD3C15F3AB2BB2 /* BookmarkRowView.swift in Sources */,
-				1691216E3E0BA72AC11AFBD3 /* CreateBookmarkInput.swift in Sources */,
-				9906A693B73A67DD63BF3E28 /* CurrentUser.swift in Sources */,
-				9D79D98FF534968F8F6BC534 /* EditBookmarkView.swift in Sources */,
-				4E41C0031F665FF03E75CD1C /* ErrorMessage.swift in Sources */,
-				7F56B052988C0DB5A08AE6A0 /* FaviconView.swift in Sources */,
-				EE2C8B374B96C96A55EF18B1 /* KeychainStore.swift in Sources */,
-				4DAD2BD4B747A62188F32CD2 /* LoginResult.swift in Sources */,
-				36AAD8CDE31F733D367FBC1F /* LoginView.swift in Sources */,
-				04DBFFF6E5269985E7C46432 /* MacContentView.swift in Sources */,
-				17F833C0A0920BEE3EBD1AF0 /* MacSettingsView.swift in Sources */,
-				1A8A0C5228ECD9DF5785736A /* MainView.swift in Sources */,
-				2CE549E9B24FF717496B4696 /* PageMetadata.swift in Sources */,
-				3C9594EFC4BB4EBAA63E9487 /* PlatformModifiers.swift in Sources */,
-				B14035E96D6CF3EE0719109A /* QRCodeView.swift in Sources */,
-				D6E4D3700FE6E8CAD42AAC26 /* RecoveryCodeView.swift in Sources */,
-				C091BD34ADF6A7EA9A73E07E /* RootView.swift in Sources */,
-				0C7664E81F6F06C6C4137D10 /* SessionRefreshing.swift in Sources */,
-				4A35A15DF8D3E6E51355134B /* SettingsView.swift in Sources */,
-				A238078272640A342D1E0E62 /* SetupView.swift in Sources */,
-				7F65F4D71816B7C28D7AA4E9 /* StashApp.swift in Sources */,
-				5A6159CA4D9B60522062C95E /* StashClientProvider.swift in Sources */,
-				1F9BD1F5EF509D0021B92D28 /* TOTPView.swift in Sources */,
-				D5AD32BFE8668BA3ABE40F83 /* TabContainerView.swift in Sources */,
-				49F1A81B551C4DCF3696028E /* Tag.swift in Sources */,
-				77EAE6FDE9DB92CA60184976 /* TagBrowserView.swift in Sources */,
-				803EB8C56730EB914E8375CF /* TagInputSection.swift in Sources */,
-				2B5CFA2869777AE3B4A70235 /* TagRepository.swift in Sources */,
-				E8BA94DAB902EAC64F61B4AD /* TagSuggestionView.swift in Sources */,
-				4712D36056B7265A2BB31BF0 /* TokenManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -710,49 +365,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				64EA6F66DE57C38E351A0C3E /* AccountSettingsView.swift in Sources */,
-				9A0C22AD1D5FA42A8379812A /* AddBookmarkSheet.swift in Sources */,
-				5D16CC2260D75EFAD88F7ED3 /* AddBookmarkStores.swift in Sources */,
-				7B143F70CC8C9FFA942C8027 /* AddBookmarkView.swift in Sources */,
-				5AFC84974D9063562F78D175 /* AppEnvironment.swift in Sources */,
-				2D55E7EE0999BB14029D7B9B /* AppError.swift in Sources */,
-				4F6AAC3A5610BB2F59F473C1 /* AppGroup.swift in Sources */,
-				03E3766662FC6E1F19BC7B68 /* AppSettings.swift in Sources */,
-				750491A926457A027C43FDBF /* AuthRepository.swift in Sources */,
-				B3757AB356D5376C87F30EE1 /* Bookmark.swift in Sources */,
-				135A039E7BD7C426D44B8CA4 /* BookmarkDetailView.swift in Sources */,
-				82DFAC5BFF12009FAC4A4319 /* BookmarkListView.swift in Sources */,
-				758CE58634209822595A4631 /* BookmarkRepository.swift in Sources */,
-				9021BB8C493A693F8CCBCEFF /* BookmarkRowView.swift in Sources */,
-				B25A9940FDF089FD1BDBE971 /* CreateBookmarkInput.swift in Sources */,
-				4C0DA143846860A739CC8D8C /* CurrentUser.swift in Sources */,
-				E0C78232CBA789D6133E5576 /* EditBookmarkView.swift in Sources */,
-				B8F1F18592285BB64646D332 /* ErrorMessage.swift in Sources */,
-				87A98C8A8B9B464379A78553 /* FaviconView.swift in Sources */,
-				1AA3EF28CE91BB88D24A6A27 /* KeychainStore.swift in Sources */,
-				4E98E1F885C93E343E7AB1FD /* LoginResult.swift in Sources */,
-				8632E23D5D1199A64315B06C /* LoginView.swift in Sources */,
-				87A9DC921CA1DE093A6B3C28 /* MacContentView.swift in Sources */,
-				29EBA23135ECAFC218ABDAC1 /* MacSettingsView.swift in Sources */,
-				EB7978E6DCF618AD788E780F /* MainView.swift in Sources */,
-				958F50A7B2E44B5D7C14D1BE /* PageMetadata.swift in Sources */,
-				85E122138403401A5F7BE9FF /* PlatformModifiers.swift in Sources */,
-				A0B02D5B8875A3B7001B9443 /* QRCodeView.swift in Sources */,
-				1BB457DC12277700BEFAA54B /* RecoveryCodeView.swift in Sources */,
-				F2E67EF528808C11E6624954 /* RootView.swift in Sources */,
-				39716F46FD602273EE8BD78C /* SessionRefreshing.swift in Sources */,
-				63C90B217C6346007F852F2B /* SettingsView.swift in Sources */,
-				55E89BBB972FEFFF15AF841B /* SetupView.swift in Sources */,
-				B790160B7DAAC2FA787342DD /* StashApp.swift in Sources */,
-				E012437D21801544C67DB76B /* StashClientProvider.swift in Sources */,
-				FEFF165864EE424A699BE441 /* TOTPView.swift in Sources */,
-				B84BEE9714DD3DE389752904 /* TabContainerView.swift in Sources */,
-				74B55A13841ECDF86777C6D8 /* Tag.swift in Sources */,
-				6434CE0A0F27B547B4C9E16F /* TagBrowserView.swift in Sources */,
-				DDDF7A67B2C6EC2F5143357D /* TagInputSection.swift in Sources */,
-				169269733B164B697B32D154 /* TagRepository.swift in Sources */,
-				B6DC63E83D7E1346AC5511DB /* TagSuggestionView.swift in Sources */,
-				A8F4502753E78F40C1AAF4CC /* TokenManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -760,28 +372,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6B76E23C4DC27D60BF03E4B0 /* AddBookmarkStores.swift in Sources */,
-				526691913AF63331C767ED22 /* AddBookmarkView.swift in Sources */,
-				35D46C40A85D3ECE8A491CCE /* AppError.swift in Sources */,
-				301EB33C39D40030DE271124 /* AppGroup.swift in Sources */,
-				BC16806C25DF05445702728C /* Bookmark.swift in Sources */,
-				C350BF3071CB603C7F42F429 /* CreateBookmarkInput.swift in Sources */,
-				A13B1215E963CC12E89A72A2 /* ErrorMessage.swift in Sources */,
-				4BC43CC1EDB3178D136F93C6 /* ExtensionBookmarkRepository.swift in Sources */,
-				F72679F8614E4EA13EBA641A /* ExtensionSession.swift in Sources */,
-				C28947635B3072DA789E27B8 /* ExtensionTagRepository.swift in Sources */,
-				D199575B7F390781199E960F /* KeychainStore.swift in Sources */,
-				FBA6AC7BF11A1DC6CE259013 /* MacShareViewController.swift in Sources */,
-				FE67B4F879F42ECA311A6F66 /* PageMetadata.swift in Sources */,
-				579CA0EC1DD75BDE1ED208C3 /* PlatformModifiers.swift in Sources */,
-				1C02C348E6111B939F9CD284 /* ShareExtensionView.swift in Sources */,
-				99297A3FB43C661E7DA0EF55 /* ShareViewController.swift in Sources */,
-				66875786081CF0C25A40FE01 /* SharedItemLoader.swift in Sources */,
-				BF4B337CBDC50D79D3C9FD32 /* StashClientProvider.swift in Sources */,
-				F4C377BC0DAB291079D93B54 /* Tag.swift in Sources */,
-				A5B9D48B7B71A04CCE626F15 /* TagInputSection.swift in Sources */,
-				767D5C6913181A35F2447BF4 /* TagSuggestionView.swift in Sources */,
-				FFF5D8D60087A7AA019926B1 /* TokenManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -789,28 +379,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4B98E9554C4DBB3673536106 /* AddBookmarkStores.swift in Sources */,
-				5BC0616930422A8FFB8D0B32 /* AddBookmarkView.swift in Sources */,
-				BA6277A92764BDCE0FDD2F6F /* AppError.swift in Sources */,
-				398EF65416103E01C4525ECA /* AppGroup.swift in Sources */,
-				6D6E9584D4EA681B090E1353 /* Bookmark.swift in Sources */,
-				1EC99B0D9D6AB523CCB444F2 /* CreateBookmarkInput.swift in Sources */,
-				9E76ADEF544BC0FFBEC7400C /* ErrorMessage.swift in Sources */,
-				999B7314EA2D7ABF181F1FBC /* ExtensionBookmarkRepository.swift in Sources */,
-				017FF9FBCA86E13FA148A2D4 /* ExtensionSession.swift in Sources */,
-				F7E6846686DD58B46E8086BF /* ExtensionTagRepository.swift in Sources */,
-				71BC0D32E90136E41B54C99D /* KeychainStore.swift in Sources */,
-				8D39C0F7842D6AA7A3ACF026 /* MacShareViewController.swift in Sources */,
-				8307B5E536FAD305D2F21108 /* PageMetadata.swift in Sources */,
-				D3E4F562B54D546640E348D1 /* PlatformModifiers.swift in Sources */,
-				F66D598DD420ACF6C24C0317 /* ShareExtensionView.swift in Sources */,
-				AEB8D48F28D5CF1A8F6ED6BB /* ShareViewController.swift in Sources */,
-				5519C05EF47396078FE89AF5 /* SharedItemLoader.swift in Sources */,
-				53AFB517F3AF435DCDEE97AD /* StashClientProvider.swift in Sources */,
-				D08CE0B086E140473F339FB5 /* Tag.swift in Sources */,
-				ED72817864AA5F27D292F9E5 /* TagInputSection.swift in Sources */,
-				E39CFB4D1D885E083AB46FD1 /* TagSuggestionView.swift in Sources */,
-				A844369515B7A85ADC0CD516 /* TokenManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -851,6 +419,10 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -957,6 +529,10 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1070,6 +646,10 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash.ShareExtension;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -1151,6 +731,10 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = cc.otavio.stash.ShareExtension;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
