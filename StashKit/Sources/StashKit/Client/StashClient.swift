@@ -34,6 +34,30 @@ import MicroClient
 /// `NetworkClient` is mapping a failed response into a typed `StashAPIError`.
 public final class StashClient: Sendable {
 
+    // MARK: Static Properties
+
+    /// The per-request timeout, in seconds, for the default session.
+    ///
+    /// Kept well below `URLSession`'s 60-second default so that an unreachable server — the network
+    /// is up but the backend can't be reached (e.g. the user is off the LAN where Stash is hosted) —
+    /// fails fast and surfaces an error, rather than leaving a spinner running for a full minute. This
+    /// caps the wait for *new data* and resets whenever data arrives, so a slow-but-progressing
+    /// transfer is not aborted; no `timeoutIntervalForResource` is set for the same reason.
+    private static let defaultRequestTimeout: TimeInterval = 15
+
+    /// A single process-wide session for every default client.
+    ///
+    /// Mirrors `URLSession.shared` (a long-lived, never-invalidated session with a shared connection
+    /// pool) while applying `defaultRequestTimeout`. Shared rather than per-client so that rebuilding a
+    /// `StashClient` on a server-URL change recreates only the lightweight wrapper, never orphaning a
+    /// session.
+    private static let defaultSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = defaultRequestTimeout
+
+        return URLSession(configuration: configuration)
+    }()
+
     // MARK: Properties
 
     private let client: NetworkClient
@@ -47,7 +71,7 @@ public final class StashClient: Sendable {
     ) {
         self.init(
             baseURL: baseURL,
-            session: URLSession.shared,
+            session: Self.defaultSession,
             tokenProvider: tokenProvider
         )
     }

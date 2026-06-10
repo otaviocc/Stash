@@ -273,9 +273,22 @@ private struct TwoFactorEnrollView: View {
             makeRecoveryCodesView(recoveryCodes)
         } else if let setup {
             makeSetupView(setup)
+        } else if let errorMessage {
+            makeSetupErrorView(errorMessage)
         } else {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func makeSetupErrorView(_ message: String) -> some View {
+        ContentUnavailableView {
+            Label("Couldn't Start Setup", systemImage: "exclamationmark.triangle")
+        } description: {
+            Text(message)
+        } actions: {
+            Button("Try Again", action: retrySetup)
+                .buttonStyle(.bordered)
         }
     }
 
@@ -374,6 +387,14 @@ private struct TwoFactorEnrollView: View {
             setup = try await auth.beginTOTPSetup()
         } catch {
             errorMessage = error.stashUserMessage
+        }
+    }
+
+    private func retrySetup() {
+        errorMessage = nil
+
+        Task {
+            await beginSetup()
         }
     }
 

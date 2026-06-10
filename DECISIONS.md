@@ -3958,3 +3958,42 @@ the wrong account).
   Makefile and `CLAUDE.md`, not the user-facing docs.
 - **Scope.** Docs only — two sections plus a prerequisite line in `Docs/backend-docker.md`. No new doc
   file (so no root `README.md` table entry), and no code, Makefile, or compose changes.
+
+## Unreachable backend — fail-fast timeout & a recoverable 2FA setup state
+
+When the device has a network path but the Stash backend is unreachable (the user is off the LAN
+where Stash is hosted, the server is down, the URL is wrong), `ConnectivityMonitor.isOnline` stays
+`true` — `NWPathMonitor` reports the *network path*, not server *reachability* (the same limitation
+that motivated *Offline Sync — Optimistic writes*). Requests therefore proceed and block on the
+URLSession timeout. Two surfaces that *must* hit the network — Settings "Sync Now" and 2FA
+enrolment — left a spinner running the whole time. Writes already dodge this (optimistic-first), but
+these can't.
+
+- **✅ The default request timeout is 15 s, not URLSession's 60 s.** `StashClient`'s public
+  convenience init now uses a process-wide `StashClient.defaultSession` — a single
+  `URLSession(configuration:)` with `timeoutIntervalForRequest = 15` — in place of `URLSession.shared`.
+  An unreachable server now fails in ~15 s instead of ~60 s, app-wide *and* CLI-wide (both go through
+  this init). 15 s is generous for a small JSON API on a LAN yet short enough that an actively-waiting
+  user gets a clear failure quickly. Only the *request* timeout is set (not
+  `timeoutIntervalForResource`): it caps the wait for **new data** and resets whenever data arrives, so
+  an unreachable host still fails fast (no data ever arrives) while a slow-but-progressing transfer — a
+  paginated full-sync page, a CLI export — is never aborted mid-flight. The session is a **single
+  shared static** (mirroring `URLSession.shared`: long-lived, never invalidated, one connection pool)
+  rather than one-per-client, so rebuilding a `StashClient` when the server URL changes recreates only
+  the lightweight wrapper and never orphans a session. The internal `session:`-injecting init (used by
+  tests with a mock session) is unchanged, so the StashKit test suite is unaffected. Kept in StashKit
+  rather than per-client config to stay one decision for every caller; StashKit remains thin (this is
+  configuration, not logic).
+- **✅ 2FA enrolment now has a recoverable error state (was a genuine stuck-spinner bug).**
+  `TwoFactorEnrollView.makeContent()` rendered the initial `GET /auth/totp/setup` failure's
+  `errorMessage` only inside `makeSetupView` (the `setup != nil` branch). On a failed `beginSetup()`,
+  `setup` stays `nil`, so the view sat on `else { ProgressView() }` **forever** — the error was set but
+  never shown. Added an `else if let errorMessage` branch rendering a `ContentUnavailableView`
+  ("Couldn't Start Setup" + the message + a **Try Again** button → `retrySetup()` clears the error and
+  re-runs `beginSetup()`). The verify-step error path already reset correctly (`defer { isWorking =
+  false }`) and is unchanged; the Sync Now path already reset `isSyncing` and showed the "Sync failed"
+  notice — it only needed the faster timeout.
+- **Scope.** `StashClient` (timeout) and `AccountSettingsView`'s `TwoFactorEnrollView` (error branch +
+  `retrySetup()`). No new sync logic, no `ConnectivityMonitor` change (server reachability can't be
+  probed cheaply), no backend/web/extension changes. StashKit builds + 23 tests pass; both app
+  platforms build; lints clean.
