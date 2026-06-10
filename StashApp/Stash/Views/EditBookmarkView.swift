@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - EditBookmarkView
+
 /// An edit sheet for a bookmark's title, description, and tags. The URL is fixed — editing it would
 /// reintroduce duplicate-URL handling (the same choice the web frontend makes). Tags use the same
 /// comma-separated input and autocomplete as the add form.
@@ -133,3 +135,10 @@ struct EditBookmarkView: View {
         }
     }
 }
+
+#if DEBUG
+    #Preview {
+        EditBookmarkView(bookmark: .sample, repository: AppEnvironment.preview.makeBookmarkRepository()) { _ in }
+            .environment(AppEnvironment.preview)
+    }
+#endif

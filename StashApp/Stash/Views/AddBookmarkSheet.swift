@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - AddBookmarkSheet
+
 /// Presents the shared `AddBookmarkView` as a sheet in the main app.
 ///
 /// The URL is editable here (the user types or pastes it) and metadata is fetched on demand. A
@@ -57,3 +59,10 @@ struct AddBookmarkSheet: View {
         )
     }
 }
+
+#if DEBUG
+    #Preview {
+        AddBookmarkSheet(repository: AppEnvironment.preview.makeBookmarkRepository())
+            .environment(AppEnvironment.preview)
+    }
+#endif

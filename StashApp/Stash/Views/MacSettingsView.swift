@@ -126,4 +126,12 @@
         }
     }
 
+    #if DEBUG
+        #Preview {
+            MacSettingsView()
+                .environment(AppEnvironment.preview)
+                .environment(AppSettings())
+        }
+    #endif
+
 #endif

@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - TagBrowserView
+
 /// A read-only list of the user's tags with counts. Filtering and rename/delete arrive later.
 struct TagBrowserView: View {
 
@@ -88,3 +90,12 @@ struct TagBrowserView: View {
         }
     }
 }
+
+#if DEBUG
+    #Preview {
+        NavigationStack {
+            TagBrowserView()
+        }
+        .environment(AppEnvironment.preview)
+    }
+#endif

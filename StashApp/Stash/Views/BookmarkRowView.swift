@@ -90,3 +90,11 @@ struct TagPill: View {
             .foregroundStyle(Color.accentColor)
     }
 }
+
+#if DEBUG
+    #Preview {
+        List(Bookmark.samples) { bookmark in
+            BookmarkRowView(bookmark: bookmark)
+        }
+    }
+#endif

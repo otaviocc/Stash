@@ -20,46 +20,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import SwiftUI
-
-// MARK: - TagSuggestionView
-
-/// A horizontally-scrolling row of tag suggestion chips. Tapping a chip appends it to the input.
-struct TagSuggestionView: View {
-
-    // MARK: Properties
-
-    let suggestions: [Tag]
-    let onSelect: (Tag) -> Void
-
-    // MARK: Content Properties
-
-    // MARK: Content
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(suggestions) { tag in
-                    Button {
-                        onSelect(tag)
-                    } label: {
-                        Text(tag.name)
-                            .font(.caption)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Color.accentColor.opacity(0.15), in: .capsule)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-                }
-            }
-        }
-    }
-}
-
 #if DEBUG
-    #Preview {
-        TagSuggestionView(suggestions: Tag.samples) { _ in }
-            .padding()
+    import Foundation
+
+    extension AppEnvironment {
+
+        /// A throwaway dependency graph for previews. The real objects are built (nothing hits the
+        /// network at init); any auto-load fails fast to an empty state since no server is configured.
+        @MainActor
+        static var preview: AppEnvironment {
+            AppEnvironment()
+        }
     }
 #endif

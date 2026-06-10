@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - RootView
+
 /// Routes between the setup, login, and main app flows based on configuration and auth state.
 struct RootView: View {
 
@@ -48,3 +50,11 @@ struct RootView: View {
         }
     }
 }
+
+#if DEBUG
+    #Preview {
+        RootView()
+            .environment(AppEnvironment.preview)
+            .environment(AppSettings())
+    }
+#endif

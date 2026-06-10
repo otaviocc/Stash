@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - TOTPView
+
 /// Collects a six-digit TOTP code after a 2FA challenge.
 struct TOTPView: View {
 
@@ -101,3 +103,12 @@ struct TOTPView: View {
         }
     }
 }
+
+#if DEBUG
+    #Preview {
+        NavigationStack {
+            TOTPView(tempToken: "preview-temp-token")
+        }
+        .environment(AppEnvironment.preview)
+    }
+#endif

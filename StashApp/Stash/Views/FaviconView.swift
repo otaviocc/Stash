@@ -73,3 +73,10 @@ extension View {
         modifier(RoundFaviconModifier())
     }
 }
+
+#if DEBUG
+    #Preview {
+        FaviconView(url: URL(string: "https://swift.org"))
+            .padding()
+    }
+#endif

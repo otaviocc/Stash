@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - BookmarkDetailView
+
 /// A bookmark detail view with edit, archive, and delete actions.
 ///
 /// Shared between the iOS push presentation and the macOS inspector panel. It keeps the displayed
@@ -194,3 +196,12 @@ struct BookmarkDetailView: View {
         }
     }
 }
+
+#if DEBUG
+    #Preview {
+        NavigationStack {
+            BookmarkDetailView(bookmark: .sample, repository: AppEnvironment.preview.makeBookmarkRepository())
+        }
+        .environment(AppEnvironment.preview)
+    }
+#endif

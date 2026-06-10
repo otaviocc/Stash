@@ -23,6 +23,8 @@
 import CoreImage.CIFilterBuiltins
 import SwiftUI
 
+// MARK: - QRCodeView
+
 /// Renders a string (here an `otpauth://` URI) as a scannable QR code. Uses CoreImage, which is
 /// available on both iOS and macOS, so the same view serves every native client.
 struct QRCodeView: View {
@@ -65,3 +67,11 @@ struct QRCodeView: View {
         return CIContext().createCGImage(scaled, from: scaled.extent)
     }
 }
+
+#if DEBUG
+    #Preview {
+        QRCodeView(string: "otpauth://totp/Stash:otavio?secret=JBSWY3DPEHPK3PXP&issuer=Stash")
+            .frame(width: 180, height: 180)
+            .padding()
+    }
+#endif

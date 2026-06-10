@@ -22,6 +22,8 @@
 
 import SwiftUI
 
+// MARK: - SettingsView
+
 /// A minimal settings screen: the configured server URL and a sign-out action. Full settings
 /// (appearance, account, 2FA, import/export) arrive in a later session.
 struct SettingsView: View {
@@ -69,3 +71,13 @@ struct SettingsView: View {
         }
     }
 }
+
+#if DEBUG
+    #Preview {
+        NavigationStack {
+            SettingsView()
+        }
+        .environment(AppEnvironment.preview)
+        .environment(AppSettings())
+    }
+#endif

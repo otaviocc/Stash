@@ -121,3 +121,11 @@ private enum LoginRoute: Hashable {
 
     case twoFactor(tempToken: String)
 }
+
+#if DEBUG
+    #Preview {
+        LoginView()
+            .environment(AppEnvironment.preview)
+            .environment(AppSettings())
+    }
+#endif
