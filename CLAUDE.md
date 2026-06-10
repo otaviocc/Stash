@@ -13,8 +13,9 @@ components that all speak to one backend contract:
 - **`StashKit/`** — shared Swift package: `Codable` DTOs, one request-factory `enum` per API domain,
   and a thin `StashClient` over [`MicroClient`](https://github.com/otaviocc/MicroClient). swift-tools 6.2, iOS 26 / macOS 26.
 - **`CLI/`** — the `stash` command-line client (`ArgumentParser` + StashKit). swift-tools 6.2.
-- **`StashApp/`** — one multiplatform SwiftUI app (iOS **and** macOS) + an iOS and a macOS Share
-  Extension. `Stash.xcodeproj` is committed and uses synchronized folder groups.
+- **`StashApp/`** — **two** multiplatform targets: one SwiftUI app (`Stash`, iOS **and** macOS) and one
+  Share Extension (`StashShareExtension`, iOS **and** macOS). `Stash.xcodeproj` is committed and uses
+  synchronized folder groups.
 
 **`PRODUCT.md` is the product spec; `DECISIONS.md` is the running decision log** (what was built,
 why, and every deviation from the spec). Read both before non-trivial work, and **add an entry to
@@ -39,14 +40,15 @@ swift build      # CLI release binary: swift build -c release → .build/release
 swift test --filter <TestName>   # StashKit only; CLI has no unit tests
 ```
 
-**StashApp** (`cd StashApp`) — `Stash.xcodeproj` is **committed** (open it directly; no generation step):
+**StashApp** (`cd StashApp`) — `Stash.xcodeproj` is **committed** (open it directly; no generation step).
+The `Stash` app target is multiplatform — the **same scheme** builds iOS and macOS, selected by destination:
 ```sh
-xcodebuild -scheme Stash    -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO
-xcodebuild -scheme StashMac -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
+xcodebuild -scheme Stash -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO
+xcodebuild -scheme Stash -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
 ```
 Add/move/rename source files in Xcode (the project uses synchronized folder groups, so files on disk are
-picked up automatically — no per-file project edits). `xcuserdata/` is gitignored; shared schemes
-(`Stash`, `StashMac`) are committed.
+picked up automatically — no per-file project edits). `xcuserdata/` is gitignored; the `Stash` shared
+scheme is committed.
 
 **Lint** (run inside each component dir; both `Backend/` and `StashApp/` carry their own configs):
 ```sh
@@ -75,15 +77,18 @@ request directly to decode both shapes.
 
 **StashApp source layout and cross-platform strategy** (folders map to synchronized-folder groups →
 target membership is folder-level):
-- `StashApp/Common/` — compiled into **all four** targets, app + both Share Extensions (KeychainStore,
-  TokenManager, StashClientProvider, domain models, error mapping, and the shared `AddBookmarkView` /
+- `StashApp/Common/` — compiled into **both** targets, app + extension (KeychainStore, TokenManager,
+  StashClientProvider, domain models, error mapping, and the shared `AddBookmarkView` /
   `TagInputSection`). (Previously named `Shared/`.)
-- `StashApp/Stash/` — app-only code (both apps), including the single `@main StashApp` whose scene `body`
-  branches with `#if os(macOS)` (macOS adds a `Settings` scene + window sizing). `RootView` routes to
-  `MainView` (iOS: size-class split / tab bar) or `MacContentView` (macOS: `NavigationSplitView`). Its
-  `Shared/` subfolder is app code shared between iOS and macOS.
-- `StashApp/StashShareExtension/` — compiled into **both** extension targets (platform-specific
-  principal controllers are `#if`-guarded in one folder).
+- `StashApp/Stash/` — app-only code, including the single `@main StashApp` whose scene `body` branches
+  with `#if os(macOS)` (macOS adds a `Settings` scene + window sizing). `RootView` routes to `MainView`
+  (iOS: size-class split / tab bar) or `MacContentView` (macOS: `NavigationSplitView`). Its `Shared/`
+  subfolder is app code shared between iOS and macOS.
+- `StashApp/StashShareExtension/` — the (multiplatform) extension; the platform-specific principal
+  controllers (`ShareViewController` iOS / `MacShareViewController` macOS) are `#if`-guarded in one folder.
+- `StashApp/Config/` — **non-synced** per-platform `Info.plist`/entitlements, selected by SDK-conditional
+  build settings (`INFOPLIST_FILE[sdk=macosx*]`, `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`). Kept out of the
+  synced folders so the app/extension are each one multiplatform target with no membership exceptions.
 - Keep platform divergence minimal: iOS-only field/keyboard/title modifiers are funneled through
   helpers in `Common/Support/PlatformModifiers.swift`; whole-view `#if` guards are reserved for genuine
   platform shells (e.g. `TabContainerView`, `MacContentView`, the principal view controllers).
