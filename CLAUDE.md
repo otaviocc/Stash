@@ -80,10 +80,10 @@ target membership is folder-level):
 - `StashApp/Common/` — compiled into **both** targets, app + extension (KeychainStore, TokenManager,
   StashClientProvider, domain models, error mapping, and the shared `AddBookmarkView` /
   `TagInputSection`). (Previously named `Shared/`.)
-- `StashApp/Stash/` — app-only code, including the single `@main StashApp` whose scene `body` branches
-  with `#if os(macOS)` (macOS adds a `Settings` scene + window sizing). `RootView` routes to `MainView`
-  (iOS: size-class split / tab bar) or `MacContentView` (macOS: `NavigationSplitView`). Its `Shared/`
-  subfolder is app code shared between iOS and macOS.
+- `StashApp/Stash/` — app-only code (`Models/`, `Repositories/`, `Views/`, plus `AppEnvironment`/
+  `AppSettings` and the single `@main StashApp` whose scene `body` branches with `#if os(macOS)` — macOS
+  adds a `Settings` scene + window sizing). `RootView` routes to `MainView` (iOS: size-class split / tab
+  bar) or `MacContentView` (macOS: `NavigationSplitView`).
 - `StashApp/StashShareExtension/` — the (multiplatform) extension; the platform-specific principal
   controllers (`ShareViewController` iOS / `MacShareViewController` macOS) are `#if`-guarded in one folder.
 - `StashApp/Config/` — **non-synced** per-platform `Info.plist`/entitlements, selected by SDK-conditional
