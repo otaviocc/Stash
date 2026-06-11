@@ -44,6 +44,7 @@ final class AppEnvironment {
     let smartViewRepository: SmartViewRepository
     let connectivityMonitor: ConnectivityMonitor
     let syncEngine: SyncEngine
+    let notificationCenter: NotificationCenter
 
     private let clientProvider: StashClientProvider
     private let localStore: LocalStore
@@ -51,8 +52,13 @@ final class AppEnvironment {
 
     // MARK: Lifecycle
 
-    init(defaults: UserDefaults, inMemory: Bool = false) {
+    init(
+        defaults: UserDefaults,
+        notificationCenter: NotificationCenter = .default,
+        inMemory: Bool = false
+    ) {
         self.defaults = defaults
+        self.notificationCenter = notificationCenter
 
         let accessTokenStore = KeychainStore(
             AppGroup.accessTokenKey,

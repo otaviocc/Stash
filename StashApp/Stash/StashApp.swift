@@ -22,6 +22,10 @@
 
 import SwiftUI
 
+#if os(macOS)
+    import AppKit
+#endif
+
 // MARK: - StashApp
 
 /// The Stash app entry point. Builds the shared settings and dependency container once at launch
@@ -85,6 +89,13 @@ struct StashApp: App {
             .onChange(of: scenePhase) { oldPhase, newPhase in
                 handleScenePhase(from: oldPhase, to: newPhase)
             }
+        #if os(macOS)
+            .onReceive(appEnvironment.notificationCenter
+                .publisher(for: NSApplication.didBecomeActiveNotification))
+            { _ in
+                syncIfAuthenticated()
+            }
+        #endif
     }
 
     // MARK: Functions
@@ -92,13 +103,17 @@ struct StashApp: App {
     private func handleScenePhase(from oldPhase: ScenePhase, to newPhase: ScenePhase) {
         switch newPhase {
         case .active where oldPhase == .background:
-            guard appEnvironment.authRepository.isAuthenticated else { return }
-
-            Task { await appEnvironment.syncEngine.sync() }
+            syncIfAuthenticated()
         case .background:
             appEnvironment.syncEngine.scheduleBackgroundRefresh()
         default:
             break
         }
+    }
+
+    private func syncIfAuthenticated() {
+        guard appEnvironment.authRepository.isAuthenticated else { return }
+
+        Task { await appEnvironment.syncEngine.sync() }
     }
 }

@@ -993,8 +993,9 @@ applies to the local store and returns immediately (`pendingSyncAt`/`isLocalOnly
 background sync pushes the change and reconciles the list with the server's
 authoritative result. A `ConnectivityMonitor` (`NWPathMonitor`) triggers a sync when
 connectivity returns; sync also runs on launch/login, after each write, and on
-returning from the background, and iOS schedules a background-refresh sync
-(`BGAppRefreshTask`).
+returning from the background — which on macOS includes the app being reactivated
+(foregrounded), since macOS `scenePhase` does not track focus changes — and iOS
+schedules a background-refresh sync (`BGAppRefreshTask`).
 
 Sync state is surfaced in the UI: a slim offline banner across the top of the app
 shell while disconnected, a muted pending indicator on rows and the detail header

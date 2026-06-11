@@ -3226,6 +3226,45 @@ Four no-behavior-change cleanups from the review.
   dead behavior (local re-read only) and was dropped rather than rewired — the ⌘R /
   toolbar sync is the single "get fresh data" affordance now.
 
+## Offline Sync — macOS foreground sync trigger
+
+- **Problem.** Saving a bookmark from an extension (the browser extension or the
+  macOS Share Extension — both write to the backend only and never touch the app's
+  local store) and then switching back to an already-open macOS app window did not
+  show the new bookmark until ⌘R / "Sync Now" / relaunch. The live-list-refresh wiring
+  (`.onChange(of: syncEngine.isSyncing)`) was already in place, but **no sync cycle
+  was firing**: macOS reached none of its triggers (launch, reconnect, ⌘R, Sync Now,
+  or `scenePhase .background → .active`).
+- **Root cause — macOS `ScenePhase` doesn't track focus.** SwiftUI's `scenePhase`
+  reaches `.background` only when all of the app's windows are hidden/closed/minimized,
+  **not** when the app merely loses key focus (the user clicking over to a browser).
+  So returning to a still-visible Stash window produces no `.background → .active`
+  transition, and the Phase 3 return-from-background trigger never runs. This corrects
+  the Phase 4 claim that "return-from-background (`scenePhase → .active`) ... cover all
+  practical sync needs" on macOS — true on iOS, false on macOS for the focus-switch
+  case.
+- **✅ Fix.** `StashApp` adds a **macOS-only** `.onReceive` for
+  `NSApplication.didBecomeActiveNotification` that runs the same authenticated
+  `SyncEngine.sync()` as the `.active` scene-phase case (both now funnel through a
+  shared `syncIfAuthenticated()` helper). This is the macOS analogue of the iOS
+  foreground trigger. Single-flight (`SyncEngine.sync()`) coalesces an activation that
+  races the launch `.task` sync, and a delta sync is cheap, so firing on every
+  activation is acceptable — the same cost profile as the iOS foreground trigger.
+  iOS keeps using `scenePhase` (foregrounding is already covered there), so the
+  `didBecomeActive` observer is `#if os(macOS)`-guarded, alongside an
+  `#if os(macOS) import AppKit`.
+- **The `NotificationCenter` is injected, not referenced as `.default`.** `AppEnvironment`
+  exposes a `notificationCenter` dependency (defaulting to `.default` in its init), and
+  the observer subscribes via `appEnvironment.notificationCenter.publisher(for:)` rather
+  than reaching for the global singleton in the view — consistent with the rest of the DI
+  container and keeping the trigger testable.
+- **`NSBackgroundActivityScheduler` still not added.** The reported case only needs
+  the app to be foregrounded, which this trigger covers; the Phase 4 decision to skip
+  a macOS background scheduler stands.
+- **Scope.** `StashApp.swift` plus the `notificationCenter` injection point in
+  `AppEnvironment`. No `SyncEngine`, extension, backend, CLI, or browser-extension
+  change. Both platforms build; lints clean.
+
 ## Tag picker (native apps)
 
 - **✅ `TagPickerSheet` replaces the comma-separated tag field.** The add and edit
