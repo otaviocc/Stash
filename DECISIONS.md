@@ -648,6 +648,15 @@ the 26 SDKs).
   prefix matches (full hierarchical strings like `swift/vapor` included). The attribute is
   **single-quoted** so Leaf's HTML-escaping of the JSON quotes survives — the browser entity-decodes
   the attribute value before `JSON.parse`, avoiding the need for an unescaped-output Leaf tag.
+- **✅ Tag autocomplete matches per hierarchy segment, not just the whole-string prefix.** The
+  original filter (`t.indexOf(frag) === 0`) only matched when the typed fragment was a prefix of the
+  *entire* tag, so `music` never surfaced `kind/music-gear`. The filter now splits each candidate on
+  `/` and matches when **any segment** starts with the fragment
+  (`t.split('/').some(seg => seg.indexOf(frag) === 0)`), so a fragment finds nested tags whose later
+  segment begins with it. This is deliberately segment-*prefix*, not free substring: `usic` still
+  matches nothing, keeping suggestions aligned with the `/`-delimited hierarchy the rest of Stash is
+  built on (the `tags_search` prefix filter). One-line change in `layout.leaf`; the edit form shares
+  the same script and gets it for free.
 
 ---
 

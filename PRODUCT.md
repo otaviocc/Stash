@@ -502,7 +502,7 @@ Session-based auth (`stash_session` cookie, path `/app`, in-memory, SameSite=Lax
 - Add form: two-step — "Fetch metadata" previews server-side; "Save" persists
 - Duplicate URL: inline error with link to existing bookmark
 - Edit form does not allow URL changes (avoids duplicate-handling complexity)
-- Tag input with autocomplete: vanilla JS (~50 lines), splits on commas, prefix-matches user's existing tags embedded as JSON in `data-known-tags` attribute
+- Tag input with autocomplete: vanilla JS (~50 lines), splits on commas, matches user's existing tags embedded as JSON in `data-known-tags` attribute by per-segment prefix (a fragment matches any `/`-delimited segment that starts with it, so `music` finds `kind/music-gear`)
 
 ### Tag Browser (`/app/tags`)
 
