@@ -501,6 +501,41 @@ struct AdminTests {
         }
     }
 
+    @Test("an admin cannot suspend their own account (400 cannot_suspend_self)")
+    func cannotSuspendSelf() async throws {
+        try await withTestApp { app in
+            // Given
+            let admin = try await app.makeUser(username: "root", password: "admin-password-123", role: .admin)
+            let pair = try await app.login(username: "root", password: "admin-password-123")
+            let adminID = try admin.requireID()
+
+            // When
+            try await app.testing().test(
+                .PUT, "api/v1/admin/users/\(adminID)",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(UpdateUserInput(isActive: false, password: nil))
+                },
+                afterResponse: { res async throws in
+                    // Then
+                    #expect(res.status == .badRequest, "It should return 400 Bad Request")
+                    let err = try res.content.decode(TestError.self)
+                    #expect(err.error == true, "It should flag the response as an error")
+                    #expect(err.code == "cannot_suspend_self", "It should return the cannot_suspend_self error code")
+                    #expect(
+                        err.message == "An admin cannot suspend their own account.",
+                        "It should explain why the suspension was rejected"
+                    )
+                }
+            )
+
+            #expect(
+                try await User.find(adminID, on: app.db)?.isActive == true,
+                "It should leave the admin account active"
+            )
+        }
+    }
+
     // MARK: - Stats
 
     @Test("stats reports totals and per-user bookmark counts")

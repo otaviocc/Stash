@@ -104,6 +104,11 @@ code, the deviations from the PRD, and the trade-offs accepted.
   admin accounts exist only via first-boot seeding (§4). (Tightened from an earlier version that
   accepted `role` — see M3 correction.)
 - **✅ Self-deletion blocked** with `400 cannot_delete_self`.
+- **✅ Self-suspension blocked** with `400 cannot_suspend_self`, mirroring self-deletion — an admin
+  must not lock themselves out. Enforced on both the JSON API (`PUT /admin/users/:id` with
+  `isActive: false` on one's own id) and the web dashboard (`POST /admin/users/:id/suspend`); the
+  web "Suspend account" button is hidden for the signed-in admin's own detail page (same `isSelf`
+  flag that hides Delete).
 - **✅ Suspension *and* password reset both revoke refresh tokens** (§8.6) — any change to an
   account's security state forces re-authentication.
 - **✅ Hard delete cascades explicitly** (bookmarks → refresh tokens → recovery codes → user) rather
