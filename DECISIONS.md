@@ -911,3 +911,19 @@ the outer folder was `Common/`, the `Shared/` subfolder name was redundant.
 - **🔁 Four targets collapsed to two.** M10 created separate iOS and macOS targets (`Stash`/`StashMac` and `StashShareExtension`/`StashMacShareExtension`). With SwiftUI there's no reason for that, so `Stash` and `StashShareExtension` are now **multiplatform** targets (Supported Destinations: iPhone, iPad, Mac), and the two `*Mac*` targets are deleted. One `Stash` scheme builds both platforms (selected by run destination); the macOS product is still a native AppKit/SwiftUI app (`SUPPORTS_MACCATALYST = NO`, `SDKROOT = auto`). **Zero Swift changes** — the code was already `#if`-guarded and the single `@main` already branched per platform. The macOS share-extension bundle id changed from `cc.otavio.stash.macShareExtension` to `cc.otavio.stash.ShareExtension` (one id across platforms now).
 - **✅ Per-platform `Info.plist`/entitlements are SDK-conditional, in a non-synced `Config/` folder.** The two platforms differ only in a few `Info.plist` keys (iOS launch screen / orientations vs. macOS `LSApplicationCategoryType`) and entitlements (macOS adds App Sandbox + network client). Each is selected with `INFOPLIST_FILE[sdk=macosx*]` / `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`. Moving all eight files **out of the synchronized source folders** into `StashApp/Config/` also fixed the stray-`Resources/Info.plist` defect from the synchronized-folders review — with no plists inside the synced folders, no membership exceptions are needed and nothing leaks into the macOS bundles (verified: clean iOS + macOS builds each carry exactly one app `Info.plist` and one embedded `.appex`).
 - **✅ Edited the project with the `xcodeproj` Ruby gem, not `plutil`.** The gem writes the proper ASCII `.pbxproj` (the `plutil` JSON round-trip emits XML that breaks `xcodebuild`), so target settings, target deletion, and the conditional build settings were applied programmatically and verified by building both destinations from the one scheme.
+
+---
+
+## Editable server URL on the login screen
+
+- **✅ The server URL is now editable from `LoginView`, not just first-launch `SetupView`.** A
+  self-hosted instance reached by IP can change address, leaving a configured-but-unreachable app
+  with no in-app way to fix it on iOS (logout returns to login, which previously only *displayed*
+  the URL as footer text). `LoginView` now carries a "Server" `TextField` (same `urlFieldStyle` /
+  `http(s)://` validation as `SetupView`), and `canSubmit` also requires a valid URL.
+- **✅ Edited locally, committed to `AppSettings` only on sign-in.** The field is seeded from
+  `settings.serverURL` on appear into a local `@State`, and written back to `settings.serverURL`
+  inside `signIn()`. Binding the `TextField` straight to `settings.serverURL` would flip
+  `isConfigured` to `false` the instant the field was cleared mid-edit, bouncing `RootView` back to
+  `SetupView`. No change was needed below the view: `StashClientProvider` already rebuilds its
+  cached client whenever the persisted URL changes, so the next login hits the new server.

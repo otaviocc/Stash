@@ -32,6 +32,7 @@ struct LoginView: View {
     @Environment(AppEnvironment.self) private var environment
     @Environment(AppSettings.self) private var settings
 
+    @State private var serverURL = ""
     @State private var username = ""
     @State private var password = ""
     @State private var errorMessage: String?
@@ -40,8 +41,15 @@ struct LoginView: View {
 
     // MARK: Computed Properties
 
+    private var isServerURLValid: Bool {
+        let trimmed = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://")
+    }
+
     private var canSubmit: Bool {
-        !username.trimmingCharacters(in: .whitespaces).isEmpty
+        isServerURLValid
+            && !username.trimmingCharacters(in: .whitespaces).isEmpty
             && !password.isEmpty
             && !isSubmitting
     }
@@ -54,14 +62,19 @@ struct LoginView: View {
         NavigationStack(path: $path) {
             Form {
                 Section {
+                    TextField("https://stash.example.com", text: $serverURL)
+                        .urlFieldStyle()
+                } header: {
+                    Text("Server")
+                } footer: {
+                    Text("The address of your Stash server, including http:// or https://.")
+                }
+
+                Section {
                     TextField("Username", text: $username)
                         .usernameFieldStyle()
                     SecureField("Password", text: $password)
                         .passwordFieldStyle()
-                } footer: {
-                    Text(settings.serverURL)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
 
                 if let errorMessage {
@@ -81,6 +94,11 @@ struct LoginView: View {
             }
             .formStyle(.grouped)
             .navigationTitle("Sign In")
+            .onAppear {
+                if serverURL.isEmpty {
+                    serverURL = settings.serverURL
+                }
+            }
             .navigationDestination(for: LoginRoute.self) { route in
                 switch route {
                 case let .twoFactor(tempToken):
@@ -95,6 +113,11 @@ struct LoginView: View {
     private func signIn() {
         errorMessage = nil
         isSubmitting = true
+
+        let trimmedURL = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedURL != settings.serverURL {
+            settings.serverURL = trimmedURL
+        }
 
         Task {
             defer { isSubmitting = false }
