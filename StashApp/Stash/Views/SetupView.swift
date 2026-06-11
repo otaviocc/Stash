@@ -87,6 +87,6 @@ struct SetupView: View {
 #if DEBUG
     #Preview {
         SetupView()
-            .environment(AppSettings())
+            .environment(AppSettings.preview)
     }
 #endif

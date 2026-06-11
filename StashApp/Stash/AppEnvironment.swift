@@ -45,28 +45,34 @@ final class AppEnvironment {
 
     // MARK: Lifecycle
 
-    init() {
+    init(defaults: UserDefaults) {
         let accessTokenStore = KeychainStore(
             AppGroup.accessTokenKey,
             accessGroup: AppGroup.identifier
         )
+
         let refreshTokenStore = KeychainStore(
             AppGroup.refreshTokenKey,
             accessGroup: AppGroup.identifier
         )
+
         let tokenManager = TokenManager(
             accessTokenStore: accessTokenStore,
             refreshTokenStore: refreshTokenStore
         )
-        let clientProvider = StashClientProvider(tokenManager: tokenManager)
+
+        let clientProvider = StashClientProvider(
+            tokenManager: tokenManager,
+            defaults: defaults
+        )
         self.clientProvider = clientProvider
 
         let authRepository = AuthRepository(
             clientProvider: clientProvider,
             tokenManager: tokenManager
         )
-
         self.authRepository = authRepository
+
         tagRepository = TagRepository(
             clientProvider: clientProvider,
             session: authRepository
@@ -78,6 +84,9 @@ final class AppEnvironment {
     /// Builds a fresh `BookmarkRepository` with its own list state, sharing the app's client and
     /// session. Each bookmark list owns one so their contents stay independent.
     func makeBookmarkRepository() -> BookmarkRepository {
-        BookmarkRepository(clientProvider: clientProvider, session: authRepository)
+        BookmarkRepository(
+            clientProvider: clientProvider,
+            session: authRepository
+        )
     }
 }

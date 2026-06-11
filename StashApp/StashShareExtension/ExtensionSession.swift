@@ -62,7 +62,10 @@ final class ExtensionSession {
             accessTokenStore: accessTokenStore,
             refreshTokenStore: refreshTokenStore
         )
-        clientProvider = StashClientProvider(tokenManager: tokenManager)
+        clientProvider = StashClientProvider(
+            tokenManager: tokenManager,
+            defaults: AppGroup.makeSharedDefaults()
+        )
     }
 
     // MARK: Functions

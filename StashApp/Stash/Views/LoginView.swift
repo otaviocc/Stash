@@ -150,6 +150,6 @@ private enum LoginRoute: Hashable {
     #Preview {
         LoginView()
             .environment(AppEnvironment.preview)
-            .environment(AppSettings())
+            .environment(AppSettings.preview)
     }
 #endif

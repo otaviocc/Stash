@@ -36,11 +36,12 @@ enum AppGroup {
     static let refreshTokenKey = "cc.otavio.stash.refreshToken"
     static let serverURLKey = "serverURL"
 
-    // MARK: Static Computed Properties
+    // MARK: Static Functions
 
-    /// The `UserDefaults` suite backed by the App Group, so the server URL is visible to both the
-    /// main app and the extension. Falls back to `.standard` if the suite cannot be opened.
-    static var sharedDefaults: UserDefaults {
+    /// Builds the `UserDefaults` suite backed by the App Group, so the server URL is visible to both
+    /// the main app and the extension. Falls back to `.standard` if the suite cannot be opened. Call
+    /// once at a composition root and inject the result.
+    static func makeSharedDefaults() -> UserDefaults {
         UserDefaults(suiteName: identifier) ?? .standard
     }
 }

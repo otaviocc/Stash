@@ -20,41 +20,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import Foundation
+#if DEBUG
+    import Foundation
 
-// MARK: - AppSettings
+    extension AppSettings {
 
-/// Holds app-wide configuration persisted in UserDefaults.
-///
-/// `serverURL` is a tracked `@Observable` property backed by UserDefaults rather than `@AppStorage`:
-/// an `@ObservationIgnored @AppStorage` property is excluded from observation, so mutating it would
-/// not notify SwiftUI and `RootView` would never re-route after setup. It is written through to the
-/// injected `UserDefaults` (the App Group suite) so both `StashClientProvider` and the Share
-/// Extension (a separate process) read the server the user configured.
-@MainActor
-@Observable
-final class AppSettings {
-
-    // MARK: Properties
-
-    var serverURL: String {
-        didSet {
-            defaults.set(serverURL, forKey: AppGroup.serverURLKey)
+        /// Throwaway settings for previews, backed by an isolated suite so previews never touch the
+        /// App Group's persisted server URL.
+        @MainActor
+        static var preview: AppSettings {
+            AppSettings(defaults: UserDefaults(suiteName: "preview.cc.otavio.stash") ?? .standard)
         }
     }
-
-    @ObservationIgnored private let defaults: UserDefaults
-
-    // MARK: Computed Properties
-
-    var isConfigured: Bool {
-        !serverURL.isEmpty
-    }
-
-    // MARK: Lifecycle
-
-    init(defaults: UserDefaults) {
-        self.defaults = defaults
-        serverURL = defaults.string(forKey: AppGroup.serverURLKey) ?? ""
-    }
-}
+#endif

@@ -67,9 +67,9 @@ struct StashApp: App {
     // MARK: Lifecycle
 
     init() {
-        let settings = AppSettings()
-        _appSettings = State(initialValue: settings)
-        _appEnvironment = State(initialValue: AppEnvironment())
+        let defaults = AppGroup.makeSharedDefaults()
+        _appSettings = State(initialValue: AppSettings(defaults: defaults))
+        _appEnvironment = State(initialValue: AppEnvironment(defaults: defaults))
     }
 
     // MARK: Content Properties
