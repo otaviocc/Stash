@@ -22,31 +22,6 @@
 
 import Foundation
 
-// MARK: - AppAppearance
-
-/// The user's appearance preference. Mirrors the web frontend's Light / Dark / Auto choice, but is
-/// stored in `UserDefaults` rather than a cookie (no browser on the native clients).
-enum AppAppearance: String, CaseIterable, Identifiable {
-
-    case system
-    case light
-    case dark
-
-    // MARK: Computed Properties
-
-    var id: String {
-        rawValue
-    }
-
-    var label: String {
-        switch self {
-        case .system: "Auto"
-        case .light: "Light"
-        case .dark: "Dark"
-        }
-    }
-}
-
 // MARK: - AppSettings
 
 /// Holds app-wide configuration persisted in UserDefaults.
@@ -55,27 +30,16 @@ enum AppAppearance: String, CaseIterable, Identifiable {
 /// an `@ObservationIgnored @AppStorage` property is excluded from observation, so mutating it would
 /// not notify SwiftUI and `RootView` would never re-route after setup. It is written through to the
 /// App Group's `UserDefaults` suite so both `StashClientProvider` and the Share Extension (a
-/// separate process) read the server the user configured. `appearance` is app-only (the extension
-/// never themes), so it lives in standard `UserDefaults`.
+/// separate process) read the server the user configured.
 @MainActor
 @Observable
 final class AppSettings {
-
-    // MARK: Static Properties
-
-    private static let appearanceKey = "appearance"
 
     // MARK: Properties
 
     var serverURL: String {
         didSet {
             AppGroup.sharedDefaults.set(serverURL, forKey: AppGroup.serverURLKey)
-        }
-    }
-
-    var appearance: AppAppearance {
-        didSet {
-            UserDefaults.standard.set(appearance.rawValue, forKey: Self.appearanceKey)
         }
     }
 
@@ -89,7 +53,5 @@ final class AppSettings {
 
     init() {
         serverURL = AppGroup.sharedDefaults.string(forKey: AppGroup.serverURLKey) ?? ""
-        let storedAppearance = UserDefaults.standard.string(forKey: Self.appearanceKey)
-        appearance = storedAppearance.flatMap(AppAppearance.init(rawValue:)) ?? .system
     }
 }

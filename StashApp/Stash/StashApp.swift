@@ -26,7 +26,7 @@ import SwiftUI
 
 /// The Stash app entry point. Builds the shared settings and dependency container once at launch
 /// and injects them into the SwiftUI environment. The same `App` serves iOS and macOS; macOS adds a
-/// `Settings` scene (⌘,) and a minimum window size.
+/// `Settings` scene (⌘,) and a minimum window size. Both platforms follow the system appearance.
 @main
 struct StashApp: App {
 
@@ -56,7 +56,6 @@ struct StashApp: App {
                 MacSettingsView()
                     .environment(appSettings)
                     .environment(appEnvironment)
-                    .preferredColorScheme(appSettings.appearance.colorScheme)
             }
         #else
             WindowGroup {
@@ -79,20 +78,5 @@ struct StashApp: App {
         RootView()
             .environment(appSettings)
             .environment(appEnvironment)
-            .preferredColorScheme(appSettings.appearance.colorScheme)
-    }
-}
-
-// MARK: - AppAppearance + ColorScheme
-
-extension AppAppearance {
-
-    /// The SwiftUI color scheme to force, or `nil` to follow the system (Auto).
-    var colorScheme: ColorScheme? {
-        switch self {
-        case .system: nil
-        case .light: .light
-        case .dark: .dark
-        }
     }
 }
