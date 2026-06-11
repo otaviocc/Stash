@@ -724,9 +724,9 @@ stash.yourdomain.com {
 | `ADMIN_USERNAME` | Admin username (first boot only) |
 | `ADMIN_PASSWORD` | Admin password (first boot only, min 12 chars) |
 
-### CI/CD (Planned — M4.1)
+### CI/CD ✅ Complete (M4.1)
 
-GitHub Actions on version tag: build multi-arch image → push to `ghcr.io/otaviocc/stash` → attach `docker-compose.yml` as release artifact.
+Two GitHub Actions workflows. `ci.yml` runs on every push to `main` and every pull request — builds and tests all components, no image. `release.yml` runs on a `v*.*.*` tag: re-runs the backend tests, then builds a multi-arch image (`linux/amd64`, `linux/arm64`) → pushes to `ghcr.io/otaviocc/stash` (`latest` + semver) → creates a GitHub Release with `docker-compose.yml` attached. `GITHUB_TOKEN` only — no extra secrets. The repo stays private; the image is made public via a **one-time manual setting** in the package settings (there is no API to do it from CI).
 
 ---
 
@@ -885,7 +885,7 @@ SwiftLint + SwiftFormat. `swiftlint lint` 0 violations, `swiftformat --lint` ide
 | M8 | iOS app: auth, bookmark list, add bookmark | ✅ Core complete |
 | M9 | iOS Share Extension | ✅ Complete |
 | M10 | macOS app + Share Extension | ✅ Complete |
-| M4.1 | CI/CD: GitHub Actions, publish to ghcr.io | Planned (after M10) |
+| M4.1 | CI/CD: GitHub Actions, publish to ghcr.io | ✅ Complete |
 
 ---
 
