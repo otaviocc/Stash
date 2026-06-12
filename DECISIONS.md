@@ -773,6 +773,18 @@ the 26 SDKs).
   sidebar (no extra query). The sentinel never reaches the UI as a label: the sidebar shows
   "Untagged" (sentinel only in the `href`), and the filter banner's `tagDisplay` is overridden to
   "Untagged".
+- **🐛 The `__untagged__` sentinel was honored by the web UI but not the JSON API.** The macOS app's
+  "Untagged" sidebar entry correctly sent `GET /api/v1/bookmarks?tag=__untagged__`, but
+  `BookmarkController.list` had no sentinel branch — it fell straight into the prefix path, where
+  `normalizeTagQuery` lowercased/trimmed it into a literal tag no bookmark carries, so the result was
+  always empty (only `AppWebController` special-cased it, which is why `/app` worked). Fixed by adding
+  the same `rawTag == Bookmark.untaggedSentinel → filter(\.$tagsSearch == "")` branch to the API
+  controller. The sentinel string was promoted from a private `AppWebController.untaggedSentinel`
+  constant to `Bookmark.untaggedSentinel` so both controllers share one source of truth (the web
+  controller's constant now aliases it). Locked in with a `BookmarkTests` case asserting
+  `?tag=__untagged__` returns only tagless bookmarks. ⚠️ The filter *expression* is still written in
+  both controllers — only the sentinel constant is shared; this duplication is what let the API drift
+  from the web UI in the first place.
 
 ---
 
