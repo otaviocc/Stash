@@ -74,6 +74,8 @@ struct BookmarkDetailView: View {
                 Link(destination: bookmark.url) {
                     Text(bookmark.url.absoluteString)
                         .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
 
