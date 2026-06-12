@@ -47,7 +47,7 @@
         @State private var disableCode = ""
         @State private var twoFactorMessage: String?
         @State private var isDisabling = false
-        @State private var showingEnrol = false
+        @State private var showingEnroll = false
 
         // MARK: Computed Properties
 
@@ -94,8 +94,8 @@
             .task {
                 await loadUser()
             }
-            .sheet(isPresented: $showingEnrol) {
-                TwoFactorEnrolView(auth: environment.authRepository) {
+            .sheet(isPresented: $showingEnroll) {
+                TwoFactorEnrollView(auth: environment.authRepository) {
                     Task { await loadUser() }
                 }
             }
@@ -114,7 +114,7 @@
                 Text("Two-factor authentication is off.")
                     .foregroundStyle(.secondary)
                 Button("Enable Two-Factor") {
-                    showingEnrol = true
+                    showingEnroll = true
                 }
             }
 
@@ -176,11 +176,11 @@
         }
     }
 
-    // MARK: - TwoFactorEnrolView
+    // MARK: - TwoFactorEnrollView
 
-    /// The 2FA enrolment sheet: shows the QR code and secret, verifies a code, then displays the
+    /// The 2FA enrollment sheet: shows the QR code and secret, verifies a code, then displays the
     /// one-time recovery codes.
-    private struct TwoFactorEnrolView: View {
+    private struct TwoFactorEnrollView: View {
 
         // MARK: SwiftUI Properties
 
