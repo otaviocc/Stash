@@ -1,106 +1,44 @@
 # Stash
 
+A self-hosted bookmark manager with native iOS, macOS, and web clients.
+
 ![CI](https://github.com/otaviocc/stash/actions/workflows/ci.yml/badge.svg)
 
-A self-hosted, fully private, multi-user bookmark manager. Accounts are created by an admin; each
-user keeps their own private collection. Everything runs on infrastructure you control — no
-third-party cloud.
+## Features
+
+- Save bookmarks from iOS, macOS, Safari Share Extension, CLI, or web browser
+- Hierarchical tags, full-text search, bulk tag rename and delete
+- Import from Anybox JSON; export to Stash JSON
+- Multi-user with per-user 2FA (TOTP) and recovery codes
+- Admin dashboard for user management
+- Dark mode (Light / Dark / Auto)
+- Web Archive integration (Wayback Machine)
+- Self-hosted, fully private — your data stays on your infrastructure
 
 ## Quick start
 
 1. Download [`docker-compose.yml`](https://github.com/otaviocc/stash/releases/latest)
-2. Create `.env` from the example
-3. Start: `docker compose up -d`
-4. Open `http://localhost:8080/admin` and sign in with your admin credentials
+2. Create a `.env` file — see [Running with Docker](Docs/backend-docker.md) for the full guide
+3. `docker compose up -d`
+4. Open `http://localhost:8080/app`
 
-The web frontend is at `http://localhost:8080/app`.
+## Documentation
 
-## HTTPS (optional)
+| Guide | Description |
+|-------|-------------|
+| [Building the backend](Docs/backend-build.md) | Build from source, run tests |
+| [Running locally](Docs/backend-local.md) | Swift + PostgreSQL, no Docker |
+| [Running with Docker](Docs/backend-docker.md) | Published image, recommended for most users |
+| [Adding HTTPS with Caddy](Docs/backend-docker-caddy.md) | Local network or internet-exposed |
+| [Configuration reference](Docs/configuration.md) | Environment variables and per-component config |
+| [API and routes reference](Docs/api.md) | REST API, admin dashboard, and web frontend |
+| [Building and using the CLI](Docs/cli-build.md) | `stash` command-line tool |
+| [Building the mobile apps](Docs/mobile-build.md) | iOS and macOS apps from source |
+| [StashKit](Docs/stashkit.md) | Shared Swift package (DTOs, request factories, client) |
 
-Stash runs over plain HTTP by default, which is fine for local network use.
-To enable HTTPS, add Caddy as a reverse proxy — no changes to the Stash
-image are needed.
+## Clients
 
-See [`caddy/README.md`](caddy/README.md) for setup instructions covering:
-
-- **Local network** — self-signed certificate, no domain required
-- **Internet-exposed** — real domain with automatic Let's Encrypt certificate
-
-## What's in this repo
-
-| Directory | Component | Stack |
-|-----------|-----------|-------|
-| `Backend/` | REST API (`/api/v1/`) + server-rendered admin dashboard (`/admin`) and user web frontend (`/app`) | Vapor 4, PostgreSQL |
-| `StashKit/` | Shared Swift package (DTOs, request factories, thin HTTP client) used by the CLI and the apps | Swift package, [MicroClient](https://github.com/otaviocc/MicroClient) |
-| `CLI/` | `stash` command-line client | Swift, ArgumentParser |
-| `StashApp/` | Native SwiftUI app for **iOS and macOS**, each with a Share Extension | SwiftUI |
-
-See `PRODUCT.md` for the product spec and `DECISIONS.md` for the design decisions behind it.
-
-## Prerequisites
-
-- **macOS with Xcode 26** (Swift 6.2) — required for `StashApp` and the Swift 6.2 packages (`StashKit`, `CLI`).
-- **Docker + Docker Compose** — the supported way to run the backend.
-- **SwiftFormat + SwiftLint** (only if you'll be linting): `brew install swiftformat swiftlint`
-
-Swift package dependencies (Vapor, MicroClient, ArgumentParser, …) are fetched automatically by SwiftPM
-and Xcode — nothing to install by hand.
-
-## Run the backend
-
-The backend is the server the CLI and apps talk to. Run it with Docker:
-
-```sh
-cd Backend
-cp .env.example .env     # fill in real secrets (DB_PASSWORD, JWT_SECRET, ADMIN_USERNAME, ADMIN_PASSWORD)
-make up                  # docker compose up -d  →  http://<host>:8080
-make logs                # tail the app logs
-make down                # stop the stack
-```
-
-On first boot the admin account is created from `ADMIN_USERNAME` / `ADMIN_PASSWORD`; migrations run
-automatically. To run it directly against a local Postgres instead of Docker, see `Backend/README.md`.
-
-```sh
-# Build / test the backend without a database (in-memory SQLite):
-swift build
-swift test
-```
-
-## Build and run the CLI
-
-```sh
-cd CLI
-swift build -c release
-cp .build/release/stash /usr/local/bin/stash    # optional: install on PATH
-
-stash config set-url http://localhost:8080
-stash login
-stash add https://example.com --tag swift
-stash list
-```
-
-All commands accept `--json`. See `CLI/README.md` for the full command list.
-
-## Build and run the apps (iOS / macOS)
-
-Open the committed Xcode project and pick the `Stash` scheme — it's a single multiplatform target, so
-choose an iOS Simulator or "My Mac" as the run destination:
-
-```sh
-cd StashApp
-open Stash.xcodeproj
-```
-
-Or build from the command line (same scheme, different destination):
-
-```sh
-# iOS
-xcodebuild -scheme Stash -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO
-# macOS
-xcodebuild -scheme Stash -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO
-```
-
-On first launch, point the app at your backend URL on the setup screen, then sign in with an account
-created by the admin. The Share Extension lets you save URLs from Safari and other apps. See
-`StashApp/README.md` for the project layout.
+- **Web** — built in, available at `/app` on your server
+- **iOS** — native SwiftUI app (build from source)
+- **macOS** — native SwiftUI app (build from source)
+- **CLI** — `stash` command-line tool (build from source)
