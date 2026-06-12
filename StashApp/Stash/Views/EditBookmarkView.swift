@@ -58,7 +58,7 @@ struct EditBookmarkView: View {
         self.onSaved = onSaved
         _title = State(initialValue: bookmark.title)
         _description = State(initialValue: bookmark.description ?? "")
-        _tagText = State(initialValue: bookmark.tags.joined(separator: ", "))
+        _tagText = State(initialValue: bookmark.tags.isEmpty ? "" : bookmark.tags.joined(separator: ", ") + ", ")
     }
 
     // MARK: Content Properties
