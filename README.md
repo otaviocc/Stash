@@ -15,6 +15,17 @@ third-party cloud.
 
 The web frontend is at `http://localhost:8080/app`.
 
+## HTTPS (optional)
+
+Stash runs over plain HTTP by default, which is fine for local network use.
+To enable HTTPS, add Caddy as a reverse proxy — no changes to the Stash
+image are needed.
+
+See [`caddy/README.md`](caddy/README.md) for setup instructions covering:
+
+- **Local network** — self-signed certificate, no domain required
+- **Internet-exposed** — real domain with automatic Let's Encrypt certificate
+
 ## What's in this repo
 
 | Directory | Component | Stack |

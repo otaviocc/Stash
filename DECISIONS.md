@@ -1015,3 +1015,16 @@ the outer folder was `Common/`, the `Shared/` subfolder name was redundant.
   `CODE_SIGNING_ALLOWED=NO`; building also compiles the embedded Share Extension. That catches
   compile-level regressions across the cross-platform `#if` shells — the practical risk for a target
   with no tests.
+
+---
+
+## HTTPS / Caddy
+
+- **✅ HTTPS via optional Caddy sidecar, not built into the image.** Stash serves plain HTTP
+  internally; TLS termination is a deployment concern. This mirrors the pattern used by Navidrome and
+  other self-hosted tools — the app stays simple, and users who don't need HTTPS aren't forced to deal
+  with certificates. Caddy is documented as an opt-in addition to `docker-compose.yml` (the
+  `caddy/docker-compose.caddy.yml` override resets the `app` port mapping and adds a `caddy:2-alpine`
+  reverse proxy on 80/443) covering both local network (`tls internal`, self-signed, with root-CA
+  trust instructions per platform) and internet-exposed (automatic Let's Encrypt) use cases. No
+  changes to the Stash image or Vapor backend are required.
