@@ -20,7 +20,9 @@ components that all speak to one backend contract:
 **`PRODUCT.md` is the product spec; `DECISIONS.md` is the running decision log** (what was built,
 why, and every deviation from the spec). Read both before non-trivial work, and **add an entry to
 `DECISIONS.md` when completing a milestone or a meaningful chunk** — much of the non-obvious rationale
-lives only there. `Backend/README.md` and `CLI/CLAUDE.md` document those components in depth.
+lives only there. The **`Docs/`** folder holds the user-facing documentation (build, run locally,
+deploy via Docker, HTTPS with Caddy, configuration, the REST API, the CLI, the apps, and StashKit);
+`CLI/CLAUDE.md` is the CLI's own Claude guide.
 
 ## Build / test / lint
 
@@ -31,7 +33,7 @@ Each component is its own Swift package or Xcode project — `cd` into it first.
 swift build && swift test            # tests need no database (in-memory SQLite)
 swift test --filter <TestName>       # run a single test / suite (swift-testing)
 swift run App serve                  # needs DATABASE_URL, JWT_SECRET, ADMIN_USERNAME, ADMIN_PASSWORD
-make up | down | logs | migrate      # docker compose workflow (see Backend/README.md)
+make up | down | logs | migrate      # docker compose workflow (see Docs/backend-docker.md)
 ```
 
 **StashKit** (`cd StashKit`) / **CLI** (`cd CLI`):
@@ -111,7 +113,7 @@ repositories rather than sharing the app's live `@Observable` instances.
 - The JWT API (`/api/v1/`) and the two web UIs are independent: the web UIs use separate in-memory
   session cookies (`stash_admin_session`, `stash_session`), not the JWT flow.
 - TOTP (RFC 6238) + Base32 are implemented on `swift-crypto` directly (the PRD's `vapor/auth` package is
-  Vapor 3-era and doesn't exist for Vapor 4) — see `DECISIONS.md` / `Backend/README.md`.
+  Vapor 3-era and doesn't exist for Vapor 4) — see `DECISIONS.md`.
 
 ## Code style (hand-applied conventions; see DECISIONS.md)
 
