@@ -104,7 +104,9 @@ struct AddBookmarkView: View {
 
                 Section("Details") {
                     TextField("Title", text: $title)
+                        .labelsHidden()
                     TextField("Description", text: $description, axis: .vertical)
+                        .labelsHidden()
                         .lineLimit(2...5)
                 }
 

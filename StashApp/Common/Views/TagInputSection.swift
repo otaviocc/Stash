@@ -62,6 +62,7 @@ struct TagInputSection: View {
     var body: some View {
         Section("Tags") {
             TextField("comma, separated, tags", text: $tagText)
+                .labelsHidden()
                 .lowercasedFieldStyle()
 
             if !suggestions.isEmpty {
