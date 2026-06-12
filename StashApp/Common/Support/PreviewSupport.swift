@@ -117,8 +117,7 @@
         func load() async throws {}
 
         func autocompleteTags(prefix: String) -> [Tag] {
-            let needle = prefix.lowercased()
-            return tags.filter { $0.name.lowercased().hasPrefix(needle) }
+            tags.autocomplete(prefix: prefix)
         }
     }
 #endif

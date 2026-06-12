@@ -60,11 +60,6 @@ final class ExtensionTagRepository: TagAutocompleting {
     }
 
     func autocompleteTags(prefix: String) -> [Tag] {
-        let needle = prefix.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !needle.isEmpty else {
-            return []
-        }
-
-        return tags.filter { $0.name.lowercased().hasPrefix(needle) }
+        tags.autocomplete(prefix: prefix)
     }
 }

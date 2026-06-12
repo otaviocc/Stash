@@ -65,15 +65,10 @@ final class TagRepository: TagAutocompleting {
         hasLoaded = true
     }
 
-    /// Returns cached tags whose name has the given prefix (case-insensitive). Synchronous and
-    /// local — it never performs a request.
+    /// Returns cached tags matching the given prefix (case-insensitive, per-segment). Synchronous
+    /// and local — it never performs a request.
     func autocompleteTags(prefix: String) -> [Tag] {
-        let needle = prefix.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !needle.isEmpty else {
-            return []
-        }
-
-        return tags.filter { $0.name.lowercased().hasPrefix(needle) }
+        tags.autocomplete(prefix: prefix)
     }
 
     func invalidateCache() {
