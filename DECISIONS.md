@@ -4074,3 +4074,54 @@ foreground/reconnect only, never while locked.
 - **Scope.** `KeychainStore.swift` (protection class) and `AuthRepository.swift` (guard). No backend,
   web, extension-logic, or scheduler changes. iOS build succeeds; both lints clean (the app has no unit
   tests by design).
+
+## Account & Smart View screens moved onto native grouped Forms
+
+The native apps' **Settings → Account** screen and the **Smart View editor** read like flat HTML
+forms rather than native iOS/macOS UI — a complaint that held on iPhone, iPad, and macOS while the web
+frontend rendered the same features cleanly. Root cause: both were built as a custom
+`ScrollView { VStack(spacing:) { … } }` of `.roundedBorder` text fields and `.buttonStyle(.bordered)`
+buttons stacked on a flat background, with no row grouping — and Account was *pushed inside*
+`SettingsView`'s grouped `Form`, so the mismatch was jarring. The rest of the app (the iOS
+`SettingsView`, the shared cross-platform `BookmarkDetailView`) already uses grouped `Form`/`Section`,
+and `PlatformModifiers` already carried the cross-platform glue (`formButtonRowStyle`,
+`inlineNavigationTitleStyle`). The fix was to adopt that existing pattern, not invent anything.
+
+- **✅ `AccountSettingsView` is a grouped `Form`.** Two `Section`s (Change Password, Two-Factor
+  Authentication); plain `SecureField`/`TextField` rows (no `.roundedBorder`); the "At least 12
+  characters" hint and the success/error messages live in `Section` footers; buttons use
+  `formButtonRowStyle()` / `formButtonRowStyle(isDestructive:)`. The `makeField`/`FieldLabel`/
+  `SettingsSectionHeader` custom chrome is gone from this file. The `TwoFactorEnrollView` sheet is
+  unchanged (it is a centered sheet, already native).
+- **✅ `SmartViewFormView` is a grouped `Form` with native rule rows.** A Name section, then a
+  Conditions section whose first row is the All/Any `Match` picker, the condition rows, and an **Add
+  Condition** button row. Deletion is platform-native: iOS uses swipe (`.onDelete`), and macOS — where
+  lists have no swipe gesture — shows a visible trailing red minus button per row (disabled at the last
+  row); both keep a right-click/long-press context-menu delete. The old per-row `minus.circle`/
+  `plus.circle` buttons (and `ConditionRowView`'s `onRemove`/`onAdd`/`canRemove`) are gone, since add
+  now lives in the section's Add-Condition row. This matches Apple's Mail/Music rule editors. Value
+  editors keep the type-driven `valueKind` switch (tag chips, date picker, duration amount+unit,
+  Yes/No), now borderless in-row (the small duration amount field keeps its border beside the segmented
+  unit picker).
+- **✅ macOS General Settings tab converted too, for a consistent Settings window.** `GeneralSettingsView`
+  (in `MacSettingsView`) became a grouped `Form` — `Section("Server")` with `LabeledContent`,
+  `SyncStatusSection()` reused directly (it was already a `Form` section), and a `formButtonRowStyle`
+  Sign Out — so all three macOS Settings tabs (General, Account, Smart Views) match.
+- **✅ `SmartViewManagementView` New affordance is platform-correct.** iOS gets a toolbar `+`
+  (`smartViewNewToolbar`, a no-op on macOS), because on iOS the screen is pushed in a navigation stack;
+  macOS keeps the in-content prominent button, because a `Settings` tab has no toolbar surface. The
+  `#if` lives in a leaf `View` extension rather than mid-modifier-chain (which SwiftFormat over-indents
+  and slows type-checking).
+- **✅ Dead `SettingsSectionHeader` removed.** Moving Account and the macOS General tab to grouped
+  `Form`s left `SettingsSectionHeader` with no callers (it only styled the old custom-`VStack` section
+  titles), so the file was deleted. `FieldLabel` stays — it is still used by the add/edit bookmark
+  forms (`AddBookmarkView`, `EditBookmarkView`, `TagSummarySection`).
+- **✅ Condition deletion is consistent at one-row minimum.** A Smart View must keep ≥1 condition (as
+  before, and as Apple's Mail/Music rule editors enforce): every delete affordance is guarded the same
+  way — iOS swipe via `.deleteDisabled(rows.count <= 1)`, the context-menu item and the macOS minus
+  button via `.disabled(rows.count <= 1)`.
+- **Scope.** Four app view files (`AccountSettingsView`, `SmartViewFormView`, `MacSettingsView`,
+  `SmartViewManagementView`) plus the deleted `SettingsSectionHeader.swift`; reuses existing
+  `PlatformModifiers` helpers. No model, repository, StashKit, backend, web, or extension changes —
+  feature behavior is identical, so PRODUCT.md is unchanged. Both app platforms build; SwiftFormat
+  `--lint` idempotent and SwiftLint clean.

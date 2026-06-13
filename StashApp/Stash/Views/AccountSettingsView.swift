@@ -62,15 +62,11 @@ struct AccountSettingsView: View {
     // MARK: Content
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
-                makeChangePasswordSection()
-                makeTwoFactorSection()
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        Form {
+            makeChangePasswordSection()
+            makeTwoFactorSection()
         }
-        .groupedBackgroundStyle()
+        .formStyle(.grouped)
         .task {
             await loadUser()
         }
@@ -83,53 +79,44 @@ struct AccountSettingsView: View {
 
     // MARK: Content Methods
 
-    private func makeField(_ label: String, @ViewBuilder field: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            FieldLabel(text: label)
-            field()
+    private func makeChangePasswordSection() -> some View {
+        Section {
+            SecureField("Current password", text: $currentPassword)
+                .passwordFieldStyle()
+
+            SecureField("New password", text: $newPassword)
+                .passwordFieldStyle()
+
+            SecureField("Confirm new password", text: $confirmPassword)
+                .passwordFieldStyle()
+
+            Button("Change Password", action: changePassword)
+                .formButtonRowStyle()
+                .disabled(!canChangePassword)
+        } header: {
+            Text("Change Password")
+        } footer: {
+            makeChangePasswordFooter()
         }
     }
 
-    private func makeChangePasswordSection() -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SettingsSectionHeader(title: "Change Password")
-
-            makeField("Current password") {
-                SecureField("Current password", text: $currentPassword)
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            makeField("New password") {
-                SecureField("New password", text: $newPassword)
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            makeField("Confirm new password") {
-                SecureField("Confirm new password", text: $confirmPassword)
-                    .textFieldStyle(.roundedBorder)
-            }
-
+    @ViewBuilder
+    private func makeChangePasswordFooter() -> some View {
+        if let passwordMessage {
+            Text(passwordMessage)
+                .foregroundStyle(passwordSucceeded ? .green : .red)
+        } else {
             Text("At least \(Self.minimumPasswordLength) characters.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            if let passwordMessage {
-                Text(passwordMessage)
-                    .font(.footnote)
-                    .foregroundStyle(passwordSucceeded ? .green : .red)
-            }
-
-            Button("Change Password", action: changePassword)
-                .buttonStyle(.bordered)
-                .disabled(!canChangePassword)
-                .padding(.top, 4)
         }
     }
 
     private func makeTwoFactorSection() -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SettingsSectionHeader(title: "Two-Factor Authentication")
+        Section {
             makeTwoFactorContent()
+        } header: {
+            Text("Two-Factor Authentication")
+        } footer: {
+            makeTwoFactorFooter()
         }
     }
 
@@ -138,34 +125,28 @@ struct AccountSettingsView: View {
         if isLoadingUser {
             ProgressView()
         } else if user?.isTOTPEnabled == true {
-            Text("Two-factor authentication is on.")
-                .font(.body)
-                .foregroundStyle(.secondary)
+            LabeledContent("Status", value: "On")
 
-            makeField("Current 6-digit code") {
-                TextField("Current 6-digit code", text: $disableCode)
-                    .textFieldStyle(.roundedBorder)
-                    .oneTimeCodeFieldStyle()
-            }
+            TextField("Current 6-digit code", text: $disableCode)
+                .oneTimeCodeFieldStyle()
 
             Button("Disable Two-Factor", role: .destructive, action: disableTwoFactor)
-                .buttonStyle(.bordered)
-                .tint(.red)
+                .formButtonRowStyle(isDestructive: true)
                 .disabled(disableCode.isEmpty || isDisabling)
         } else {
-            Text("Two-factor authentication is off.")
-                .font(.body)
-                .foregroundStyle(.secondary)
+            LabeledContent("Status", value: "Off")
 
             Button("Enable Two-Factor") {
                 showingEnroll = true
             }
-            .buttonStyle(.bordered)
+            .formButtonRowStyle()
         }
+    }
 
+    @ViewBuilder
+    private func makeTwoFactorFooter() -> some View {
         if let twoFactorMessage {
             Text(twoFactorMessage)
-                .font(.footnote)
                 .foregroundStyle(.red)
         }
     }

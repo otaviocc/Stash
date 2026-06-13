@@ -49,7 +49,9 @@ struct SmartViewManagementView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            makeNewButton()
+            #if os(macOS)
+                makeNewButton()
+            #endif
             makeContent()
         }
         .navigationTitle("Smart Views")
@@ -97,20 +99,23 @@ struct SmartViewManagementView: View {
                 errorMessage = error.stashUserMessage
             }
         }
+        .smartViewNewToolbar { presentedForm = .create }
     }
 
     // MARK: Content Methods
 
-    private func makeNewButton() -> some View {
-        Button {
-            presentedForm = .create
-        } label: {
-            Label("New Smart View", systemImage: "plus")
+    #if os(macOS)
+        private func makeNewButton() -> some View {
+            Button {
+                presentedForm = .create
+            } label: {
+                Label("New Smart View", systemImage: "plus")
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.horizontal)
+            .padding(.vertical, 12)
         }
-        .buttonStyle(.borderedProminent)
-        .padding(.horizontal)
-        .padding(.vertical, 12)
-    }
+    #endif
 
     @ViewBuilder
     private func makeContent() -> some View {
@@ -185,6 +190,29 @@ struct SmartViewManagementView: View {
                 errorMessage = error.stashUserMessage
             }
         }
+    }
+}
+
+// MARK: - New Smart View Toolbar
+
+private extension View {
+
+    /// Adds a "New Smart View" toolbar button on iOS, where this screen is pushed in a navigation
+    /// stack with a toolbar; a no-op on macOS, where it is a `Settings` tab with no toolbar surface
+    /// (the in-content `makeNewButton` provides the affordance there instead).
+    @ViewBuilder
+    func smartViewNewToolbar(action: @escaping () -> Void) -> some View {
+        #if os(iOS)
+            toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: action) {
+                        Label("New Smart View", systemImage: "plus")
+                    }
+                }
+            }
+        #else
+            self
+        #endif
     }
 }
 

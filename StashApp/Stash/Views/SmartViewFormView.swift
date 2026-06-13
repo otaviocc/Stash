@@ -96,16 +96,11 @@ struct SmartViewFormView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    makeNameField()
-                    makeMatchRow()
-                    makeConditionsList()
-                    makeErrorMessage()
-                }
-                .padding()
+            Form {
+                makeNameSection()
+                makeConditionsSection()
             }
-            .groupedBackgroundStyle()
+            .formStyle(.grouped)
             .navigationTitle(isEditing ? "Edit Smart View" : "New Smart View")
             .inlineNavigationTitleStyle()
             .toolbar {
@@ -129,40 +124,79 @@ struct SmartViewFormView: View {
 
     // MARK: Content Methods
 
-    private func makeNameField() -> some View {
-        TextField("Name", text: $name)
-            .textFieldStyle(.roundedBorder)
+    private func makeNameSection() -> some View {
+        Section {
+            TextField("Name", text: $name)
+        }
+    }
+
+    private func makeConditionsSection() -> some View {
+        Section {
+            makeMatchRow()
+            makeConditionRows()
+            makeAddConditionButton()
+        } header: {
+            Text("Conditions")
+        } footer: {
+            makeErrorMessage()
+        }
     }
 
     private func makeMatchRow() -> some View {
-        HStack(spacing: 6) {
-            Text("Match")
-
-            Picker("Match", selection: $matchMode) {
-                ForEach(MatchMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
-                }
+        Picker("Match", selection: $matchMode) {
+            ForEach(MatchMode.allCases) { mode in
+                Text(mode.label).tag(mode)
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .fixedSize()
-
-            Text("of the following rules:")
         }
+        .pickerStyle(.menu)
     }
 
-    private func makeConditionsList() -> some View {
-        VStack(spacing: 10) {
-            ForEach($rows) { $row in
-                ConditionRowView(
-                    row: $row,
-                    tagStore: environment.tagRepository,
-                    canRemove: rows.count > 1,
-                    onRemove: { remove(row) },
-                    onAdd: { addRow(after: row) }
-                )
-            }
+    private func makeConditionRows() -> some View {
+        ForEach($rows) { $row in
+            makeConditionRow($row)
+                .deleteDisabled(rows.count <= 1)
         }
+        .onDelete(perform: removeRows)
+    }
+
+    @ViewBuilder
+    private func makeConditionRow(_ binding: Binding<ConditionRow>) -> some View {
+        let row = ConditionRowView(row: binding, tagStore: environment.tagRepository)
+            .contextMenu {
+                Button(role: .destructive) {
+                    remove(binding.wrappedValue)
+                } label: {
+                    Label("Delete Condition", systemImage: "trash")
+                }
+                .disabled(rows.count <= 1)
+            }
+
+        #if os(macOS)
+            HStack(spacing: 8) {
+                row
+
+                Button {
+                    remove(binding.wrappedValue)
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .foregroundStyle(rows.count > 1 ? .red : .secondary)
+                }
+                .buttonStyle(.borderless)
+                .disabled(rows.count <= 1)
+                .accessibilityLabel("Delete Condition")
+            }
+        #else
+            row
+        #endif
+    }
+
+    private func makeAddConditionButton() -> some View {
+        Button {
+            rows.append(ConditionRow())
+        } label: {
+            Label("Add Condition", systemImage: "plus")
+        }
+        .formButtonRowStyle()
     }
 
     @ViewBuilder
@@ -170,7 +204,6 @@ struct SmartViewFormView: View {
         if let errorMessage {
             Text(errorMessage)
                 .foregroundStyle(.red)
-                .font(.footnote)
         }
     }
 
@@ -180,14 +213,8 @@ struct SmartViewFormView: View {
         rows.removeAll { $0.id == row.id }
     }
 
-    private func addRow(after row: ConditionRow) {
-        guard let index = rows.firstIndex(where: { $0.id == row.id }) else {
-            rows.append(ConditionRow())
-
-            return
-        }
-
-        rows.insert(ConditionRow(), at: index + 1)
+    private func removeRows(at offsets: IndexSet) {
+        rows.remove(atOffsets: offsets)
     }
 
     private func save() {
@@ -237,6 +264,13 @@ private enum MatchMode: String, CaseIterable, Identifiable {
 
     var id: String {
         rawValue
+    }
+
+    var label: String {
+        switch self {
+        case .all: "All"
+        case .any: "Any"
+        }
     }
 }
 
@@ -326,9 +360,6 @@ private struct ConditionRowView: View {
     // MARK: Properties
 
     let tagStore: any TagAutocompleting
-    let canRemove: Bool
-    let onRemove: () -> Void
-    let onAdd: () -> Void
 
     // MARK: Computed Properties
 
@@ -344,8 +375,7 @@ private struct ConditionRowView: View {
     }
 
     /// Whether the row's controls fit on one line (regular width / macOS). A compact-width iPhone
-    /// stacks the value editor under the type popup so a long type label can't clip the value or
-    /// the remove / add buttons.
+    /// stacks the value editor under the type popup so a long type label can't clip the value.
     private var isSingleLine: Bool {
         #if os(iOS)
             horizontalSizeClass != .compact
@@ -376,22 +406,16 @@ private struct ConditionRowView: View {
         HStack(spacing: 8) {
             makeTypePicker()
 
-            makeValueEditor()
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer(minLength: 8)
 
-            makeRowButtons()
+            makeValueEditor()
         }
     }
 
     private func makeStackedLayout() -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                makeTypePicker()
-
-                Spacer(minLength: 0)
-
-                makeRowButtons()
-            }
+            makeTypePicker()
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             makeValueEditor()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -414,7 +438,7 @@ private struct ConditionRowView: View {
         switch row.type.valueKind {
         case .text, .tag:
             TextField(row.type.valueKind == .tag ? "tag" : "value", text: $row.text)
-                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(isSingleLine ? .trailing : .leading)
                 .lowercasedFieldStyle()
                 .accessibilityLabel(row.type.title)
 
@@ -440,6 +464,7 @@ private struct ConditionRowView: View {
         HStack(spacing: 8) {
             TextField("Amount", value: $row.duration.amount, format: .number)
                 .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
                 .numberFieldStyle()
                 .frame(width: 64)
                 .accessibilityLabel("\(row.type.title) amount")
@@ -458,26 +483,6 @@ private struct ConditionRowView: View {
             .labelsHidden()
             .fixedSize()
         }
-    }
-
-    private func makeRowButtons() -> some View {
-        HStack(spacing: 8) {
-            Button(action: onRemove) {
-                Image(systemName: "minus.circle")
-                    .foregroundStyle(.secondary)
-            }
-            .disabled(!canRemove)
-            .opacity(canRemove ? 1 : 0.3)
-            .accessibilityLabel("Remove Condition")
-
-            Button(action: onAdd) {
-                Image(systemName: "plus.circle")
-                    .foregroundStyle(Color.accentColor)
-            }
-            .accessibilityLabel("Add Condition")
-        }
-        .buttonStyle(.plain)
-        .font(.title3)
     }
 
     @ViewBuilder

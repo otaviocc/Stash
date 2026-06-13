@@ -95,54 +95,41 @@
         // MARK: Content
 
         var body: some View {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 32) {
-                    makeServerSection()
-                    makeSyncSection()
-                    makeSignOutButton()
-                }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Form {
+                makeServerSection()
+                SyncStatusSection()
+                makeSignOutSection()
             }
+            .formStyle(.grouped)
         }
 
         // MARK: Content Methods
 
         private func makeServerSection() -> some View {
-            VStack(alignment: .leading, spacing: 16) {
-                SettingsSectionHeader(title: "Server")
-                VStack(alignment: .leading, spacing: 6) {
-                    FieldLabel(text: "Server URL")
+            Section {
+                LabeledContent("URL") {
                     Text(settings.serverURL)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
                         .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("Sign out to connect to a different server.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
+            } header: {
+                Text("Server")
+            } footer: {
+                Text("Sign out to connect to a different server.")
             }
         }
 
-        private func makeSyncSection() -> some View {
-            VStack(alignment: .leading, spacing: 16) {
-                SettingsSectionHeader(title: "Sync")
-                SyncStatusRows()
-            }
-        }
-
-        private func makeSignOutButton() -> some View {
-            Button(action: signOut) {
-                if isSigningOut {
-                    ProgressView()
-                } else {
-                    Text("Sign Out")
+        private func makeSignOutSection() -> some View {
+            Section {
+                Button(action: signOut) {
+                    if isSigningOut {
+                        ProgressView()
+                    } else {
+                        Text("Sign Out")
+                    }
                 }
+                .formButtonRowStyle(isDestructive: true)
+                .disabled(isSigningOut)
             }
-            .buttonStyle(.bordered)
-            .tint(.red)
-            .disabled(isSigningOut)
         }
 
         // MARK: Functions
