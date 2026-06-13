@@ -90,6 +90,7 @@ final class KeychainStore: KeychainStoreProtocol, @unchecked Sendable {
             }
 
             var addQuery = query
+            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
             addQuery[kSecValueData as String] = data
             _ = itemAdder(addQuery as CFDictionary, nil)
         }

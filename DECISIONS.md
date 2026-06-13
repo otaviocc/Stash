@@ -4036,3 +4036,41 @@ these can't.
   `retrySetup()`). No new sync logic, no `ConnectivityMonitor` change (server reachability can't be
   probed cheaply), no backend/web/extension changes. StashKit builds + 23 tests pass; both app
   platforms build; lints clean.
+
+## iOS background refresh logged the user out (Keychain protection class)
+
+iOS users were involuntarily logged out after enabling background app refresh; disabling it stopped
+the logouts, and macOS was never affected. Root cause: tokens were stored with the Keychain's default
+`kSecAttrAccessibleWhenUnlocked` protection class, but iOS fires the `cc.otavio.stash.backgroundSync`
+`BGAppRefreshTask` while the device is **locked** — at which point the Keychain returns nothing.
+`TokenManager.isAccessTokenExpiringSoon()` treats a nil access token as "expiring soon", so a refresh
+is attempted; the refresh token also reads nil, and `AuthRepository.performRefresh()`'s guard called
+`clearSession()` and threw. The user woke up to the login screen. macOS is unaffected because
+`.backgroundTask(.appRefresh)` and `BackgroundSyncScheduler` are iOS-only — macOS syncs on
+foreground/reconnect only, never while locked.
+
+- **✅ Tokens are now written with `kSecAttrAccessibleAfterFirstUnlock` (root cause).**
+  `KeychainStore`'s `wrappedValue` setter adds `kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock`
+  to the **add query only** — it is a write attribute, not a search criterion, so it must not go in the
+  shared `baseQuery()` that also backs reads and deletes. The item stays readable in a locked-device
+  background context once the device has been unlocked at least once since boot (standard for tokens
+  used in background tasks). Because `KeychainStore` lives in `Common/`, the app and the Share Extension
+  both inherit it. The setter's delete-then-add migrates existing `WhenUnlocked` items automatically on
+  the next token rotation (≤15 min of foreground use, given the 15-min access-token lifetime); the
+  delete matches by account/class/group regardless of the old protection class, so no orphaned item is
+  left behind.
+- **✅ A nil refresh token no longer clears the session (defense in depth).** `performRefresh()`'s guard
+  previously called `clearSession()` when the refresh token read nil. That contradicted this method's
+  own contract (see *Token refresh — concurrent-refresh race*): only a **definitive** auth failure
+  clears the session. A nil read is transient — a locked-device Keychain, or an un-migrated token before
+  the fix above lands. The guard now just `throw`s `AppError.sessionExpired` without clearing. Genuinely
+  dead tokens still log out correctly: a rejected *access* token surfaces in `AuthorizedClient.run`,
+  which forces one refresh; a rejected *refresh* token hits `performRefresh()`'s catch block, which
+  clears the session on `tokenExpired`/`tokenInvalid` (with the token-still-matches re-read guard). The
+  `sessionExpired` throw is an `AppError`, not a `StashAPIError`, so `AuthorizedClient.run`'s
+  retry-on-`isRetryableAuthFailure` does not catch it — no refresh loop. Worst case (Keychain corruption
+  mid-session) is recoverable on next launch, where `init` reconciles `isAuthenticated` from the refresh
+  token.
+- **Scope.** `KeychainStore.swift` (protection class) and `AuthRepository.swift` (guard). No backend,
+  web, extension-logic, or scheduler changes. iOS build succeeds; both lints clean (the app has no unit
+  tests by design).

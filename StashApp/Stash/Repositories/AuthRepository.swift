@@ -236,7 +236,6 @@ final class AuthRepository: SessionRefreshing {
     /// spurious logout — the next request picks up the rotated token instead.
     private func performRefresh() async throws {
         guard let client = clientProvider.client(), let refreshToken = tokenManager.refreshToken else {
-            clearSession()
             throw AppError.sessionExpired
         }
 
