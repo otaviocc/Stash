@@ -13,7 +13,7 @@
 // and the exported drag-and-drop UTType. The runtime reads it back from the `STBundleBase` Info.plist
 // key, so the build settings and the Swift constants can never drift apart.
 
-STASH_BUNDLE_PREFIX = cc.otavio
+STASH_BUNDLE_PREFIX = com.example.otavio
 DEVELOPMENT_TEAM = S9X9XY5GF8
 
 #include? "Stash.local.xcconfig"
