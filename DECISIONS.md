@@ -1287,8 +1287,8 @@ Glass adopted automatically by building against the 26 SDKs).
   the extensions) and `StashApp/Stash/Shared/` (app code shared between iOS and
   macOS). The outer one is now `StashApp/Common/`. The inner `Stash/Shared/` was
   then flattened up into
-`StashApp/Stash/` directly (`Models/`, `Repositories/`, `Views/`,
-`AppEnvironment`, `AppSettings`) — once the outer folder was `Common/`, the
+`StashApp/Stash/` directly (`Repositories/`, `Sync/`, `Support/`, `Views/`,
+`Persistence/`, `AppEnvironment`, `AppSettings`) — once the outer folder was `Common/`, the
 `Shared/` subfolder name was redundant.
 
 ## Merged the iOS and macOS targets into multiplatform targets
@@ -1321,6 +1321,38 @@ Glass adopted automatically by building against the 26 SDKs).
   that breaks `xcodebuild`), so target settings, target deletion, and the
   conditional build settings were applied programmatically and verified by
   building both destinations from the one scheme.
+
+## StashApp — fixed miscategorized files within `Stash/`
+
+- **✅ The macro `Common/` / `Stash/` / `StashShareExtension/` split was kept — it
+  encodes Xcode target membership, not taste.** Membership in the synchronized
+  folder groups is folder-level: `Common/` → all four targets, `Stash/` → both
+  apps, `StashShareExtension/` → both extensions. "Files in `Stash/` look shared,
+  could they move to `Common/`?" — no: `Stash/` *is* the iOS↔macOS shared layer,
+  and its files (stateful `@Observable` repositories, the SwiftData store, the
+  sync engine, app UI) are app-only by design. The Share Extension is
+  process-isolated and online-only; it builds its own lightweight repositories and
+  references only genuine shared types already in `Common/`. Pulling app code into
+  `Common/` would bloat the extension binary with code it can't use.
+- **✅ Three files were moved to the subfolder matching what they *are* (pure disk
+  moves within the `Stash/` group — same target membership, no `.pbxproj` edit, no
+  in-file changes; synchronized folder groups pick up the moves automatically):**
+  - `Stash/Models/` → **`Stash/Persistence/`** for both `LocalStore` and
+    `LocalBookmark`. `LocalStore` owns the SwiftData `ModelContainer` and vends
+    queries — a persistence service, not a model; `LocalBookmark` is a real
+    `@Model` but a persistence *entity*, distinct from the domain DTOs in
+    `Common/Models/`. Grouping the SwiftData layer together (parallel to `Sync/`)
+    also removes the misleading second "Models" folder alongside `Common/Models/`.
+  - `BookmarkFilter.swift`: `Repositories/` → **`Support/`** — a stateless `enum`
+    of static query/sort helpers mirroring the backend's SQL semantics over local
+    `Bookmark` values; not a repository. App-only, so it stays in `Stash/`.
+  - `SyncModifiers.swift`: `Support/` → **`Views/`** — a SwiftUI `ViewModifier`,
+    same kind as `BookmarkTagDropModifier` which already lives in `Views/`.
+- **Left as-is:** `Common/Support/AddBookmarkStores.swift` (the
+  `BookmarkCreating`/`TagAutocompleting` protocols) — correctly in `Common/`; only
+  the filename is slightly imprecise. The duplicated token-refresh logic between
+  `AuthRepository` and `ExtensionSession` is a known dedup candidate but is a
+  behavioral refactor, deliberately out of scope for this organizational pass.
 
 ---
 
