@@ -1354,6 +1354,39 @@ Glass adopted automatically by building against the 26 SDKs).
   `AuthRepository` and `ExtensionSession` is a known dedup candidate but is a
   behavioral refactor, deliberately out of scope for this organizational pass.
 
+## Backend — reorganized `Sources/App/` by surface (API / Web / Core)
+
+- **🔁 Switched the backend source layout from by-kind to by-surface.** It was grouped by kind
+  (`Controllers/`, `DTOs/`, `Models/`, `Services/`, …), so the JSON-API code and the Leaf web-UI
+  code were interleaved inside each folder and distinguished only by a filename suffix
+  (`*WebController`, `*WebDTOs`). The tree is now three top-level buckets:
+  - **`API/`** — the JSON `/api/v1` contract the clients (apps, CLI, extension) depend on:
+    `Controllers/` (Auth, User, Bookmark, Tag, SmartView, Metadata, Admin, and Favicon — it lives
+    at `/api/v1/favicons`) and `DTOs/` (the `Content`-codable wire shapes). Mirrors
+    `Public/openapi.yaml`, which already describes exactly this surface.
+  - **`Web/`** — the session-auth Leaf UIs: `Controllers/` (`AdminWebController`,
+    `AppWebController`, `LandingController`) and `DTOs/` (the `*WebDTOs` render contexts +
+    `SiteSettingsDTOs`/`SiteChrome`, used only in page renders).
+  - **`Core/`** — the shared domain used by both surfaces, keeping the kind-subfolders: `Models/`,
+    `Migrations/`, `Services/`, `Auth/`, `ImportExport/`, `Extensions/`, `Middleware/`, `Errors/`.
+    `QueryBuilder+Search` (shared so the API and web bookmark queries never diverge) sits in
+    `Core/Extensions/`; `Middleware/` and `Errors/` stay together as cross-cutting infrastructure
+    (`StashErrorMiddleware` is installed globally in `configure.swift`; `APIError` is thrown
+    app-wide).
+- **✅ Fixed the `Services/` grab-bag** with a new **`Core/Support/`** for the three files that
+  were not services: `AppVersion` (a `VERSION`-file reader), `DomainExtractor` (stateless URL→domain
+  parsing), and `AccentTheme` (a value type holding the ten theme palettes). `Core/Services/` now
+  holds only genuine services (`AdminSeeder`, `FaviconFetcher`, `MetadataFetcher`,
+  `SiteSettingsService`, `TagRenamer`, `TagDeleter`).
+- **✅ Organizational only — zero behavior change.** `App` is a single Swift module and SwiftPM
+  compiles every `.swift` under the target recursively, so the move needed **no `Package.swift`
+  change, no `import` changes, and no `openapi.yaml` edit** (the HTTP surface is unchanged). Done as
+  pure `git mv`s; verified by a clean build, all 162 tests passing, and clean SwiftFormat/SwiftLint.
+  The split does **not** enforce boundaries (Swift has no folder-scoped imports) — its value is
+  navigability. **Left as-is:** the Leaf templates in `Resources/Views/` (a separate resource dir,
+  already grouped by `app-`/admin naming; moving them would need Leaf config changes) and the
+  1349-line `AppWebController` (breaking up the monolith is a separate refactor).
+
 ---
 
 ## Editable server URL on the login screen
