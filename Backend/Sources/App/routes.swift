@@ -66,7 +66,13 @@ func routes(_ app: Application) throws {
         }
     )
     let frontend = app.grouped("app").grouped(appSessions)
-    try frontend.register(collection: AppWebController())
+    try frontend.register(collection: AppAuthWebController())
+
+    let authed = frontend.grouped(UserSessionMiddleware())
+    try authed.register(collection: BookmarkWebController())
+    try authed.register(collection: SmartViewWebController())
+    try authed.register(collection: TagWebController())
+    try authed.register(collection: SettingsWebController())
 
     try app.register(collection: LandingController())
 }

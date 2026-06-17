@@ -43,19 +43,6 @@ struct AdminWebController: RouteCollection {
     private static let dummyHash =
         "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
 
-    // MARK: Static Functions
-
-    private static func message(for ok: String?) -> String? {
-        switch ok {
-        case "created": "User created."
-        case "suspended": "User suspended; their sessions were revoked."
-        case "unsuspended": "User reactivated."
-        case "password-reset": "Password reset; the user's sessions were revoked."
-        case "totp_reset": "Two-factor authentication reset; the user must set it up again and was signed out."
-        default: nil
-        }
-    }
-
     // MARK: Functions
 
     func boot(routes: RoutesBuilder) throws {
@@ -89,8 +76,8 @@ struct AdminWebController: RouteCollection {
         let username = form.username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         func failure() async throws -> Response {
-            try await render(
-                req, "login",
+            try await req.renderHTML(
+                "login",
                 LoginPageContext(
                     title: "Sign in",
                     error: "Invalid username, password, or 2FA code.",
@@ -175,8 +162,8 @@ struct AdminWebController: RouteCollection {
         let username = form.username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         func formError(_ message: String) async throws -> Response {
-            try await render(
-                req, "user-new",
+            try await req.renderHTML(
+                "user-new",
                 NewUserContext(
                     title: "New user", adminUsername: admin.username, error: message, username: username,
                     chrome: req.siteChrome()
@@ -215,7 +202,7 @@ struct AdminWebController: RouteCollection {
             return req.redirect(to: "/admin/users")
         }
 
-        let message = Self.message(for: req.query[String.self, at: "ok"])
+        let message = FlashMessage.admin(for: req.query[String.self, at: "ok"])
         return try await renderDetail(req, user: user, error: nil, message: message)
     }
 
@@ -383,7 +370,7 @@ struct AdminWebController: RouteCollection {
             message: message,
             chrome: req.siteChrome()
         )
-        return try await render(req, "appearance", context, status: status)
+        return try await req.renderHTML("appearance", context, status: status)
     }
 
     private func loadUser(_ req: Request) async throws -> User? {
@@ -411,20 +398,7 @@ struct AdminWebController: RouteCollection {
             message: message,
             chrome: req.siteChrome()
         )
-        return try await render(req, "user-detail", context, status: status)
-    }
-
-    private func render(
-        _ req: Request,
-        _ template: String,
-        _ context: some Encodable,
-        status: HTTPResponseStatus = .ok
-    ) async throws -> Response {
-        let view: View = try await req.view.render(template, context)
-        let response = Response(status: status)
-        response.headers.contentType = .html
-        response.body = .init(buffer: view.data)
-        return response
+        return try await req.renderHTML("user-detail", context, status: status)
     }
 }
 

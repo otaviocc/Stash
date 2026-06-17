@@ -1387,6 +1387,37 @@ Glass adopted automatically by building against the 26 SDKs).
   already grouped by `app-`/admin naming; moving them would need Leaf config changes) and the
   1349-line `AppWebController` (breaking up the monolith is a separate refactor).
 
+## Backend — decomposed `AppWebController` into per-domain controllers + presenters
+
+- **🔁 The 1349-line `AppWebController` monolith was split into one `RouteCollection` per domain,**
+  mirroring the API side (which already had `BookmarkController`, `SmartViewController`, etc.). The
+  `/app` frontend is now `AppAuthWebController` (login/logout), `BookmarkWebController`
+  (`GET /app` + `/app/bookmarks/*`), `SmartViewWebController`, `TagWebController`, and
+  `SettingsWebController` (settings/2FA/import/export/theme/danger-zone). `AppWebController` is
+  **deleted**; `routes.swift` builds the `/app` session group + the `UserSessionMiddleware` group once
+  and registers the per-domain collections on it — the same shape as the API's `protected` group.
+- **✅ Good design for types — three roles separated.** Controllers are thin request orchestrators;
+  pure presentation lives in `Web/Presenters/` `enum` namespaces (`BookmarkPresenter`,
+  `SmartViewPresenter`, `TagPresenter` — no `Request`/DB, just model→Leaf-context shaping and URL/label
+  building); cross-controller glue lives in `Web/Support/` (`Request.renderHTML` extension replacing the
+  duplicated `render()`, `FlashMessage` for `?ok=`/`?notice=` copy, `AppSidebarLoader` for the shared
+  sidebar load, `KnownTags` for tag-autocomplete JSON). The smart-view helpers keep delegating to Core
+  (`SmartViewCondition.validated()`, `SmartViewDuration`) — no domain logic was duplicated.
+- **✅ Folded `BookmarkListPage` into `AppSidebarLoader` + presenters.** The plan named a separate
+  `BookmarkListPage` for the list/results pages; in practice the only logic the bookmark list and the
+  Smart View results page truly share is the sidebar load (now `AppSidebarLoader`) and row mapping
+  (`BookmarkPresenter.row`) — the rest of each `AppBookmarksContext` legitimately differs (search/tag
+  filters vs. a saved query). A dedicated page type would have been a 20-parameter pass-through, so the
+  shared pieces are the loader + presenters instead.
+- **✅ `AdminWebController` de-duplicated in the same pass.** Its byte-identical private `render()` now
+  uses the shared `Request.renderHTML`, and its `message(for:)` moved to `FlashMessage.admin` (the app
+  and admin flash copy now live together in one file, even though the cases differ).
+- **✅ Organizational only — zero behavior change.** Single Swift module, so no `Package.swift`/`import`
+  changes, and the `/app` + `/admin` routes and rendered output are unchanged, so `openapi.yaml` is
+  untouched. Verified by a clean build, all **162 tests** passing (the suite boots the full app, which
+  proves route registration), and clean SwiftFormat/SwiftLint. **Left as-is:** the Leaf templates in
+  `Resources/Views/` (separate resource dir, already grouped by `app-`/admin naming).
+
 ---
 
 ## Editable server URL on the login screen
