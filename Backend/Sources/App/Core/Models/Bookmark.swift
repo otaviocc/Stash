@@ -173,6 +173,21 @@ extension Bookmark {
 
         return (today, week)
     }
+
+    /// Folds a set of bookmarks into per-tag counts: `visible` counts only non-archived bookmarks,
+    /// `total` counts all (and its keys are the user's distinct tag names). The single reducer behind
+    /// the web sidebar, the tag browser, and tag autocomplete.
+    static func tagCounts(in bookmarks: [Bookmark]) -> (visible: [String: Int], total: [String: Int]) {
+        var visible: [String: Int] = [:]
+        var total: [String: Int] = [:]
+        for bookmark in bookmarks {
+            for tag in bookmark.tags {
+                total[tag, default: 0] += 1
+                if !bookmark.isArchived { visible[tag, default: 0] += 1 }
+            }
+        }
+        return (visible, total)
+    }
 }
 
 extension String {

@@ -27,11 +27,6 @@ import Vapor
 /// Unauthenticated auth endpoints (PRD §9.1).
 struct AuthController: RouteCollection {
 
-    // MARK: Static Properties
-
-    private static let dummyHash =
-        "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
-
     // MARK: Static Functions
 
     // MARK: - Helpers
@@ -72,7 +67,7 @@ struct AuthController: RouteCollection {
             .filter(\.$username == input.username.lowercased())
             .first()
         else {
-            _ = try? await req.password.async.verify(input.password, created: Self.dummyHash)
+            _ = try? await req.password.async.verify(input.password, created: User.dummyPasswordHash)
             throw APIError.invalidCredentials
         }
         guard try await req.password.async.verify(input.password, created: user.passwordHash) else {

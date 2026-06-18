@@ -26,17 +26,6 @@ import Foundation
 /// list-page filter/pagination URLs. No request or database access.
 enum BookmarkPresenter {
 
-    // MARK: Static Properties
-
-    static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }()
-
-    // MARK: Static Functions
-
     static func row(from bookmark: Bookmark) throws -> AppBookmarkRow {
         try AppBookmarkRow(
             id: bookmark.requireID().uuidString,
@@ -46,7 +35,7 @@ enum BookmarkPresenter {
             faviconDomain: DomainExtractor.domain(from: bookmark.url),
             tags: bookmark.tags.map { TagLink(name: $0, display: TagPresenter.display($0)) },
             isArchived: bookmark.isArchived,
-            createdAt: dateFormatter.string(from: bookmark.createdAt ?? Date())
+            createdAt: DateFormatter.webDateTime.string(from: bookmark.createdAt ?? Date())
         )
     }
 

@@ -56,8 +56,7 @@ enum AppSidebarLoader {
         let bookmarks = try await Bookmark.query(on: db)
             .filter(\.$user.$id == user.requireID())
             .all()
-        var counts: [String: Int] = [:]
-        var totalCounts: [String: Int] = [:]
+        let (counts, totalCounts) = Bookmark.tagCounts(in: bookmarks)
         var untaggedCount = 0
         var todayCount = 0
         var thisWeekCount = 0
@@ -68,11 +67,6 @@ enum AppSidebarLoader {
                 if created >= today { todayCount += 1 }
 
                 if created >= week { thisWeekCount += 1 }
-            }
-
-            for tag in bookmark.tags {
-                totalCounts[tag, default: 0] += 1
-                if !bookmark.isArchived { counts[tag, default: 0] += 1 }
             }
         }
 

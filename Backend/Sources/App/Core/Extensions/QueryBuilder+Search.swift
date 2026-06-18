@@ -59,7 +59,7 @@ extension QueryBuilder where Model == Bookmark {
     /// Applies the bookmark-list `tag` filter, honoring the internal "Views" sentinels
     /// (`__untagged__`, `__today__`, `__this_week__`) before falling back to a hierarchical prefix
     /// match (`tag` matches the exact tag and its `tag/*` children). Shared by the JSON API
-    /// (`BookmarkController`) and the web frontend (`AppWebController`) so the two never diverge —
+    /// (`BookmarkController`) and the web frontend (`BookmarkWebController`) so the two never diverge —
     /// see `DECISIONS.md`. Pass `boundaries` to reuse a value already computed for sidebar counts.
     @discardableResult
     func filterByTag(

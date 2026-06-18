@@ -31,20 +31,6 @@ import Vapor
 /// password reset (or suspension) invalidates the target's refresh tokens.
 struct AdminWebController: RouteCollection {
 
-    // MARK: Static Properties
-
-    private static let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter
-    }()
-
-    private static let dummyHash =
-        "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
-
-    // MARK: Functions
-
     func boot(routes: RoutesBuilder) throws {
         routes.get("login", use: loginPage)
         routes.post("login", use: login)
@@ -88,7 +74,7 @@ struct AdminWebController: RouteCollection {
         }
 
         guard let user = try await User.query(on: req.db).filter(\.$username == username).first() else {
-            _ = try? await req.password.async.verify(form.password, created: Self.dummyHash)
+            _ = try? await req.password.async.verify(form.password, created: User.dummyPasswordHash)
             return try await failure()
         }
         guard try await req.password.async.verify(form.password, created: user.passwordHash),
@@ -392,7 +378,7 @@ struct AdminWebController: RouteCollection {
             title: user.username,
             adminUsername: admin.username,
             user: user.asRow(),
-            createdAt: Self.dateFormatter.string(from: user.createdAt ?? Date()),
+            createdAt: DateFormatter.webDateTime.string(from: user.createdAt ?? Date()),
             isSelf: isSelf,
             error: error,
             message: message,

@@ -20,17 +20,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import Fluent
+import Foundation
 
-/// Loads a user's distinct tag names as a JSON array string, embedded in the add/edit and Smart View
-/// forms (the `data-known-tags` attribute) to drive client-side tag autocomplete.
-enum KnownTags {
+extension DateFormatter {
 
-    static func json(for user: User, on db: any Database) async throws -> String {
-        let bookmarks = try await Bookmark.query(on: db)
-            .filter(\.$user.$id == user.requireID())
-            .all()
-        let names = Bookmark.tagCounts(in: bookmarks).total.keys.sorted()
-        return TagPresenter.jsonArray(names)
-    }
+    /// Medium date + short time, the shared timestamp rendering across the web UIs (bookmark rows,
+    /// the admin user detail).
+    static let webDateTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
 }

@@ -40,13 +40,7 @@ struct TagWebController: RouteCollection {
             .filter(\.$user.$id == user.requireID())
             .all()
 
-        var counts: [String: Int] = [:]
-        for bookmark in bookmarks {
-            for tag in bookmark.tags {
-                counts[tag, default: 0] += 1
-            }
-        }
-        let tags = counts
+        let tags = Bookmark.tagCounts(in: bookmarks).total
             .map { AppTagCount(name: $0.key, display: TagPresenter.display($0.key), count: $0.value) }
             .sorted { $0.name < $1.name }
 
