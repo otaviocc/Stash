@@ -21,7 +21,6 @@
 // SOFTWARE.
 
 import Foundation
-import StashKit
 
 /// Provides access to the current user's bookmarks, reading from the local SwiftData store.
 ///
@@ -136,11 +135,8 @@ final class BookmarkRepository: BookmarkCreating {
         scheduleSync()
     }
 
-    func fetchMetadata(for url: URL) async throws -> PageMetadata {
-        let client = try await session.authorizedClient()
-        let dto = try await client.run(MetadataRequestFactory.makeFetchRequest(url: url)).value
-
-        return PageMetadata(dto: dto)
+    func fetchMetadata(for url: URL) async -> PageMetadata {
+        await ClientMetadataFetcher.fetch(for: url)
     }
 
     // MARK: - Reads

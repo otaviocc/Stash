@@ -21,7 +21,6 @@
 // SOFTWARE.
 
 import Foundation
-import StashKit
 
 // MARK: - PageMetadata
 
@@ -31,17 +30,4 @@ struct PageMetadata {
     let title: String?
     let description: String?
     let faviconURL: URL?
-}
-
-// MARK: - PageMetadata + DTO
-
-extension PageMetadata {
-
-    init(
-        dto: PageMetadataDTO
-    ) {
-        title = dto.title
-        description = dto.description
-        faviconURL = dto.faviconURL
-    }
 }

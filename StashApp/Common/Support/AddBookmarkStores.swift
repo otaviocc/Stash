@@ -38,7 +38,7 @@ protocol BookmarkCreating: AnyObject {
 
     func fetchMetadata(
         for url: URL
-    ) async throws -> PageMetadata
+    ) async -> PageMetadata
 }
 
 // MARK: - TagAutocompleting

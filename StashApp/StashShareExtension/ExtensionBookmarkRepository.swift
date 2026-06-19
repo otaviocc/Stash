@@ -59,11 +59,8 @@ final class ExtensionBookmarkRepository: BookmarkCreating {
         return Bookmark(dto: dto)
     }
 
-    func fetchMetadata(for url: URL) async throws -> PageMetadata {
-        let client = try await session.authenticatedClient()
-        let dto = try await client.run(MetadataRequestFactory.makeFetchRequest(url: url)).value
-
-        return PageMetadata(dto: dto)
+    func fetchMetadata(for url: URL) async -> PageMetadata {
+        await ClientMetadataFetcher.fetch(for: url)
     }
 
     func deleteBookmark(id: UUID) async throws {

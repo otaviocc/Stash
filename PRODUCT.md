@@ -561,6 +561,17 @@ Stash hands that declared icon (when available) to a detached `FaviconFetcher`
 keyed by domain, rather than storing a per-bookmark `faviconURL`. See §7.8 and
 the Favicon Caching section of `DECISIONS.md`.
 
+**Native clients fetch metadata on-device.** The iOS/macOS app and Share
+Extension do *not* call `POST /api/v1/metadata` for the add-bookmark preview;
+they run the same regex parser locally (`ClientMetadataFetcher`, a verbatim port
+of the backend's `MetadataFetcher`), fetching the target page directly. This
+lets metadata be retrieved even when the Stash backend is unreachable (e.g. away
+from the home-lab network) with no round-trip and no timeout delay. The
+`/api/v1/metadata` endpoint remains for the web UI and the browser extension.
+Favicon *caching* is unaffected — it still happens server-side, keyed by domain,
+when the bookmark reaches the backend (on create/sync), regardless of where the
+title/description preview came from.
+
 ---
 
 ## 11. Import & Export

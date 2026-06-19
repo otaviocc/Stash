@@ -4221,3 +4221,44 @@ and `PlatformModifiers` already carried the cross-platform glue (`formButtonRowS
   `PlatformModifiers` helpers. No model, repository, StashKit, backend, web, or extension changes —
   feature behavior is identical, so PRODUCT.md is unchanged. Both app platforms build; SwiftFormat
   `--lint` idempotent and SwiftLint clean.
+
+## Native clients fetch metadata on-device (out-of-radius add)
+
+The add-bookmark "Fetch metadata" preview was **backend-only**: both the app's `BookmarkRepository`
+and the Share Extension's `ExtensionBookmarkRepository` POSTed to `/api/v1/metadata`, and the server
+did the GET + parse. Away from the home-lab network the backend is unreachable *while the internet is
+still up*, so the preview couldn't work — and, worse, any "try the backend, then fall back locally"
+scheme would have to wait out the client session's request timeout before it could even tell the
+backend was gone, hanging every fetch by seconds. Since the backend's `MetadataFetcher` is a small,
+dependency-free regex parser, it ports to the device unchanged, and the round-trip buys the native
+clients nothing (favicon caching — the one server-side side effect — is triggered separately at create
+time, §7.8/§10).
+
+- **✅ Decision: native clients always fetch metadata locally.** New `ClientMetadataFetcher`
+  (`StashApp/Common/Support/`) is a **verbatim port** of `Backend/.../MetadataFetcher` — same regex
+  patterns, `[.caseInsensitive, .dotMatchesLineSeparators]` options, `<title>`/og:title,
+  `<meta name="description">`/og:description, `<link rel="icon">` with `/favicon.ico` fallback, the same
+  HTML-entity table, and the `nonEmpty`/`defaultFavicon` helpers. It uses an ephemeral `URLSession` with
+  a 5s request timeout (matching the backend), sends the same `User-Agent`/`Accept` headers, decodes
+  UTF-8 (`?? ""`), and **never throws** — on any failure it returns all-nil (or just the favicon
+  fallback), so an add is never blocked. Chosen over backend-first-with-fallback specifically to avoid
+  the timeout delay.
+- **✅ Repositories call it directly.** `BookmarkRepository.fetchMetadata` and
+  `ExtensionBookmarkRepository.fetchMetadata` are now one-liners (`await ClientMetadataFetcher.fetch`),
+  needing no `session`/`StashClient`. The `BookmarkCreating.fetchMetadata` protocol requirement dropped
+  `throws`, and `AddBookmarkView.fetchMetadata` lost its now-dead `do/catch` error branch (the shared
+  form, manual "Fetch" on the app and auto-fetch-on-appear in the extension, is otherwise unchanged).
+- **Favicon caching is unaffected.** It still happens server-side, keyed by domain, when the bookmark
+  reaches the backend on create/sync — `FaviconFetcher.enqueue` runs on `POST /bookmarks` regardless of
+  `fetchMetadata`, and independently of where the title/description preview came from. The preview's
+  little favicon (`MetadataFaviconView`) still loads from the backend's `/api/v1/favicons/:domain`
+  cache, so it stays blank while out of radius (pre-existing; not addressed here). `PageMetadata.faviconURL`
+  from the local path is populated for parity but is otherwise cosmetic.
+- **ATS & privacy.** All four Info.plists already carry `NSAllowsArbitraryLoads`, so direct fetches to
+  arbitrary http(s) sites work from both targets — no plist/entitlement change. Trade-off: the device now
+  contacts the target site directly (revealing its current-network IP) rather than proxying through the
+  home lab — acceptable, and the explicit point of the feature.
+- **Scope.** One new `Common/` file plus edits to two repositories, the `BookmarkCreating` protocol,
+  `AddBookmarkView`, and the preview mock; `/api/v1/metadata` and its OpenAPI entry are untouched (still
+  used by the web UI + browser extension). No StashKit/backend/web changes. Both app platforms build;
+  SwiftFormat `--lint` idempotent and SwiftLint clean. PRODUCT.md §10 updated.

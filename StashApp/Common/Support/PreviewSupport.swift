@@ -96,7 +96,7 @@
             .sample
         }
 
-        func fetchMetadata(for _: URL) async throws -> PageMetadata {
+        func fetchMetadata(for _: URL) async -> PageMetadata {
             .sample
         }
     }

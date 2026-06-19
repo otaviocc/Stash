@@ -299,25 +299,21 @@ struct AddBookmarkView: View {
         fetchTask = Task {
             defer { isFetching = false }
 
-            do {
-                let metadata = try await bookmarkStore.fetchMetadata(for: url)
-                guard !Task.isCancelled else {
-                    return
-                }
+            let metadata = await bookmarkStore.fetchMetadata(for: url)
+            guard !Task.isCancelled else {
+                return
+            }
 
-                if let fetchedTitle = metadata.title, !fetchedTitle.isEmpty {
-                    title = fetchedTitle
-                }
+            if let fetchedTitle = metadata.title, !fetchedTitle.isEmpty {
+                title = fetchedTitle
+            }
 
-                if let fetchedDescription = metadata.description, !fetchedDescription.isEmpty {
-                    description = fetchedDescription
-                }
+            if let fetchedDescription = metadata.description, !fetchedDescription.isEmpty {
+                description = fetchedDescription
+            }
 
-                withAnimation {
-                    fetchedDomain = Bookmark.faviconDomain(for: url)
-                }
-            } catch {
-                errorMessage = error.stashUserMessage
+            withAnimation {
+                fetchedDomain = Bookmark.faviconDomain(for: url)
             }
         }
     }
