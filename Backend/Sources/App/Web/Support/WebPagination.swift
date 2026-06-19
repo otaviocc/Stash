@@ -20,17 +20,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import Fluent
+import Foundation
 
-/// Loads a user's distinct tag names as a JSON array string, embedded in the add/edit and Smart View
-/// forms (the `data-known-tags` attribute) to drive client-side tag autocomplete.
-enum KnownTags {
+/// The fixed page size and page-count arithmetic for the web frontend's paginated lists (the
+/// bookmark list and Smart View results), so the two pages can't drift.
+enum WebPagination {
 
-    static func json(for user: User, on db: any Database) async throws -> String {
-        let bookmarks = try await Bookmark.query(on: db)
-            .filter(\.$user.$id == user.requireID())
-            .all()
-        let names = Set(bookmarks.flatMap(\.tags)).sorted()
-        return TagPresenter.jsonArray(names)
+    // MARK: Static Properties
+
+    static let perPage = 20
+
+    // MARK: Static Functions
+
+    static func pageCount(total: Int) -> Int {
+        total == 0 ? 1 : (total + perPage - 1) / perPage
     }
 }

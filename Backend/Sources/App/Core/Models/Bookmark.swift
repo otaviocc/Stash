@@ -158,6 +158,12 @@ extension Bookmark {
         return result
     }
 
+    /// Splits a free-text tag field (comma- or whitespace-separated, as the web forms submit it) and
+    /// normalizes the result.
+    static func normalizeTags(fromFreeText raw: String) -> [String] {
+        normalizeTags(raw.components(separatedBy: CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines)))
+    }
+
     static func normalizeTagQuery(_ raw: String) -> String {
         raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()

@@ -23,8 +23,8 @@
 import Foundation
 
 /// Pure presentation helpers for tags in the user-facing web frontend: hierarchical display,
-/// sidebar-tree building, tag-filter URL building, and free-text tag-input parsing. No request or
-/// database access — the web controllers load the data and call these to shape it for Leaf.
+/// sidebar-tree building, and tag-filter URL building. No request or database access — the web
+/// controllers load the data and call these to shape it for Leaf.
 enum TagPresenter {
 
     /// Builds the flat, pre-ordered hierarchical sidebar tag list. Synthetic parents (no direct count)
@@ -80,10 +80,6 @@ enum TagPresenter {
     /// Renders a hierarchical tag (`swift/vapor`) as `swift › vapor` for display, mirroring the apps.
     static func display(_ tag: String) -> String {
         tag.components(separatedBy: "/").joined(separator: " › ")
-    }
-
-    static func parseTags(_ raw: String) -> [String] {
-        raw.components(separatedBy: CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines))
     }
 
     static func jsonArray(_ strings: [String]) -> String {

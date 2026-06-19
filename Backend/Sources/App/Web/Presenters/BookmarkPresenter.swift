@@ -40,27 +40,21 @@ enum BookmarkPresenter {
     }
 
     static func listURL(_ query: BookmarkListQuery, page: Int) -> String {
-        var components = URLComponents()
-        components.path = "/app"
-        var items: [URLQueryItem] = []
-        if let q = query.q?.nonEmpty { items.append(.init(name: "q", value: q)) }
-        if let tag = query.tag?.nonEmpty { items.append(.init(name: "tag", value: tag)) }
-        if query.archived == true { items.append(.init(name: "archived", value: "true")) }
-        if page > 1 { items.append(.init(name: "page", value: String(page))) }
-        components.queryItems = items.isEmpty ? nil : items
-        return components.string ?? "/app"
+        url(query, archived: query.archived == true, page: page)
     }
 
     static func archiveToggleURL(_ query: BookmarkListQuery, showArchived: Bool) -> String {
+        url(query, archived: showArchived, page: 1)
+    }
+
+    private static func url(_ query: BookmarkListQuery, archived: Bool, page: Int) -> String {
         var components = URLComponents()
         components.path = "/app"
         var items: [URLQueryItem] = []
         if let q = query.q?.nonEmpty { items.append(.init(name: "q", value: q)) }
-
         if let tag = query.tag?.nonEmpty { items.append(.init(name: "tag", value: tag)) }
-
-        if showArchived { items.append(.init(name: "archived", value: "true")) }
-
+        if archived { items.append(.init(name: "archived", value: "true")) }
+        if page > 1 { items.append(.init(name: "page", value: String(page))) }
         components.queryItems = items.isEmpty ? nil : items
         return components.string ?? "/app"
     }

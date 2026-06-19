@@ -51,7 +51,7 @@ struct BookmarkWebController: RouteCollection {
         let query = try req.query.decode(BookmarkListQuery.self)
 
         let page = max(query.page ?? 1, 1)
-        let per = 20
+        let per = WebPagination.perPage
         let archived = query.archived ?? false
         let boundaries = Bookmark.dateBoundaries()
 
@@ -73,7 +73,7 @@ struct BookmarkWebController: RouteCollection {
             .paginate(PageRequest(page: page, per: per))
 
         let total = result.metadata.total
-        let pageCount = total == 0 ? 1 : (total + per - 1) / per
+        let pageCount = WebPagination.pageCount(total: total)
 
         let rawTag = query.tag?.nonEmpty
         let isUntagged = rawTag == Bookmark.untaggedSentinel
@@ -208,7 +208,7 @@ struct BookmarkWebController: RouteCollection {
             url: url,
             title: title ?? url,
             description: description,
-            tags: Bookmark.normalizeTags(TagPresenter.parseTags(tagsText)),
+            tags: Bookmark.normalizeTags(fromFreeText: tagsText),
             isArchived: false
         )
         do {
@@ -260,7 +260,7 @@ struct BookmarkWebController: RouteCollection {
 
         bookmark.title = form.title?.nonEmpty ?? bookmark.url
         bookmark.description = form.description?.nonEmpty
-        bookmark.applyTags(Bookmark.normalizeTags(TagPresenter.parseTags(form.tags ?? "")))
+        bookmark.applyTags(Bookmark.normalizeTags(fromFreeText: form.tags ?? ""))
         bookmark.isArchived = form.archived != nil
 
         try await bookmark.save(on: req.db)

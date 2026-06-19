@@ -50,7 +50,7 @@ struct SmartViewWebController: RouteCollection {
         let overridesArchived = smartView.conditions.contains { if case .isArchived = $0 { true } else { false } }
         let archived = !overridesArchived && (req.query[Bool.self, at: "archived"] ?? false)
         let page = max(req.query[Int.self, at: "page"] ?? 1, 1)
-        let per = 20
+        let per = WebPagination.perPage
         let boundaries = Bookmark.dateBoundaries()
 
         let builder = try Bookmark.query(on: req.db)
@@ -63,7 +63,7 @@ struct SmartViewWebController: RouteCollection {
             .paginate(PageRequest(page: page, per: per))
 
         let total = result.metadata.total
-        let pageCount = total == 0 ? 1 : (total + per - 1) / per
+        let pageCount = WebPagination.pageCount(total: total)
         let sidebar = try await AppSidebarLoader.load(
             for: user,
             activeTag: "",
