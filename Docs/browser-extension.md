@@ -108,9 +108,13 @@ runs `make package` on a `v*.*.*` tag and attaches the zip to the GitHub Release
 ## Icons
 
 `Extension/icons/icon.svg` is the master vector (the Stash bookmark ribbon in deep
-indigo, `#231468`). The four PNG sizes the manifest references are rendered from it
-by `generate-icons.py` (Pillow only) — regenerate them rather than hand-editing the
-PNGs:
+indigo, `#231468`). The four PNG sizes the manifest references are rendered by
+`generate-icons.py` (Pillow only) in two treatments that match where each size is
+shown: **16 and 32** (the toolbar action, `default_icon`) stay the deep-indigo
+ribbon on a transparent background, legible on light and dark toolbars; **48 and
+128** (the add-ons-manager / store display icons) wear the full app-icon look — a
+white ribbon on an indigo rounded square, matching the native app and the web
+favicon. Regenerate them rather than hand-editing the PNGs:
 
 ```bash
 cd Extension/icons && python3 generate-icons.py

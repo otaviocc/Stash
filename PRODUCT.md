@@ -742,6 +742,13 @@ Session-based auth (`stash_session` cookie, path `/app`, in-memory,
 SameSite=Lax). Any active user role can log in. Sessions don't survive a
 container restart.
 
+Every web page (`/app`, `/admin`, landing, and login) carries the Stash favicon —
+the app-icon mark (a white bookmark ribbon on an indigo `#231468` rounded square),
+served from `Backend/Public/` as `favicon.svg` / `favicon.ico` /
+`apple-touch-icon.png` and linked from the shared `layout.leaf` head, so the web
+UI matches the native apps and the browser extension in the tab bar and on the home
+screen.
+
 ### Pages
 
 | Page | Path |
@@ -1180,6 +1187,12 @@ Extension/
 ```
 
 Documented in [`Docs/browser-extension.md`](Docs/browser-extension.md).
+
+The extension shares the Stash bookmark-ribbon identity: the 16/32 toolbar-action
+icons stay a deep-indigo ribbon on a transparent background (legible on light and
+dark toolbars), while the 48/128 add-ons-manager / store icons wear the full
+app-icon look — a white ribbon on an indigo `#231468` rounded square — matching the
+native apps and the web favicon.
 
 ### Supported browsers
 
