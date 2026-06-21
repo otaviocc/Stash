@@ -4279,3 +4279,42 @@ time, §7.8/§10).
   `AddBookmarkView`, and the preview mock; `/api/v1/metadata` and its OpenAPI entry are untouched (still
   used by the web UI + browser extension). No StashKit/backend/web changes. Both app platforms build;
   SwiftFormat `--lint` idempotent and SwiftLint clean. PRODUCT.md §10 updated.
+
+## Share Extension picks tags offline (out-of-radius add)
+
+The companion gap to the on-device metadata fix above. The **app's** tag picker
+(`TagPickerSheet`) works offline because `TagRepository` derives the tag list from the local
+SwiftData store, but the **Share Extension** could not: it is a separate process that (by the M9
+decision) never opens that private-container store, so `ExtensionTagRepository.load()` fetched tags
+from `/api/v1/tags`. Away from the home-lab network that request fails, `AddBookmarkView` swallows it
+(`try? await load()`), and the picker shows **no tags** — the exact frustration that made a real save
+fall back to the app while commuting.
+
+- **✅ Decision: cache the tag list to the App Group, don't move the store.** The considered
+  alternative — relocating the SwiftData store into the App Group container so the extension derives
+  tags itself — was rejected: it reverses the deliberate "extension is online-only, never opens this
+  store" stance, needs a one-time migration of every existing install's private-container store, and
+  loads the whole bookmark store into a memory-constrained extension. Instead the app writes its
+  already-derived tag list into the **shared `UserDefaults` suite** (the same channel that already
+  shares the server URL; tokens go via the Keychain access group), and the extension seeds from it.
+  This is a **narrow relaxation** of online-only — tags only, still no SwiftData access, still an
+  online-only *save*.
+- **✅ Snapshot at the single chokepoint.** `TagRepository.derive()` is the one place the app
+  recomputes tags (on load, reload, post-write refresh, and post-sync), so it calls
+  `SharedTagCache.write(tags)` there; `reset()` calls `SharedTagCache.clear()` on sign-out, extending
+  the existing "the next user never sees the previous user's tags" contract to the extension.
+  `SharedTagCache` (`Common/Support/`, compiled into both targets) JSON-encodes `[Tag]` — which gained
+  `Codable` — under the new `AppGroup.knownTagsKey`.
+- **✅ Extension seeds first, refreshes best-effort.** `ExtensionTagRepository.init` sets
+  `tags = SharedTagCache.read()` so `tagHierarchy` (`tags.hierarchy()`) is populated immediately and
+  offline; `load()` then attempts the network `/api/v1/tags` for the freshest list and, on failure,
+  keeps the seeded snapshot rather than ending up empty (`hasLoaded` flips only on success, so a failed
+  fetch can retry). No change to `AddBookmarkView`, `TagPickerSheet`, or `TagAutocompleting`.
+- **Freshness & fallback.** The snapshot is bounded by the app's last derive/sync — the same staleness
+  as the app's own offline tags — and `TagPickerSheet`'s search-as-create still adds any missing tag, so
+  a stale list is never a dead end. A fresh install where the extension runs before the app ever derived
+  tags reads an empty snapshot: same as before, no regression.
+- **Scope.** One new `Common/` file, `Tag` gaining `Codable`, one new `AppGroup` key, and small edits to
+  `TagRepository` and `ExtensionTagRepository`. No StashKit/backend/web changes. Both app platforms
+  build (embedded `.appex` validated); SwiftFormat `--lint` idempotent and SwiftLint clean. PRODUCT.md
+  §16 updated.

@@ -1019,9 +1019,11 @@ Sync state is surfaced in the UI: a slim offline banner across the top of the ap
 shell while disconnected, a muted pending indicator on rows and the detail header
 for bookmarks with unpushed changes, and a Settings "Sync" section showing the last
 sync time and pending count with a "Sync Now" button and a dismissible failure
-notice. The Share Extension stays online-only; macOS background-task scheduling is a
-known follow-up (the entitlement is in place, the scheduler is not yet wired). See
-`DECISIONS.md` → Offline Sync.
+notice. The Share Extension saves online-only, but its **tag picker works offline**: the
+app caches its derived tag list into the App Group so the extension can offer the same
+hierarchical tag tree even when the backend is unreachable (see `DECISIONS.md` → Share
+Extension picks tags offline). macOS background-task scheduling is a known follow-up (the
+entitlement is in place, the scheduler is not yet wired). See `DECISIONS.md` → Offline Sync.
 
 **`StashClientProvider`** — rebuilds `StashClient` only when the server URL
 changes. `tokenProvider` closure reads from `TokenManager` at request time.

@@ -65,6 +65,12 @@ enum AppGroup {
     /// Share Extension does not read it.
     static let lastSyncedAtKey = "\(bundleBase).lastSyncedAt"
 
+    /// The user's tag list, cached by the app (`TagRepository.derive()`) so the Share Extension can
+    /// offer the tag picker offline — the extension cannot open the app's private SwiftData store, so
+    /// it seeds from this snapshot instead. Written on every derive, cleared on sign-out; read by the
+    /// extension via `SharedTagCache`.
+    static let knownTagsKey = "\(bundleBase).knownTags"
+
     // MARK: Static Functions
 
     /// Builds the `UserDefaults` suite backed by the App Group, so the server URL is visible to both

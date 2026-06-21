@@ -23,19 +23,23 @@
 import Foundation
 import StashKit
 
-/// The Share Extension's tag store: load once, then offer local prefix autocomplete.
+/// The Share Extension's tag store: seed from the app's shared snapshot, then best-effort refresh
+/// from the network.
 ///
 /// A smaller counterpart to the app's `TagRepository` with no cache-invalidation surface — the
-/// extension is short-lived, so the tag list is loaded once per invocation. It is `@Observable` so
-/// the shared `AddBookmarkView` re-renders its suggestion chips when the list arrives, and conforms
-/// to `TagAutocompleting`.
+/// extension is short-lived, so the tag list is loaded once per invocation. Because the extension
+/// cannot open the app's private SwiftData store, it seeds `tags` from `SharedTagCache` (written by
+/// the app on every derive) so the tag picker works even when the backend is unreachable, then tries
+/// a network refresh for the freshest list, keeping the seeded snapshot if that fails. It is
+/// `@Observable` so the shared `AddBookmarkView` re-renders its suggestion chips when the list
+/// changes, and conforms to `TagAutocompleting`.
 @MainActor
 @Observable
 final class ExtensionTagRepository: TagAutocompleting {
 
     // MARK: Properties
 
-    private(set) var tags: [Tag] = []
+    private(set) var tags: [Tag]
 
     private let session: ExtensionSession
     private var hasLoaded = false
@@ -52,6 +56,7 @@ final class ExtensionTagRepository: TagAutocompleting {
 
     init(session: ExtensionSession) {
         self.session = session
+        tags = SharedTagCache.read()
     }
 
     // MARK: Functions

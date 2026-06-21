@@ -28,7 +28,7 @@ import StashKit
 /// A tag with its usage counts: `count` is the active (non-archived) bookmarks carrying the tag,
 /// `totalCount` includes archived ones. Both are derived locally from the SwiftData store; the
 /// backend `/tags` endpoint returns only the active count.
-struct Tag: Identifiable, Hashable {
+struct Tag: Identifiable, Hashable, Codable {
 
     // MARK: Properties
 

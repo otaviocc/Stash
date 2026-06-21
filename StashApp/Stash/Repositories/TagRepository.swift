@@ -80,6 +80,7 @@ final class TagRepository: TagAutocompleting {
         tags = []
         tagHierarchy = []
         flattenedTagHierarchy = []
+        SharedTagCache.clear()
     }
 
     /// Returns cached tags matching the given prefix (case-insensitive, per-segment). Synchronous
@@ -107,5 +108,6 @@ final class TagRepository: TagAutocompleting {
         tagHierarchy = tags.hierarchy()
         flattenedTagHierarchy = tagHierarchy.flattened()
         hasLoaded = true
+        SharedTagCache.write(tags)
     }
 }
