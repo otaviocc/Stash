@@ -54,12 +54,14 @@ import SwiftUI
             NavigationStack {
                 BookmarkListView(tag: nil)
             }
+            .inAppBrowser()
         }
 
         private func makeTagsTab() -> some View {
             NavigationStack {
                 TagBrowserView()
             }
+            .inAppBrowser()
         }
 
         private func makeSettingsTab() -> some View {

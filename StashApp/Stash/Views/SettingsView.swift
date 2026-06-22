@@ -42,6 +42,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             makeServerSection()
+            makeBrowserSection()
             SyncStatusSection()
             makeAccountSection()
             makeSmartViewsSection()
@@ -60,6 +61,22 @@ struct SettingsView: View {
             Text("Server")
         } footer: {
             Text("Sign out to connect to a different server.")
+        }
+    }
+
+    private func makeBrowserSection() -> some View {
+        @Bindable var settings = settings
+
+        return Section {
+            Picker("Open Links In", selection: $settings.browserPreference) {
+                ForEach(BrowserPreference.allCases) { preference in
+                    Text(preference.title).tag(preference)
+                }
+            }
+        } header: {
+            Text("Browser")
+        } footer: {
+            Text("Choose whether bookmark links open inside Stash or in your default browser.")
         }
     }
 

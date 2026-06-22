@@ -4318,3 +4318,35 @@ fall back to the app while commuting.
   `TagRepository` and `ExtensionTagRepository`. No StashKit/backend/web changes. Both app platforms
   build (embedded `.appex` validated); SwiftFormat `--lint` idempotent and SwiftLint clean. PRODUCT.md
   §16 updated.
+
+## In-app browser preference (native apps, iOS/iPadOS)
+
+Tapping a bookmark link always handed off to the system default browser. Added a **Browser**
+preference (`SettingsView` picker: **In-App** — default — or **Default Browser**) so links can open
+inside the app.
+
+- **✅ Decision: `SFSafariViewController`, not `WKWebView`.** For viewing a page we don't own without
+  custom chrome, Apple explicitly recommends `SFSafariViewController` ([Apple developer
+  news](https://developer.apple.com/news/?id=trjs0tcd)) — it brings Reader, AutoFill, content
+  blockers, and shared Safari cookies for free, where `WKWebView` would mean building browser UI and
+  managing navigation ourselves. Wrapped in a `UIViewControllerRepresentable` (`SafariView`, iOS-only)
+  presented as a sheet.
+- **✅ Centralized `openURL` override, not per-site edits.** The three open sites (detail-page URL
+  `Link`, the "Open in Browser" button, the row context menu) all resolve through SwiftUI's `openURL`
+  environment action. Rather than converting the `Link` to a `Button` and duplicating sheet state in
+  two shared views, a single `.inAppBrowser()` modifier installs a custom `OpenURLAction` on the
+  bookmark `NavigationStack`s. It intercepts **both** imperative `openURL(_:)` calls and `Link`s below
+  it — so the shared `BookmarkDetailView`/`BookmarkListView` are **untouched**, which also keeps macOS
+  on default-browser behavior with zero `#if` churn. Only `http`/`https` are captured (returns
+  `.handled`); every other scheme and the `.defaultBrowser` preference return `.systemAction`, so
+  `mailto:`/`tel:`/share actions are never hijacked (also a correctness requirement — Safari VC accepts
+  only http/https). The override is applied per-stack (Bookmarks + Tags tabs on iPhone, the detail
+  stack on iPad), not at the app root, so Settings is not blanketed.
+- **✅ Stored in the App Group `UserDefaults` suite** via the existing `serverURL` write-through
+  pattern on `@Observable AppSettings` (new `BrowserPreference` enum + `AppGroup.browserPreferenceKey`),
+  defaulting to `.inApp`. The extension does not open links, so it ignores the key.
+- **Scope.** iOS/iPadOS only (`SFSafariViewController` doesn't exist on macOS). Two new iOS-only files
+  (`SafariView`, `InAppBrowserModifier`), the `AppSettings`/`AppGroup` additions, one Settings section,
+  and the `.inAppBrowser()` application in `TabContainerView`/`MainView`. No StashKit/backend/web
+  changes. Both app platforms build; SwiftFormat `--lint` idempotent and SwiftLint clean. PRODUCT.md
+  §16 updated.

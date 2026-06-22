@@ -22,6 +22,30 @@
 
 import Foundation
 
+// MARK: - BrowserPreference
+
+/// Where the app opens a bookmark's link. `inApp` presents an in-app Safari view
+/// (`SFSafariViewController`, iOS/iPadOS only); `defaultBrowser` hands off to the system default
+/// browser. The setting is unused on macOS, which always uses the default browser.
+enum BrowserPreference: String, CaseIterable, Identifiable {
+
+    case inApp
+    case defaultBrowser
+
+    // MARK: Computed Properties
+
+    var id: String {
+        rawValue
+    }
+
+    var title: String {
+        switch self {
+        case .inApp: "In-App"
+        case .defaultBrowser: "Default Browser"
+        }
+    }
+}
+
 // MARK: - AppSettings
 
 /// Holds app-wide configuration persisted in UserDefaults.
@@ -39,7 +63,19 @@ final class AppSettings {
 
     var serverURL: String {
         didSet {
-            defaults.set(serverURL, forKey: AppGroup.serverURLKey)
+            defaults.set(
+                serverURL,
+                forKey: AppGroup.serverURLKey
+            )
+        }
+    }
+
+    var browserPreference: BrowserPreference {
+        didSet {
+            defaults.set(
+                browserPreference.rawValue,
+                forKey: AppGroup.browserPreferenceKey
+            )
         }
     }
 
@@ -53,8 +89,16 @@ final class AppSettings {
 
     // MARK: Lifecycle
 
-    init(defaults: UserDefaults) {
+    init(
+        defaults: UserDefaults
+    ) {
         self.defaults = defaults
-        serverURL = defaults.string(forKey: AppGroup.serverURLKey) ?? ""
+
+        serverURL = defaults
+            .string(forKey: AppGroup.serverURLKey) ?? ""
+
+        browserPreference = defaults
+            .string(forKey: AppGroup.browserPreferenceKey)
+            .flatMap(BrowserPreference.init(rawValue:)) ?? .inApp
     }
 }

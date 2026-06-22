@@ -60,6 +60,10 @@ enum AppGroup {
     static let refreshTokenKey = "\(bundleBase).refreshToken"
     static let serverURLKey = "serverURL"
 
+    /// The user's preferred browser for opening bookmark links (in-app or default). App-only; the
+    /// Share Extension does not open links.
+    static let browserPreferenceKey = "browserPreference"
+
     /// The `SyncEngine` delta cursor — the start time of the last successful sync, used as `since=` on
     /// the next pull. Absent until the first full sync completes; reset on sign-out. App-only; the
     /// Share Extension does not read it.

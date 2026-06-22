@@ -109,6 +109,7 @@ import SwiftUI
                     makeDetail()
                 }
                 .id(selection)
+                .inAppBrowser()
             }
             .sheet(isPresented: $showingSettings) {
                 makeSettingsSheet()
