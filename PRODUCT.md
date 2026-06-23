@@ -1109,17 +1109,20 @@ disable 2FA — the same screen the macOS Settings window uses) via a navigation
 on iPhone and a sidebar toolbar button on iPad. `AccountSettingsView` and
 `QRCodeView` are cross-platform; only window-chrome sizing is `#if os(macOS)`-guarded.
 
-`SettingsView` also carries a **Browser** preference (a picker: **In-App** — the
-default — or **Default Browser**) that decides where a tapped bookmark link opens.
-In-App presents the page inside the app in an `SFSafariViewController` (Apple's
-recommended in-app browser); Default Browser hands off to the system browser (the
-prior behavior). The preference is stored in the App Group `UserDefaults` suite, and
-the interception is centralized: an `openURL` environment override (`.inAppBrowser()`,
-applied to the bookmark `NavigationStack`s) routes `http`/`https` opens to an in-app
-Safari sheet, so it covers every open site — the detail-page URL `Link`, the "Open in
-Browser" button, and the row context menu — without editing those shared views.
-**iOS/iPadOS only**; macOS has no `SFSafariViewController` and always uses the default
-browser.
+`SettingsView` also carries a **Reading** section with two controls. **Browser** (a
+picker: **In-App** — the default — or **Default Browser**) decides where a tapped
+bookmark link opens: In-App presents the page inside the app in an
+`SFSafariViewController` (Apple's recommended in-app browser); Default Browser hands
+off to the system browser (the prior behavior). **Reader** (a toggle, default off)
+opens supported in-app pages directly in Safari's Reader mode
+(`SFSafariViewController.Configuration.entersReaderIfAvailable`); it applies only to
+in-app browsing and is disabled when Browser is set to Default Browser. Both
+preferences are stored in the App Group `UserDefaults` suite, and the interception is
+centralized: an `openURL` environment override (`.inAppBrowser()`, applied to the
+bookmark `NavigationStack`s) routes `http`/`https` opens to an in-app Safari sheet, so
+it covers every open site — the detail-page URL `Link`, the "Open in Browser" button,
+and the row context menu — without editing those shared views. **iOS/iPadOS only**;
+macOS has no `SFSafariViewController` and always uses the default browser.
 
 ### Smart View management (iOS + macOS)
 

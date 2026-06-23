@@ -42,7 +42,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             makeServerSection()
-            makeBrowserSection()
+            makeReadingSection()
             SyncStatusSection()
             makeAccountSection()
             makeSmartViewsSection()
@@ -64,7 +64,7 @@ struct SettingsView: View {
         }
     }
 
-    private func makeBrowserSection() -> some View {
+    private func makeReadingSection() -> some View {
         @Bindable var settings = settings
 
         return Section {
@@ -73,10 +73,15 @@ struct SettingsView: View {
                     Text(preference.title).tag(preference)
                 }
             }
+
+            Toggle("Reader", isOn: $settings.readerMode)
+                .disabled(settings.browserPreference == .defaultBrowser)
         } header: {
-            Text("Browser")
+            Text("Reading")
         } footer: {
-            Text("Choose whether bookmark links open inside Stash or in your default browser.")
+            Text(
+                "Choose whether bookmark links open inside Stash or in your default browser. Reader opens supported in-app pages in Safari's Reader mode."
+            )
         }
     }
 

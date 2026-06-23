@@ -64,6 +64,9 @@ enum AppGroup {
     /// Share Extension does not open links.
     static let browserPreferenceKey = "browserPreference"
 
+    /// Whether in-app links open in Safari's Reader mode where available. App-only.
+    static let readerModeKey = "readerMode"
+
     /// The `SyncEngine` delta cursor — the start time of the last successful sync, used as `since=` on
     /// the next pull. Absent until the first full sync completes; reset on sign-out. App-only; the
     /// Share Extension does not read it.

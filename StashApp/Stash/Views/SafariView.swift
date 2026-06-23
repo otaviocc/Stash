@@ -35,11 +35,15 @@
         // MARK: Properties
 
         let url: URL
+        let entersReader: Bool
 
         // MARK: Functions
 
         func makeUIViewController(context: Context) -> SFSafariViewController {
-            SFSafariViewController(url: url)
+            let configuration = SFSafariViewController.Configuration()
+            configuration.entersReaderIfAvailable = entersReader
+
+            return SFSafariViewController(url: url, configuration: configuration)
         }
 
         func updateUIViewController(_ controller: SFSafariViewController, context: Context) {}

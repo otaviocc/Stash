@@ -4350,3 +4350,11 @@ inside the app.
   and the `.inAppBrowser()` application in `TabContainerView`/`MainView`. No StashKit/backend/web
   changes. Both app platforms build; SwiftFormat `--lint` idempotent and SwiftLint clean. PRODUCT.md
   §16 updated.
+- **✅ Follow-up: Reader toggle + renamed to a "Reading" section.** The Settings section became
+  **Reading**, keeping the Browser picker and adding a **Reader** toggle (default off) that sets
+  `SFSafariViewController.Configuration.entersReaderIfAvailable`, so a supported in-app page opens
+  straight into Reader. Reader is only meaningful for the in-app browser — the system default browser
+  can't be told to enter Reader on open — so the toggle is **disabled when Browser = Default Browser**
+  and its footer says it applies to in-app reading. Stored as a `readerMode: Bool` on `AppSettings`
+  (new `AppGroup.readerModeKey`, same write-through pattern) and threaded to `SafariView(entersReader:)`
+  via the existing `.inAppBrowser()` modifier — no new open sites, no new interception surface.

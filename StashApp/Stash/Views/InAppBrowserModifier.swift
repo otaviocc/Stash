@@ -77,7 +77,7 @@
                     return .handled
                 })
                 .sheet(item: $presentedURL) { item in
-                    SafariView(url: item.url)
+                    SafariView(url: item.url, entersReader: settings.readerMode)
                         .ignoresSafeArea()
                 }
         }

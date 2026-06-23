@@ -79,6 +79,15 @@ final class AppSettings {
         }
     }
 
+    var readerMode: Bool {
+        didSet {
+            defaults.set(
+                readerMode,
+                forKey: AppGroup.readerModeKey
+            )
+        }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
 
     // MARK: Computed Properties
@@ -100,5 +109,7 @@ final class AppSettings {
         browserPreference = defaults
             .string(forKey: AppGroup.browserPreferenceKey)
             .flatMap(BrowserPreference.init(rawValue:)) ?? .inApp
+
+        readerMode = defaults.bool(forKey: AppGroup.readerModeKey)
     }
 }
