@@ -41,7 +41,7 @@ struct AccentTheme: Equatable {
         AccentTheme(id: "rose", name: "Rose", light: "#be185d", dark: "#f472b6"),
         AccentTheme(id: "dusk", name: "Dusk", light: "#b45309", dark: "#d97706"),
         AccentTheme(id: "slate", name: "Slate", light: "#475569", dark: "#94a3b8"),
-        AccentTheme(id: "terracotta", name: "Terracotta", light: "#d17e4c", dark: "#d17e4c")
+        AccentTheme(id: "indigo", name: "Indigo", light: "#231468", dark: "#818cf8")
     ]
 
     static let `default` = all[0]

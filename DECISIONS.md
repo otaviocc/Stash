@@ -4358,3 +4358,19 @@ inside the app.
   and its footer says it applies to in-app reading. Stored as a `readerMode: Bool` on `AppSettings`
   (new `AppGroup.readerModeKey`, same write-through pattern) and threaded to `SafariView(entersReader:)`
   via the existing `.inAppBrowser()` modifier — no new open sites, no new interception surface.
+
+---
+
+## Accent palette: replaced Terracotta with Indigo
+
+- **✅ Replaced the tenth accent theme `terracotta` (`#d17e4c`) with `indigo`.** Same slot in
+  `AccentTheme.all`, so the palette stays at ten themes and the other nine are untouched.
+- **✅ Light value is the brand icon indigo `#231468`** — the exact color of the app-icon mark
+  (white ribbon on an indigo rounded square), tying the accent option to the product identity.
+- **✅ Dark value lightened to `#818cf8` (indigo-400).** Unlike Terracotta, which used one hex for
+  both modes, `#231468` is too dark to read as an accent on a dark background, so the dark value
+  follows the palette's usual light-in-dark convention.
+- **✅ No other code changes.** `AccentTheme.validIdentifiers`, the admin picker, and the swatch CSS
+  all derive from `all`, so the new theme is selectable, validates, and previews automatically.
+  `PRODUCT.md` §7.6 theme table updated. Any instance previously set to `terracotta` falls back to
+  the default (`ocean`) via `AccentTheme.theme(for:)`.

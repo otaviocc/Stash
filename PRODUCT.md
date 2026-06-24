@@ -224,7 +224,7 @@ attribute. `ocean` is the default and matches the app's original accent.
 | `rose` | Rose | `#be185d` | `#f472b6` |
 | `dusk` | Dusk | `#b45309` | `#d97706` |
 | `slate` | Slate | `#475569` | `#94a3b8` |
-| `terracotta` | Terracotta | `#d17e4c` | `#d17e4c` |
+| `indigo` | Indigo | `#231468` | `#818cf8` |
 
 The selected theme's values are injected into `layout.leaf`'s `<head>` as a CSS
 block overriding `--accent`, from the app-level cache (no per-request query).
