@@ -24,8 +24,9 @@ import Vapor
 
 // MARK: - FooterContext
 
-/// Context passed to every page template for footer rendering. The Mastodon and Ko-fi links are
-/// hardcoded directly in `_footer.leaf`, not passed here, so they cannot be accidentally omitted.
+/// Context passed to every page template for footer rendering. The GitHub, Mastodon, and Ko-fi
+/// links are hardcoded directly in `_footer.leaf`, not passed here, so they cannot
+/// be accidentally omitted.
 struct FooterContext: Content {
 
     let customLabel: String?
