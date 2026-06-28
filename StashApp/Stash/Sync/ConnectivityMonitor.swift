@@ -41,7 +41,7 @@ final class ConnectivityMonitor {
     @ObservationIgnored var onReconnect: (() -> Void)?
 
     @ObservationIgnored private let monitor = NWPathMonitor()
-    @ObservationIgnored private let queue = DispatchQueue(label: "cc.otavio.stash.connectivity")
+    @ObservationIgnored private let queue = DispatchQueue(label: "com.example.otavio.stash.connectivity")
 
     // MARK: Lifecycle
 

@@ -4049,7 +4049,7 @@ the wrong account).
 - **✅ One source of truth — `StashApp/Config/Stash.xcconfig`.** A committed base xcconfig defines two
   settings: `STASH_BUNDLE_PREFIX` (the reverse-DNS org prefix, everything before `.stash`) and
   `DEVELOPMENT_TEAM`. It is wired as the `baseConfigurationReference` on the **project-level** Debug/Release
-  configs, so both targets inherit the values. The committed defaults (`cc.otavio` / `S9X9XY5GF8`) keep the
+  configs, so both targets inherit the values. The committed defaults (`com.example.otavio` / `ABCDE12345`) keep the
   primary machine building with no extra file.
 - **Machine-local override via optional include.** The base xcconfig ends with
   `#include? "Stash.local.xcconfig"` — the `?` makes it optional. A second machine drops a gitignored
@@ -4063,14 +4063,14 @@ the wrong account).
   substitution in entitlements/plists is standard Xcode behaviour (the "Process Product Packaging" step).
 - **Runtime reads it back, never hardcodes it.** Each `Info.plist` carries `STBundleBase =
   $(STASH_BUNDLE_PREFIX).stash`. `AppGroup.bundleBase` reads that key from `Bundle.main` (fallback
-  `cc.otavio.stash` for previews, which have no bundle) and **derives** `AppGroup.identifier` (the App
+  `com.example.otavio.stash` for previews, which have no bundle) and **derives** `AppGroup.identifier` (the App
   Group / Keychain access group / defaults suite), the token/cursor keys, `BackgroundSyncScheduler.taskIdentifier`,
   and `UTType.stashBookmark`. So the build settings and the Swift constants can never drift — change the
   one xcconfig line and the whole graph follows. The Keychain item *account names* and the
   `UserDefaults` suite both move with the prefix; the actual cross-process sharing is scoped by the App
   Group, which is the same derived value in both processes.
 - **Verified.** `xcodebuild -showBuildSettings` resolves the prefix, team, and bundle IDs at the target
-  level (proving project→target inheritance); the built `Info.plist`s show `cc.otavio.stash`-derived
+  level (proving project→target inheritance); the built `Info.plist`s show `com.example.otavio.stash`-derived
   values; and a temporary `Stash.local.xcconfig` flips the resolved prefix to `com.otaviocc.stash` and the
   team, confirming the override path. Builds clean on iOS and macOS; the token-key *names* changing shape
   per machine is harmless (they are account names within the App Group, not OS-registered identifiers).

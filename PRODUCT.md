@@ -976,8 +976,8 @@ DTOs and a `SmartViewRequest` body.
   (XcodeGen was retired — see `DECISIONS.md`)
 - Single multiplatform SwiftUI app target `Stash` (iOS 26.0 + macOS 26.0) and
   one multiplatform Share Extension target
-- Bundle ID: `cc.otavio.stash`
-- App Group: `group.cc.otavio.stash`
+- Bundle ID: `com.example.otavio.stash`
+- App Group: `group.com.example.otavio.stash`
 - `NSAllowsArbitraryLoads: true`
 - Direct dependency on `MicroClient` (for 2FA login branch, same as CLI)
 

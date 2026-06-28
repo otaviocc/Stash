@@ -68,8 +68,8 @@ project** — they come from `StashApp/Config/Stash.xcconfig`, which sets two bu
 settings:
 
 ```
-STASH_BUNDLE_PREFIX = cc.otavio   # reverse-DNS org prefix (everything before .stash)
-DEVELOPMENT_TEAM = S9X9XY5GF8
+STASH_BUNDLE_PREFIX = com.example.otavio   # reverse-DNS org prefix (everything before .stash)
+DEVELOPMENT_TEAM = ABCDE12345
 ```
 
 `STASH_BUNDLE_PREFIX` drives **every** bundle-keyed identifier in lockstep: the
@@ -106,7 +106,7 @@ macOS, selected by destination):
 
 | Target | Platforms | Bundle ID |
 |--------|-----------|-----------|
-| `Stash` | iOS 26+ / macOS 26+ | `$(STASH_BUNDLE_PREFIX).stash` (default `cc.otavio.stash`) |
+| `Stash` | iOS 26+ / macOS 26+ | `$(STASH_BUNDLE_PREFIX).stash` (default `com.example.otavio.stash`) |
 | `StashShareExtension` | iOS 26+ / macOS 26+ | `$(STASH_BUNDLE_PREFIX).stash.ShareExtension` |
 
 ## Project layout
@@ -126,7 +126,7 @@ folder-level:
 The main app and the Share Extension share the access/refresh tokens (via a
 Keychain access group) and the configured server URL (via the App Group's
 `UserDefaults` suite) through the App Group `group.$(STASH_BUNDLE_PREFIX).stash`
-(default `group.cc.otavio.stash`). The group is declared with that variable in
+(default `group.com.example.otavio.stash`). The group is declared with that variable in
 the per-platform entitlements files under `StashApp/Config/`, so it tracks
 whatever prefix the machine builds with (see *Signing & bundle identifier*
 above), and requires a matching entitlement in your provisioning profile for

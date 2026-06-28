@@ -31,7 +31,7 @@ enum AppGroup {
 
     // MARK: Static Properties
 
-    /// The reverse-DNS bundle base (everything before the per-identifier suffix), e.g. `cc.otavio.stash`
+    /// The reverse-DNS bundle base (everything before the per-identifier suffix), e.g. `com.example.otavio.stash`
     /// or `com.otaviocc.stash`. Read from the `STBundleBase` Info.plist key, which the build injects from
     /// the `STASH_BUNDLE_PREFIX` xcconfig setting (`$(STASH_BUNDLE_PREFIX).stash`) — so the App Group,
     /// Keychain access group, and defaults suite stay in lockstep with the bundle IDs and entitlements
@@ -49,7 +49,7 @@ enum AppGroup {
                 "STBundleBase missing from Info.plist — the App Group would silently use the fallback prefix"
             )
 
-            return "cc.otavio.stash"
+            return "com.example.otavio.stash"
         }
 
         return base

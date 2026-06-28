@@ -14,6 +14,6 @@
 // key, so the build settings and the Swift constants can never drift apart.
 
 STASH_BUNDLE_PREFIX = com.example.otavio
-DEVELOPMENT_TEAM = S9X9XY5GF8
+DEVELOPMENT_TEAM = ABCDE12345
 
 #include? "Stash.local.xcconfig"

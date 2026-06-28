@@ -73,6 +73,6 @@ app shows a setup screen — enter your Stash server URL (e.g.
 
 The main app and the Share Extension share the server URL (via the App Group's
 `UserDefaults` suite) and the access/refresh tokens (via a Keychain access
-group), through the App Group `group.cc.otavio.stash`. For plain HTTP on a local
+group), through the App Group `group.com.example.otavio.stash`. For plain HTTP on a local
 network, `NSAllowsArbitraryLoads` is already set to `true` in the app's
 `Info.plist`. See [Building the mobile apps](mobile-build.md).

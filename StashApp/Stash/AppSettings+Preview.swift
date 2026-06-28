@@ -29,7 +29,7 @@
         /// App Group's persisted server URL.
         @MainActor
         static var preview: AppSettings {
-            AppSettings(defaults: UserDefaults(suiteName: "preview.cc.otavio.stash") ?? .standard)
+            AppSettings(defaults: UserDefaults(suiteName: "preview.com.example.otavio.stash") ?? .standard)
         }
     }
 #endif

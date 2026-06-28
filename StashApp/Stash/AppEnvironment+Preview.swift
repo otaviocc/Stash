@@ -30,7 +30,7 @@
         @MainActor
         static var preview: AppEnvironment {
             let environment = AppEnvironment(
-                defaults: UserDefaults(suiteName: "preview.cc.otavio.stash") ?? .standard,
+                defaults: UserDefaults(suiteName: "preview.com.example.otavio.stash") ?? .standard,
                 inMemory: true
             )
             environment.seedPreviewData(Bookmark.samples)
