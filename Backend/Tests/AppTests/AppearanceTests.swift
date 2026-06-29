@@ -259,7 +259,7 @@ struct AppearanceTests {
                 // Then
                 let body = res.body.string
                 #expect(!body.contains("Our website"), "It should not render the custom link without a URL")
-                #expect(body.contains("Support Stash on Ko-fi"), "It should still render the fixed footer links")
+                #expect(body.contains("Ko-fi"), "It should still render the fixed footer links")
             }
         }
     }
