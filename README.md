@@ -49,3 +49,7 @@ A self-hosted bookmark manager with native iOS, macOS, web, and browser-extensio
 - **CLI** — `stash` command-line tool (build from source)
 - **Browser extension** — Firefox & Chrome (including Zen); saves the current
   page (see [Browser extension](Docs/browser-extension.md))
+
+## License
+
+Stash is available under the [MIT license](LICENSE).
