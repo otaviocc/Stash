@@ -4374,3 +4374,40 @@ inside the app.
   all derive from `all`, so the new theme is selectable, validates, and previews automatically.
   `PRODUCT.md` §7.6 theme table updated. Any instance previously set to `terracotta` falls back to
   the default (`ocean`) via `AccentTheme.theme(for:)`.
+
+## Release images: build natively per-arch instead of via QEMU
+
+- **Problem:** the release workflow's `linux/arm64` image was cross-compiled under QEMU emulation
+  on an `amd64` runner. Emulating the full Swift compiler through the Vapor/NIO release build
+  crashed it outright (signal 5, "failed to suspend thread") — not a transient flake, a
+  hard failure on every arm64 build.
+- **Same-week stopgap:** pinning the `tonistiigi/binfmt` QEMU image masked a related but distinct
+  symptom (an `apt`/`libc-bin` trigger segfault during the emulated `apt-get` step) but did not fix
+  the compiler crash, so it was quickly superseded.
+- **✅ Real fix: build each architecture natively, then merge.** The `build` job is now a matrix —
+  `amd64` on `ubuntu-latest`, `arm64` on `ubuntu-24.04-arm` (a native arm64 GitHub-hosted runner) —
+  each leg pushing its image to the registry by digest (untagged). A separate `publish` step then
+  stitches both digests into one multi-arch manifest via `docker buildx imagetools create`, and
+  applies the `latest` + semver tags to the manifest, not to either individual digest.
+- **✅ No QEMU anywhere in the release path anymore.** Both legs compile Swift on their native
+  architecture; QEMU is no longer a dependency for this workflow at all.
+
+## Open-sourcing prep: footer GitHub link, scrubbed identifiers, OSS scaffolding
+
+- **✅ Footer gained a GitHub link.** `_footer.leaf` now renders a GitHub link
+  (`https://github.com/otaviocc/Stash`) ahead of the existing Mastodon and Ko-fi links. To keep the
+  now-three-link row compact, the Ko-fi link text was shortened from "Support Stash on Ko-fi" to
+  just "Ko-fi". A same-day follow-up fixed an `AppearanceTests` assertion that still expected the
+  old Ko-fi link text, which had gone stale and broken CI.
+- **✅ Scrubbed the maintainer's real Apple identifiers from the repo.** The real Apple Developer
+  Team ID (`S9X9XY5GF8`) and the legacy bundle prefix (`cc.otavio`) were replaced everywhere they
+  appeared in committed config, docs, and source with placeholders (`ABCDE12345` and
+  `com.example.otavio` / `group.com.example.otavio.stash`) — the same placeholder pattern already
+  used in the gitignored `Stash.local.xcconfig.example` for per-machine overrides. Historical
+  DECISIONS.md prose describing what was *actually built* under the old identifiers was left as-is
+  (it's a record of what happened); only the live default-value references were swapped.
+- **✅ Added standard GitHub OSS scaffolding ahead of going public.** Root `LICENSE` (MIT), plus
+  `.github/CONTRIBUTING.md`, `.github/CODE_OF_CONDUCT.md`, `.github/SECURITY.md`,
+  `.github/PULL_REQUEST_TEMPLATE.md`, and `.github/ISSUE_TEMPLATE/{bug_report,feature_request}.md`.
+  `README.md` gained a "License" section linking to `LICENSE`. The repository itself remains
+  private for now — this scaffolding is prep, not a visibility change.

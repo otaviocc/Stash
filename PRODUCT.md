@@ -1,6 +1,6 @@
 # Stash — Product Requirements Document
 
-**Version:** 1.8
+**Version:** 1.9
 **Status:** Living Document
 **Author:** Otávio
 
@@ -285,13 +285,14 @@ their live results (`stash smart-views`); authoring on the CLI is done on the we
 or round-tripped through Stash JSON import/export.
 
 **Footer.** Shown on every `/app` and `/admin` page via `layout.leaf`. Fixed,
-non-configurable content: a Mastodon link (`https://social.lol/@otaviocc`), a
-Ko-fi link (`https://ko-fi.com/otaviocc`), and the version string (read from a
-`VERSION` file at startup, `"dev"` if missing). Configurable content: the
-optional `aboutText` (shown above the links) and one optional custom link
+non-configurable content: a GitHub link (`https://github.com/otaviocc/Stash`), a
+Mastodon link (`https://social.lol/@otaviocc`), a Ko-fi link
+(`https://ko-fi.com/otaviocc`), and the version string (read from a `VERSION`
+file at startup, `"dev"` if missing). Configurable content: the optional
+`aboutText` (shown above the links) and one optional custom link
 (`footerCustomLabel` + `footerCustomURL`, shown only when both are non-empty).
 All external links open in a new tab with `rel="noopener noreferrer"`. The Stash
-identity (name, logo, Ko-fi and Mastodon links) is hardcoded and not
+identity (name, logo, GitHub, Ko-fi, and Mastodon links) is hardcoded and not
 configurable.
 
 ### 7.8 Favicon Cache
@@ -1322,10 +1323,13 @@ stash.yourdomain.com {
 
 Two GitHub Actions workflows. `ci.yml` runs on every push to `main` and every
 pull request — builds and tests all components, no image. `release.yml` runs on
-a `v*.*.*` tag: re-runs the backend tests, then builds a multi-arch image
-(`linux/amd64`, `linux/arm64`) → pushes to `ghcr.io/otaviocc/stash` (`latest` +
-semver) → creates a GitHub Release with `docker-compose.yml` attached.
-`GITHUB_TOKEN` only — no extra secrets. The repo stays private; the image is
+a `v*.*.*` tag: re-runs the backend tests, then builds `linux/amd64` and
+`linux/arm64` natively on separate GitHub-hosted runners (not cross-compiled
+under QEMU — QEMU emulation crashed the Swift compiler during the arm64 build,
+see `DECISIONS.md`), pushing each by digest, then stitches both into one
+multi-arch manifest via `docker buildx imagetools create` → tags
+`ghcr.io/otaviocc/stash` (`latest` + semver) → creates a GitHub Release with
+`docker-compose.yml` attached. `GITHUB_TOKEN` only — no extra secrets. The repo stays private; the image is
 made public via a **one-time manual setting** in the package settings (there is
 no API to do it from CI).
 
