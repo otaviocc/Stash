@@ -1,4413 +1,2962 @@
 # Stash — Decision Log
 
-A running record of the **technical and design decisions** made while building
-Stash, complementing the requirements in [`PRODUCT.md`](./PRODUCT.md). Where
-`PRODUCT.md` says *what* to build, this document records *how* it was built and
-*why* — especially the choices that aren't obvious from the code, the deviations
-from the PRD, and the trade-offs accepted.
+This is my running log of the technical and design decisions I made while
+building Stash — the companion to [`PRODUCT.md`](./PRODUCT.md). `PRODUCT.md`
+says what I set out to build; this records how I actually built it and why,
+especially the choices that aren't obvious from the code, the places I
+deviated from the plan, and the trade-offs I accepted along the way.
 
-### How to maintain this document
+### How I keep this updated
 
-- Update it whenever a milestone or a meaningful chunk of work is completed.
-- Add new entries under the relevant milestone heading (create a new heading for
-  new milestones).
-- Keep entries short: **what was decided**, **why**, and the **trade-off or
-  alternative** when one mattered. Reference PRD sections as `§n`.
-- Prefer appending over rewriting history — a decision that was later reversed
-  should be marked *Superseded* rather than deleted, with a pointer to what
-  replaced it.
-- This is a decision log, not API docs. Endpoint/behaviour reference lives in
-  `Docs/api.md`.
+I add to it whenever I finish a milestone or a meaningful chunk of work, under
+the relevant heading (a new one if it's a new milestone). Entries stay short:
+what I decided, why, and the trade-off or alternative when one mattered, with
+PRD sections referenced as `§n`. I'd rather append than rewrite — a decision I
+later reversed gets marked *Superseded* with a pointer to what replaced it,
+instead of being deleted outright. This is a decision log, not API docs;
+endpoint/behaviour reference lives in `Docs/api.md`.
 
-### Status legend
+### A rough legend
 
-✅ In effect · ⚠️ Deviation from `PRODUCT.md` · 🔁 Superseded
+Not every entry needs a label, but where it helps I mark a decision as a
+deviation from `PRODUCT.md`, or as superseded by a later decision — I say so
+in the sentence rather than leaning on symbols.
 
 ---
 
 ## Cross-cutting conventions
 
-- **✅ Error envelope via custom middleware.** A `StashErrorMiddleware` replaces
-  Vapor's default error middleware so *every* API error — including routing 404s
-  and validation failures — serialises to the standard `{ error, code, message
-  }` envelope (§17.4). Strongly-typed `APIError` cases own the
-  status/code/message mapping; the duplicate-URL case carries an extra
-  `existingID`.
-- **✅ Testing stack.** `VaporTesting` + swift-testing, running against an
-  in-memory **SQLite** database (§17.7), not Postgres — fast and isolated.
-  Production uses Postgres; the only schema concession is that array/JSON
-  columns map differently per driver (see M2).
-- **✅ Leaf templates are not unit-tested** (§17.7). Instead, each web chunk is
-  verified with a throwaway end-to-end smoke test (login → action → assert) that
-  is **run and then removed**, since Leaf errors only surface at render time and
-  the existing suite can't catch them.
-- **⚠️ `fluent-sqlite-driver` added** (not in the §17.2 dependency table)
-  because §17.7 mandates an in-memory SQLite test database. Postgres remains the
-  production driver.
+I replaced Vapor's default error middleware with a custom `StashErrorMiddleware`
+so every API error — including routing 404s and validation failures —
+serializes to the same `{ error, code, message }` envelope (§17.4).
+Strongly-typed `APIError` cases own the status/code/message mapping, and the
+duplicate-URL case carries an extra `existingID`.
+
+For testing I settled on `VaporTesting` + swift-testing running against an
+in-memory SQLite database (§17.7) rather than Postgres — fast and isolated,
+and production still runs on Postgres; the only schema concession is that
+array/JSON columns map slightly differently per driver (more on that in M2).
+I never got around to unit-testing the Leaf templates themselves (§17.7) —
+Leaf errors only show up at render time, and the existing suite can't catch
+them — so each web feature gets a throwaway end-to-end smoke test (log in, do
+the thing, assert) that I run once and delete.
+
+One dependency snuck outside what §17.2 lists: `fluent-sqlite-driver`, needed
+because §17.7 requires an in-memory SQLite test database. Postgres is still
+the production driver.
 
 ---
 
 ## M1 — Auth foundation
 
-- **⚠️ TOTP implemented natively, not via `vapor/auth`.** §17.2 lists
-  `vapor/auth.git` `from 2.0.0` for "built-in RFC-compliant TOTP". That package
-  is the **Vapor 3-era** auth package; it does not exist for / compile against
-  Vapor 4 (where `Authenticatable` lives in Vapor core and there is no bundled
-  TOTP). RFC 6238 TOTP + Base32 are therefore implemented directly on top of
-  `swift-crypto` (already a transitive dependency) in `Sources/App/Auth/`. Keeps
-  the backend dependency-light, in line with the project's data-ownership
-  philosophy. Every other §17.2 dependency is used as listed.
-- **✅ Token strategy.** Access token = HS256 JWT, 15 min, carries a `scope`
-  claim (`access`). The 2FA step uses a separate 5-min JWT with `scope = "2fa"`
-  so a temp token can never be replayed as an access token. Refresh token =
-  opaque 256-bit hex, stored only as a SHA-256 hash, 90-day expiry, **rotated**
-  on every use (§8.1).
-- **✅ bcrypt cost 12** (Vapor's default) for passwords and recovery codes
-  (§8.5). Recovery codes are 8 × `XXXX-XXXX`, normalised (dash-free, uppercased)
-  before hashing/verifying.
-- **✅ Constant-time-ish login.** Unknown usernames still run a throwaway bcrypt
-  verify so response timing doesn't leak account existence.
-- **✅ `withTestApp`, not `withApp`.** The test boot helper is named distinctly
-  on purpose: VaporTesting exports a generic `withApp`, and a single-expression
-  test closure (e.g. just a `.test(...)` call) would infer a non-`Void` return
-  and silently resolve to VaporTesting's overload, skipping our explicit
-  `asyncBoot()` and leaving the responder unbooted — every route then 404s. Cost
-  ~an hour to diagnose; the rename prevents recurrence.
+The spec (§17.2) called for `vapor/auth` for "built-in RFC-compliant TOTP,"
+but that package is Vapor-3-era — it doesn't exist for, or compile against,
+Vapor 4. So I implemented RFC 6238 TOTP and Base32 myself on top of
+swift-crypto (already a transitive dependency), in `Sources/App/Auth/`. Keeps
+the backend dependency-light too, which fits the whole point of the project.
+Everything else in §17.2 is used as listed.
+
+Token strategy: the access token is an HS256 JWT, 15 minutes, carrying a
+`scope` claim of `access`. The 2FA step gets its own 5-minute JWT with
+`scope = "2fa"`, so a temp token can never be replayed as a real access
+token. Refresh tokens are opaque 256-bit hex, stored only as a SHA-256 hash,
+90-day expiry, rotated on every use (§8.1).
+
+Passwords and recovery codes both use bcrypt at cost 12 (Vapor's default)
+(§8.5). Recovery codes are eight `XXXX-XXXX` codes, normalized — dashes
+stripped, uppercased — before hashing or verifying. Login is roughly
+constant-time: even unknown usernames run a throwaway bcrypt verify so
+response timing doesn't leak whether an account exists.
+
+One thing that cost me about an hour to track down: I named the test boot
+helper `withTestApp`, not `withApp`, on purpose. VaporTesting exports its own
+generic `withApp`, and a single-expression test closure — just a `.test(...)`
+call, say — infers a non-`Void` return and silently resolves to VaporTesting's
+overload instead of mine, which skips my explicit `asyncBoot()` and leaves the
+responder unbooted. Every route just 404s, with no obvious clue why. Renaming
+it prevents that from happening again.
 
 ---
 
 ## M2 — Bookmarks
 
-- **✅ Tags stored twice for portable querying.** The canonical `tags` is a
-  `[String]` field (`.array` → a `JSON` column, which works on both SQLite and
-  Postgres). Hierarchical **prefix matching** (`tag=swift` matches `swift` and
-  `swift/*`, §7.5) can't be done portably against an array/JSON column, so a
-  derived `tags_search` text column holds a pipe-wrapped form
-  (`|swift|swift/vapor|`) and the filter is two portable `LIKE` (`~~`) clauses.
-  Single source of truth (`tags`); `tags_search` is kept in sync via
-  `applyTags`.
-- **⚠️ Tags normalised on write** — trimmed, lowercased, surrounding slashes
-  stripped, `|` removed, de-duplicated. Lowercasing isn't explicit in the PRD,
-  but every example is lowercase and it prevents a fragmented tag tree (`Swift`
-  vs `swift`).
-- **✅ Duplicate URL → 409 with `existingID`.** Enforced by a pre-check *and* a
-  unique `(user_id, url)` index as a race backstop; the error envelope includes
-  the existing bookmark's id (§9.3/§17.4).
-- **✅ Metadata fetching is dependency-free and non-blocking.** `MetadataFetcher`
-  uses Vapor's built-in HTTP client (5 s timeout, no retry, §10) and a small
-  regex HTML parser — no scraping library. Fetching runs inline server-side (no
-  internal HTTP round-trip). On any failure the save proceeds with whatever the
-  client supplied; client-supplied title/description always win over fetched
-  values. Title falls back to the URL when otherwise blank.
-- **🔁 Full-text `q` used `LIKE` (`~~`)** across URL, title, description, and
-  tags (the latter via the existing `tags_search` column). Behaviour was
-  **case-insensitive on SQLite, case-sensitive on Postgres** — originally left
-  as a documented nuance. *Superseded during M8* once a real client exercised
-  it: §9.3 actually mandates case-insensitive search ("ILIKE on PostgreSQL"), so
-  this is now case-insensitive on both drivers — see the M8 search fix below.
-  (Tags in `q` go beyond the PRD's "URL, title, description" — added on request;
-  same change applied to both the API and web list handlers so they stay
-  consistent.)
-- **✅ `bookmarkCount` is a denormalised counter** on `User`, maintained on
-  create/delete (§7.1); the `makeBookmark` test helper maintains it too so it
-  reflects reality in tests.
-- **✅ Pagination** uses Vapor's `Page<T>` (§17.5); `per` is clamped to 1–100.
+Tags get stored twice, on purpose: the canonical `tags` field is a `[String]`
+that maps to a JSON column so it works identically on SQLite and Postgres, but
+hierarchical prefix matching (`tag=swift` matching `swift` and `swift/*`,
+§7.5) can't be done portably against a JSON column. So there's a derived
+`tags_search` text column holding a pipe-wrapped form (`|swift|swift/vapor|`),
+and the filter becomes two portable `LIKE` clauses against it. `tags` stays
+the single source of truth; `applyTags` keeps `tags_search` in sync.
+
+I normalize tags on write — trimmed, lowercased, surrounding slashes
+stripped, the pipe character removed, de-duplicated. The spec doesn't
+explicitly call for lowercasing, but every example in it is lowercase, and
+skipping it would fragment the tag tree into `Swift` and `swift` as separate
+branches.
+
+A duplicate URL returns 409 with the existing bookmark's id in the error
+envelope (§9.3/§17.4) — enforced by a pre-check plus a unique
+`(user_id, url)` index as a race backstop, so a genuine race between two
+concurrent saves still can't slip through.
+
+Metadata fetching stays dependency-free and non-blocking: `MetadataFetcher`
+uses Vapor's built-in HTTP client (5s timeout, no retry, §10) and a small
+regex parser rather than pulling in a scraping library. It runs inline,
+server-side. If it fails for any reason, the save proceeds with whatever the
+client supplied — nothing blocks on it — and the title falls back to the URL
+when both are blank.
+
+Full-text search (`q`) originally used a plain `LIKE` across URL, title,
+description, and tags, which meant it was case-insensitive on SQLite but
+case-sensitive on Postgres — a nuance I left documented rather than fixed.
+That held until M8, when a real client actually exercised it and I noticed
+§9.3 explicitly calls for "ILIKE on PostgreSQL" — case-insensitive on both.
+So I superseded the original behavior and made it case-insensitive everywhere
+(more on the fix itself under M8 below). Tags in `q` go beyond what the spec
+asked for ("URL, title, description") — I added that on request, and applied
+it consistently to both the API and the web list handlers so they don't
+drift apart.
+
+`bookmarkCount` is a denormalized counter on `User`, kept up to date on
+bookmark create/delete (§7.1); the `makeBookmark` test helper maintains it
+too, so tests see the same reality production would. Pagination uses Vapor's
+`Page<T>` (§17.5), with `per` clamped to 1–100.
 
 ---
 
 ## M3 — Admin API
 
-- **✅ Admin role enforced by middleware.** `AdminMiddleware` is layered after
-  the access-token authenticator + guard; authenticated non-admins get `403
-  forbidden` in the standard envelope.
-- **⚠️ `username_taken` (409).** §17.4's code table has no username-conflict
-  code, so one was added (mirrors the `duplicate_url` pattern).
-- **✅ Accounts are always created as `user`.** Any `role` field in the create
-  body is ignored; admin accounts exist only via first-boot seeding (§4).
-  (Tightened from an earlier version that accepted `role` — see M3 correction.)
-- **✅ Self-deletion blocked** with `400 cannot_delete_self`.
-- **✅ Self-suspension blocked** with `400 cannot_suspend_self`, mirroring
-  self-deletion — an admin must not lock themselves out. Enforced on both the
-  JSON API (`PUT /admin/users/:id` with `isActive: false` on one's own id) and
-  the web dashboard (`POST /admin/users/:id/suspend`); the web "Suspend account"
-  button is hidden for the signed-in admin's own detail page (same `isSelf` flag
-  that hides Delete).
-- **✅ Suspension *and* password reset both revoke refresh tokens** (§8.6) — any
-  change to an account's security state forces re-authentication.
-- **✅ Hard delete cascades explicitly** (bookmarks → refresh tokens → recovery
-  codes → user) rather than relying on FK `ON DELETE CASCADE`, so it behaves
-  identically on SQLite (tests) and Postgres regardless of FK enforcement.
-- **✅ Per-user counts use the denormalised `bookmarkCount`** (same source as
-  `/me`), keeping stats cheap and consistent.
+`AdminMiddleware` sits after the access-token authenticator and guard, so an
+authenticated non-admin gets a plain 403 rather than anything more exotic.
+Along the way I needed a `username_taken` (409) error code that the spec's
+code table didn't have — I added it, mirroring the existing `duplicate_url`
+pattern.
+
+Accounts are always created with the `user` role; any `role` field in the
+create body is ignored. An earlier version of this actually accepted `role`
+from the request, which meant a client could in theory create a second
+admin — I tightened that so the only way to get an admin account is
+first-boot seeding (§4).
+
+Both self-deletion and self-suspension are blocked (`400 cannot_delete_self` /
+`400 cannot_suspend_self`) — an admin should never be able to lock themselves
+out. That's enforced on both the JSON API (a `PUT` with `isActive: false` on
+your own id) and the web dashboard, where the "Suspend account" button is
+hidden on the signed-in admin's own detail page using the same `isSelf` flag
+that hides Delete.
+
+Suspension and admin-triggered password resets both revoke every refresh
+token for the account — any change to an account's security posture forces
+re-authentication. Hard delete cascades explicitly (bookmarks, then refresh
+tokens, then recovery codes, then the user) instead of relying on a database
+`ON DELETE CASCADE`, so it behaves identically whether it's running against
+SQLite in tests or Postgres in production, regardless of how each enforces
+foreign keys. Per-user stats reuse the same denormalized `bookmarkCount` that
+`/me` reads, so admin stats and a user's own count never disagree.
 
 ---
 
 ## M4 — Docker & deployment
 
-- **✅ Multi-stage image, jammy-matched.** Build stage `swift:*-jammy` → runtime
-  `ubuntu:22.04`, so the build glibc/ABI matches the runtime. Static Swift
-  stdlib + jemalloc; runtime carries only the binary and required libs.
-  Arch-agnostic, so `buildx` produces `linux/amd64` + `linux/arm64`. (Build base
-  started at `swift:5.10-jammy`; later bumped to `swift:6.1-jammy`.)
-- **✅ First-boot admin seeding in `configure.swift`** (`AdminSeeder`, after
-  migrations): seeds the admin from `ADMIN_USERNAME`/`ADMIN_PASSWORD` only when
-  the DB has no users; **throws and exits** on missing/invalid credentials
-  (don't start a login-less instance); no-op once any user exists; never runs
-  against the test DB.
-- **✅ Migrations auto-run on boot** (all environments) so the canonical `docker
-  compose up -d` works with zero manual steps; Fluent records applied
-  migrations, so it's idempotent.
-- **✅ `.env.example` is Docker-oriented** — the four §16 variables
-  (`DB_PASSWORD`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`); compose
-  interpolates `DATABASE_URL` from `DB_PASSWORD`. Local non-Docker runs export
-  `DATABASE_URL` directly.
+The Docker image is multi-stage and jammy-matched: it builds on
+`swift:*-jammy` and runs on `ubuntu:22.04`, so the build glibc/ABI actually
+matches the runtime. The static Swift stdlib plus jemalloc ship in the
+runtime image; nothing else does — just the binary and the libraries it
+needs. It's arch-agnostic, so `buildx` produces both `linux/amd64` and
+`linux/arm64` from the same Dockerfile. (The build base started on
+`swift:5.10-jammy` and was later bumped to `swift:6.1-jammy`.)
+
+First-boot admin seeding lives in `configure.swift` (`AdminSeeder`, running
+after migrations): it seeds the admin from `ADMIN_USERNAME`/`ADMIN_PASSWORD`
+only when the database has no users yet, throws and exits if those
+credentials are missing or invalid (I didn't want a login-less instance to
+ever start), and is a silent no-op on every boot after that. It never runs
+against the test database.
+
+Migrations auto-run on boot in every environment, so the canonical
+`docker compose up -d` needs zero manual steps — Fluent tracks which
+migrations have already applied, so re-running on every boot is safe and
+idempotent.
+
+`.env.example` is Docker-oriented: it documents the four variables from §16
+(`DB_PASSWORD`, `JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`), and Compose
+interpolates the full `DATABASE_URL` from `DB_PASSWORD`. A local, non-Docker
+run exports `DATABASE_URL` directly instead.
 
 ---
 
 ## M5 — Web admin dashboard
 
-- **✅ Session-cookie auth, separate from the JWT API** (§11). Cookie
-  `stash_admin_session`, backed by an **in-memory** session store (fine for a
-  single self-hosted instance — sessions just don't survive a restart). Entirely
-  independent of `/api/v1/*`.
-- **✅ Custom session payload over `ModelSessionAuthenticatable`.** The admin's
-  user id is stored as a string in the session and reloaded by
-  `AdminSessionMiddleware`, avoiding uncertainty around `UUID:
-  LosslessStringConvertible`. The middleware redirects to `/admin/login` on any
-  failure (missing/expired/suspended/demoted) instead of returning a JSON error,
-  and `req.auth.login`s the user so handlers use `req.auth.require`.
-- **✅ POST-only actions + PRG.** HTML forms can't issue PUT/DELETE, so
-  suspend/reset/delete are `POST` sub-routes; success uses Post/Redirect/Get
-  with `?ok=` confirmation banners. Web handlers render error states or redirect
-  rather than throwing (which would emit the JSON envelope).
-- **✅ Render-with-status helper.** Responses with a non-200 status are built
-  from `view.data` directly; the async `View.encodeResponse` overload didn't
-  resolve cleanly, and `req.view.render` needs an explicit `let view: View = …`
-  annotation to pick the async overload.
+The admin dashboard authenticates with a session cookie
+(`stash_admin_session`) that's completely separate from the JWT API (§11),
+backed by an in-memory session store — fine for a single self-hosted
+instance, though it does mean sessions don't survive a restart. It never
+touches `/api/v1/*`.
+
+Rather than reach for `ModelSessionAuthenticatable`, I store the admin's user
+id as a plain string in the session and reload it in `AdminSessionMiddleware`
+— that sidesteps some uncertainty around `UUID: LosslessStringConvertible`.
+On any failure (missing session, expired, the account got suspended or
+demoted since login), the middleware just redirects to `/admin/login` instead
+of returning a JSON error, and calls `req.auth.login` so downstream handlers
+can use `req.auth.require` normally.
+
+HTML forms can't issue `PUT`/`DELETE`, so destructive actions like suspend,
+reset, and delete are `POST` sub-routes, and a successful one follows
+Post/Redirect/Get with a `?ok=` confirmation banner. Web handlers render
+error states or redirect rather than throwing, since throwing would emit the
+JSON error envelope instead of an HTML page.
+
+One small implementation snag: rendering a response with a non-200 status has
+to be built from `view.data` directly, because the async
+`View.encodeResponse` overload wasn't resolving cleanly — `req.view.render`
+needed an explicit `let view: View = …` type annotation to pick the async
+overload at all.
 
 ---
 
 ## M6 — StashKit (shared Swift package)
 
-- **✅ Three-layer split: DTOs, request factories, thin client.** StashKit
-  mirrors the `MicroblogAPI` pattern on top of `MicroClient` (`from: "0.0.27"`).
-  The package has exactly three concerns and no more: `Codable`/`Sendable`
-  **DTOs** matching the API response shapes, **request factories** that return
-  typed `NetworkRequest<RequestModel, ResponseModel>` values, and a thin
-  **`StashClient`** wrapping `MicroClient.NetworkClient`. Swift tools 6.0;
-  platforms iOS 17 / macOS 14.
-- **✅ One factory enum per API domain, all `public static` methods.**
-  `AuthRequestFactory`, `BookmarkRequestFactory`, `TagRequestFactory`,
-  `MetadataRequestFactory`, and `AdminRequestFactory` each own the requests for
-  one domain. Every path is prefixed `/api/v1/`. Factories are pure value
-  builders — they construct a `NetworkRequest` and nothing else (no I/O), so
-  they're trivially testable by inspecting the returned request's
-  `path`/`method`/`queryItems`/`body`.
-- **✅ DTOs only; domain mapping deferred to the app's repository layer.**
-  StashKit decodes the wire shapes into DTOs (`BookmarkDTO`, `TagDTO`,
-  `UserDTO`, `TokenPairDTO`, …) and stops there. Mapping DTOs to domain models
-  is the repository layer's job in the app (M8+); the package contains no
-  business logic and no domain types. `BookmarkPageDTO` is a `typealias` over a
-  generic `PageDTO<T>` matching Vapor's `Page<T>` envelope (`items` + `metadata
-  { page, per, total }`).
-- **✅ `StashClient` is genuinely thin: configure, run, map errors.** It owns the
-  `NetworkConfiguration` (base URL + a single `BearerAuthorizationInterceptor`)
-  and exposes one `run(_:)` that delegates to `NetworkClient`. It does **no**
-  token storage, **no** silent refresh, and **no** business logic —
-  refresh-on-401 is the repository layer's responsibility (PRD §8.1). Its only
-  value-add over `NetworkClient` is error mapping.
-- **✅ `tokenProvider` closure keeps the package storage-agnostic.** The public
-  initializer takes `tokenProvider: @escaping @Sendable () async -> String?`;
-  the app supplies the current access token from wherever it lives (Keychain in
-  M8, in-memory in tests). StashKit defines **no** `TokenStore` protocol and
-  never touches the Keychain — storage is entirely the app's concern. A second
-  internal initializer accepts a `URLSessionProtocol` so tests inject a mock
-  session.
-- **✅ Error mapping `NetworkClientError → StashAPIError` lives in
-  `StashClient.run`.** On a non-2xx response
-  (`NetworkClientError.unacceptableStatusCode`), the client decodes the standard
-  `{ error, code, message, existingID? }` envelope into `APIErrorDTO` and
-  switches on `code` to a typed `StashAPIError` case (e.g. `duplicate_url` +
-  `existingID` → `.duplicateURL(existingID:)`, `internal_error`/any 5xx →
-  `.serverError`). Undecodable bodies and unrecognized codes fall back to
-  `.serverError` (5xx) or `.unknown(error)`. The `cannot_delete_self` backend
-  code has no dedicated `StashAPIError` case (it's a UI-level guard) and maps to
-  `.unknown`.
-- **✅ `.iso8601` date strategy matches the backend.** Vapor's default
-  `ContentConfiguration` uses `JSONEncoder/Decoder.custom(dates: .iso8601)`, so
-  `StashClient` configures its decoder/encoder with `.iso8601` (no fractional
-  seconds) to round-trip `createdAt`/`updatedAt` correctly. Verified against
-  Vapor's source rather than assumed.
-- **⚠️ Hierarchical tag deletion is limited by `MicroClient`'s path model.**
-  `MicroClient` builds URLs via `URL.appendPathComponent`, which (a) treats `/`
-  as a separator and (b) re-encodes a literal `%` (so a pre-encoded `%2F`
-  becomes `%252F`). A single path segment therefore cannot carry an encoded
-  slash. `TagRequestFactory.makeDeleteRequest(tag:)` passes the raw tag and lets
-  `appendPathComponent` percent-encode it — correct for flat tags and for
-  deleting a parent subtree (`swift` removes `swift` and `swift/*`), but it
-  cannot target a specific hierarchical child like `swift/vapor` over this
-  dependency. Accepted for now; revisit if child-specific deletion is needed
-  from a client.
-- **✅ `auth/totp/disable` and `admin/users/:id/reset-totp` factories preceded
-  their JSON API — now resolved.** These endpoints first shipped only on the web
-  controllers (M11 / post-M11); StashKit defined
-  `makeTOTPDisableRequest`/`makeResetTOTPRequest` at the PRD §9.2/§9.6 paths ahead
-  of the backend (the task's factory list mandated them) so the client was ready.
-  The backend has since exposed both on the JSON API at exactly those paths — see
-  "2FA disable / reset land on the JSON API" below.
-- **✅ Tests: mock `URLSession`, Given/When/Then, "It should …".**
-  `StashKitTests` injects a `MockURLSession` (conforming to
-  `MicroClient.URLSessionProtocol`) that records the last request and replays a
-  canned status + body. Coverage: `BookmarkListQuery` → query items incl. the
-  `__untagged__` sentinel; auth/bookmark factory paths, methods, and body
-  encoding; and `StashClient.run` for success decoding, the `duplicate_url` →
-  `.duplicateURL(existingID:)` mapping, and every enumerated error code → its
-  `StashAPIError` case (parameterized test). 13 tests pass.
-- **⚠️ Depends on `MicroClient`, not "Foundation + URLSession only" (§15).** §15
-  specifies StashKit has no external dependencies. M6 instead builds on
-  `MicroClient` (the typed `NetworkRequest` / `NetworkClient` / interceptor
-  stack, mirroring `MicroblogAPI`), which is the agreed architecture for this
-  milestone. `MicroClient` is itself Foundation/`URLSession`-only, so the
-  data-ownership spirit holds.
-- **⚠️ The §15 in-memory tag cache (`autocompleteTags(prefix:)`) is not in
-  StashKit.** That cache is a stateful, session-scoped concern that belongs to
-  the app's repository layer (which also owns refresh and storage), not the
-  stateless request/DTO package. `TagRequestFactory.makeListRequest()` provides
-  the data; caching/invalidation is layered on top in the app.
-- **✅ Lint/format config copied from `Backend`.** The same `.swiftformat` and
-  `.swiftlint.yml` (MIT header, type-mode organization, the
-  Fluent-false-positive rule exclusions, idiomatic short-name allowances) apply
-  to StashKit. `swiftformat --lint` is idempotent and `swiftlint lint` reports 0
-  violations.
+StashKit splits into exactly three layers and no more, mirroring a pattern
+I'd used before in `MicroblogAPI`, built on top of `MicroClient`
+(`from: "0.0.27"`, Swift tools 6.0, iOS 17 / macOS 14 at the time):
+`Codable`/`Sendable` DTOs matching the API's wire shapes, request factories
+that build typed `NetworkRequest` values, and a thin `StashClient` wrapping
+`MicroClient.NetworkClient`.
+
+Each API domain gets its own factory enum — `AuthRequestFactory`,
+`BookmarkRequestFactory`, `TagRequestFactory`, `MetadataRequestFactory`,
+`AdminRequestFactory` — all `public static` methods, every path prefixed
+`/api/v1/`. They're pure value builders with no I/O, so testing one just
+means inspecting the `NetworkRequest` it returns.
+
+StashKit decodes wire shapes into DTOs and stops there — mapping those DTOs
+into domain models is the app's repository layer's job (from M8 on). The
+package carries no business logic and no domain types. `BookmarkPageDTO` is a
+`typealias` over a generic `PageDTO<T>` matching Vapor's `Page<T>` envelope.
+
+`StashClient` itself is genuinely thin: it owns the `NetworkConfiguration`
+(base URL plus a `BearerAuthorizationInterceptor`) and exposes one `run(_:)`
+that delegates straight to `NetworkClient`. No token storage, no silent
+refresh, no business logic — refresh-on-401 is the repository layer's job
+(§8.1). Its only real value-add over the bare `NetworkClient` is mapping
+errors. That mapping (`NetworkClientError → StashAPIError`) lives entirely in
+`StashClient.run`: on a non-2xx response it decodes the standard
+`{ error, code, message, existingID? }` envelope and switches on `code` —
+`duplicate_url` plus its `existingID` becomes `.duplicateURL(existingID:)`,
+any 5xx or `internal_error` becomes `.serverError`, and anything undecodable
+or unrecognized falls back to `.serverError` or `.unknown(error)`. The
+backend's `cannot_delete_self` code has no dedicated case, since it's really
+a UI-level guard, and maps to `.unknown`.
+
+The package stays storage-agnostic via a
+`tokenProvider: @escaping @Sendable () async -> String?` closure passed into
+the initializer — the app supplies the current access token from wherever it
+actually lives (Keychain from M8 on, in-memory in tests). StashKit defines no
+`TokenStore` protocol and never touches the Keychain itself. A second,
+internal initializer accepts a `URLSessionProtocol` so tests can inject a
+mock session. Dates round-trip correctly because `StashClient` configures its
+encoder/decoder with the same `.iso8601` strategy Vapor's
+`ContentConfiguration` uses by default — I checked this against Vapor's
+source rather than assuming it.
+
+One real limitation: hierarchical tag deletion is constrained by how
+`MicroClient` builds URLs. It appends path components via
+`URL.appendPathComponent`, which treats `/` as a separator and re-encodes a
+literal `%` (so a pre-encoded `%2F` becomes `%252F`). That means a single
+path segment can't carry an encoded slash, so
+`TagRequestFactory.makeDeleteRequest(tag:)` just passes the raw tag and lets
+`appendPathComponent` percent-encode it. That's correct for flat tags and for
+deleting an entire parent subtree (`swift` removes `swift` and everything
+under it), but it can't target one specific hierarchical child like
+`swift/vapor` in isolation, given this dependency. I've accepted that for now
+and would revisit it if child-specific deletion turns out to matter from a
+client.
+
+The spec originally called for StashKit to have zero external dependencies
+beyond Foundation and URLSession (§15). I built it on `MicroClient` instead,
+which is itself Foundation/URLSession-only under the hood, so the
+data-ownership spirit holds even if the letter of that constraint doesn't.
+Similarly, §15's proposed in-memory tag-autocomplete cache doesn't live in
+StashKit — that's stateful, session-scoped behavior that belongs in the app's
+repository layer alongside refresh and storage, not in a stateless
+request/DTO package; `TagRequestFactory.makeListRequest()` just supplies the
+raw data.
+
+Two endpoints — `auth/totp/disable` and `admin/users/:id/reset-totp` — had
+StashKit factories (`makeTOTPDisableRequest`/`makeResetTOTPRequest`) before
+the backend actually exposed them on the JSON API; they'd first shipped only
+on the web controllers. The backend has since caught up and exposes both at
+exactly the paths StashKit was already targeting.
+
+Tests inject a `MockURLSession` conforming to `MicroClient.URLSessionProtocol`
+that records the last request and replays a canned status and body,
+following the same Given/When/Then, "It should …" structure as the backend
+suite. Coverage spans query-item construction (including the `__untagged__`
+sentinel), every factory's path/method/body encoding, and `StashClient.run`'s
+decoding and error-mapping, including a parameterized test walking every
+error code to its `StashAPIError` case — 13 tests in total.
+
+Lint and format config is copied straight from the backend — the same
+`.swiftformat` and `.swiftlint.yml`, MIT header and all — so
+`swiftformat --lint` stays idempotent and `swiftlint lint` reports zero
+violations here too.
 
 ---
 
 ## M7 — CLI (`stash`)
 
-- **✅ `ArgumentParser` + StashKit, one type per command.** The CLI (`CLI/`,
-  executable target `stash`, Swift tools 6.0, macOS 14+) is built on
-  `swift-argument-parser` (`from: "1.5.0"`) and the local `StashKit` package
-  (§14/§17.2). Every command is its own `AsyncParsableCommand`; related commands
-  are grouped under a parent (`config`, `bookmarks`, `tags`, `admin`) with
-  shared business logic kept in `StashKit`'s request factories — the CLI is
-  purely a presentation/orchestration layer.
-- **✅ Top-level aliases via multi-parenting.**
-  `BookmarksList`/`Add`/`Get`/`Delete`/`Archive` are listed both under the
-  `bookmarks` parent *and* directly under the root command, so `stash list` and
-  `stash bookmarks list` resolve to the same type (ArgumentParser keys commands
-  by their static `commandName`, so a type can appear in two `subcommands`
-  arrays). `stash tags` and `stash bookmarks` use `defaultSubcommand: …List` so
-  the bare group lists.
-- **✅ Config + token store in one file.** `ConfigStore` reads/writes
-  `~/.config/stash/config.json` (`CLIConfig { baseURL, accessToken, refreshToken
-  }`, all optional). A missing file loads as an empty config so first-run
-  commands fail with a clear "not configured / not logged in" message rather
-  than crashing. `CLIConfig` declares an explicit `init(… = nil)` because the
-  shared `.swiftformat` `--nil-init remove` strips property `= nil` defaults,
-  which would otherwise break the no-arg `CLIConfig()`.
-- **✅ Proactive JWT refresh, dependency-free.** Before any authenticated
-  command, `CLIRuntime` decodes the access token's `exp` claim by hand
-  (base64url-decode of the JWT payload — no library, §8.1) and, when it is
-  within 60 s of expiry *and* a refresh token exists, calls
-  `AuthRequestFactory.makeRefreshRequest`, persisting the rotated pair. A failed
-  refresh clears both tokens and surfaces "Session expired — please run stash
-  login". A token that can't be parsed is treated as expiring; with no refresh
-  token present the command proceeds and lets the server reject it (so manually
-  `set-token`'d access tokens still work for scripting).
-- **⚠️ Login builds its own request to cover the 2FA branch.** `POST
-  /api/v1/auth/login` returns *either* a token pair *or* a `{ requires2FA,
-  tempToken }` challenge, both as HTTP 200. StashKit's `makeLoginRequest` is
-  typed to `TokenPairDTO` and can't represent the challenge, so the CLI declares
-  a local `LoginOutcome` decoding both shapes and builds the `NetworkRequest`
-  directly. This is why the CLI depends on **`MicroClient`** explicitly
-  (re-declaring StashKit's transitive dependency) in addition to StashKit and
-  ArgumentParser — the only deviation from the §14 dependency list.
-- **✅ Import/export re-implemented client-side over the public API.** The import
-  endpoint is web-only (§13), so `stash import` parses the file locally
-  (`ImportParser` re-implements the Anybox `[[namespace, value]]`-tag mapping
-  and the Stash-JSON shape, with URL/tag normalization mirrored from `Bookmark`
-  in `BookmarkInput`) and submits each record through
-  `BookmarkRequestFactory.makeCreateRequest`, falling back to
-  `makeUpdateRequest` when the server reports `duplicate_url` (carrying the
-  `existingID`). `stash export` paginates through *both* active and archived
-  bookmarks (the list API splits on `archived`, so both must be fetched),
-  assembles the native `{ version, exportedAt, bookmarks[] }` envelope sorted by
-  `createdAt`, and writes it.
-- **⚠️ Import can't preserve `createdAt` or set archived-on-create.** The public
-  create endpoint has no `createdAt` field and `CreateBookmarkRequest` no
-  `isArchived`, so CLI-imported bookmarks get a fresh `createdAt` and an
-  archived record is created then updated to set the flag. The web importer,
-  which has direct DB access, preserves `createdAt`; this is an accepted
-  limitation of importing over the REST API. (Re-importing a Stash export of
-  existing bookmarks takes the duplicate-update path, where the server preserves
-  `createdAt` — verified idempotent against a 212-bookmark export.)
-- **✅ Output: stdout for results, stderr for everything interactive.** Tables
-  (plain `String(repeating:)` padding — ID 8 / title 40 / URL 50, no table
-  library), `--json` (pretty-printed, `.iso8601`, `.withoutEscapingSlashes`),
-  and success lines go to stdout; prompts, the `Delete …? [y/N]` confirmations,
-  and `Error: <message>` go to stderr, with a non-zero exit on failure (a shared
-  `runCLI` wrapper maps `StashAPIError`/`CLIError` to a single-line message and
-  exits 1). Hidden password entry uses `getpass` (reads `/dev/tty`).
-  `NetworkClientError` is mapped to actionable text too — a bare
-  `MicroClient.NetworkClientError error 0` told a user nothing when they pointed
-  the CLI at `https://` against a plain-HTTP server (a TLS handshake failure),
-  so transport/URL/decoding failures now read as e.g. "Could not reach the
-  server. A TLS error caused the secure connection to fail. (Check the URL and
-  scheme — a plain HTTP server needs http://, not https://.)".
-- **✅ Admin commands resolve usernames to IDs.** The admin API is keyed by UUID
-  but the CLI takes usernames (§14), so
-  `suspend`/`unsuspend`/`reset-password`/`reset-totp`/`delete-user` first list
-  users (`makeUsersRequest`) and match case-insensitively. Suspend/unsuspend and
-  reset-password are `makeUpdateUserRequest` with `isActive`/`password`.
-- **🔁 Fixed a latent StashKit defect: writes sent no `Content-Type`.**
-  `StashClient` configured only a `BearerAuthorizationInterceptor`, so POST/PUT
-  requests carried a JSON body with no `Content-Type` header and Vapor rejected
-  every write with `400 bad_request` ("No value found at path 'url'").
-  StashKit's mock-based tests never exercised a real header, so the bug was
-  invisible until the CLI made live write calls. Added `ContentTypeInterceptor`
-  and `AcceptHeaderInterceptor` to `StashClient`'s interceptor chain (a one-line
-  config fix that also benefits the future iOS/macOS clients). Verified
-  end-to-end against the running backend: create, duplicate-detection,
-  update-on-import, archive, tag rename/delete, and the full admin user
-  lifecycle.
-- **⚠️ `admin reset-totp` 404s until the JSON API adds the route.** As noted
-  under M6, the `/api/v1/admin/users/:id/reset-totp` endpoint exists only on the
-  web controller so far; the CLI calls the documented path and surfaces the
-  server's `404 not_found`. The command is correct and will work once the
-  backend exposes the route.
-- **✅ No CLI tests (§18.7) — manual integration only.** Build is clean,
-  `swiftformat --lint` is idempotent, and `swiftlint lint` reports 0 violations.
-  The `.swiftformat`/`.swiftlint.yml` are copied from `Backend/`. All commands
-  were exercised against a live backend instance.
+The CLI (`CLI/`, executable target `stash`, Swift tools 6.0, macOS 14+) is
+built on `swift-argument-parser` (`from: "1.5.0"`) and the local `StashKit`
+package (§14/§17.2), one type per command. Every command is its own
+`AsyncParsableCommand`; related ones group under a parent (`config`,
+`bookmarks`, `tags`, `admin`), and shared business logic stays in StashKit's
+request factories — the CLI itself is purely presentation and orchestration.
+The most common bookmark commands (`list`/`add`/`get`/`delete`/`archive`) are
+registered both under the `bookmarks` parent and directly at the root, so
+`stash list` and `stash bookmarks list` resolve to the same type; `stash tags`
+and `stash bookmarks` use a default subcommand so the bare group lists.
+
+`ConfigStore` reads and writes `~/.config/stash/config.json` in one file —
+base URL, access token, refresh token, all optional — so a missing file just
+loads as an empty config and first-run commands fail with a clear "not
+configured / not logged in" message instead of crashing. (`CLIConfig` needed
+an explicit `init(… = nil)` because the shared `.swiftformat` config strips
+property `= nil` defaults, which would otherwise break the no-arg
+`CLIConfig()`.)
+
+Before any authenticated command, `CLIRuntime` decodes the access token's
+`exp` claim by hand — no library, same as elsewhere — and proactively
+refreshes when it's within 60 seconds of expiring and a refresh token exists,
+persisting the rotated pair. A failed refresh clears both tokens and tells the
+user to run `stash login` again; an unparseable token is treated as expiring,
+but if there's no refresh token at all the command just proceeds and lets the
+server reject it, so a manually `set-token`'d access token still works for
+scripting.
+
+Login needed its own request builder to cover the 2FA branch: `POST
+/api/v1/auth/login` returns either a token pair or a `{ requires2FA,
+tempToken }` challenge, both as HTTP 200, and StashKit's typed
+`makeLoginRequest` only knows the token-pair shape. So the CLI declares a
+local `LoginOutcome` that decodes both, and builds that one `NetworkRequest`
+directly — which is why the CLI depends on `MicroClient` explicitly, on top
+of StashKit and ArgumentParser. That's the one deviation from the §14
+dependency list.
+
+Import and export are re-implemented client-side over the public API, since
+the import endpoint is web-only (§13). `stash import` parses the file locally
+— `ImportParser` re-implements the Anybox tag mapping and the Stash-JSON
+shape, mirroring the same URL/tag normalization `Bookmark` uses — and submits
+each record through the create endpoint, falling back to update when the
+server reports `duplicate_url`. `stash export` paginates through both active
+and archived bookmarks (the list API splits on `archived`, so both need
+fetching separately) and assembles the native export envelope sorted by
+`createdAt`. One accepted limitation: the public create endpoint has no
+`createdAt` field and no way to set archived-on-create, so CLI-imported
+bookmarks get a fresh `createdAt`, and an archived record has to be created
+then updated to set the flag — the web importer, with direct DB access,
+preserves the original `createdAt`; the CLI can't. (Re-importing a Stash
+export of already-existing bookmarks takes the duplicate-update path instead,
+where `createdAt` is preserved — I verified this is idempotent against a
+212-bookmark export.)
+
+Output conventions: results and success lines go to stdout (plain
+fixed-width tables, or pretty-printed `--json`), while prompts, delete
+confirmations, and error messages go to stderr, with a non-zero exit on
+failure. Hidden password entry reads directly from `/dev/tty`. I also had to
+make transport errors readable — a bare `MicroClient.NetworkClientError error
+0` told a user nothing when they pointed the CLI at `https://` against a
+plain-HTTP server, so those now surface as actual sentences, e.g. "Could not
+reach the server. A TLS error caused the secure connection to fail. (Check
+the URL and scheme — a plain HTTP server needs http://, not https://.)".
+
+Admin commands take usernames rather than the UUIDs the admin API actually
+wants, so `suspend`/`unsuspend`/`reset-password`/`reset-totp`/`delete-user`
+first list users and match case-insensitively before issuing the real
+request.
+
+Building the CLI's live write path also surfaced a real StashKit bug:
+`StashClient` only configured a `BearerAuthorizationInterceptor`, so every
+POST/PUT went out with a JSON body but no `Content-Type` header, and Vapor
+rejected every write with a `400 bad_request` ("No value found at path
+'url'"). StashKit's mock-based tests never exercised a real header, so this
+was invisible until the CLI started making live calls. I added
+`ContentTypeInterceptor` and `AcceptHeaderInterceptor` to the client's
+interceptor chain — a one-line fix that also benefits the iOS/macOS clients
+later — and verified it end-to-end: create, duplicate detection,
+update-on-import, archive, tag rename/delete, and the full admin user
+lifecycle.
+
+`admin reset-totp` will 404 until the backend adds the route to the JSON API
+— as noted under M6, that endpoint exists only on the web controller so far.
+The CLI command itself is correct and calls the documented path; it'll start
+working the moment the backend catches up.
+
+No CLI unit tests, by design (§18.7) — manual integration only. The build is
+clean, formatting is idempotent, linting reports zero violations, and every
+command has been exercised against a live backend instance.
 
 ---
 
 ## M8 — iOS app (core)
 
-Scope for this milestone is a working app — authentication, bookmark list, add
-bookmark. The Share Extension (M9), full settings, tag rename/delete, and
-edit/delete screens are deliberately deferred.
+Scope for this milestone was a working app: authentication, the bookmark
+list, adding a bookmark. I deliberately deferred the Share Extension (M9),
+full settings, tag rename/delete, and edit/delete screens.
 
-- **✅ Project generated with XcodeGen, not a checked-in `.xcodeproj`.**
-  `StashApp/project.yml` is the source of truth; `xcodegen generate` recreates
-  the project, which is `.gitignore`d (mirrors how the package targets avoid
-  committing build artifacts). Single multiplatform SwiftUI target `Stash`, iOS
-  17 minimum, bundle id `cc.otavio.stash`, App Group `group.cc.otavio.stash`,
-  `TARGETED_DEVICE_FAMILY` `1,2` (iPhone + iPad).
-  `NSAppTransportSecurity.NSAllowsArbitraryLoads` is set via the generated
-  `Info.plist` for plain-HTTP local-network deployments (§16). macOS is added in
-  M10, so the target is iOS-only for now (`UIPasteboard` is used directly in the
-  add sheet; revisit for macOS).
-- **✅ `KeychainStore` vendored from Triton, extended with an access group.**
-  Copied verbatim and adapted: a new optional `accessGroup: String?` init
-  parameter (default `nil`) adds `kSecAttrAccessGroup` to every query so the
-  item can be shared with the Share Extension over the App Group in M9. The two
-  token stores (`cc.otavio.stash.accessToken` / `…refreshToken`) are created
-  with the default (no access group) so M8 works standalone without a
-  `keychain-access-groups` entitlement; M9 will pass `group.cc.otavio.stash`.
-  The Security calls (`SecItemDelete`/`Add`/`CopyMatching`) are injected
-  closures, keeping the store testable; the class is `@unchecked Sendable`
-  (immutable after init, manual safety). Reads via `SecItemCopyMatching`, writes
-  via delete-then-add, `nil` deletes.
-- **⚠️ Both tokens stored in the Keychain, not access-token-in-memory.**
-  §16/§8.1 say the access token lives in memory only. This milestone's task
-  mandates two `KeychainStore` instances (access + refresh), so both are
-  persisted. This is what lets the M9 Share Extension reuse the access token
-  directly, and it means a cold start restores the session without an immediate
-  refresh round-trip. Noted as a deliberate deviation from the PRD's memory-only
-  access token.
-- **✅ `TokenManager` decodes the JWT `exp` by hand — no library.**
-  `isAccessTokenExpiringSoon()` base64url-decodes the access token's payload
-  segment and reads the `exp` claim (`< 60 s` → expiring), the same
-  dependency-free approach as the CLI's `JWTDecoder` (M7). A token that is
-  absent or unparseable is treated as expiring, so the caller refreshes rather
-  than sending a request that would be rejected.
-- **✅ Repository pattern maps StashKit DTOs to local domain models.**
-  `AuthRepository`, `BookmarkRepository`, `TagRepository` are `@MainActor
-  @Observable` classes; views observe them directly. StashKit stops at DTOs (M6
-  decision), so the repositories own the `BookmarkDTO → Bookmark`, `TagDTO →
-  Tag`, `PageMetadataDTO → PageMetadata` mapping and all session-stateful
-  concerns. The §15 in-memory tag cache (deferred out of StashKit in M6) lives
-  here: `TagRepository` caches the tag list for synchronous, local
-  `autocompleteTags(prefix:)` and exposes `invalidateCache()` after a bookmark
-  write that may change tags.
-- **✅ Silent refresh centralised in `AuthRepository`, behind a narrow
-  protocol.** Per §8.1, an authenticated operation first calls
-  `refreshIfNeeded()`: if the token is expiring and a refresh token exists it
-  rotates the pair via `AuthRequestFactory.makeRefreshRequest` and re-saves; on
-  failure it clears the session (returning the UI to login) and rethrows. The
-  bookmark/tag repositories depend on a one-method `SessionRefreshing` protocol
-  rather than the concrete `AuthRepository`, so they can ensure a fresh token
-  without owning auth state and without a reference cycle.
-- **✅ `StashClientProvider` rebuilds the client only when the server URL
-  changes.** The server URL is read from the same `serverURL` UserDefaults key
-  that `AppSettings` (`@AppStorage`) persists, so the provider always reflects
-  the latest configuration without holding the observable. The client's
-  `tokenProvider` closure reads the access token from `TokenManager` at request
-  time, so a refresh that rewrites the Keychain is picked up without rebuilding
-  the client. `@unchecked Sendable` with an `NSLock` around the cache.
-- **⚠️ App depends on `MicroClient` directly for the 2FA login branch.** `POST
-  /api/v1/auth/login` returns *either* a token pair *or* a `{ requires2FA,
-  tempToken }` challenge, both as HTTP 200, and StashKit's typed
-  `makeLoginRequest` is `TokenPairDTO`-only. As the CLI does (M7),
-  `AuthRepository` declares a local `LoginOutcome` decoding both shapes and
-  builds the `NetworkRequest` directly — hence a direct `MicroClient` dependency
-  in addition to StashKit.
-- **✅ `AppEnvironment` is the DI container.** A single `@MainActor @Observable`
-  `AppEnvironment` builds the token stores, `TokenManager`,
-  `StashClientProvider`, and the three repositories once at launch; it and
-  `AppSettings` are injected via `.environment(_:)`. `RootView` routes on
-  `AppSettings.isConfigured` → `AuthRepository.isAuthenticated`: setup → login →
-  main app.
-- **✅ `NavigationSplitView` on iPad, tab bar on iPhone.** `MainView` switches on
-  `horizontalSizeClass`: regular width shows a `NavigationSplitView` with a tag
-  sidebar driving the filtered `BookmarkListView` in the detail column; compact
-  width shows `TabContainerView` (Bookmarks / Tags / Settings tabs, each in its
-  own `NavigationStack`). `BookmarkListView` takes an optional `tag` filter so
-  the same screen serves both layouts and the Tags tab's drill-in.
-- **✅ `FaviconView` vendored from Triton with a local `roundedFavicon()`
-  modifier.** Copied verbatim, `public` modifiers dropped for the app target;
-  the `RoundFaviconModifier` (16×16 icon, 4 pt corner radius) is implemented locally
-  as instructed. It draws the icon on an **always-light (white) background** with
-  a 1 pt inset (growing the chip to 18×18, the icon kept at 16×16) — some favicons are designed for white backdrops and look poor on
-  the dark-mode surface, so the background is fixed light regardless of color
-  scheme rather than following it.
-- **✅ Bookmark list: `.searchable`, pull-to-refresh, load-more, archived
-  toggle.** Search reloads on submit (and on clear) rather than per keystroke;
-  `loadNextPage()` fires from the last row's `onAppear` when `hasMore`; the
-  toolbar carries a `+` (presents `AddBookmarkSheet`) and an options menu with
-  the archived `Toggle`. `AddBookmarkSheet` has a paste button, a metadata fetch
-  that populates title/description, comma-separated tag input with
-  `TagSuggestionView` autocomplete chips, and surfaces duplicate-URL/validation
-  errors inline via the shared error mapping.
-- **✅ Error mapping for the UI.** A single `Error.stashUserMessage` maps
-  `StashAPIError` (and the app's own `AppError`) to short, user-facing strings
-  shown inline or in an alert.
-- **✅ Code style and verification.** American English, `///` on types only, no
-  inline comments; `.swiftformat`/`.swiftlint.yml` copied from `Backend/`.
-  `swiftformat --lint` is idempotent and `swiftlint lint` reports 0 violations;
-  the app builds clean (no warnings) for the iOS 17 simulator and boots through
-  Setup → Login (routing verified live against the running Docker backend). No
-  app unit tests per §18.7 — the StashKit networking path is already covered by
-  M6's mocked tests and proven end-to-end by the M7 CLI against the same
-  backend.
+I generated the project with XcodeGen rather than checking in a `.xcodeproj`
+— `StashApp/project.yml` was the source of truth, and `xcodegen generate`
+recreated the (gitignored) project, the same way the package targets avoid
+committing build artifacts. (This later got reversed — see the M10-era
+decision to commit the Xcode project and retire XcodeGen.) It was a single
+multiplatform SwiftUI target, iOS 17 minimum, bundle id `cc.otavio.stash`,
+App Group `group.cc.otavio.stash`, both iPhone and iPad. macOS wasn't added
+until M10, so this milestone's target was iOS-only.
+
+I vendored `KeychainStore` from an earlier project of mine (Triton) and
+extended it with an optional `accessGroup` parameter, so the same store could
+later share an item with the Share Extension over the App Group in M9; for
+this milestone both token stores are created without an access group, so M8
+works standalone with no extra entitlement. One real deviation from the spec
+here: both the access and refresh tokens live in the Keychain, not just the
+refresh token as the memory-only-access-token plan called for. That's what
+lets the Share Extension reuse the access token directly in M9, and it means
+a cold app launch restores the session without an immediate refresh
+round-trip — worth the deviation.
+
+`TokenManager` decodes the JWT `exp` claim by hand, the same dependency-free
+approach as the CLI. A token that's absent or unparseable is treated as
+expiring, so the caller refreshes rather than sending a request that would
+just get rejected.
+
+The repository pattern maps StashKit's DTOs to local domain models:
+`AuthRepository`, `BookmarkRepository`, `TagRepository` are `@MainActor
+@Observable` classes that views observe directly. Since StashKit stops at
+DTOs, the repositories own the DTO→domain mapping and all session-stateful
+concerns — including the in-memory tag cache I'd deliberately kept out of
+StashKit back in M6: `TagRepository` caches the tag list for synchronous
+local autocomplete and invalidates it after any write that might change tags.
+Silent refresh is centralized in `AuthRepository` behind a narrow
+`SessionRefreshing` protocol, so the bookmark and tag repositories can ensure
+a fresh token without owning auth state or creating a reference cycle. The
+app also needs a direct `MicroClient` dependency, same reason as the CLI —
+the 2FA login branch can't be expressed through StashKit's typed request.
+
+A single `@MainActor @Observable` `AppEnvironment` builds everything once at
+launch — token stores, `TokenManager`, `StashClientProvider`, the three
+repositories — and `RootView` routes between setup, login, and the main app
+based on configuration and auth state. Layout branches on size class:
+`NavigationSplitView` with a tag sidebar on iPad, a tab bar on iPhone, both
+driven by the same `BookmarkListView`.
+
+Verification: American English, doc comments only on types, no inline
+comments, formatting and linting both clean, the app builds without warnings
+for the iOS 17 simulator, and I walked Setup → Login live against the
+running Docker backend. No app unit tests (§18.7) — the networking path was
+already covered by StashKit's mocked tests and proven end-to-end by the CLI
+against the same backend.
 
 ### M8 follow-ups (first device testing)
 
-- **🔁 `AppSettings.serverURL` is a tracked property, not `@ObservationIgnored
-  @AppStorage`.** The original spec'd `@ObservationIgnored
-  @AppStorage("serverURL")` is excluded from `@Observable` tracking, so setting
-  it from `SetupView` persisted the value but never notified `RootView` — the
-  app appeared stuck on Setup ("Continue does nothing"). It only routed
-  correctly when the value was already present at launch. Replaced with a plain
-  tracked `var serverURL` whose `didSet` writes through to the same `serverURL`
-  UserDefaults key (still read by `StashClientProvider`), so the change is
-  observed and routing is reactive while persistence and the key are unchanged.
-- **✅ Per-view `BookmarkRepository`, not one shared instance.** `AppEnvironment`
-  originally held a single `bookmarkRepository`, so the Bookmarks tab, a
-  Tags-tab tag drill-in, and the iPad detail all mutated the same `bookmarks`
-  array — browsing a tag in the Tags tab left the Bookmarks tab showing that
-  tag's results. `AppEnvironment` now exposes `makeBookmarkRepository()`
-  (sharing the client and session) instead, and `BookmarkListView` is a thin
-  wrapper owning its own repository in `@State` (created lazily on first
-  appearance), rendering a private `BookmarkListContent` bound to it. Each list
-  is therefore independent. `AuthRepository` and `TagRepository` stay shared
-  singletons (auth state and the tag cache are intentionally global);
-  `AddBookmarkSheet` receives the presenting list's repository so a saved
-  bookmark lands in that list.
-- **✅ Bookmark navigation is closure-based, not `navigationDestination(for:)`.**
-  `BookmarkListView` declared `.navigationDestination(for: Bookmark.self)`
-  *inside itself*, but it is reused at multiple stack depths (root of the
-  Bookmarks tab, pushed under the Tags tab, iPad detail column). A pushed copy
-  re-declared the same destination, so SwiftUI logged "a navigationDestination
-  for Stash.Bookmark was declared earlier on the stack" and kept only the
-  root-most one — tapping a bookmark in the Tags flow re-pushed the list instead
-  of the detail, with the real detail buried (off-by-one back button). It also
-  mixed value-based links (`NavigationLink(value:)`) with closure-based links
-  (TagBrowserView's tag link) in one stack. Fixed by making the bookmark rows
-  closure-based (`NavigationLink { BookmarkDetailView(…) }`) and removing the
-  `navigationDestination` entirely: closure links resolve at any depth with no
-  registration, so all bookmark navigation is now uniform. (`LoginView` keeps a
-  single `navigationDestination(for: String.self)` for the 2FA push — correct,
-  since it is declared once at the stack root.)
-- **✅ Search field disables autocapitalization/autocorrection.** `.searchable`
-  defaults to sentence-case, so typing `casio` became `Casio` and matched
-  nothing (see the search fix below). `BookmarkListView` applies
-  `.textInputAutocapitalization(.never)` + `.autocorrectionDisabled()` to the
-  search field so the query is sent as typed.
-- **✅ Case-insensitive `q` search (backend, supersedes the M2 nuance).** A real
-  client surfaced that Postgres `LIKE` is case-sensitive while §9.3 wants
-  case-insensitive ("ILIKE on PostgreSQL"). `LIKE`/`~~` would have needed a
-  Postgres-only `ILIKE`, which isn't portable to the SQLite test DB, so a shared
-  `QueryBuilder<Bookmark>.filterFullText(_:)` (`Sources/App/Extensions/`)
-  compares `lower(column) LIKE lower(term)` over
-  url/title/description/tags_search via a bound `SQLBind` parameter (FluentSQL
-  `.filter(.sql(...))`). Portable across both drivers, genuinely
-  case-insensitive, and the bound term preserves the previous `~~` wildcard
-  semantics. Both the JSON API (`BookmarkController`) and the web list
-  (`AppWebController`) call the one helper so they can't drift. The existing
-  search test gained uppercase-query/mixed-case-content assertions.
+A few things only showed up once I actually ran the app on a device rather
+than the simulator. `AppSettings.serverURL` was originally
+`@ObservationIgnored @AppStorage`, per the spec — but that's excluded from
+`@Observable` tracking, so setting it from `SetupView` persisted the value
+correctly but never notified `RootView`, and the app looked stuck on Setup
+("Continue does nothing"); it only routed correctly if the value was already
+present at launch. I replaced it with a plain tracked property whose
+`didSet` writes through to the same UserDefaults key, so the same persistence
+now actually triggers reactive routing.
+
+`AppEnvironment` originally held one shared `BookmarkRepository`, which meant
+the Bookmarks tab, a Tags-tab drill-in, and the iPad detail column all
+mutated the same array — browsing a tag in the Tags tab left the Bookmarks
+tab showing that tag's results too. I switched to a
+`makeBookmarkRepository()` factory (sharing the client and session, but not
+the array), with each list view owning its own repository instance, so lists
+are properly independent. `AuthRepository` and `TagRepository` stay shared
+singletons, since auth state and the tag cache are intentionally global.
+
+Bookmark navigation also needed fixing: `BookmarkListView` declared its own
+`navigationDestination(for: Bookmark.self)`, but the view gets reused at
+multiple stack depths (root of the Bookmarks tab, pushed under Tags, the iPad
+detail column), and SwiftUI only honors the outermost declaration — tapping a
+bookmark from the Tags flow re-pushed the list instead of showing the detail.
+I switched bookmark rows to closure-based `NavigationLink { Detail }` and
+dropped the `navigationDestination` entirely, since closure links resolve at
+any depth with no registration.
+
+Two smaller fixes from the same round: the search field now disables
+autocapitalization and autocorrection (`.searchable` defaulted to
+sentence-case, so typing `casio` became `Casio` and matched nothing), and
+full-text search itself became genuinely case-insensitive on the backend —
+Postgres `LIKE` is case-sensitive and §9.3 wants "ILIKE on PostgreSQL", so I
+replaced it with a shared `QueryBuilder<Bookmark>.filterFullText(_:)` helper
+that compares `lower(column) LIKE lower(term)`, portable across SQLite and
+Postgres, used by both the JSON API and the web list handler so they can't
+drift apart. This is the fix the M2 entry above points forward to.
 
 ### M8 follow-ups (SwiftUI review)
 
-Changes from reviewing the app with the SwiftUI-expert skill, against its
-state-management, performance, view-composition, navigation, and list
-references.
+I ran the app against a SwiftUI-focused review pass — state management,
+performance, view composition, navigation, list patterns — and made a few
+changes as a result. Each bookmark row's tags had been a nested horizontal
+`ScrollView`, which meant a scroll container and gesture recognizer on every
+cell in a hot list; I replaced it with a non-scrolling row showing the first
+three tags plus a `+N` overflow count (the detail screen keeps its scrolling
+tag row, since it's not in a list and should show everything). `AppSettings`
+became `@MainActor`, matching the other observable types. The empty state
+got context-aware: previously "Tap + to save your first bookmark" showed even
+when a search or tag filter simply matched nothing, implying an empty
+library that wasn't actually empty — it now distinguishes an active search,
+an active tag filter, the archived view, and true first-run. And the
+add-bookmark URL field's paste button switched from raw `UIPasteboard.general`
+(which trips the system's paste-permission banner on every tap) to
+`PasteButton`, which the system enables only when there's text on the
+pasteboard and pastes without prompting (and drops the `import UIKit` the old
+approach needed). The login flow's 2FA push also got a proper `LoginRoute`
+enum instead of driving the navigation stack with a raw `[String]` and the
+temp token as the route value.
 
-- **✅ Bookmark row tags are a truncating row, not a horizontal `ScrollView`.**
-  Each list row had a nested `ScrollView(.horizontal)` of tag pills, adding a
-  scroll container and gesture recognizer to every cell (heavy in a hot list,
-  and it competes with the list's own scrolling). Replaced with a non-scrolling
-  `HStack` showing the first three tags plus a `+N` overflow count. The detail
-  screen keeps its scrolling tag row, since it should show all tags and isn't in
-  a list.
-- **✅ `AppSettings` is `@MainActor`.** The other `@Observable` types
-  (`AppEnvironment`, the repositories) are already main-actor isolated;
-  `AppSettings` now matches, for thread-safe use from SwiftUI.
-- **✅ Context-aware empty state.** `BookmarkListView` showed "Tap + to save your
-  first bookmark" even when a search or tag filter simply matched nothing,
-  implying the user had zero bookmarks. It now branches:
-  `ContentUnavailableView.search(text:)` for an active query, a tag-specific
-  message when a tag filter is active, an archived-specific message for the
-  archived view, and the original first-run copy only when truly empty.
-- **✅ `PasteButton` instead of `UIPasteboard.general`.** The add-bookmark URL
-  field used a custom button calling `UIPasteboard.general.string`, which trips
-  the system paste-permission banner on every tap. Replaced with
-  `PasteButton(payloadType: String.self)` (icon-only, circular), which the
-  system enables only when the pasteboard holds text and which pastes without a
-  permission prompt. Removes the `import UIKit` from the view.
-- **✅ Typed login route.** `LoginView` drove its stack with `[String]` and
-  `navigationDestination(for: String.self)`, using the raw temp token as the
-  route. Replaced with a `LoginRoute` enum (`.twoFactor(tempToken:)`) for
-  type-safe, self-documenting navigation.
-- **⚠️ Considered but not changed.** Kept the computed `suggestions` in the add
-  sheet (a `@State` cache keyed on the text would miss the async tag-load
-  completing mid-typing, and the data is small). Left `AsyncImage` favicons
-  as-is (URLCache covers downloads; an in-memory decode cache is a larger,
-  optional change). Left the size-class swap between split view and tab bar (the
-  iPhone tab IA differs from the iPad sidebar, so a single adaptive
-  `NavigationSplitView` doesn't fit).
+A few things I considered changing here but left alone: the add sheet's tag
+suggestions stay a computed property rather than a `@State` cache, since a
+cache keyed on the text would miss the async tag-load completing mid-typing,
+and the data's small enough that it doesn't matter. Favicon images stay plain
+`AsyncImage` — `URLCache` already covers the downloads, and an in-memory
+decode cache would be a bigger, optional change for a marginal win. And the
+size-class swap between split view and tab bar stays as two distinct layouts
+rather than one adaptive view, since the iPhone tab information architecture
+genuinely differs from the iPad sidebar.
 
 ---
 
 ## M9 — iOS Share Extension
 
-Scope: save a URL to Stash from Safari (or any app) via the system share sheet,
-presenting the same add-bookmark UX as the app and confirming the save with an
-undo option. No login flow inside the extension — the user authenticates in the
-main app first.
+Scope: save a URL to Stash from Safari (or any app) via the system share
+sheet, with the same add-bookmark UX as the app and a confirm-with-undo step.
+No login flow inside the extension itself — the user has to authenticate in
+the main app first.
 
-- **✅ A `StashShareExtension` `app-extension` target
-  (`cc.otavio.stash.ShareExtension`).** Added to the XcodeGen `project.yml`
-  (still the single source of truth; `Stash.xcodeproj` stays gitignored). Its
-  `NSExtension` Info.plist is `com.apple.share-services` with an activation rule
-  of `NSExtensionActivationSupportsWebURLWithMaxCount: 1` (URLs only), principal
-  class `$(PRODUCT_MODULE_NAME).ShareViewController`, iOS 17 minimum, the same
-  `MicroClient` + local `StashKit` dependencies as the app, and
-  `NSAllowsArbitraryLoads` for the same plain-HTTP local-network deployments
-  (§16). The app target gains a `target: StashShareExtension` dependency so the
-  `.appex` is embedded under `PlugIns/`.
-- **✅ Shared sources extracted to `StashApp/Shared/`, a second source root on
-  both targets.** What the extension genuinely needs — `KeychainStore`,
-  `TokenManager`, `StashClientProvider`, the domain models
-  (`Bookmark`/`Tag`/`PageMetadata`/`CreateBookmarkInput`), the error mapping
-  (`AppError`/`ErrorMessage`), `TagSuggestionView`, and the new
-  `AddBookmarkView` — moved out of `Stash/Shared/` into a top-level
-  `StashApp/Shared/` listed in both targets' `sources`. App-only code
-  (repositories, `AppEnvironment`, `RootView`/`LoginView`/etc.) stays under
-  `Stash/`. No code is duplicated across the two binaries; each just compiles
-  the shared files in.
-- **✅ Tokens shared via a Keychain access group; the server URL via the App
-  Group `UserDefaults` suite.** A single `AppGroup` enum owns the group
-  identifier, the two token account keys, and the `serverURL` key. The app's
-  `AppEnvironment` now builds its two `KeychainStore`s with `accessGroup:
-  "group.cc.otavio.stash"` (the M8 placeholder for this, noted there, is now
-  real), and the extension builds the *same two* stores with the same keys and
-  group, so it reads the tokens the app wrote. The server URL was the other
-  half: `AppSettings` wrote it to `UserDefaults.standard`, which a separate
-  process can't see, so both `AppSettings` (write) and `StashClientProvider`
-  (read) now use `AppGroup.sharedDefaults` (the group suite). ⚠️ Because the
-  app's tokens now live in the access group, an existing M8 install (tokens
-  stored with no group) will not find them after this change — the user signs in
-  once more; this is the planned M8→M9 transition.
-- **✅ The extension is process-isolated, with its own lightweight
-  repositories.** It can't share the app's live `@Observable` repositories
-  (different process), so it builds its own: `ExtensionBookmarkRepository`
-  (create / fetch-metadata / delete only — no list or pagination) and
-  `ExtensionTagRepository` (load once + local `autocompleteTags(prefix:)` — no
-  cache invalidation, since the extension is short-lived). Both go through one
-  `ExtensionSession`, which mirrors `AuthRepository.refreshIfNeeded()`: before
-  each request it rotates the access token via
-  `AuthRequestFactory.makeRefreshRequest` if it is expiring soon and writes the
-  pair back to the shared Keychain. `ExtensionBookmarkRepository` is a plain
-  class (the views need no observable state from it); `ExtensionTagRepository`
-  is `@Observable` so the suggestion chips refresh when the tag list arrives.
-- **✅ `AddBookmarkView` extracted as the shared form behind two narrow
-  protocols.** The M8 `AddBookmarkSheet` was tied to
-  `AppEnvironment`/`BookmarkRepository`. Its body moved into a shared
-  `AddBookmarkView` that depends only on `BookmarkCreating`
-  (`create`/`fetchMetadata`) and `TagAutocompleting`
-  (`tags`/`load`/`autocompleteTags`); the app's `BookmarkRepository`/
-  `TagRepository` and the extension's repositories all conform. The view reports
-  results through `onSaved`/`onCancel` callbacks rather than dismissing itself,
-  so each host decides what happens next. `AddBookmarkSheet` is now a thin
-  wrapper (URL editable, paste + "Fetch Metadata" buttons, dismiss on save,
-  invalidate the tag cache); the extension passes `isURLEditable: false` (URL
-  comes from the share sheet, shown read-only) and `autoFetchOnAppear: true`
-  (metadata fetched on load). Duplicate-URL still surfaces inline via the shared
-  `stashUserMessage` ("This URL is already saved.") — same as the app.
-- **✅ Three-state bootstrap UI driven by a `Phase` enum.** `ShareExtensionView`
-  shows: a brief **loading** state (a `ProgressView` + "Stash") while it reads
-  tokens and resolves the shared URL; a **signed-out** state
-  (`ContentUnavailableView`, "Open Stash to sign in before saving bookmarks." +
-  Cancel) when there's no configured server, no refresh token, or no URL could
-  be extracted; and the **add** state (the shared `AddBookmarkView`). The URL is
-  pulled from `extensionContext.inputItems` by `SharedItemLoader`, which prefers
-  a `public.url` attachment and falls back to the first link found in a
-  `public.plain-text` attachment (via `NSDataDetector`). It is
-  `@MainActor`-isolated so the non-`Sendable` `NSExtensionItem`/`NSItemProvider`
-  never cross an actor boundary — only the resolved `URL`/`String` is returned
-  across the `loadItem` continuation.
-- **✅ Confirmation + undo with a self-cancelling timer.** A save advances to a
-  **confirmation** state ("Saved to Stash ✓" + the bookmark title) with an Undo
-  button. The confirmation view's `.task` sleeps three seconds then calls
-  `completeRequest(returningItems:)`; tapping Undo instead changes the phase
-  back to the add form, which removes the confirmation view and cancels its task
-  (so the auto-dismiss never fires), then issues `DELETE /api/v1/bookmarks/:id`
-  for the just-saved bookmark. Cancel anywhere calls
-  `cancelRequest(withError:)`. Returning to the add form after undo lets the
-  user re-save with different tags or cancel.
-- **✅ Entry point.** `ShareViewController` (the principal class) hosts
-  `ShareExtensionView` in a `UIHostingController` pinned to its edges, handing
-  it the `extensionContext`.
-- **✅ Style and verification.** `Shared/` and the extension follow the same
-  conventions (American English, `///` on types only, no inline comments, the
-  shared `.swiftformat`/`.swiftlint.yml`). `swiftformat --lint` is idempotent,
-  `swiftlint lint` reports 0 violations, and the app + embedded `.appex` build
-  clean (no warnings) for the iOS 17 simulator. No unit tests per §19.6.
+I added a `StashShareExtension` app-extension target to the XcodeGen
+`project.yml` (still the source of truth at this point), activation limited
+to a single web URL, and the same `MicroClient` + local `StashKit`
+dependencies as the app. The app target gained a dependency on it so the
+`.appex` embeds under `PlugIns/`.
+
+Whatever the extension genuinely needed — `KeychainStore`, `TokenManager`,
+`StashClientProvider`, the domain models, error mapping,
+`TagSuggestionView`, and a new `AddBookmarkView` — moved out into a
+top-level `StashApp/Shared/` folder compiled into both targets, so nothing's
+duplicated across the two binaries; app-only code (repositories,
+`AppEnvironment`, the root views) stayed under `Stash/`.
+
+Sharing state across processes needed two different mechanisms. Tokens go
+through a Keychain access group — a single `AppGroup` enum owns the group
+identifier and both token keys, and the app now builds its Keychain stores
+with that access group (the placeholder I'd left for this back in M8 became
+real here), so the extension reads exactly what the app wrote. The server URL
+needed a different fix, since `UserDefaults.standard` isn't visible across
+processes: both the app and the extension now read/write it through the App
+Group's shared `UserDefaults` suite instead. One consequence: because tokens
+now live in the access group and didn't before, an existing M8 install has to
+sign in once more after this change — a planned, one-time transition.
+
+The extension is process-isolated, so it can't share the app's live
+`@Observable` repositories — it builds its own lightweight versions instead
+(`ExtensionBookmarkRepository` for create/fetch-metadata/delete only, no list
+or pagination; `ExtensionTagRepository`, load-once with local autocomplete
+and no cache invalidation, since the extension is too short-lived to need
+it). Both go through an `ExtensionSession` that mirrors
+`AuthRepository.refreshIfNeeded()` — rotating the access token before each
+request if it's expiring soon, and writing the pair back to the shared
+Keychain.
+
+`AddBookmarkView` — the actual form — got extracted from the M8
+`AddBookmarkSheet` into a shared view depending only on two narrow protocols
+(`BookmarkCreating`, `TagAutocompleting`), so both the app's repositories and
+the extension's conform without the view caring which is which. It reports
+results through callbacks instead of dismissing itself, so each host decides
+what happens next; the extension passes the URL in as read-only (it came
+from the share sheet) and fetches metadata automatically on load.
+
+The extension's own UI is a small three-state machine: a brief loading state
+while it reads tokens and resolves the shared URL, a signed-out state
+("Open Stash to sign in before saving bookmarks.") when there's no
+configured server, no refresh token, or no URL could be extracted, and the
+add state itself. The shared URL is pulled from the extension's input items,
+preferring a proper URL attachment and falling back to the first link found
+in plain text.
+
+Saving advances to a confirmation state ("Saved to Stash ✓") with an Undo
+button; a three-second timer auto-dismisses the extension unless Undo is
+tapped, in which case the timer cancels, the view returns to the add form,
+and the just-saved bookmark gets deleted so the user can re-save with
+different tags or just cancel outright.
+
+Same verification bar as everywhere else — formatting and linting clean, no
+warnings on a full build, no unit tests per the testing policy (§19.6).
 
 ---
 
-## M10 — macOS app (+ deployment-target bump to 26)
+## M10 — macOS app (and a deployment-target bump to 26)
 
-Scope: a native macOS app sharing the iOS source tree, plus a macOS Share
-Extension; and a bump of both platform minimums to iOS 26 / macOS 26 (Liquid
-Glass adopted automatically by building against the 26 SDKs).
+Scope: a native macOS app sharing the iOS source tree, a macOS Share
+Extension, and a bump of both platform minimums to iOS 26 / macOS 26 (which
+adopts Liquid Glass automatically just by building against the newer SDKs).
 
-- **✅ Deployment targets raised to iOS 26 / macOS 26.** `project.yml`,
-  `StashKit/Package.swift` (`.iOS(.v26)`/`.macOS(.v26)`, tools 6.2), and
-  `CLI/Package.swift` (`.macOS(.v26)`, tools 6.2) were bumped. The iPhone tab
-  bar gained `.tabBarMinimizeBehavior(.onScrollDown)` so the floating Liquid
-  Glass bar collapses on scroll. No explicit `.liquidGlass` calls — the look
-  comes from the SDK. Verified: StashKit, CLI, the iOS app, and the macOS app +
-  extension all build on the Swift 6.2 / macOS 26 toolchain.
-- **✅ One `@main App` for both platforms; macOS adds scenes.** Rather than a
-  second entry point, `StashApp` stays the single `@main` and branches its
-  `body` with `#if os(macOS)`: macOS adds a `Settings` scene (⌘,),
-  `windowResizability(.contentMinSize)` with a 800×500 minimum, and
-  `SidebarCommands()`. `RootView` routes the authenticated state to `MainView`
-  on iOS and `MacContentView` on macOS.
-- **⚠️ macOS uses a two-column split that reuses `BookmarkListView`, not a
-  bespoke inspector.** The brief sketched a three-column layout with an optional
-  inspector. To honor "maximum code sharing with minimal `#if`",
-  `MacContentView` is a `NavigationSplitView` whose sidebar (All Bookmarks,
-  Untagged, then the tag list — flat at M10, since made a hierarchical tree at iPad
-  parity, later flattened to an always-expanded indented tree; see "Native apps —
-  hierarchical tag sidebar" and "Flat-indented (web-parity) tag tree") drives the
-  *same* shared `BookmarkListView` in the detail column inside a
-  `NavigationStack`; selecting a bookmark pushes the shared `BookmarkDetailView`
-  there, exactly as on iPad. The inspector panel (explicitly optional in the
-  brief) was not built — it would have required a selection-driven variant of
-  the shared list and more platform divergence for little gain. The
-  system-provided sidebar toggle and the list's own toolbar (add, archived,
-  refresh) cover the macOS toolbar requirements.
-- **✅ Platform differences concentrated in `PlatformModifiers` + thin `#if`
-  shells.** iOS-only text-field/title modifiers (`keyboardType`,
-  `textContentType`, `textInputAutocapitalization`,
-  `navigationBarTitleDisplayMode`) live behind cross-platform helpers
-  (`urlFieldStyle`/`usernameFieldStyle`/`passwordFieldStyle`/`oneTimeCodeFieldStyle`/
-  `lowercasedFieldStyle`/`uppercasedFieldStyle`/`inlineNavigationTitleStyle`/`searchInputStyle`)
-  so the shared leaf views read as plain SwiftUI. SwiftUI has no cross-platform
-  copy API, so a single `copyToPasteboard(_:)` free function is the one place
-  `UIPasteboard`/`NSPasteboard` are touched. Whole-view `#if` guards are
-  reserved for genuine platform shells: `MainView`/`TabContainerView` (iOS,
-  size-class + tab bar) and
-  `MacContentView`/`MacSettingsView`/`AccountSettingsView` (macOS).
-  `BookmarkListView`'s one iOS-only toolbar placement (`.topBarLeading`) is
-  selected via a computed `ToolbarItemPlacement` (`.automatic` on macOS).
-- **✅ Shared edit / delete / archive, surfaced per platform.**
-  `BookmarkRepository` gained `update`/`setArchived`/`delete`;
-  `BookmarkDetailView` became read-write (edit sheet, archive,
-  delete-with-confirmation) and is shared by the iOS push and the macOS detail
-  column; `EditBookmarkView` (URL fixed, like the web edit form) is shared. A
-  right-click/long-press context menu on each `BookmarkListView` row (Open in
-  Browser, Copy URL, Copy Markdown URL, Share…, Archive/Unarchive, Delete) is also
-  shared; the same copy and share actions (Copy URL + Copy Markdown URL — the
-  latter emits `[title](url)` — and Share…) also live in `BookmarkDetailView`'s
-  actions section. Keyboard
-  shortcuts wired: ⌘N (new), ⌘E (edit), ⌘R (refresh), ⌘⌫ (delete the open
-  bookmark, with confirmation). ⌘F is left to the system search field rather
-  than custom-bound.
-- **✅ Esc dismisses the bookmark detail back to the list.** `BookmarkDetailView`
-  carries a hidden, zero-opacity `Button("Back")` bound to
-  `.keyboardShortcut(.cancelAction)` (Esc) that calls the same
-  `@Environment(\.dismiss)` the delete path already uses — reusing the exact ⌘F
-  "Find" idiom (`Button(…).keyboardShortcut(…).opacity(0).accessibilityHidden(true)`
-  in a `.background`). `.cancelAction` rather than a raw `.escape` so layering is
-  correct for free: when the edit sheet or the delete `confirmationDialog` is
-  presented, that foremost presentation captures the cancel action and Esc
-  dismisses *it* first; Esc only pops the detail when nothing is on top. The
-  binding is applied uniformly — not `#if os(macOS)`-guarded — because it is inert
-  where no Esc key physically exists: always live on macOS, and on iPadOS/iOS only
-  when a hardware keyboard is attached (no on-screen Esc). The detail is the same
-  shared view pushed onto a `NavigationStack` on every platform, so one `dismiss()`
-  pops it everywhere.
+Rather than a second entry point, the app stays a single `@main App` that
+branches its scene body with `#if os(macOS)` — macOS adds a `Settings` scene
+and window sizing. `RootView` routes the authenticated state to `MainView` on
+iOS and a new `MacContentView` on macOS.
 
-  **Why a hidden button and not a "cleaner" API.** SwiftUI has no view-level "when
-  this view is visible, run a closure on Esc" binding — `.keyboardShortcut` is
-  deliberately *control*-bound, so to map a key to an action (rather than a visible
-  control) you attach it to a `Button` and then suppress that button
-  (`opacity(0)` keeps it in the hierarchy and interactive, unlike `.hidden()` /
-  conditional removal; `accessibilityHidden(true)` keeps the phantom out of
-  VoiceOver). It is a common, stable idiom (documented behavior only, no private
-  API) rather than a bespoke hack — and it is the same shape already used for ⌘F.
-  The two more "first-class" alternatives were both worse fits: `.onKeyPress(.escape)`
-  is *focus-scoped*, so inside a `Form` of focusable rows it fires only when focus
-  happens to sit in the subtree — unreliable, whereas `.keyboardShortcut` is active
-  for the whole key window; and `Commands`/`CommandMenu` is the idiomatic macOS home
-  for global shortcuts but is macOS-only and lives at app/scene altitude, wrong for
-  a per-view, cross-platform "pop the current detail" action.
-- **✅ macOS `Settings` scene with three tabs.** General (server URL field + sign
-  out), Account (change password with the 12-char rule; 2FA enrol via a QR +
-  manual secret + verify → one-time recovery codes, or disable with a current
-  code), and Appearance (Light / Dark / Auto). This drove StashKit additions —
-  `ChangePasswordRequest` + `UserRequestFactory` (`/me`, `/me/password`) — and
-  `AuthRepository` methods (`currentUser`, `changePassword`, `beginTOTPSetup`,
-  `completeTOTPSetup`, `disableTOTP`) over the existing TOTP factories, plus
-  `CurrentUser`/`TOTPSetup` models and a cross-platform `QRCodeView` (CoreImage
-  `CIFilter.qrCodeGenerator`, available on both platforms).
-- **✅ Appearance lives in `UserDefaults`, not a cookie.** The web frontend
-  stores Light/Dark/Auto in a `stash_theme` cookie; the native clients have no
-  browser, so `AppSettings.appearance` (`AppAppearance`) is a tracked property
-  in standard `UserDefaults` (app-only — the extension never themes), applied
-  app-wide via `.preferredColorScheme` at the scene root. `serverURL` stays in
-  the App Group `UserDefaults` suite since the extension reads it.
-- **✅ macOS Share Extension reuses the iOS extension's SwiftUI.**
-  `StashMacShareExtension` (`cc.otavio.stash.macShareExtension`, app group,
-  sandbox + network client) shares `ShareExtensionView`, `ExtensionSession`,
-  `ExtensionBookmarkRepository`, `ExtensionTagRepository`, and
-  `SharedItemLoader` verbatim — they are all SwiftUI/Foundation with no UIKit.
-  Only the principal controller differs: the iOS `ShareViewController`
-  (`UIViewController`/`UIHostingController`) is guarded `#if os(iOS)` and a new
-  `MacShareViewController` (`NSViewController`/`NSHostingController`) is guarded
-  `#if os(macOS)`, both living in the one `StashShareExtension/` source folder
-  that both extension targets compile. Same three-state UI and
-  confirmation-with-undo as M9.
-- **✅ Style and verification.** American English, `///` on types only, no inline
-  comments, the shared `.swiftformat`/`.swiftlint.yml`. `swiftformat --lint` is
-  idempotent and `swiftlint lint` reports 0 violations; the iOS app, the macOS
-  app, and both embedded `.appex` bundles build clean (no warnings). No unit
-  tests per §19.6.
+The brief sketched a three-column layout with an optional inspector panel for
+macOS; I went with a two-column split instead that reuses the exact same
+`BookmarkListView` already shared with iPad, since that maximizes code
+sharing for very little practical loss — the inspector would have needed a
+selection-driven variant of the shared list and more platform divergence for
+not much gain, so I didn't build it. Platform differences elsewhere are
+concentrated in a small set of cross-platform style helpers and a few
+whole-view `#if` shells (`MainView`/`TabContainerView` on iOS,
+`MacContentView`/`MacSettingsView` on macOS) — the shared leaf views stay
+plain SwiftUI. Since SwiftUI has no cross-platform clipboard API, there's one
+free function that's the sole place `UIPasteboard`/`NSPasteboard` get
+touched.
+
+Edit, delete, and archive all became shared behavior surfaced per platform: a
+right-click/long-press context menu on each row (Open in Browser, Copy URL,
+Copy Markdown URL, Share…, Archive/Unarchive, Delete), the same actions in
+the detail view, and keyboard shortcuts (⌘N new, ⌘E edit, ⌘R refresh, ⌘⌫
+delete with confirmation).
+
+One SwiftUI wrinkle worth recording: I wanted Esc to pop the bookmark detail
+back to the list. There's no view-level "run this closure on Esc" API in
+SwiftUI — `.keyboardShortcut` is deliberately bound to a control — so the
+idiom is a hidden, zero-opacity button carrying the shortcut, the same trick
+already used for ⌘F. I bound it to `.cancelAction` rather than a raw escape
+key specifically so layering falls out for free: when an edit sheet or a
+delete confirmation is on top, that presentation captures Esc first, and the
+detail only pops when nothing is layered above it. It's live everywhere, not
+`#if os(macOS)`-guarded, since it's simply inert on iOS/iPadOS unless a
+hardware keyboard is attached (there's no on-screen Esc). I considered
+`.onKeyPress(.escape)` and a `Commands`/`CommandMenu`, but the former is
+focus-scoped and unreliable inside a `Form`, and the latter is macOS-only and
+lives at the wrong altitude for a per-view action.
+
+The macOS `Settings` scene (⌘,) got three tabs — General, Account, and
+Appearance — which drove a few StashKit and repository additions (a change-
+password request, TOTP setup/verify/disable methods) and a cross-platform
+`QRCodeView` built on CoreImage, since both platforms have it. Appearance
+itself lives in plain `UserDefaults` rather than a cookie, since the native
+clients have no browser to store one in; `serverURL` stays in the App
+Group's shared suite since the extension needs to read it too.
+
+The macOS Share Extension reuses essentially all of the iOS one's SwiftUI —
+the shared view, session, and repositories are all plain SwiftUI/Foundation
+with nothing UIKit-specific, so only the principal controller differs
+(`NSViewController` vs `UIViewController`), both `#if`-guarded in the same
+source folder. Same three-state UI, same confirm-with-undo.
 
 ---
 
 ## M11 — User-facing web frontend
 
-- **✅ Second session cookie, shared store.** The frontend uses its own
-  `stash_session` cookie (path `/app`) via a dedicated
-  `SessionsMiddleware`/`SessionsConfiguration`, distinct from the admin
-  dashboard's cookie but sharing the same in-memory driver.
-  `UserSessionMiddleware` admits any **active** account regardless of role;
-  suspended accounts are rejected.
-- **✅ Shared `layout.leaf`.** Both web sections reuse one base template + inline
-  CSS. The `<title>` prefix is conditional (`Stash Admin` vs `Stash`); a side
-  effect is the admin *login* tab title changed cosmetically — accepted as
-  trivial.
-- **✅ Two-button add flow, no JS.** "Fetch metadata" previews title/description
-  via an inline server-side fetch; "Save" persists (auto-fetching any blank
-  fields). Duplicate URL shows an inline error linking to the existing bookmark.
-  The edit form intentionally **doesn't allow URL changes**, sidestepping
-  duplicate-handling there.
-- **⚠️ 2FA setup shows the otpauth URI + setup key, not a scannable QR image.**
-  Server-side QR rendering would need a QR-encoding dependency (no CoreImage on
-  Linux), which conflicts with the minimal-deps goal. Manual key entry is fully
-  functional; a QR image can be added later if desired.
-- **✅ Leaf gotchas codified.** `#if(count(x))` does **not** coerce an `Int` to
-  `Bool` (count 0 read as truthy) — always write `#if(count(x) > 0)`. Inline
-  conditionals require the colon: `#if(cond): … #endif`.
+The frontend gets its own session cookie (`stash_session`, scoped to `/app`),
+separate from the admin dashboard's but sharing the same in-memory store
+underneath, and admits any active account regardless of role — suspended
+accounts are rejected either way. Both web sections reuse one base
+`layout.leaf` template with inline CSS; the page title prefix just switches
+between "Stash Admin" and "Stash" depending on which section is rendering.
+
+The add-bookmark flow is two buttons and no JavaScript: "Fetch metadata"
+previews the title and description via an inline server-side fetch, "Save"
+persists (auto-fetching any fields still blank). A duplicate URL shows an
+inline error linking to the existing bookmark. The edit form deliberately
+doesn't allow changing the URL at all — that sidesteps duplicate-handling
+there entirely.
+
+2FA setup shows the `otpauth` URI and a manual setup key rather than a
+scannable QR code — rendering a QR server-side would need a QR-encoding
+dependency, and CoreImage isn't available on Linux, which conflicts with
+keeping the backend dependency-light. Manual entry is fully functional; a QR
+image is a possible later addition.
+
+Two Leaf gotchas I ran into and wrote down so I wouldn't relearn them:
+`#if(count(x))` doesn't coerce an `Int` to `Bool` — `count 0` reads as
+truthy, so it always needs to be `#if(count(x) > 0)` — and inline
+conditionals require the colon (`#if(cond): … #endif`).
 
 ---
 
 ## Frontend improvements (post-M11)
 
-- **✅ Self-service 2FA disable requires a current TOTP code**, not just a
-  password — this proves the user still controls their authenticator before 2FA
-  is turned off (`POST /app/settings/totp/disable`). On success it clears the
-  secret/flag and deletes recovery codes.
-- **✅ Admin 2FA reset also revokes refresh tokens.** `POST
-  /admin/users/:id/reset-totp` clears the secret/flag and recovery codes *and*
-  deletes the user's refresh tokens, since their session security level changed
-  — forcing re-login. Self-reset is allowed (no confirmation code; admin action
-  suffices).
-- **✅ Tag autocomplete with zero new requests.** The user's existing tags are
-  embedded as a JSON array in a `data-known-tags` attribute on the create/edit
-  forms; a ~50-line dependency-free vanilla JS block in `layout.leaf` filters
-  the comma-segment under the cursor and offers prefix matches (full
-  hierarchical strings like `swift/vapor` included). The attribute is
-  **single-quoted** so Leaf's HTML-escaping of the JSON quotes survives — the
-  browser entity-decodes the attribute value before `JSON.parse`, avoiding the
-  need for an unescaped-output Leaf tag.
-- **✅ Tag autocomplete matches per hierarchy segment, not just the whole-string
-  prefix.** The original filter (`t.indexOf(frag) === 0`) only matched when the
-  typed fragment was a prefix of the *entire* tag, so `music` never surfaced
-  `kind/music-gear`. The filter now splits each candidate on `/` and matches
-  when **any segment** starts with the fragment (`t.split('/').some(seg =>
-  seg.indexOf(frag) === 0)`), so a fragment finds nested tags whose later
-  segment begins with it. This is deliberately segment-*prefix*, not free
-  substring: `usic` still matches nothing, keeping suggestions aligned with the
-  `/`-delimited hierarchy the rest of Stash is built on (the `tags_search`
-  prefix filter). One-line change in `layout.leaf`; the edit form shares the
-  same script and gets it for free.
-- **✅ Add-bookmark form accepts a `?url=` prefill query parameter.**
-  `GET /app/bookmarks/new?url=…` reads the `url` query param
-  (`req.query[String.self, at: "url"]`, defaulting to `""`) and seeds the
-  `AppNewBookmarkContext.url` field, which the template already binds via
-  `value="#(url)"` (Leaf auto-escapes, so no attribute-injection risk). The page
-  only *pre-populates* — it never auto-submits or auto-saves, so a crafted link
-  cannot silently add bookmarks; the user still has to click "Save bookmark".
-  This is the groundwork for a browser bookmarklet that opens Stash with the
-  current page's URL ready to save.
+Self-service 2FA disable requires a current TOTP code, not just a password —
+that proves the user still controls their authenticator before 2FA comes
+off. An admin-triggered 2FA reset also revokes the user's refresh tokens now,
+since their account's security posture just changed and that should force a
+re-login; self-reset is still allowed with no extra confirmation, since the
+admin action itself is confirmation enough.
+
+Tag autocomplete on the web needed zero new requests: the user's existing
+tags are embedded as a JSON array in a `data-known-tags` attribute on the
+create/edit forms (single-quoted, so Leaf's HTML-escaping of the JSON quotes
+survives and the browser can entity-decode it before `JSON.parse`), and a
+small, dependency-free vanilla JS block filters the comma-segment under the
+cursor against it. I later fixed the matching itself: the original filter only
+matched when the typed fragment prefixed the *whole* tag string, so typing
+`music` never surfaced `kind/music-gear`. It now splits each candidate on `/`
+and matches if any segment starts with the fragment — deliberately
+segment-prefix, not a free substring search, so it stays aligned with the
+`/`-delimited hierarchy the rest of Stash is built on. One line changed in
+`layout.leaf`; the edit form shares the same script and got the fix for free.
+
+The add-bookmark form also learned to accept an optional `?url=` query
+parameter that pre-fills the URL field — useful groundwork for a browser
+bookmarklet that opens Stash with the current page ready to save. It only
+pre-populates; nothing auto-submits, so a crafted link can't silently add a
+bookmark on its own — the user still has to click Save.
 
 ---
 
 ## Import / Export
 
-- **✅ Pluggable registry architecture.** `BookmarkImporter`/`BookmarkExporter`
-  protocols expose static metadata (`identifier`, `displayName`,
-  `fileExtension`, exporter `mimeType`) plus one instance method each. A
-  singleton `ImportExportRegistry` holds the registered instances; the settings
-  UI's selectors and the import/export routes are driven entirely off the
-  registry, so a new format is added by conforming a type and adding one
-  `register(...)` line in the registry's `init` — **no controller, route, or
-  template changes**. The registry is `@unchecked Sendable`: registration
-  happens once in `init` and it's immutable thereafter, so concurrent request
-  reads are safe.
-- **✅ Importer owns data consistency.** The importer takes only `(data, userID,
-  db)` and is responsible for everything: per-record validation, duplicate
-  handling, and bumping the denormalised `User.bookmarkCount` by the number of
-  rows it created. Keeps the controller a thin orchestrator and the behaviour
-  identical regardless of caller.
-- **✅ Parse-failure vs bad-record split.** A file that can't be parsed at all
-  throws `ImportError.invalidFormat` (controller re-renders settings with an
-  inline error, no redirect). Individual bad records (missing/invalid URL, etc.)
-  are **counted and described** in `ImportResult.skipped`/`.errors`, never
-  thrown — surfaced in a collapsible `<details>` block.
-- **✅ Preserving `createdAt` on import.** Fluent's `_create` calls
-  `touchTimestamps(.create, .update)` unconditionally, so a pre-set `createdAt`
-  is overwritten on insert. Anybox's `date_added` is therefore restored with a
-  **follow-up `save`** (an update only touches `updatedAt`, leaving the re-set
-  `createdAt` intact). Duplicate-URL updates never touch `createdAt` for the
-  same reason.
-- **⚠️ Anybox's real export shape differs from the PRD example**, discovered
-  against an actual file. Corrected mapping: - **`tags` is `[[String]]`** —
-  arrays of `[namespace, value]` pairs (e.g.
-  `[["topic","music-gear"],["status","wishlist"]]`), not a flat `[String]`. Each
-  pair is joined with `/` into a hierarchical Stash tag (`topic/music-gear`),
-  then normalised — a natural fit for Stash's slash-hierarchy. A plain
-  `[String]` is still accepted as a fallback. (The original decoder assumed
-  `[String]` and threw `typeMismatch` → "doesn't look like an Anybox export".) -
-  **`dateAdded`** (camelCase, **ISO-8601 string**) → `createdAt`, not
-  `date_added` (Unix int) as documented. A numeric `date_added`/`dateAdded` is
-  accepted as a fallback; missing → current time. Decoding is done with a custom
-  `init(from:)` so any single bad field degrades gracefully rather than failing
-  the whole file. - `folder` is ignored (flat import), as are
-  `comment`/`article`/`keyword`/`isStarred`. Missing `title` → empty string.
-  Duplicate URL → overwrite title/description/tags in place. Verified against a
-  real 211-bookmark export (all imported, re-import idempotent).
-- **✅ Export is the native format and complete.** `stash-json` emits `{ version,
-  exportedAt, bookmarks[] }` with ISO-8601 timestamps, **all** bookmarks
-  (archived included), sorted by `createdAt` ascending. `withoutEscapingSlashes`
-  keeps URLs readable. Versioned (`"1"`) so future schema changes are detectable
-  by importers.
-- **✅ Post/Redirect/Get with a session flash.** A successful import redirects to
-  `/app/settings?imported=1`; the full `ImportResult` (including the
-  skipped-record descriptions, which are too large/numerous for the query
-  string) is flashed via a one-shot JSON value in the session and cleared on
-  read.
-- **✅ Upload body limit raised.** The import route uses `.on(.POST, … body:
-  .collect(maxSize: "16mb"))` because Vapor's default collected-body cap (16KB)
-  would reject any real export file.
-- **✅ Multipart upload** via Vapor's `File` in a `Content` form struct; the
-  export download sets `Content-Disposition: attachment;
-  filename="stash-export-YYYY-MM-DD.json"`.
-- **✅ Stash JSON importer (`stash-json`) — backup restore / round-trip.**
-  Decodes the native export (`{ bookmarks: [...] }`), mapping `url` (required),
-  `title`, `description`, `tags` (normalised), `isArchived`, `faviconURL`, and
-  `createdAt` (ISO-8601; current time if missing/unparseable — accepts
-  fractional seconds as a fallback). `id`/`updatedAt`/`version`/ `exportedAt`
-  are ignored. Duplicate URL updates in place (createdAt preserved), same
-  contract as Anybox. Registering it was a one-line change in the registry — the
-  settings selector picked it up with no template edits, validating the
-  pluggable design.
+The importer/exporter architecture is a pluggable registry: both protocols
+expose static metadata (identifier, display name, file extension, MIME type
+for exporters) plus one instance method each, and a singleton
+`ImportExportRegistry` holds whatever's registered. The settings UI and the
+import/export routes are driven entirely off that registry, so adding a new
+format is conforming a type and adding one registration line — no controller,
+route, or template changes needed. Each importer owns its own data
+consistency end to end: validation, duplicate handling, and bumping the
+denormalized bookmark count, so the controller stays a thin orchestrator and
+behavior doesn't depend on the caller.
+
+I split failures into two tiers: a file that can't be parsed at all throws
+and the settings page re-renders with an inline error, while individual bad
+records (a missing or invalid URL, say) are counted and described rather than
+thrown, surfaced afterward in a collapsible details block. Preserving
+`createdAt` on import took a small workaround, since Fluent's create path
+unconditionally touches timestamps on insert — so a pre-set `createdAt` gets
+overwritten, and I restore it with a follow-up save (an update only touches
+`updatedAt`, leaving the re-set `createdAt` alone). Duplicate-URL updates
+never touch `createdAt` for the same reason.
+
+Anybox's actual export shape turned out to differ from what I'd assumed
+writing the spec, which I only caught by testing against a real export file.
+`tags` is actually `[[String]]` — arrays of `[namespace, value]` pairs — not
+a flat `[String]`; each pair joins with `/` into a hierarchical Stash tag,
+which happens to be a natural fit for Stash's own slash-hierarchy (a plain
+`[String]` is still accepted as a fallback, and the original decoder just
+threw a confusing type-mismatch error before this fix). And the date field is
+`dateAdded`, camelCase, an ISO-8601 string — not `date_added` as a Unix
+integer, though that's accepted as a fallback too, with the current time used
+if it's missing altogether. I verified all of this against a real
+211-bookmark export — everything imported, and re-importing the same file was
+idempotent.
+
+Export is the native format and deliberately complete: a versioned
+`{ version, exportedAt, bookmarks[] }` payload with every bookmark including
+archived ones, sorted by `createdAt`. A successful import redirects with
+Post/Redirect/Get and flashes the full result — including the skipped-record
+descriptions, too large for a query string — through a one-shot session
+value. I had to raise the upload body limit for the import route, since
+Vapor's default 16KB collected-body cap would reject any real export file.
+Registering the Stash-JSON importer for backup restore and round-tripping was
+a genuine one-line change in the registry, which was a nice validation that
+the pluggable design actually works the way I intended.
 
 ---
 
 ## Tag sidebar (bookmark list)
 
-- **✅ Flattened pre-ordered tree, not recursion.** Leaf has no clean recursion,
-  so the tag tree is built server-side into a flat `[SidebarTag]` carrying
-  `depth`, and the template indents each row by `calc(depth * 0.9rem)`. The list
-  is produced by sorting all tag slugs by their `/`-split path components
-  (prefix-first) — which *is* a pre-order DFS: a parent always precedes its
-  subtree and siblings are alphabetical at every level.
-- **✅ Synthetic parents.** If only `swift/vapor` exists, `swift` is still
-  emitted as a parent node (so children nest under something) with `count = 0`;
-  the template hides the count when 0. Synthetic parents remain clickable —
-  `?tag=swift` prefix-matches `swift/*`, so the link is useful even without a
-  bare `swift` tag.
-- **✅ Counts are exact**, matching `/app/tags` (count of bookmarks with that
-  literal tag), not the prefix aggregate — consistent with the rest of the app.
-- **✅ Reuses the existing tag query.** The sidebar loads the user's bookmarks
-  and tallies tag counts (same source as `/app/tags` and the autocomplete) — one
-  extra `.all()` per list view, accepted for simplicity over a separate
-  aggregate query.
-- **✅ Encoded hrefs built server-side.** `?tag=swift%2Fvapor` is percent-encoded
-  in Swift (`tagHref`) since Leaf/URLComponents leave `/` unencoded; the brief
-  wants `%2F`.
-- **✅ Layout & dark mode.** Two-column flex (`.app-main` flex:1 + `.tag-sidebar`
-  fixed 220px, sticky/scrollable); hidden under 768px (the on-list filter pills
-  cover mobile). All colours use existing variables — active tag is `--accent`,
-  counts are `--text-muted`. `/app/tags` is unchanged.
-- **⚠️ Leaf gotcha — a non-nil empty `String` is truthy in `#if`.** A
-  *non-optional* `String` field that is `""` makes `#if(field)` evaluate
-  **true** (unlike a `String?` field, which is `nil` when absent and therefore
-  falsy — which is why `#if(error)`/`#if(notice)` work). The `tag` context field
-  is `query.tag?.nonEmpty ?? ""`, so guards on it must be explicit: `#if(tag !=
-  "")` for the "Filtered by tag" line and the hidden form input, and `#if(tag ==
-  "")` for the "All" active state. (This is also why `#if(cond):#else: X #endif`
-  with an empty then-branch misbehaved earlier — the same empty-string-is-truthy
-  quirk; prefer positive single-branch tests.)
-- **✅ Sidebar positioning: just two flex columns (final).** Both `sticky` and
-  `fixed` were tried and rejected — `sticky` scrolled away once past the
-  parent's height, and `fixed` (viewport- anchored with magic `top`/`right`
-  offsets) was brittle and detached from the content. The desired behaviour is
-  the simplest: a normal two-column document where both columns scroll together
-  as one unit. So `.tag-sidebar` has **no**
-  `position`/`overflow`/`max-height`/scrollbar rules and `.app-main` has **no**
-  reserve margin — just `.app-layout { display:flex; gap:1.5rem;
-  align-items:flex-start }`, `.app-main { flex:1; min-width:0 }`, `.tag-sidebar
-  { flex:0 0 220px; width:220px }`. The sidebar starts at the top of the layout
-  and ends where its content ends. Mobile (<768px) hides it. (Supersedes both
-  the sticky and fixed attempts.)
-- **✅ "Tags" top-aligned with the search field.** The sidebar gets `margin-top:
-  3.25rem` so its heading lines up with the search box rather than the
-  `Bookmarks` h1. The offset is derived from pinned values (`.app-main h1 {
-  margin: 0 0 1rem }` → 2.25rem line + 1rem margin), so it's exact, not a
-  guessed magic number; the h1 pin is scoped to `.app-main` so other pages are
-  untouched. (Aligning with the *first bookmark cell* was rejected — the
-  conditional "Filtered by tag" line moves that cell between filtered/unfiltered
-  views, so a fixed offset couldn't track it.)
-- **✅ "Untagged" filter via an internal sentinel.** `?tag=__untagged__` is
-  special-cased in the list handler *before* the normal prefix path — it filters
-  `tagsSearch == ""` (the value for a tagless bookmark). The untagged count is
-  tallied from the same bookmark fetch that builds the sidebar (no extra query).
-  The sentinel never reaches the UI as a label: the sidebar shows "Untagged"
-  (sentinel only in the `href`), and the filter banner's `tagDisplay` is
-  overridden to "Untagged".
-- **🐛 The `__untagged__` sentinel was honored by the web UI but not the JSON
-  API.** The macOS app's "Untagged" sidebar entry correctly sent `GET
-  /api/v1/bookmarks?tag=__untagged__`, but `BookmarkController.list` had no
-  sentinel branch — it fell straight into the prefix path, where
-  `normalizeTagQuery` lowercased/trimmed it into a literal tag no bookmark
-  carries, so the result was always empty (only `AppWebController` special-cased
-  it, which is why `/app` worked). Fixed by adding the same `rawTag ==
-  Bookmark.untaggedSentinel → filter(\.$tagsSearch == "")` branch to the API
-  controller. The sentinel string was promoted from a private
-  `AppWebController.untaggedSentinel` constant to `Bookmark.untaggedSentinel` so
-  both controllers share one source of truth (the web controller's constant now
-  aliases it). Locked in with a `BookmarkTests` case asserting
-  `?tag=__untagged__` returns only tagless bookmarks. ⚠️ At the time, the filter
-  *expression* was still written out in both controllers — only the sentinel
-  constant was shared; this duplication is what let the API drift from the web UI
-  in the first place. ✅ **Resolved** when the recency sentinels were added: the
-  whole sentinel-plus-prefix filter now lives in one
-  `QueryBuilder<Bookmark>.filterByTag(_:boundaries:)` helper that both controllers
-  call, so there is no expression left to drift.
-- **✅ "Today" / "This Week" recency filters via the same sentinel pattern.** Two
-  more sidebar helpers sit after "Untagged": `?tag=__today__` (bookmarks created
-  since `Calendar.startOfDay`) and `?tag=__this_week__` (created since the most
-  recent Monday). They reuse the `tag` query param rather than a new `added=`
-  parameter — this is deliberate: the sentinel approach inherits the existing
-  plumbing for free (the `listURL` pagination helper and the toolbar's hidden
-  `tag` input already round-trip `tag`, and the filter banner's `tagDisplay`
-  just gains "Today"/"This Week" overrides alongside "Untagged"). The trade-off
-  is that recency and tag filters are mutually exclusive, same as "Untagged" —
-  an acceptable limitation for these convenience shortcuts. The two new
-  sentinels live on `Bookmark` next to `untaggedSentinel`; the date math is one
-  shared `AppWebController.dateBoundaries(now:)` helper used for *both* the
-  query filter and the sidebar counts, so the two can never disagree. Week start
-  is **Monday** (`calendar.firstWeekday = 2`, then
-  `dateInterval(of: .weekOfYear)`), using the server's `Calendar.current`
-  timezone. The today/this-week counts are tallied in the same single pass over
-  the user's bookmarks that already builds the sidebar
-  (no extra query), and the count badge is hidden when 0 like the others.
-  ✅ **The JSON API now honors these sentinels too** (see the app sidebar entry
-  below) — both controllers route the `tag` query through one shared
-  `QueryBuilder<Bookmark>.filterByTag(_:boundaries:)` helper, and
-  `dateBoundaries(now:)` moved from `AppWebController` to `Bookmark` so the date
-  math is also single-source. ⚠️
-  Like "Untagged", the web filter banner renders "Filtered by tag Today", a slight
-  wording mismatch carried over from the shared template path.
-- **✅ Sidebar split into two labeled sections: Views + Tags.** The smart filters
-  (All, Untagged, Today, This Week) and the hierarchical tag tree had grown into
-  one undifferentiated list under a single "Tags" heading, which mislabeled the
-  filters as tags. They now live in two `<ul class="tag-tree">` lists, each under
-  its own `h2` — "Views" over the filters, "Tags" over the tree (`.tag-tree + h2`
-  gets `margin-top` so the second heading is spaced from the first list). Both
-  lists reuse the `tag-tree` styling. The "Views" heading is now the sidebar's
-  first element, so it takes over the `margin-top: 3.25rem` search-field alignment
-  role previously held by "Tags" — no value change needed, just a heading rename.
+Leaf has no clean recursion, so the tag tree is built server-side into a flat
+list carrying a depth per row, and the template just indents each row
+proportionally. Sorting all tag slugs by their `/`-split path components
+turns out to already be a pre-order depth-first traversal for free — a parent
+always precedes its subtree, siblings stay alphabetical at every level. If
+only `swift/vapor` exists, `swift` still gets synthesized as a parent node
+with a zero count (hidden in the template) so children always have something
+to nest under, and it stays clickable, since `?tag=swift` still prefix-matches
+everything under it. Counts are exact literal-tag counts, matching `/app/tags`
+rather than a prefix aggregate, reusing the same bookmark query the page
+already runs rather than a separate aggregate query.
+
+Getting the sidebar's positioning right took a couple of false starts. I
+tried `sticky` first, which scrolled away once past its parent's height, then
+`fixed`, which needed brittle viewport-anchored offsets and felt detached
+from the content. What I actually wanted was much simpler: a normal
+two-column layout where both columns scroll together as one unit — so the
+final CSS has no `position`/`overflow`/`max-height` rules on the sidebar at
+all, just a plain flex row. The "Tags" heading gets a `margin-top` derived
+from the page's own pinned heading metrics (not a guessed number) so it lines
+up with the search field instead of the page's `h1`.
+
+The "Untagged" filter works through an internal sentinel,
+`?tag=__untagged__`, special-cased ahead of the normal prefix path to filter
+on an empty `tagsSearch`; "Today" and "This Week" followed the same pattern
+for recency filtering, reusing the existing `tag` query parameter rather than
+inventing a new one, which meant they inherited all the existing pagination
+and filter-banner plumbing for free. Week start is Monday, computed with one
+shared date-boundaries helper so the filter and the sidebar's own counts can
+never disagree with each other.
+
+One bug worth recording: the `__untagged__` sentinel was honored by the web
+UI but not the JSON API. The macOS app's "Untagged" sidebar entry correctly
+requested it, but the bookmark controller had no sentinel branch and just
+fell into the normal prefix path, where the sentinel got normalized into a
+literal tag no bookmark actually carries — so the API always returned empty,
+silently, while `/app` worked fine. The two controllers only shared the
+sentinel *constant*, not the filter *expression*, which is exactly what let
+them drift apart. I fixed the immediate bug by adding the missing branch to
+the API controller, and later closed the underlying gap for good when I added
+the recency sentinels: the whole sentinel-plus-prefix filter now lives in one
+shared query-builder helper that both controllers call, so there's no
+duplicated expression left to drift.
+
+The sidebar eventually got split into two labeled sections — "Views" over the
+smart filters (All, Untagged, Today, This Week) and "Tags" over the
+hierarchical tree — since they'd grown into one undifferentiated list that
+mislabeled the filters as tags.
 
 ---
 
 ## Dark mode (web frontend + admin dashboard)
 
-- **✅ Cookie-only, no DB.** The theme preference (`light`/`dark`/`auto`, default
-  `auto`) lives in a 1-year `stash_theme` cookie at path `/` so it applies to
-  both `/app` and `/admin`. No model field or migration — it's a pure
-  presentation concern. The cookie is **`HTTPOnly=false`** on purpose so the
-  inline flash-prevention script can read it; `SameSite=Lax`.
-- **✅ Flash-of-wrong-theme prevention.** A tiny inline script at the top of
-  `<head>` (before any CSS) reads the cookie and sets `data-theme` on `<html>`
-  synchronously, before first paint. For `auto`/missing it sets nothing and lets
-  the media query decide.
-- **✅ CSS custom properties, three-way resolution.** All colours became
-  variables on `:root` (light). Dark values are defined twice — under
-  `[data-theme="dark"]` (explicit) and under `@media (prefers-color-scheme:
-  dark) :root:not([data-theme="light"]):not([data-theme="dark"])` (auto). The
-  duplication is intentional (matches the spec) so an explicit choice always
-  wins over the OS preference. `color-scheme` is set per-mode so native
-  controls/scrollbars match.
-- **✅ Shared layout = free admin theming.** Because `/app` and `/admin` share
-  `layout.leaf`, the variables + flash script apply to both with no
-  admin-specific work. Theme is only *settable* from `/app/settings` (a plain
-  HTML radio form → `POST /app/settings/theme` sets the cookie and redirects);
-  the site-wide cookie path means it still themes `/admin`.
-- **✅ Palette.** iOS-style dark (not pure black): bg `#1c1c1e`, surface
-  `#2c2c2e`, border `#3a3a3c`, text `#f2f2f7`/`#aeaeb2`, accent `#0a84ff`,
-  danger `#ff453a`, success `#30d158`. Pill and banner colours fold into the
-  shared `--ok-*`/`--err-*` variables so they adapt automatically.
+Theme preference — light, dark, or auto, defaulting to auto — lives entirely
+in a one-year `stash_theme` cookie at path `/`, so it covers both `/app` and
+`/admin` with no model field or migration at all; it's a pure presentation
+concern. The cookie is deliberately not `HTTPOnly`, since an inline
+flash-prevention script needs to read it before first paint and set
+`data-theme` on `<html>` synchronously — otherwise there'd be a visible flash
+of the wrong theme on load. All colors became CSS custom properties, with
+dark values defined under both an explicit `data-theme="dark"` selector and a
+`prefers-color-scheme: dark` media query for auto mode, so an explicit choice
+always wins over the OS preference. Because both web sections share
+`layout.leaf`, this theming applies to `/admin` automatically with no
+admin-specific work — it's only ever *settable* from `/app/settings`. The
+dark palette follows iOS's dark mode rather than pure black: background
+`#1c1c1e`, surface `#2c2c2e`, accent `#0a84ff`.
 
 ---
 
 ## Danger zone — delete all bookmarks
 
-- **✅ Phrase confirmation, enforced on both ends.** `POST
-  /app/settings/delete-all-bookmarks` re-checks the typed phrase (`delete all`,
-  case-insensitive, trimmed) **server-side** — the client-side `oninput`
-  enable/disable of the submit button is only a convenience, never the gate.
-- **✅ Reveal-then-confirm, minimal vanilla JS.** A "Delete all bookmarks" button
-  reveals a hidden form; a ~10-line inline script enables the submit button only
-  when the input matches. No framework, consistent with the rest of `/app`.
-- **✅ Scope is bookmarks only.** Deletes the user's bookmarks and resets
-  `bookmarkCount` to 0; account, password, 2FA, and tag metadata (derived from
-  bookmarks) are untouched. PRG redirect to `/app?notice=all_bookmarks_deleted`
-  with a one-shot banner driven by a `notice(for:)` mapping (parallel to the
-  existing `?ok=`/`message(for:)` convention).
+The confirmation phrase ("delete all") is re-checked server-side on submit,
+not just gated by disabling the button client-side until the input matches —
+that client-side check is a convenience, never the actual gate. Deleting is
+scoped to bookmarks only: it resets the bookmark count to zero but leaves the
+account, password, 2FA, and any tag metadata (which is derived from
+bookmarks anyway) untouched.
 
 ---
 
 ## Linting & formatting (SwiftLint + SwiftFormat)
 
-- **✅ Enabled the opt-in organization rules.** `organizeDeclarations` and
-  `markTypes` are *disabled by default* in SwiftFormat; the `.swiftformat`
-  supplied all their options but never turned the rules on, so no MARK
-  organization was happening. Added `--enable organizeDeclarations` and
-  `--enable markTypes`. Applied across all source + test files: MIT header, a
-  `// MARK: - <Type>` before each type/extension, and in-type sections in **type
-  mode** — `Nested Types → Static Properties → Properties → Computed Properties
-  → Lifecycle → Functions` — with public-before-private *ordering within* each
-  section.
-- **✅ Type mode over visibility mode (user decision).** SwiftFormat emits either
-  type marks *or* visibility marks, not both. Chose type mode (matching the
-  config's `--organization-mode type` and the requested Nested
-  Types/Properties/Lifecycle order); visibility mode was rejected because the
-  codebase is overwhelmingly `internal`-access, so it would mostly produce
-  `Internal`/`Private` headings rather than `Public`/`Private`.
-- **✅ `Package.swift` is safe.** SwiftFormat keeps `// swift-tools-version:` as
-  line 1 and skips the license header there.
-- **✅ Disabled three SwiftLint rules that false-positive on Fluent.**
-  `first_where`, `contains_over_first_not_nil`, and `empty_string` flag the
-  query DSL (`.filter(\.$x == y).first()`, `first(where:) != nil`, `\.$field ==
-  ""`) — these are database builders, not `Sequence` ops, and rewriting them
-  would break compilation.
-- **✅ `identifier_name` exclusions** for idiomatic short names (`db`, `q`, `i`,
-  `a`, `b`, `c`, `s`, `v`, `ok`, `ts`, `me`). The Anybox snake_case JSON key is
-  handled with a proper Swift identifier instead of a lint exception: `case
-  dateAddedUnix = "date_added"` in the `CodingKeys` enum.
-- **⚠️ Disabled `file_length` / `type_body_length` / `function_body_length`**
-  for consistency with the complexity family already disabled in the config
-  (`line_length`, `nesting`, `cyclomatic_complexity`,
-  `function_parameter_count`, `large_tuple`) — the web controllers and test
-  suites legitimately run long. Easy to switch to soft thresholds instead if a
-  size nudge is wanted.
-- **✅ One inline `for_where` disable** in `AuthController` — the loop's
-  predicate is `try await`, which a `where` clause can't hold.
-- Result: `swiftlint lint` clean (0 violations), `swiftformat --lint`
-  idempotent, build clean, 65 tests pass.
+I found that SwiftFormat's organization rules — `organizeDeclarations` and
+`markTypes` — are opt-in and disabled by default, and the config had supplied
+all their options without ever actually turning the rules on, so no MARK
+organization was happening at all. Enabling both applies an MIT header, a
+`// MARK: - <Type>` before each type, and in-type sections ordered
+Nested Types → Static Properties → Properties → Computed Properties →
+Lifecycle → Functions, public before private within each section. I chose
+type-mode organization over visibility-mode deliberately — the codebase is
+overwhelmingly `internal`-access, so visibility mode would have mostly
+produced `Internal`/`Private` headings rather than anything meaningful.
+`Package.swift` stays untouched by the header rule, since SwiftFormat already
+knows to keep `// swift-tools-version:` on line 1.
+
+Three SwiftLint rules got disabled because they false-positive on Fluent's
+query DSL — `first_where`, `contains_over_first_not_nil`, and `empty_string`
+all want to rewrite database-builder calls as if they were plain `Sequence`
+operations, which would break compilation. A handful of idiomatic short
+names (`db`, `q`, `i`, `a`, `b`, `c`, `s`, `v`, `ok`, `ts`, `me`) are
+excluded from `identifier_name` rather than renamed everywhere. I also
+disabled the length-based rules (`file_length`, `type_body_length`,
+`function_body_length`) for consistency with the complexity rules already
+off in the config — the web controllers and test suites legitimately run
+long, and this is easy to revisit with soft thresholds if I ever want a
+gentle nudge instead of silence. End state: zero lint violations, idempotent
+formatting, a clean build, 65 passing tests.
 
 ---
 
 ## Tag renaming
 
-- **✅ Shared logic in `TagRenamer`.** `POST /api/v1/tags/rename` (JSON) and
-  `POST /app/tags/rename` (web form) both call the same `TagRenamer.rename`, so
-  behaviour can't drift. Both `from`/`to` are normalised with
-  `normalizeTagQuery` (same as every other tag write); empty-after-normalisation
-  → `422 validation_failed`; `from == to` or an unused `from` is an idempotent
-  200 with `affectedBookmarks: 0`.
-- **✅ Renames children, merges without duplicates.** Candidates are found via
-  the `tags_search` prefix match (`|from|` or `|from/`), then a pure transform
-  renames the exact tag and rewrites `from/x → to/x`, de-duplicating so a merge
-  into an existing `to` never stores a tag twice (order preserved). `applyTags`
-  keeps `tags_search` in sync. Scoped to the user's own bookmarks.
-- **✅ Web UX:** each tag row has an inline rename form revealed by a small
-  vanilla-JS toggle (same pattern as the danger zone); submit does
-  Post/Redirect/Get to `/app/tags?ok=renamed&from=…&to=…&n=…` (values
-  percent-encoded via the shared `queryValue` helper, also now used by
-  `tagHref`), and the browser builds the "Renamed X to Y (N bookmarks updated)"
-  banner from those params.
-- **⚠️ Beyond the PRD** — tag renaming isn't in `PRODUCT.md`; added on request.
-  Lint: `to` is the documented API field name, so it joins the idiomatic
-  short-name exclusions in `.swiftlint.yml`.
+Both the JSON endpoint and the web form call the same `TagRenamer.rename`,
+so behavior can't drift between them. Renaming finds candidates via the
+`tags_search` prefix match, then a pure transform renames the exact tag and
+rewrites every `from/x` to `to/x`, de-duplicating so merging into an
+existing `to` never stores the same tag twice. On the web, each tag row gets
+an inline rename form revealed by a small toggle, with a Post/Redirect/Get
+banner built from the response. Tag renaming isn't actually in `PRODUCT.md`
+— I added it on request, beyond the original spec.
 
 ## Tag deletion
 
-- **✅ Shared logic in `TagDeleter`** (mirrors `TagRenamer`). `DELETE
-  /api/v1/tags/:tag` (JSON) and `POST /app/tags/delete` (web form — HTML forms
-  can't issue `DELETE`, so a `POST` sub-route is used) both call
-  `TagDeleter.delete`. The `:tag` path parameter is URL-decoded by Vapor, so a
-  hierarchical slug is sent percent-encoded (`foo-bar%2Fswift`). The tag is
-  normalised with `normalizeTagQuery`; empty-after-normalisation → `422
-  validation_failed`; a tag that isn't used is an idempotent 200 with
-  `affectedBookmarks: 0`.
-- **✅ Deletes children too.** Same `tags_search` prefix candidate query (`|tag|`
-  or `|tag/`) as rename, then a pure transform drops the exact tag and any
-  `tag/x` (order of the rest preserved). A look-alike like `foo-barbaz` is left
-  untouched (no slash boundary). A bookmark whose only tag is deleted survives
-  with an empty `tags` array — bookmarks are never deleted, only their tags.
-  `applyTags` keeps `tags_search` in sync; scoped to the user's own bookmarks.
-- **✅ Web UX:** each tag row gains a "Delete" button alongside "Rename"; it
-  reveals an inline confirmation ("Delete X and all its children? This cannot be
-  undone.") via the same vanilla-JS toggle (only one of rename/delete open per
-  row). Submit does Post/Redirect/Get to `/app/tags?ok=deleted&tag=…&n=…`, and
-  the browser builds the "Deleted X (N bookmarks updated)" banner from those
-  params.
-- **⚠️ Beyond the PRD** — like renaming, tag deletion isn't in `PRODUCT.md`;
-  added on request.
+Mirrors renaming exactly: shared `TagDeleter.delete` logic behind both the
+JSON `DELETE` endpoint and a web `POST` sub-route (since HTML forms can't
+issue `DELETE`), the same prefix-match candidate query, and a pure transform
+that drops the exact tag and any children while leaving a look-alike like
+`foo-barbaz` untouched, since there's no slash boundary there. A bookmark
+whose only tag gets deleted survives with an empty tag list — bookmarks are
+never deleted, only their tags. Same web pattern as renaming: an inline
+confirmation toggle, PRG, a banner built from the response. Also beyond the
+original spec, added on request.
 
 ## Code style — comments and documentation
 
-- **✅ No comments of any kind inside method/function bodies.** The code and
-  tests are the documentation. Neither `//` nor `///` comments explaining *what*
-  the code does belong inside a body; the code should be readable without them.
-  All documentation lives at the declaration level. (Exception: the backend
-  tests' `// Given` / `// When` / `// Then` structure markers, below.)
-- **🔁 `///` doc comments allowed on any declaration** (supersedes the earlier
-  "types only" rule). Doc comments are permitted — and idiomatic — on **types,
-  properties, and methods/functions**, not just types. This matches SwiftFormat's
-  `--doc-comments before-declarations`, which converts any comment placed before a
-  declaration into a `///` doc comment, so a "types only" rule was never
-  tooling-enforceable: a `//` written above a method is auto-upgraded to `///`.
-  The rule now reflects what the formatter actually produces; documentation is
-  written at the declaration level rather than inside bodies.
-- **✅ American English throughout.** All doc comments, `#expect` descriptions,
-  and test labels use American English spelling (`behavior`, `initialize`,
-  `normalize`, `color`, etc.), never British English.
-- **✅ Tests follow Given/When/Then.** Every test has `// Given`, `// When`, `//
-  Then` structural comments. Every `#expect()` has a string description starting
-  with `"It should ..."` describing the expected behavior.
+I don't allow comments of any kind inside method or function bodies — code
+and tests are the documentation, and if a body needs a `//` explaining what
+it does, that's usually a sign that the code itself isn't clear enough. All
+documentation lives at the declaration level instead. (The one exception is
+the backend tests' `// Given` / `// When` / `// Then` structure markers,
+below.) I initially said doc comments were for types only, but that turned
+out to be un-enforceable: SwiftFormat's `--doc-comments before-declarations`
+auto-upgrades any `//` placed before a declaration into a `///` doc comment
+regardless of what kind of declaration it is, so the rule now just reflects
+what the formatter actually produces — doc comments are fine on types,
+properties, and methods alike. Everything is American English throughout —
+`behavior`, not `behaviour`; `color`, not `colour` — including test
+descriptions, which follow Given/When/Then structure with every expectation
+phrased as "It should …".
 
 ## Code style — blank lines
 
-- **✅ Blank line after `guard` (automated).** Enforced by SwiftFormat's
-  `blankLinesAfterGuardStatements` rule (`--line-between-guards false`): a blank
-  line follows the last `guard` in a group, and blank lines between consecutive
-  guards are collapsed.
-- **⚠️ Blank line before `if`, `for`/`switch`, and before `return` in
-  multi-statement bodies (manual convention).** SwiftFormat has no rule that
-  inserts blank lines before these statements, and neither does SwiftLint's
-  autocorrect — enforcing it automatically would require a fragile custom tool.
-  These are therefore a hand-applied convention, not machine-enforced: separate
-  a control-flow block (`if`/`for`/`switch`) from the code above it with a blank
-  line, and precede a `return` with a blank line when the function body has more
-  than one statement.
+A blank line after the last `guard` in a group is enforced automatically by
+SwiftFormat. Blank lines before `if`/`for`/`switch` and before a `return` in
+a multi-statement body aren't — neither SwiftFormat nor SwiftLint has a rule
+for it, and building a custom one felt fragile — so that one stays a
+hand-applied convention rather than a machine-enforced rule.
 
 ## Code style — commit messages
 
-- **✅ Follow the seven rules of a great commit message**
-  ([cbea.ms/git-commit](https://cbea.ms/git-commit/)). A hand-applied
-  convention; no hook enforces it: 1. Separate subject from body with a blank
-  line. 2. Limit the subject line to 50 characters. 3. Capitalize the subject
-  line. 4. Do not end the subject line with a period. 5. Use the imperative mood
-  in the subject line ("Add", "Fix", "Bump" — not "Added"/"Adds"). 6. Wrap the
-  body at 72 characters. 7. Use the body to explain *what* and *why*, not *how*.
-- **✅ Body style.** Prose paragraphs for a single cohesive change (a feature or
-  milestone); `-` bullets when a commit groups several distinct changes —
-  matching the existing history. The whole repository's history was reworded so
-  every subject fits in 50 characters.
+I follow the seven rules of a good commit message
+([cbea.ms/git-commit](https://cbea.ms/git-commit/)): separate subject from
+body with a blank line, keep the subject under 50 characters, capitalize it,
+no trailing period, imperative mood ("Add", "Fix", not "Added"/"Adds"), wrap
+the body at 72 characters, and use the body to explain what and why, not
+how. Nothing enforces this with a hook — it's just discipline. A single
+cohesive change gets prose paragraphs; a commit grouping several distinct
+changes gets `-` bullets. I went back and reworded the whole repository's
+early history at one point so every subject line actually fit in 50
+characters.
 
 ## iOS/macOS project — committed, off XcodeGen
 
-- **🔁 The Xcode project is now committed; XcodeGen is retired.** M8 declared
-  "`StashApp/project.yml` is the source of truth; `.xcodeproj` is gitignored."
-  That is **superseded**: `StashApp/Stash.xcodeproj` is now committed and
-  `project.yml` is deleted. Two reasons drove the switch: (1) regenerating wiped
-  Xcode's "update to recommended settings" each time, and (2) we want the modern
-  format where folders on disk are referenced once rather than every file being
-  listed in the project. `xcuserdata/` stays gitignored (via the generic
-  `*.xcodeproj/xcuserdata/` rule); the `Stash` and `StashMac` **shared schemes**
-  are committed under `xcshareddata/`.
-- **✅ Synchronized folder groups for file references.** The project uses
-  `PBXFileSystemSynchronizedRootGroup`s so adding/moving/renaming a file on disk
-  needs no project edit. Membership is folder-level, which fits the codebase
-  because platform splits are `#if`-guarded (not per-file membership): `Common/`
-  → all four targets, `Stash/` → both apps, `StashShareExtension/` → both
-  extensions. `Info.plist`/entitlements inside a synced folder are excluded from
-  target membership (they are wired via `INFOPLIST_FILE` /
-  `CODE_SIGN_ENTITLEMENTS`; otherwise the build double-produces `Info.plist`).
-- **⚠️ The synchronized-folder conversion is done in Xcode, not headlessly.**
-  Rewriting a `.pbxproj` without Xcode means round-tripping through `plutil`,
-  which emits an XML-format project that breaks `xcodebuild` package resolution
-  and scheme autocreation. So the conversion to synchronized folders (and the
-  Capabilities/Signing check) is performed in Xcode; tooling/automation should
-  not regenerate the project.
-- **✅ Renamed the cross-target `Shared/` to `Common/`.** There were two `Shared`
-  folders at different scopes — `StashApp/Shared/` (compiled into the app *and*
-  the extensions) and `StashApp/Stash/Shared/` (app code shared between iOS and
-  macOS). The outer one is now `StashApp/Common/`. The inner `Stash/Shared/` was
-  then flattened up into
-`StashApp/Stash/` directly (`Repositories/`, `Sync/`, `Support/`, `Views/`,
-`Persistence/`, `AppEnvironment`, `AppSettings`) — once the outer folder was `Common/`, the
-`Shared/` subfolder name was redundant.
+I originally generated the Xcode project from `project.yml` with XcodeGen
+and gitignored the `.xcodeproj` itself, but reversed that decision: the
+project is committed now and XcodeGen is gone. Two things drove the switch —
+regenerating kept wiping out Xcode's "update to recommended settings," and I
+wanted the modern synchronized-folder format where a folder on disk is
+referenced once instead of every file being individually listed in the
+project. `xcuserdata/` stays gitignored; the shared schemes are committed.
+Since membership in synchronized folder groups is folder-level, it fits this
+codebase well — platform splits are already `#if`-guarded rather than
+per-file, so `Common/` maps to all four targets, `Stash/` to both apps,
+`StashShareExtension/` to both extensions. I did this conversion inside
+Xcode itself rather than scripting a `.pbxproj` rewrite — round-tripping
+through `plutil` emits an XML-format project that breaks `xcodebuild`'s
+package resolution and scheme autocreation, so tooling shouldn't try to
+regenerate this project. I also renamed the outer cross-target `Shared/`
+folder to `Common/` and flattened the inner, app-only `Stash/Shared/` up
+into `Stash/` directly, since once the outer folder was `Common/` the inner
+`Shared/` name was just redundant.
 
 ## Merged the iOS and macOS targets into multiplatform targets
 
-- **🔁 Four targets collapsed to two.** M10 created separate iOS and macOS
-  targets (`Stash`/`StashMac` and
-  `StashShareExtension`/`StashMacShareExtension`). With SwiftUI there's no
-  reason for that, so `Stash` and `StashShareExtension` are now
-  **multiplatform** targets (Supported Destinations: iPhone, iPad, Mac), and the
-  two `*Mac*` targets are deleted. One `Stash` scheme builds both platforms
-  (selected by run destination); the macOS product is still a native
-  AppKit/SwiftUI app (`SUPPORTS_MACCATALYST = NO`, `SDKROOT = auto`). **Zero
-  Swift changes** — the code was already `#if`-guarded and the single `@main`
-  already branched per platform. The macOS share-extension bundle id changed
-  from `cc.otavio.stash.macShareExtension` to `cc.otavio.stash.ShareExtension`
-  (one id across platforms now).
-- **✅ Per-platform `Info.plist`/entitlements are SDK-conditional, in a
-  non-synced `Config/` folder.** The two platforms differ only in a few
-  `Info.plist` keys (iOS launch screen / orientations vs. macOS
-  `LSApplicationCategoryType`) and entitlements (macOS adds App Sandbox +
-  network client). Each is selected with `INFOPLIST_FILE[sdk=macosx*]` /
-  `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]`. Moving all eight files **out of the
-  synchronized source folders** into `StashApp/Config/` also fixed the
-  stray-`Resources/Info.plist` defect from the synchronized-folders review —
-  with no plists inside the synced folders, no membership exceptions are needed
-  and nothing leaks into the macOS bundles (verified: clean iOS + macOS builds
-  each carry exactly one app `Info.plist` and one embedded `.appex`).
-- **✅ Edited the project with the `xcodeproj` Ruby gem, not `plutil`.** The gem
-  writes the proper ASCII `.pbxproj` (the `plutil` JSON round-trip emits XML
-  that breaks `xcodebuild`), so target settings, target deletion, and the
-  conditional build settings were applied programmatically and verified by
-  building both destinations from the one scheme.
+M10 had created genuinely separate iOS and macOS targets. With SwiftUI
+there's no real reason for that split, so I collapsed all four targets down
+to two multiplatform ones — `Stash` and `StashShareExtension` — supporting
+iPhone, iPad, and Mac from one scheme selected by run destination. This
+needed zero Swift changes, since the code was already `#if`-guarded and the
+single `@main` already branched per platform. Per-platform `Info.plist` and
+entitlement differences (a handful of keys, plus macOS-only sandbox and
+network-client entitlements) moved into a small non-synced `Config/` folder,
+selected by SDK-conditional build settings — which also happened to fix a
+stray-`Info.plist` defect the synchronized-folders conversion had
+introduced, since with no plists inside the synced folders there's nothing
+that can leak into the wrong bundle. I edited the project file with the
+`xcodeproj` Ruby gem rather than `plutil`, for the same XML-round-trip
+reason as before, and verified the result by building both destinations
+cleanly from the one scheme.
 
 ## StashApp — fixed miscategorized files within `Stash/`
 
-- **✅ The macro `Common/` / `Stash/` / `StashShareExtension/` split was kept — it
-  encodes Xcode target membership, not taste.** Membership in the synchronized
-  folder groups is folder-level: `Common/` → all four targets, `Stash/` → both
-  apps, `StashShareExtension/` → both extensions. "Files in `Stash/` look shared,
-  could they move to `Common/`?" — no: `Stash/` *is* the iOS↔macOS shared layer,
-  and its files (stateful `@Observable` repositories, the SwiftData store, the
-  sync engine, app UI) are app-only by design. The Share Extension is
-  process-isolated and online-only; it builds its own lightweight repositories and
-  references only genuine shared types already in `Common/`. Pulling app code into
-  `Common/` would bloat the extension binary with code it can't use.
-- **✅ Three files were moved to the subfolder matching what they *are* (pure disk
-  moves within the `Stash/` group — same target membership, no `.pbxproj` edit, no
-  in-file changes; synchronized folder groups pick up the moves automatically):**
-  - `Stash/Models/` → **`Stash/Persistence/`** for both `LocalStore` and
-    `LocalBookmark`. `LocalStore` owns the SwiftData `ModelContainer` and vends
-    queries — a persistence service, not a model; `LocalBookmark` is a real
-    `@Model` but a persistence *entity*, distinct from the domain DTOs in
-    `Common/Models/`. Grouping the SwiftData layer together (parallel to `Sync/`)
-    also removes the misleading second "Models" folder alongside `Common/Models/`.
-  - `BookmarkFilter.swift`: `Repositories/` → **`Support/`** — a stateless `enum`
-    of static query/sort helpers mirroring the backend's SQL semantics over local
-    `Bookmark` values; not a repository. App-only, so it stays in `Stash/`.
-  - `SyncModifiers.swift`: `Support/` → **`Views/`** — a SwiftUI `ViewModifier`,
-    same kind as `BookmarkTagDropModifier` which already lives in `Views/`.
-- **Left as-is:** `Common/Support/AddBookmarkStores.swift` (the
-  `BookmarkCreating`/`TagAutocompleting` protocols) — correctly in `Common/`; only
-  the filename is slightly imprecise. The duplicated token-refresh logic between
-  `AuthRepository` and `ExtensionSession` is a known dedup candidate but is a
-  behavioral refactor, deliberately out of scope for this organizational pass.
+I kept the macro `Common/` / `Stash/` / `StashShareExtension/` split as-is,
+since it encodes real Xcode target membership rather than just taste — files
+in `Stash/` look shareable at a glance, but `Stash/` *is* the iOS↔macOS
+shared layer already; its stateful repositories, the SwiftData store, and
+the sync engine are app-only by design, and pulling them into `Common/`
+would bloat the process-isolated, online-only Share Extension with code it
+can't use. I did move three files to the subfolder that actually matched
+what they are — `LocalStore` and `LocalBookmark` into a new `Persistence/`
+subfolder (a service and a persistence entity, not "Models" in the domain
+sense), `BookmarkFilter` into `Support/` (a stateless helper enum, not a
+repository), and `SyncModifiers` into `Views/` (a SwiftUI `ViewModifier`,
+same kind as another modifier already living there). All pure disk moves —
+synchronized folder groups pick them up automatically with no project file
+edit.
 
 ## Backend — reorganized `Sources/App/` by surface (API / Web / Core)
 
-- **🔁 Switched the backend source layout from by-kind to by-surface.** It was grouped by kind
-  (`Controllers/`, `DTOs/`, `Models/`, `Services/`, …), so the JSON-API code and the Leaf web-UI
-  code were interleaved inside each folder and distinguished only by a filename suffix
-  (`*WebController`, `*WebDTOs`). The tree is now three top-level buckets:
-  - **`API/`** — the JSON `/api/v1` contract the clients (apps, CLI, extension) depend on:
-    `Controllers/` (Auth, User, Bookmark, Tag, SmartView, Metadata, Admin, and Favicon — it lives
-    at `/api/v1/favicons`) and `DTOs/` (the `Content`-codable wire shapes). Mirrors
-    `Public/openapi.yaml`, which already describes exactly this surface.
-  - **`Web/`** — the session-auth Leaf UIs: `Controllers/` (`AdminWebController`,
-    `AppWebController`, `LandingController`) and `DTOs/` (the `*WebDTOs` render contexts +
-    `SiteSettingsDTOs`/`SiteChrome`, used only in page renders).
-  - **`Core/`** — the shared domain used by both surfaces, keeping the kind-subfolders: `Models/`,
-    `Migrations/`, `Services/`, `Auth/`, `ImportExport/`, `Extensions/`, `Middleware/`, `Errors/`.
-    `QueryBuilder+Search` (shared so the API and web bookmark queries never diverge) sits in
-    `Core/Extensions/`; `Middleware/` and `Errors/` stay together as cross-cutting infrastructure
-    (`StashErrorMiddleware` is installed globally in `configure.swift`; `APIError` is thrown
-    app-wide).
-- **✅ Fixed the `Services/` grab-bag** with a new **`Core/Support/`** for the three files that
-  were not services: `AppVersion` (a `VERSION`-file reader), `DomainExtractor` (stateless URL→domain
-  parsing), and `AccentTheme` (a value type holding the ten theme palettes). `Core/Services/` now
-  holds only genuine services (`AdminSeeder`, `FaviconFetcher`, `MetadataFetcher`,
-  `SiteSettingsService`, `TagRenamer`, `TagDeleter`).
-- **✅ Organizational only — zero behavior change.** `App` is a single Swift module and SwiftPM
-  compiles every `.swift` under the target recursively, so the move needed **no `Package.swift`
-  change, no `import` changes, and no `openapi.yaml` edit** (the HTTP surface is unchanged). Done as
-  pure `git mv`s; verified by a clean build, all 162 tests passing, and clean SwiftFormat/SwiftLint.
-  The split does **not** enforce boundaries (Swift has no folder-scoped imports) — its value is
-  navigability. **Left as-is:** the Leaf templates in `Resources/Views/` (a separate resource dir,
-  already grouped by `app-`/admin naming; moving them would need Leaf config changes) and the
-  1349-line `AppWebController` (breaking up the monolith is a separate refactor).
+The backend source tree used to be organized by kind — `Controllers/`,
+`DTOs/`, `Models/`, `Services/` — which meant the JSON-API code and the Leaf
+web-UI code were interleaved inside every folder, distinguished only by a
+`*WebController`/`*WebDTOs` filename suffix. I switched it to three
+top-level buckets instead: `API/` for the JSON `/api/v1` contract the
+clients actually depend on (controllers plus wire DTOs, mirroring
+`Public/openapi.yaml`), `Web/` for the session-auth Leaf UIs, and `Core/` for
+the shared domain both surfaces use, which keeps its existing
+kind-based subfolders (`Models/`, `Migrations/`, `Services/`, `Auth/`,
+`ImportExport/`, `Extensions/`, `Middleware/`, `Errors/`). Along the way I
+also cleaned up a `Services/` grab-bag — three files that weren't actually
+services (a version-file reader, a stateless URL→domain parser, and a value
+type holding theme palettes) moved into a new `Core/Support/`, leaving
+`Core/Services/` holding only genuine services.
+
+This was purely organizational — `App` is a single Swift module, so SwiftPM
+compiles everything recursively regardless of folder structure, and the move
+needed no `Package.swift` change, no import changes, and no `openapi.yaml`
+edit, since the actual HTTP surface didn't change at all. It's plain `git
+mv`s, verified by a clean build and all 162 tests still passing. The split
+doesn't enforce any real boundary — Swift has no folder-scoped imports —
+its only value is making the tree easier to navigate. I left the Leaf
+templates where they were (a separate resource directory Leaf's config
+already expects) and left the sprawling `AppWebController` alone for now,
+since breaking that up is a separate piece of work.
 
 ## Backend — decomposed `AppWebController` into per-domain controllers + presenters
 
-- **🔁 The 1349-line `AppWebController` monolith was split into one `RouteCollection` per domain,**
-  mirroring the API side (which already had `BookmarkController`, `SmartViewController`, etc.). The
-  `/app` frontend is now `AppAuthWebController` (login/logout), `BookmarkWebController`
-  (`GET /app` + `/app/bookmarks/*`), `SmartViewWebController`, `TagWebController`, and
-  `SettingsWebController` (settings/2FA/import/export/theme/danger-zone). `AppWebController` is
-  **deleted**; `routes.swift` builds the `/app` session group + the `UserSessionMiddleware` group once
-  and registers the per-domain collections on it — the same shape as the API's `protected` group.
-- **✅ Good design for types — three roles separated.** Controllers are thin request orchestrators;
-  pure presentation lives in `Web/Presenters/` `enum` namespaces (`BookmarkPresenter`,
-  `SmartViewPresenter`, `TagPresenter` — no `Request`/DB, just model→Leaf-context shaping and URL/label
-  building); cross-controller glue lives in `Web/Support/` (`Request.renderHTML` extension replacing the
-  duplicated `render()`, `FlashMessage` for `?ok=`/`?notice=` copy, `AppSidebarLoader` for the shared
-  sidebar load, `KnownTags` for tag-autocomplete JSON). The smart-view helpers keep delegating to Core
-  (`SmartViewCondition.validated()`, `SmartViewDuration`) — no domain logic was duplicated.
-- **✅ Folded `BookmarkListPage` into `AppSidebarLoader` + presenters.** The plan named a separate
-  `BookmarkListPage` for the list/results pages; in practice the only logic the bookmark list and the
-  Smart View results page truly share is the sidebar load (now `AppSidebarLoader`) and row mapping
-  (`BookmarkPresenter.row`) — the rest of each `AppBookmarksContext` legitimately differs (search/tag
-  filters vs. a saved query). A dedicated page type would have been a 20-parameter pass-through, so the
-  shared pieces are the loader + presenters instead.
-- **✅ `AdminWebController` de-duplicated in the same pass.** Its byte-identical private `render()` now
-  uses the shared `Request.renderHTML`, and its `message(for:)` moved to `FlashMessage.admin` (the app
-  and admin flash copy now live together in one file, even though the cases differ).
-- **✅ Organizational only — zero behavior change.** Single Swift module, so no `Package.swift`/`import`
-  changes, and the `/app` + `/admin` routes and rendered output are unchanged, so `openapi.yaml` is
-  untouched. Verified by a clean build, all **162 tests** passing (the suite boots the full app, which
-  proves route registration), and clean SwiftFormat/SwiftLint. **Left as-is:** the Leaf templates in
-  `Resources/Views/` (separate resource dir, already grouped by `app-`/admin naming).
+That 1,349-line `AppWebController` monolith eventually did get split, into
+one `RouteCollection` per domain, mirroring how the API side was already
+organized: `AppAuthWebController` for login/logout, `BookmarkWebController`
+for the bookmark list and detail routes, `SmartViewWebController`,
+`TagWebController`, and `SettingsWebController`. `AppWebController` itself
+is gone; `routes.swift` builds the `/app` session and auth-middleware group
+once and registers each per-domain collection onto it, the same shape the
+API side already used. Splitting it also gave me a chance to properly
+separate three roles that had been tangled together: controllers stay thin
+request orchestrators, pure presentation logic moved into `Web/Presenters/`
+namespaces with no request or database access at all, and cross-controller
+glue (a shared render helper, flash-message copy, the sidebar loader, the
+tag-autocomplete JSON helper) moved into `Web/Support/`. I'd originally
+planned a dedicated `BookmarkListPage` type to share logic between the
+bookmark list and Smart View results pages, but in practice the only things
+they genuinely share are the sidebar load and row mapping — everything else
+legitimately differs between a search/tag filter and a saved query — so a
+shared page type would have just been a wide pass-through of parameters, and
+I used the loader and presenters instead. `AdminWebController` got the same
+de-duplication treatment in the same pass, since its private render helper
+was byte-identical to the one I'd just extracted. Purely organizational
+again — one Swift module, unchanged routes and rendered output, verified by
+a clean build and all 162 tests passing (booting the full app in tests
+already proves route registration).
 
 ---
 
 ## Editable server URL on the login screen
 
-- **✅ The server URL is now editable from `LoginView`, not just first-launch
-  `SetupView`.** A self-hosted instance reached by IP can change address,
-  leaving a configured-but-unreachable app with no in-app way to fix it on iOS
-  (logout returns to login, which previously only *displayed* the URL as footer
-  text). `LoginView` now carries a "Server" `TextField` (same `urlFieldStyle` /
-  `http(s)://` validation as `SetupView`), and `canSubmit` also requires a valid
-  URL.
-- **✅ Edited locally, committed to `AppSettings` only on sign-in.** The field is
-  seeded from `settings.serverURL` on appear into a local `@State`, and written
-  back to `settings.serverURL` inside `signIn()`. Binding the `TextField`
-  straight to `settings.serverURL` would flip `isConfigured` to `false` the
-  instant the field was cleared mid-edit, bouncing `RootView` back to
-  `SetupView`. No change was needed below the view: `StashClientProvider`
-  already rebuilds its cached client whenever the persisted URL changes, so the
-  next login hits the new server.
+A self-hosted instance reached by IP can change address, and there was no
+in-app way to fix that on iOS once the app was configured but pointing at an
+unreachable server — logging out just returned to a login screen that only
+*displayed* the URL as footer text. `LoginView` now carries its own editable
+server field. It's edited locally and only committed to `AppSettings` on
+actual sign-in, rather than bound directly — binding it straight to the
+persisted setting would have flipped `isConfigured` to false the instant the
+field was cleared mid-edit, bouncing the user back to first-launch setup.
+Nothing needed to change further down the stack, since the client provider
+already rebuilds its cached client whenever the persisted URL changes.
 
 ---
 
 ## M4.1 — CI/CD pipeline & Docker image publishing
 
-- **✅ Two workflows, split by trigger and cost.** `.github/workflows/ci.yml`
-  runs on every push to `main` and every pull request — it builds and tests all
-  components (`Backend` test, `StashKit` build + test, `CLI` release build, and
-  the iOS + macOS app builds) but **builds no image and pushes nothing**, so it
-  stays a regression gate. `.github/workflows/release.yml` runs **only on a
-  `v*.*.*` tag push**; it re-runs the backend test suite, then (and only if
-  tests pass) builds and publishes the Docker image. Keeping image publishing on
-  tags-only means routine pushes never spend the multi-arch build.
-- **✅ `ci.yml` tests the backend in debug, not release.** An earlier revision
-  built and tested the backend with `-c release` (to validate the shipping
-  configuration in one compile). That **crashed the Swift 6.2.1 compiler** in
-  CI: its SIL optimizer (which only runs under `-O`/release) hit a fatal error
-  compiling the Vapor dependency tree. A regression gate doesn't need release
-  optimization — the release build is validated by the Docker image (`swift
-  build -c release` on Swift 6.1) at tag time — so the backend is tested in
-  plain debug (`swift test`, which compiles and runs in one step). Debug skips
-  the crashing optimizer entirely.
-- **✅ Backend tests run serially (`--no-parallel`).** swift-testing parallelizes
-  by default, and each test boots its own `Application` and hashes passwords
-  with bcrypt cost 12 (deliberately slow). On a CI runner that parallelism
-  starves the SQLite connection pool — 6 of 76 tests failed with
-  `connectionRequestTimeout` (all timeouts, no logic failures) while the rest
-  passed. Running the suite with `--no-parallel` removes the contention; the
-  trade-off is a slower run, acceptable for a gate. (Locally on a fast
-  multi-core Mac the parallel run doesn't starve, which is why this only
-  surfaced in CI.)
-- **✅ GitHub Actions layer cache for Docker builds (`type=gha`).**
-  `docker/build-push-action` is configured with `cache-from: type=gha` /
-  `cache-to: type=gha,mode=max`, so the expensive Swift layers — package
-  resolution and compilation — are cached between runs. `mode=max` caches every
-  intermediate layer (not just the final image), which is what makes the Swift
-  build layers reusable and subsequent tagged releases substantially faster.
-- **⚠️ Image visibility is a one-time manual step, NOT automated; the repo stays
-  private.** The brief called for a `curl PATCH` to
-  `/user/packages/container/stash/visibility` to flip the image public from CI.
-  That does not work: there is **no REST endpoint for container-package
-  visibility** (the Packages API only exposes `GET`/`DELETE`/`restore` —
-  visibility is a web-UI-only setting), and even if one existed, `GITHUB_TOKEN`
-  is a bot installation token that cannot call the user-scoped `/user/...` API.
-  Worse, a bare `curl` without `--fail` swallows the 404/403 and the job stays
-  green — a silent no-op. The step was therefore **removed** and replaced with a
-  comment: after the first push, set the package public **once** by hand
-  (Packages → `stash` → Package settings → Danger Zone → Change visibility →
-  Public). It then stays public across every subsequent push. The source
-  repository remains private — only the image is public.
-- **✅ `GITHUB_TOKEN` is sufficient for everything that IS automated — no PAT or
-  extra secrets.** GHCR login, the multi-arch push, and the release creation all
-  authenticate with the workflow's built-in `secrets.GITHUB_TOKEN`. The
-  `publish` job declares `permissions: { contents: write, packages: write }` so
-  that token can push the package and create the release; no personal access
-  token or additional repository secret is needed. (The one thing it cannot do —
-  flip package visibility — is the manual step above.)
-- **✅ Release attaches the canonical `docker-compose.yml`.**
-  `softprops/action-gh-release` publishes a GitHub Release for the tag with
-  `Backend/docker-compose.yml` attached and quick-start instructions in the
-  body, so a user downloads the compose file from the release and runs `docker
-  compose up -d` against the published image — no clone, no build.
-- **✅ Canonical `docker-compose.yml` references the published image; the local
-  override stays gitignored.** `Backend/docker-compose.yml` already points at
-  `ghcr.io/otaviocc/stash:latest` (no `build:`), and the local-development
-  `Backend/docker-compose.override.yml` (which uses `build: .`) is ignored via
-  `Backend/.gitignore`, so it never lands in the repo and the release artifact
-  is always the image-based file.
-- **⚠️ `ci.yml` is split into a Linux `backend` job and a macOS `apple` job.**
-  The components don't share a platform *or* a toolchain. The `backend` runs on
-  `ubuntu-latest` / Swift 6.1 — matching the Docker image's `swift:6.1-jammy`
-  base (and 6.1 avoids the 6.2.1 optimizer crash above). The `apple` job covers
-  everything Apple-platform — StashKit (build + test), CLI (release build), and
-  the app + Share Extension (iOS and macOS builds) — and **must run on macOS**:
-  StashKit and CLI depend on `MicroClient`, which uses Apple Foundation's
-  networking types (`URLSession`/`URLRequest`/ `URLResponse`) without the
-  `FoundationNetworking` shim Linux requires, so they do not compile on Linux at
-  all (the original M4.1 brief assumed they would); everything also targets iOS
-  26 / macOS 26 and declares swift-tools 6.2, i.e. it needs Xcode 26. The job
-  runs on `macos-latest` and pins Xcode via `maxim-lobanov/setup-xcode@v1`
-  (`latest-stable`). ⚠️ macOS runner minutes bill at ~10× on a private repo, so
-  all the Apple targets share **one** runner rather than fanning out.
-  `release.yml`'s `test` job stays on Linux / Swift 6.1, since it only touches
-  `Backend`.
-- **✅ The app is build-verified on both platforms, not unit-tested.** The
-  `Stash` app and `StashShareExtension` have no test target (PRD §19.6 — the app
-  is manual/integration-tested, the backend carries the suite). CI therefore
-  *builds* the `Stash` scheme for iOS (a generic simulator destination, so no
-  specific simulator must exist on the runner) and macOS with
-  `CODE_SIGNING_ALLOWED=NO`; building also compiles the embedded Share
-  Extension. That catches compile-level regressions across the cross-platform
-  `#if` shells — the practical risk for a target with no tests.
+Two workflows, split by trigger and cost. `ci.yml` runs on every push to
+`main` and every pull request, building and testing every component but
+publishing nothing, so it stays a cheap regression gate. `release.yml` runs
+only on a `v*.*.*` tag push — it re-runs the backend tests and, only if
+those pass, builds and publishes the Docker image. Keeping image publishing
+tag-only means routine pushes never pay for the multi-arch build.
+
+Getting the backend test job right in CI took a couple of iterations. I
+first built and tested it with `-c release`, to validate the shipping
+configuration in one pass, but that crashed the Swift 6.2.1 compiler in
+CI — its SIL optimizer, which only runs under release optimization, hit a
+fatal error compiling the Vapor dependency tree. A regression gate doesn't
+actually need release optimization (the Docker image build validates that
+separately, on Swift 6.1), so the backend now just runs `swift test` in
+plain debug, which sidesteps the crashing optimizer entirely. Then I found
+the tests needed to run serially: swift-testing parallelizes by default, and
+each test boots its own `Application` and hashes passwords at bcrypt cost
+12 on purpose (slow), which starved the SQLite connection pool on a CI
+runner — six of seventy-six tests failed with connection timeouts, no logic
+failures, just contention. Running with `--no-parallel` removes that
+contention entirely; the trade-off is a slower CI run, which is fine for a
+gate. This never showed up locally on a fast multi-core Mac, which is why
+it only surfaced in CI.
+
+Docker builds use GitHub's layer cache in `mode=max`, so the expensive Swift
+package-resolution and compilation layers are reused between runs, which
+makes subsequent tagged releases substantially faster.
+
+Making the published image public turned into a small research detour. The
+original plan was to `curl PATCH` the image to public visibility from CI,
+but that doesn't actually work — there's no REST endpoint for container
+package visibility at all (the Packages API only exposes
+get/delete/restore; visibility is a web-UI-only setting), and even if there
+were, `GITHUB_TOKEN` is a bot installation token that can't call the
+user-scoped API anyway. Worse, a bare `curl` without `--fail` would have
+swallowed the 404 silently and left the job green — a no-op nobody would
+notice. I removed the step and replaced it with a one-time manual
+instruction instead: flip the package to public by hand once, after the
+first push, and it stays public for every push after that. The source
+repository itself stays private; only the image is public. Everything that
+*is* automated — the GHCR login, the multi-arch push, the release
+creation — authenticates with the workflow's own `GITHUB_TOKEN`, no personal
+access token needed.
+
+The release itself attaches the canonical `docker-compose.yml` to a GitHub
+Release, so someone can grab just that file and run `docker compose up -d`
+against the published image with no clone and no build.
+
+`ci.yml` ended up split into a Linux `backend` job and a macOS `apple` job,
+because the components genuinely don't share a platform or a toolchain.
+StashKit and the CLI depend on `MicroClient`, which uses Apple Foundation's
+networking types without the shim Linux needs, so they simply don't compile
+there — the `apple` job has to run on macOS, covering StashKit, the CLI, and
+the app plus Share Extension for both iOS and macOS, all on one runner
+(macOS runner minutes bill at roughly 10× on a private repo, so I didn't
+want to fan this out further). The app itself has no test target by design,
+so CI build-verifies it on both platforms rather than unit-testing it —
+enough to catch compile-level regressions across the cross-platform `#if`
+shells, which is the actual risk for a target with no tests.
 
 ---
 
 ## HTTPS / Caddy
 
-- **✅ HTTPS via optional Caddy sidecar, not built into the image.** Stash serves
-  plain HTTP internally; TLS termination is a deployment concern. This mirrors
-  the pattern used by Navidrome and other self-hosted tools — the app stays
-  simple, and users who don't need HTTPS aren't forced to deal with
-  certificates. Caddy is documented as an opt-in addition to
-  `docker-compose.yml` (the `caddy/docker-compose.caddy.yml` override resets the
-  `app` port mapping and adds a `caddy:2-alpine` reverse proxy on 80/443)
-  covering both local network (`tls internal`, self-signed, with root-CA trust
-  instructions per platform) and internet-exposed (automatic Let's Encrypt) use
-  cases. No changes to the Stash image or Vapor backend are required.
+HTTPS is an optional Caddy sidecar, not something built into the image
+itself — Stash serves plain HTTP internally, and TLS termination is a
+deployment concern, the same pattern other self-hosted tools like Navidrome
+use. That keeps the app simple and doesn't force HTTPS complexity on anyone
+who doesn't need it. Caddy is documented as an opt-in addition to the
+compose file, covering both a local-network case (self-signed, with
+root-CA trust instructions per platform) and an internet-exposed case
+(automatic Let's Encrypt) — no changes needed to the Stash image or the
+Vapor backend itself.
 
 ---
 
 ## Documentation
 
-- **✅ All documentation consolidated into a single top-level `Docs/` folder.**
-  Every component's docs were merged into `Docs/` and the per-component READMEs
-  (`Backend/README.md`, `CLI/README.md`, `StashApp/README.md`,
-  `StashKit/README.md`, and later `Extension/README.md`) were deleted; the root
-  `README.md` became a concise landing page that links into `Docs/`. The folder
-  holds one guide per concern — `backend-build`, `backend-local`,
-  `backend-docker`, `backend-docker-caddy`, `configuration`, `api`, `cli-build`,
-  `mobile-build`, `stashkit`, `browser-extension`. `PRODUCT.md` and
-  `DECISIONS.md` remain at the repo root.
-- **✅ Convention: new user-facing docs go in `Docs/`, not a component README.**
-  This is the standing rule — a new component or feature gets one guide in
-  `Docs/` (linked from the root `README.md` table), never a `Component/README.md`.
-  The browser extension followed this: it shipped with an `Extension/README.md`
-  first, which was then folded into `Docs/browser-extension.md` and deleted to
-  match every other component.
-- **✅ The `caddy/` directory was folded into `Docs/backend-docker-caddy.md` and
-  removed.** The `Caddyfile` variants and the `docker-compose.caddy.yml`
-  override (🔁 superseding the committed files referenced in the *HTTPS / Caddy*
-  entry above) now live as copy-paste code blocks inside that one doc; users
-  recreate them in a `caddy/` folder next to their `docker-compose.yml`.
-  Trade-off: nothing Caddy-related ships in the repo anymore, so there is a
-  single documented source of truth instead of files that could drift from their
-  walkthrough.
+All documentation ended up consolidated into one top-level `Docs/` folder —
+I merged every component's docs in and deleted the per-component READMEs
+that had accumulated, leaving the root `README.md` as a concise landing page
+that links into `Docs/`. The standing rule going forward: a new component or
+feature gets one guide in `Docs/`, never a `Component/README.md` — the
+browser extension actually shipped with its own README first and I folded
+it into `Docs/browser-extension.md` shortly after, to match everything else.
+The `caddy/` directory of committed Caddyfile variants also got folded into
+`Docs/backend-docker-caddy.md` and removed — now there's a single documented
+source of truth as copy-paste blocks, instead of files in the repo that
+could quietly drift from the walkthrough describing them.
 
 ---
 
 ## Markdown style — hard line breaks
 
-- **✅ All Markdown files use hard line breaks, wrapping prose at 80 characters.**
-  Prefer hard-wrapped lines over long flowing paragraphs: easier to read in a
-  plain text editor and produces clean, reviewable diffs. Code blocks, tables,
-  and headings are left as-is (tables cannot be narrowed without losing
-  structure). Every time a Markdown file is created or edited, apply this
-  convention to the modified sections.
+All Markdown in this repo uses hard line breaks, prose wrapped at 80
+characters, rather than long flowing paragraphs — it's easier to read in a
+plain text editor and produces cleaner, more reviewable diffs. Code blocks,
+tables, and headings are left alone, since tables in particular can't be
+narrowed without losing their structure.
 
 ---
 
 ## Site Settings & Admin Customisation
 
-- **✅ `SiteSettings` is a single-row table, never deleted.** There is always
-  exactly one row, seeded by the `CreateSiteSettings` migration (accent theme
-  `ocean`, all other fields `nil`). `SiteSettingsService.current(on:)` is the
-  single accessor; it recreates the row on first access if somehow missing, so
-  callers never deal with an empty table.
-- **✅ Theme injection via a server-side CSS block.** The selected accent theme's
-  light and dark hex values are injected into `<head>` in `layout.leaf` as a
-  second `<style>` block (after the main stylesheet) that overrides the default
-  `--accent` custom property. All existing `var(--accent)` uses pick it up
-  automatically — no per-template or per-stylesheet changes. There is **no
-  per-request DB query**: the values come from an app-level cache
-  (`SiteSettingsCache` on `Application.storage`, behind an `NSLock`) loaded once
-  at boot and refreshed in place when the admin saves the appearance form.
-- **✅ `refreshCache` only mutates the lock-guarded snapshot, never
-  `Application.storage`.** The cache holder is seeded by `loadAndCache` during
-  `configure`, before the server accepts connections, so it always exists by the
-  time a request can trigger a refresh. `refreshCache` therefore only calls
-  `cache.update(...)` (which takes the `NSLock`); it does **not** write back into
-  `Application.storage`, an unsynchronized dictionary that would data-race the
-  concurrent `req.siteChrome()` reads if mutated at runtime. The earlier
-  `else { storage[...] = … }` fallback was unreachable but encoded exactly that
-  unsafe write, so it was removed — a missing holder now logs and leaves renders
-  on the `.default` snapshot until the next boot rather than racing storage.
-- **⚠️ Chrome is a nested `chrome` field on every web context, not a flattened
-  merge.** Both web controllers pass `chrome: req.siteChrome()` (footer + accent
-  + about text) into every page context, and `layout.leaf` / `_footer.leaf` read
-  `chrome.*`. A generic wrapper that flattens an arbitrary page context's keys
-  alongside a `chrome` key was rejected: Leaf's `LeafEncoder` `fatalError`s on a
-  second `container(keyedBy:)` at the same encoding level ("Can't encode to
-  multiple containers at the same encoding level"), so the
-  `try page.encode(to:)`-then-add-a-key trick that works with `JSONEncoder`
-  crashes under Leaf. Threading one nested field is verbose but reliable.
-  `req.siteChrome()` is synchronous and never throws — a missing cache falls back
-  to defaults so a page render is never blocked by a missing footer config.
-- **✅ Stash identity is hardcoded, not configurable.** The name "Stash", the
-  Ko-fi link (`https://ko-fi.com/otaviocc`), and the Mastodon link
-  (`https://social.lol/@otaviocc`) live directly in `_footer.leaf`. Admins cannot
-  remove or replace them; they are not passed via `FooterContext`, so they cannot
-  be accidentally omitted or overridden.
-- **✅ `VERSION` file approach.** The version string is read from `Backend/VERSION`
-  at startup (`AppVersion.read(directory:)`, relative to the working directory)
-  and stored on `Application` under `AppVersionKey`. It is copied into the Docker
-  image (`COPY`/`cp` of `VERSION` in the build stage). Falls back to `"dev"` when
-  the file is missing or empty.
-- **✅ Theme picker is pure HTML radio inputs.** No JavaScript is needed for
-  selection: nine visually-hidden radio inputs, each wrapped by a `<label>` whose
-  coloured circle (`.theme-swatch`) is styled via CSS, with
-  `input:checked + .theme-swatch` drawing the active ring.
-- **✅ `aboutText` capped at 280 characters.** A natural limit for a short
-  instance description (one Mastodon post). Enforced server-side (422 + inline
-  error on overflow); a small `oninput` counter mirrors the existing danger-zone
-  JS pattern for convenience only.
-- **✅ `footerCustomURL` requires `https://`.** Plain HTTP links are rejected
-  (422) to avoid mixed-content warnings on HTTPS instances. The custom footer
-  link renders only when **both** label and URL are non-empty; empties are
-  normalised to `nil` on save.
+`SiteSettings` is a single-row table that's never deleted — always exactly
+one row, seeded on migration, with a single accessor that recreates the row
+if it's somehow missing, so nothing downstream ever has to handle an empty
+table. The selected accent theme gets injected into every page as a small
+server-side CSS block overriding the `--accent` custom property, so every
+existing `var(--accent)` reference in the stylesheets picks it up
+automatically with no per-template changes. There's no per-request database
+query involved — the values live in a lock-guarded, app-level cache loaded
+once at boot and refreshed in place whenever the admin saves the appearance
+form.
+
+That cache needed one correctness fix: a refresh should only ever mutate the
+lock-guarded snapshot, never write back into `Application.storage`, which is
+an unsynchronized dictionary that would data-race the concurrent page-render
+reads if touched at runtime. There was a leftover fallback branch that did
+exactly that unsafe write in a case that was actually unreachable in
+practice — I removed it, so a missing cache holder now just logs and falls
+back to default values until the next boot, rather than risking a race.
+
+I also settled a small API-design question here: page contexts pass chrome
+(the footer, accent, and about text) as one nested `chrome` field rather
+than flattening it into the top-level context. A generic wrapper that
+flattens an arbitrary page context's keys alongside a `chrome` key looked
+appealing, but Leaf's encoder crashes on a second container at the same
+encoding level, so the "encode the page then splice in a key" trick that
+works fine with `JSONEncoder` doesn't work under Leaf. Threading one nested
+field through every context is more verbose, but it's reliable, and the
+chrome lookup itself is synchronous and never throws — a missing cache just
+falls back to defaults so a page render is never blocked by a
+misconfiguration.
+
+The Stash identity itself — the name, the Ko-fi link, the Mastodon link —
+is hardcoded directly in the footer template rather than passed through
+context, specifically so it can't be accidentally omitted, overridden, or
+removed by an admin. The version string is read from a `VERSION` file at
+startup and falls back to `"dev"` if that file is missing or empty. The
+theme picker itself needs no JavaScript at all — just visually-hidden radio
+inputs with CSS drawing the active ring around whichever swatch is checked.
 
 ---
 
 ## Token refresh — concurrent-refresh race (macOS spurious logout)
 
-- **✅ Silent refresh is single-flight; concurrent callers are coalesced.**
-  Refresh tokens are single-use — the backend rotates on every
-  `POST /api/v1/auth/refresh` and deletes the one just presented (M1, §8.1). The
-  app fires `refreshIfNeeded()` before *every* authenticated request, and it had
-  no serialization: two requests that started together with an expired access
-  token both read the same refresh token from the Keychain and both POSTed it.
-  The server honoured the first and deleted it; the second arrived with a now-
-  deleted token → `401 token_invalid` → `clearSession()` → the user was dropped
-  to the login screen. `AuthRepository` (and the Share Extension's
-  `ExtensionSession`) now hold an `inflightRefresh: Task<Void, Error>?`: the
-  first caller spawns the refresh task and stores it; concurrent callers `await`
-  that same task instead of starting their own. Because both types are
-  `@MainActor`-isolated, the check-and-set is race-free without locks (the first
-  suspension point is `await task.value`, after the task is stored).
-- **⚠️ Why this only bit macOS / iPad, not iPhone.** It is the navigation shell,
-  not the auth code (which is shared). `MacContentView` (and the iPad
-  `NavigationSplitView`) render both columns at launch, so the sidebar's
-  `tagRepository.load()` and the detail column's bookmark load fire two
-  authenticated requests *simultaneously* — the race. iPhone's
-  `TabContainerView` lazy-loads tabs, so only one request fires at cold start; a
-  backend restart is a red herring (refresh tokens live in Postgres with a
-  volume and survive it). The bug was intermittent because it only triggers when
-  the cached access token is already expired at launch (app idle > ~15 min); a
-  fresh token short-circuits at the expiry guard before any refresh.
-- **✅ Only a definitive auth failure clears the session.** The old `catch`
-  cleared the session on *any* refresh error, so a transient network blip or a
-  5xx during refresh logged the user out even though the refresh token was still
-  valid server-side. `performRefresh()` now clears only on an authentication
-  failure (`token_expired` / `token_invalid` / `invalid_credentials` /
-  `account_suspended`) and rethrows everything else with the session intact for
-  retry. This is safe because the refresh endpoint returns `token_invalid` /
-  `token_expired` for *every* dead-token case — invalid, expired, rotated-away,
-  and revoked (suspend / password reset / 2FA reset, §8.6) — so the logout
-  behaviour for genuinely dead tokens is unchanged; only transient failures are
-  spared.
-- **✅ The clear-on-auth-failure is also guarded against a *cross-process*
-  rotation race.** `inflightRefresh` coalesces concurrent refreshes within a
-  single process, but the app and the Share Extension are separate processes
-  sharing one single-use refresh token in the Keychain access group (M9). If both
-  refresh near the same instant, the loser POSTs a token the winner already
-  rotated away → `token_invalid` → the old `catch` would `clearSession()` even
-  though a valid successor token is sitting in the Keychain. `performRefresh()`
-  now clears only when `tokenManager.refreshToken` is still the token this call
-  attempted with; if it changed underneath us, another process rotated it
-  legitimately, so the failure is rethrown (the caller's request fails once) and
-  the next `refreshIfNeeded()` picks up the rotated token instead of dropping the
-  user to login. Relatedly, `AuthRepository.isAuthenticated` is now seeded from
-  the **refresh** token (not the access token) at launch — the refresh token is
-  what actually sustains the session; an expired-but-present access token must
-  still restore, and a refresh on launch re-mints the access token.
-- **✅ Reactive refresh-and-retry on a rejected token, via an `AuthorizedClient`
-  wrapper.** The proactive `refreshIfNeeded()` only fires when the client's own
-  clock says the access token expires within 60 s. A token the client believes
-  valid can still be rejected by the server — clock skew, a backend `JWT_SECRET`
-  rotation, or the cross-process rotation above — and the request would surface a
-  "session expired" error to the user even though the session is recoverable.
-  **MicroClient's own `RetryStrategy` (`.retry(count:)`) is the wrong tool here:**
-  it retries on *any* thrown error (so it would replay a `422`/`409`), has no
-  backoff, and — fatally — re-reads the same token between attempts with no way to
-  refresh, so it would just re-send the rejected token N times. So the retry is
-  implemented explicitly. `AuthorizedClient` wraps a `StashClient`, exposing a
-  `run(_:)` with the *same* signature; on a retryable auth failure
-  (`token_expired` / `token_invalid`, via `StashAPIError.isRetryableAuthFailure`)
-  it forces one refresh and replays the request exactly once. Replay is safe
-  because the auth middleware rejects an unauthenticated request *before* the
-  route runs, so a `401` carries no side effects — even a `POST`/`PUT`/`DELETE` is
-  safe to repeat. Because the method signature matches `StashClient.run`, call
-  sites stay `client.run(req)` unchanged; only the type the session vends changed.
-- **✅ One wrapper, three homes; refresh stays out of StashKit.** In the app,
-  `AuthRepository.authorizedClient()` is the single entry (replacing each
-  repository's private `authenticatedClient()`); `SessionRefreshing` now vends an
-  `AuthorizedClient`, and `BookmarkRepository` / `SmartViewRepository` / `SyncEngine`
-  route through it. The Share Extension's `ExtensionSession` does the same in its
-  own process. The CLI mirrors it in `CLIRuntime.authenticatedClient(store:)`,
-  which returns an `AuthorizedClient` whose forced-refresh closure swaps the
-  rotated token into a `TokenHolder` the `StashClient` reads from (the CLI builds
-  its client with a fixed token closure, unlike the app's `TokenManager`-backed
-  one, so it needs the holder to pick up the new token without rebuilding). The
-  wrapper is duplicated in the app's `Common/` and the CLI rather than living in
-  StashKit, because StashKit is deliberately free of refresh logic — the same
-  reason the refresh code itself is already duplicated between the two.
+This one was a genuinely tricky bug, and worth writing up in full because
+the fix ended up touching three separate layers.
+
+Refresh tokens are single-use — the backend rotates on every refresh call
+and deletes the one just presented. The app fires a refresh check before
+every authenticated request, but originally had no serialization around it:
+if two requests started at the same moment with an already-expired access
+token, both read the same refresh token from the Keychain and both POSTed
+it. The server honored whichever arrived first and deleted it; the second
+request then presented a token that no longer existed, got a `401
+token_invalid` back, and the app responded by clearing the session
+entirely — dropping the user straight to the login screen, even though
+their session was, moments earlier, perfectly valid.
+
+It took a while to figure out why this only ever hit macOS and iPad, never
+iPhone. The auth code itself is shared across platforms, so the bug had to
+be in the navigation shell instead: the macOS and iPad layouts render both
+the sidebar and the detail column at launch, so the sidebar's tag load and
+the detail column's bookmark load fire two authenticated requests
+*simultaneously* — that's the race. iPhone's tab-based layout lazy-loads
+each tab, so only one authenticated request ever fires at cold start. The
+bug was also intermittent even on the affected platforms, since it only
+triggers when the cached access token is already expired at launch — the
+app has to have been idle for a while first, which made it feel like a
+flaky backend-restart issue at first before I traced it properly.
+
+The actual fix has three parts. First, silent refresh became single-flight:
+`AuthRepository` (and the Share Extension's equivalent) now hold an
+in-flight refresh task, and the first caller stores it while every
+concurrent caller just awaits that same task instead of starting its own —
+safe without locks because both types are main-actor isolated. Second, only
+a genuinely definitive auth failure clears the session now; the old code
+cleared on *any* refresh error, so a transient network blip or a 5xx during
+refresh logged someone out even though their refresh token was still valid
+server-side — now it only clears on the specific auth-failure error codes,
+and rethrows everything else with the session left intact so the caller can
+retry. And third, since the app and the Share Extension are separate
+processes sharing one single-use refresh token through the Keychain access
+group, there's a cross-process version of the same race: if both refresh at
+nearly the same instant, the loser presents a token the winner already
+rotated away, and without a guard the old code would clear the session even
+though a perfectly valid successor token was sitting right there in the
+Keychain. The fix compares the refresh token this call attempted with
+against whatever's currently in the token manager: if it's unchanged, the
+refresh genuinely failed; if it changed underneath the call, another process
+rotated it legitimately, so the failure is rethrown for this one request
+instead of clearing the session, and the next refresh check picks up the
+already-rotated token. Relatedly, whether the app considers itself
+authenticated at launch is now seeded from the presence of the *refresh*
+token, not the access token — the refresh token is what actually sustains a
+session, so an expired-but-present access token should still restore
+successfully via a refresh on launch.
+
+One more layer sits on top of all this: even with proactive refresh working
+correctly, a token the client believes is still valid can be rejected by the
+server anyway — clock skew, a backend secret rotation, or the cross-process
+race above — and without a fallback that would surface as a hard "session
+expired" error even when the session was actually recoverable. I looked at
+using `MicroClient`'s own retry strategy for this and rejected it — it
+retries on *any* thrown error, so it would replay a 422 or 409 pointlessly,
+has no backoff, and critically re-reads the same rejected token between
+attempts with no way to actually refresh first, so it would just resend the
+same bad token repeatedly. Instead there's an explicit `AuthorizedClient`
+wrapper with the exact same `run(_:)` signature as the underlying client:
+on a retryable auth failure it forces one refresh and replays the request
+exactly once. That replay is safe because the auth middleware rejects an
+unauthenticated request before the route ever runs, so a 401 has no side
+effects — even a POST or DELETE is safe to repeat. This wrapper lives in
+three places rather than one shared spot — the app, the Share Extension, and
+the CLI each have their own copy — because StashKit is deliberately kept
+free of refresh logic, the same reason the refresh code itself was already
+duplicated between the app and the CLI.
 
 ---
 
 ## Cross-links between the `/app` and `/admin` web navs
 
-- **✅ The `/app` nav shows a "Dashboard" link to `/admin`, gated to admins.**
-  The user-facing frontend's nav bar gained a "Dashboard" entry after
-  "Settings", linking straight to the admin dashboard so an admin browsing their
-  own bookmarks can cross over without retyping the URL. It is rendered only when
-  the signed-in user is an admin (`#if(appIsAdmin)`), since the `/admin` section
-  is role-gated and admits a regular user only to its own login screen — showing
-  the link to everyone would be a dead end.
-- **✅ `appIsAdmin` is a per-context flag, mirroring `appUsername`.** The web
-  layout has no global render context — every page concern (`appUsername`,
-  `chrome`, …) is passed explicitly into each view context. So `appIsAdmin: Bool`
-  was added to all eight `/app` page contexts in `AppWebDTOs.swift` and populated
-  from `user.role == .admin` at each `req.view.render` call in `AppWebController`,
-  alongside the existing `appUsername`. A real `Bool` means the template uses
-  `#if(appIsAdmin)` directly, avoiding the `#if(count(x) > 0)` Int-coercion gotcha
-  codified in M11 (that only applies to counts, not booleans).
-- **✅ The `/admin` nav shows a reciprocal "App" link to `/app`, always.** Unlike
-  the `/app → /admin` direction, this one needs no gating: only admins ever reach
-  the admin dashboard, and every admin also has a regular `/app` account (the two
-  web UIs share the same user table), so the link is never a dead end. It is a
-  plain `<a href="/app">App</a>` with no context flag.
+The user-facing frontend's nav gained a "Dashboard" link to `/admin`, so an
+admin browsing their own bookmarks can cross over without retyping the URL —
+shown only when the signed-in user is actually an admin, since the admin
+section is role-gated and would otherwise be a dead end for a regular user.
+The reverse link, an "App" entry in the admin nav pointing back to `/app`,
+needed no such gating at all: only admins ever reach the admin dashboard in
+the first place, and every admin also has their own regular `/app` account
+since both web UIs share one user table, so that link is never a dead end.
 
 ---
 
 ## Appearance theme swatches respect dark mode
 
-- **✅ Each swatch previews the colour for the active light/dark mode.** Every
-  `AccentTheme` carries both a light and a dark hex (§7.6), but the appearance
-  picker rendered each swatch with an inline `background` hardcoded to the light
-  value (`ThemeOption.color = $0.light`), so in Dark Mode the circles showed the
-  wrong (light-mode) colours while the rest of the page was dark. The swatch now
-  switches with the page: `ThemeOption` carries both `light` and `dark`, the
-  inline style sets `--swatch-light` / `--swatch-dark` custom properties only,
-  and `.theme-swatch` resolves the background from them in CSS — defaulting to
-  `--swatch-light`, overridden to `--swatch-dark` under `[data-theme="dark"]` and
-  under `prefers-color-scheme: dark` in auto mode. This mirrors the three-way
-  resolution already used for the injected `--accent` override, so the previews
-  match the colour the app actually renders.
+Every accent theme carries both a light and a dark hex value, but the
+appearance picker's swatches were hardcoded to always show the light value,
+so in dark mode the circles displayed the wrong colors while the rest of the
+page was dark around them. The fix mirrors the same three-way resolution
+already used for the injected accent override elsewhere: each swatch now
+sets both light and dark custom properties inline, and CSS resolves which
+one to actually show based on the active theme, so the preview always
+matches what the app actually renders.
 
 ---
 
 ## Smart Views
 
-- **✅ A per-view match mode: `all` (AND) or `any` (OR).** Mirroring macOS Music's
-  "Match all/any of the following rules", each Smart View carries a `match_mode`
-  string (`all`/`any`, default `all`, validated at the boundary like condition
-  types and `accentTheme` — no Fluent DB enum). `all` ANDs the conditions as
-  top-level filters; `any` wraps them in a single `.group(.or)`. There is still no
-  per-rule grouping or boolean-expression parser — one global combinator covers the
-  vast majority of "saved query" use cases without a query DSL. Added via a separate
-  `AddSmartViewMatchMode` migration (column with `default("all")`) so existing rows
-  backfill to the prior AND behavior without an edit to the already-applied
-  `CreateSmartViews`.
-- **✅ The non-archived default is an outer AND in both modes.** `applyConditions`
-  applies `isArchived == <default>` as a top-level filter unless an `isArchived`
-  condition is present, *then* combines the rules (AND or OR). So `any` mode can't
-  leak archived bookmarks just because one OR-branch happens to match — archived
-  results still require an explicit `isArchived` rule. The match-mode + archived
-  logic lives only in `SmartView.applyConditions(to:archivedDefault:)`; the web
-  results handler passes its archived-toggle state as `archivedDefault` and the API
-  uses the `false` default, so the two callers share one mechanism (this also
-  retired the duplicated inline loop a prior review flagged).
-- **✅ Conditions stored as a JSON array of `{ type, value }` objects.** The
-  `conditions` column is a single `.json` column holding an array of
-  discriminated-union objects (`{ "type": "urlContains", "value": "youtube" }`).
-  Adding a new condition type is a code-only change — no schema migration — and the
-  flat `{ type, value }` shape (all values are strings; dates are ISO-8601,
-  `isArchived` is `"true"`/`"false"`) is the same on the wire and in the DB, so the
-  API response is a direct projection of the stored value. `SmartViewCondition` is a
-  Swift `enum` whose `Codable` round-trips that shape; its `validated(type:value:)`
-  factory is the single choke point that rejects unknown types, empty values, and
-  unparseable dates/booleans with `422 validation_failed`. Adding `hasTags` (a
-  boolean condition: `true` = the bookmark has any tags, `false` = none) was exactly
-  this code-only change — no migration, no StashKit change — and it reuses the
-  derived `tags_search` column (`!= ""` / `== ""`, the same basis as the
-  `__untagged__` filter) rather than introducing new storage.
-- **⚠️ Conditions are wrapped in a single-object `SmartViewConditionList`, not a
-  bare `[SmartViewCondition]` field.** Storing the array directly worked on the
-  SQLite test DB but failed in production on PostgreSQL: Fluent's Postgres encoder
-  serializes a top-level Swift array as `jsonb[]`, which the `jsonb` column rejects
-  (`column "conditions" is of type jsonb but expression is of type jsonb[]`). SQLite
-  has no array type, so it stored the same value as JSON text and the tests passed
-  — a textbook SQLite-tests / Postgres-prod divergence the in-memory test DB can't
-  catch. Wrapping the array in a one-field `Codable` struct makes Fluent emit a
-  single `jsonb` document on both drivers; `SmartView.conditions` is a computed
-  accessor over the stored wrapper, so call sites are unchanged. This keeps the
-  already-created `jsonb` column valid — no ALTER migration needed. (Verified by
-  running the backend against a real PostgreSQL 16, not just the SQLite test suite.)
-- **✅ Text conditions reuse the portable case-insensitive `LIKE` helper.**
-  `urlContains` / `titleContains` / `descriptionContains` use a new
-  `QueryBuilder<Bookmark>.filterColumn(_:contains:)` that compares
-  `lower(column) LIKE lower('%value%')` via a bound parameter — the same approach as
-  the existing `filterFullText`, portable across SQLite (tests) and PostgreSQL
-  (production). The `tag` condition reuses the bookmark list's exact prefix-match
-  semantics (`tags_search` contains `|tag|` *or* `|tag/`), so a Smart View tag
-  filter behaves identically to the sidebar tag filter (matches the tag and its
-  descendants). Multiple conditions of the same type are allowed and ANDed — two
-  `tag` conditions require both tags.
-- **✅ `isArchived` overrides the default archived filter.** The bookmarks endpoint
-  returns non-archived bookmarks unless the Smart View carries an `isArchived`
-  condition, which then controls archived state entirely. On the web results page
-  the archived toggle is hidden when an `isArchived` condition is present (the
-  condition owns it) and works normally otherwise.
-- **✅ No count in the sidebar.** Smart Views render in the bookmark-list sidebar
-  (above the tag tree, below the time filters) as plain links with no count — a
-  count would mean running each saved query on every page render. The user's Smart
-  Views are loaded in one `.all()` call per render alongside the tag list; the
-  dividers/section only appear when the user has at least one Smart View.
-- **✅ Loaded per render, no cache.** Like the tag list, Smart Views are read fresh
-  on each page render (one extra query). The data is small and per-user, so caching
-  would add invalidation complexity for no meaningful gain.
-- **✅ Management is a top-level nav item.** The create/edit/delete management page
-  (`/app/smart-views`) is linked directly from the main nav (between Tags and
-  Settings) rather than buried under Settings — Smart Views are a first-class
-  browse/organize surface alongside Bookmarks and Tags, so the nav entry makes them
-  discoverable. (Initially placed under Settings; promoted to the nav for
-  discoverability.) The results page reuses the existing bookmark-list template (same sidebar, same
-  pagination) with an `isSmartView` flag that swaps the search toolbar for a "Smart
-  View" label. The condition builder is the same minimal-vanilla-JS pattern as the
-  tag autocomplete and danger zone: rows cloned from a `<template>`, each row's
-  type-select toggling between a text/date input and a Yes/No select (the inactive
-  control is `disabled`, so exactly one value submits per row).
-- **✅ The `tag` condition value reuses the bookmark forms' tag autocomplete.** The
-  layout's autocomplete was refactored into a reusable `window.stashTagAutocomplete(
-  input, known, opts)`; the bookmark fields call it in `multi` mode (comma-segment
-  completion) and the Smart View condition value calls it in single mode (replaces
-  the whole value), gated by an `enabled` callback so suggestions only appear while
-  the row's type is `tag`. The form embeds the user's tags in a `data-known-tags`
-  attribute (same zero-extra-request approach as the add/edit forms), so picking a
-  tag never requires guessing.
-- **✅ StashKit gains a `SmartViewRequestFactory` + DTOs only.** Following the M6
-  thin-package rule, StashKit adds `SmartViewDTO` / `SmartViewConditionDTO`, a
-  `SmartViewRequest` body, and the factory (list/create/get/update/delete/bookmarks)
-  — no client state. `smart_view_not_found` maps to the existing `.notFound`
-  `StashAPIError` case. No CLI or native-app surface was added this pass.
+Each Smart View carries a match mode — `all` (AND) or `any` (OR) — mirroring
+macOS Music's "Match all/any of the following rules." There's still no
+per-rule grouping or a full boolean-expression parser; one global combinator
+covers the large majority of "saved query" use cases without needing a query
+DSL. The non-archived default is applied as an outer AND regardless of match
+mode, so an `any` Smart View can't accidentally leak archived bookmarks just
+because one OR-branch happens to match — surfacing archived results still
+requires an explicit `isArchived` condition. That logic lives in exactly one
+place, shared by both the web results page and the API, so the two can't
+drift.
+
+Conditions are stored as a JSON array of `{ type, value }` objects — a
+discriminated union where every value is a string (dates ISO-8601,
+`isArchived` as `"true"`/`"false"`), which means adding a new condition type
+is a code-only change with no schema migration. Adding the `hasTags`
+condition later was exactly that: no migration, no StashKit change, just
+reusing the existing derived tags column. One real production bug here: I
+initially stored the conditions array directly, which worked fine against
+the SQLite test database but failed against real PostgreSQL, since Fluent's
+Postgres encoder serializes a top-level Swift array differently than a
+`jsonb` column expects — a textbook case of the SQLite test database not
+catching something Postgres would reject. Wrapping the array in a one-field
+container struct made Fluent emit a single valid document on both drivers; I
+verified the fix against a real PostgreSQL instance, not just the test
+suite, specifically because the test suite was what had missed it in the
+first place.
+
+Text conditions (`urlContains`, `titleContains`, `descriptionContains`)
+reuse the same portable case-insensitive `LIKE` helper full-text search
+already uses. The `tag` condition reuses the bookmark list's exact
+prefix-match semantics, so a Smart View tag filter behaves identically to
+the sidebar's tag filter, matching a tag and its descendants the same way.
+Smart Views render in the sidebar with no count shown at all — a count would
+mean actually running every saved query on every page render, which isn't
+worth it for a convenience list. Management lives as its own top-level nav
+item between Tags and Settings — I'd initially tucked it under Settings, but
+promoted it once it was clear Smart Views are a first-class browse/organize
+surface alongside Bookmarks and Tags, not a settings tweak. StashKit's
+addition here followed the same thin-package rule as always: DTOs and a
+request factory, no client-side state, no CLI or native-app surface added in
+this pass.
 
 ---
 
 ## Smart View import / export
 
-- **✅ Smart Views ride the existing Stash JSON envelope as an optional sibling node.** Rather than
-  a new format or a separate file, the `stash-json` exporter/importer gained a `smartViews` array
-  alongside `bookmarks` (`{ id, name, matchMode, conditions: [{type,value}], createdAt, updatedAt }`,
-  the API wire shape). The node is **optional on import**, so older exports without it still import
-  and the format `version` stays `"1"` — no version bump, fully backward-compatible (the decoder
-  only reads keys it knows). One file, one upload, round-trips both.
-- **✅ Dedup by name, mirroring bookmark dedup-by-URL.** A Smart View whose `name` already exists for
-  the user is updated in place (matchMode + conditions overwritten); otherwise it is created. This
-  makes re-import idempotent. `id`/`createdAt`/`updatedAt` are ignored on import, exactly as the
-  bookmark importer ignores `id`/`updatedAt`.
-- **✅ Validation is reused, not reimplemented.** The importer calls the existing
-  `SmartViewController.validatedName` / `validatedMatchMode` / `validatedConditions` (and through
-  them `SmartViewCondition.validated`), so an imported Smart View is held to exactly the same rules
-  as one created via the API. A Smart View with an empty name or no valid conditions is **counted and
-  reported** (`smartViewsSkipped` + an `errors` line), never thrown — the same parse-failure-vs-bad-
-  record split bookmarks already use.
-- **✅ `ImportResult` extended with defaulted counts.** Three new fields
-  (`smartViewsImported`/`Updated`/`Skipped`) carry `= 0` defaults so the Anybox importer (bookmarks
-  only) is untouched. The web summary banner shows the Smart View line only when the file carried any
-  (a precomputed `hasSmartViews` Bool on `ImportSummaryContext`, dodging Leaf's `#if(count … )`
-  Int-truthiness gotcha).
-- **✅ CLI reaches parity over the public API.** `stash export` lists Smart Views via
-  `SmartViewRequestFactory.makeListRequest()` and folds them into its local `ExportDocument`; `stash
-  import` parses the `smartViews` node and submits each via create/update (matched by name, listing
-  existing views once). Unlike the web importer with direct DB access, the CLI **cannot preserve a
-  Smart View's `createdAt`** — the same accepted limitation already documented for bookmarks under M7.
-- **✅ Per-record failures are reported; connectivity/auth failures abort the import.** A shared
-  `CLIErrorReporter.abortsBatch(_:)` splits errors into per-record rejections (`validation_failed`,
-  `duplicate_url`, `not_found`, `username_taken` → skip this record, record a reason) and everything
-  else (auth, server, transport, unrecognized → rethrow, so `runCLI` prints the message and exits
-  non-zero). Without this, a dropped session mid-import was silently counted as "skipped", making a
-  recoverable failure look like bad data. Smart View skip reasons print after the summary (matching
-  the web importer's per-record error lines); the same classifier was applied to the bookmark
-  `submit` path so both halves of `stash import` behave consistently.
+Smart Views ride the existing Stash JSON export as an optional sibling array
+next to bookmarks, rather than a new file format — the node is optional on
+import, so older exports without it still import fine, and the format
+version doesn't need to bump at all. A Smart View whose name already exists
+for the user gets updated in place; otherwise it's created, mirroring how
+bookmark dedup works by URL, which makes re-importing the same file
+idempotent. Validation is reused rather than reimplemented — the importer
+calls the exact same validation the API uses, so an imported Smart View is
+held to identical rules as one created directly. A Smart View with an empty
+name or no valid conditions gets counted and reported rather than thrown,
+the same parse-failure-vs-bad-record split bookmarks already use.
+
+The CLI reaches parity here over the public API: `stash export` folds Smart
+Views into its local export document, and `stash import` submits each one
+via create or update, matched by name. Like bookmarks, the CLI can't
+preserve a Smart View's original `createdAt` timestamp over the public API —
+the same accepted limitation from M7. One thing I had to get right on the
+CLI side: per-record validation failures should be reported and skipped, but
+a connectivity or auth failure partway through an import should abort the
+whole batch rather than silently counting every remaining record as
+"skipped" — that would make a recoverable failure look indistinguishable
+from bad data. A shared error classifier now splits the two cases correctly,
+applied consistently to both bookmarks and Smart Views on the CLI.
 
 ---
 
 ## Tags & Smart Views web UI — table layout and delete confirmation
 
-- **✅ The Tag Browser now renders as a table mirroring the Smart Views management
-  page.** The tag list was a `<ul class="tag-list">`; it became a `.card`-wrapped
-  `<table>` with `Tag` / `Bookmarks` / `Actions` columns, so `/app/tags` and
-  `/app/smart-views` read as one consistent surface. Rename was a `secondary`
-  `<button>`; it is now an accent `<a>` matching the Smart Views `Edit` link (it
-  still toggles the inline rename form — the only action that needs a text input —
-  via `preventDefault()`). The now-unused `.tag-list` / `.tag-row*` rules were
-  dropped from the shared `layout.leaf`; each page keeps its small action styles in
-  a scoped `<style>` block.
-- **✅ The Tag column absorbs the table's slack so the actions sit flush.** A table
-  with only short cells (`Tag`, a count, two actions) stretches the last column and
-  leaves a large gap after the Delete button — the Smart Views table doesn't show
-  this because its wide `Conditions` column eats the slack. Fix is pure CSS:
-  `.tag-table` sets the first column to `width: 100%` and `white-space: nowrap` on
-  the rest, pinning the actions to their content width. No layout change to Smart
-  Views, whose `Conditions` column already does this naturally.
-- **✅ Delete switched from an inline-reveal form to a native `confirm()` dialog.**
-  Both pages previously toggled a per-row confirmation form into view on Delete,
-  which mutated the table in place and reflowed the row (visible "things out of
-  place" while one row's form was open). Both now use `onsubmit="return
-  confirm(…)"` on a small `inline` POST form — the exact pattern already used to
-  delete a bookmark — so Delete never alters the table before submit. This removed
-  the `.sv-delete-form` toggle script entirely from the Smart Views page and the
-  delete half of the tag browser's toggle script; only the tag Rename reveal
-  remains. The confirm copy is a static string (not interpolated with the tag name)
-  to avoid breaking the JS string on tags containing quotes.
+The Tag Browser page now renders as a table matching the Smart Views
+management page's layout, so the two read as one consistent surface instead
+of two different visual patterns for what's conceptually the same kind of
+page. One small CSS wrinkle: a table with only short cells stretches its
+last column and leaves an awkward gap after the action buttons, which the
+Smart Views table never showed because its wide conditions column already
+absorbed the slack — the fix was just pinning the tag column to take the
+slack instead, no layout change needed on the Smart Views side.
+
+Delete also switched from an inline-reveal confirmation form to a native
+`confirm()` dialog on both pages, the same pattern already used for deleting
+a bookmark. The old inline-reveal approach mutated the table in place and
+reflowed the row while open, which felt like something shifting underfoot;
+a native confirm dialog never touches the table before the actual submit.
 
 ---
 
 ## Public landing page at `/`
 
-- **✅ A server-rendered landing page now lives at the root path.** Before this,
-  `/` returned a bare 404 — the only entry points were `/app` and `/admin`. The
-  new page (PRD §1) is a product pitch reflecting the self-hosted, data-ownership
-  philosophy: a hero ("Your bookmarks. Your server. Your data."), two CTA buttons
-  (Sign in → `/app`, Admin → `/admin`, the latter visually secondary), and a 2×2
-  feature grid (self-hosted, multi-platform, organised, multi-user) that
-  collapses to a single column under 600px. It reuses `layout.leaf` wholesale: the
-  nav header is gated on `adminUsername`/`appUsername`, neither of which is set for
-  an anonymous visitor, so the layout degrades to `<main>` + footer with no change
-  needed. All colours come from the existing CSS variables, so dark mode and the
-  admin's accent theme apply for free. Per-page styles sit in a scoped `<style>`
-  block in the template, matching the Tags/Smart Views convention. The CTAs point
-  at `/app` and `/admin` rather than their `/login` sub-paths: both surfaces are
-  session-protected, so an anonymous visitor is redirected to the right login page
-  anyway, while a still-signed-in user lands straight on their content.
-- **✅ The page touches no session — it renders the same for everyone, signed in
-  or not.** An earlier revision tried to redirect a logged-in visitor to `/app` by
-  reading the `stash_session` cookie at `/`. That backfired: the `stash_session`
-  cookie is path-scoped to `/app` (see routes.swift), so a browser never sends it
-  to `/`. Merely *reading* `req.session` there created a fresh empty session, and
-  the sessions middleware then wrote a `Set-Cookie: stash_session=…; Path=/app`
-  that **overwrote the visitor's real session cookie** — i.e. visiting `/` silently
-  logged you out of `/app`. The redirect and the sessions middleware were removed
-  from the landing route entirely; `LandingController` now does a pure render with
-  no session access. The trade-off: a signed-in user who navigates to `/` sees the
-  landing page instead of being bounced to `/app`. That was preferred over the
-  alternative fix (widening the `stash_session` cookie path to `/`), which would
-  have changed the session scope for the whole `/app` surface just to power a
-  cosmetic redirect.
-- **✅ `aboutText` is surfaced on the landing page as well as the footer.** When
-  the admin has set an "About this instance" message (`SiteSettings.aboutText`,
-  PRD §7.6), it renders in a `.card` between the hero and the features
-  ("About this instance: …"); when empty/nil the section is omitted entirely. This
-  is a deliberate dual use — the same text already appears in the shared footer via
-  `chrome` — so the one admin-editable blurb does double duty as the landing
-  page's instance description without adding a new settings field. The dedicated
-  `LandingPageContext.aboutText` is populated from `chrome.aboutText` (which is
-  already `nonEmpty`-filtered), so the Leaf `#if(aboutText)` test behaves correctly
-  and never trips the empty-string-is-truthy gotcha (§21).
-- **✅ Route placement.** The root route is registered after the `/app` frontend in
-  `routes.swift` via `app.register(collection: LandingController())` — no group, no
-  middleware. It is the sole unauthenticated web page besides the two login screens;
-  no new tests beyond a throwaway Leaf smoke test (render + aboutText card — run
-  then removed, per §19.6).
-- **✅ Copy and styling refreshed to match the shipped product.** The original 2×2
-  feature grid (self-hosted, multi-platform, organised, multi-user) had fallen behind:
-  it never mentioned the CLI or browser extension as clients, nor 2FA, import/export,
-  or theming. The grid is now **six cards** — *Self-hosted & private* (incl.
-  self-hosted favicons), *Every platform* (iOS/macOS/web/CLI/browser extension),
-  *Organised* (tags, search, Smart Views), *Secure by default* (TOTP + recovery
-  codes), *Portable* (Anybox/Stash JSON import-export), and *Yours to theme*
-  (Light/Dark/Auto + the admin accent theme). The hero subline now names every
-  client. The styling moved into the scoped `landing.css` (per the §1903 split): an
-  accent-tinted `color-mix` gradient hero panel, a decorative platform-badge row, and
-  card hover polish (shadow + lift + accent top-border, disabled under
-  `prefers-reduced-motion`). All still resolve from the existing CSS variables, so
-  dark mode and the admin accent theme apply for free; the grid steps 3→2→1 columns at
-  760px/520px. No controller or `LandingPageContext` change — the page still renders
-  from `chrome` + `aboutText` only. Markdown URL copy was deliberately **not**
-  advertised here: it is a native-app action, off-topic for the web landing page.
-- **✅ API docs CTA added to the hero.** Now that the Swagger UI is served at
-  `/docs.html` (see *OpenAPI specification*), the hero carries a third, secondary
-  CTA — *API docs →* `/docs.html` — alongside *Sign in* and *Admin*. It is a
-  same-tab static page like the other two CTAs, reuses the existing
-  `.landing-cta a.secondary` style (the row already wraps, so no CSS change), and
-  surfaces the machine-readable API surface to anyone evaluating a self-hosted
-  instance without making them guess the URL.
+Before this, the root path just returned a bare 404 — the only real entry
+points were `/app` and `/admin` directly. The landing page that replaced
+that 404 is a straightforward product pitch reflecting the self-hosted,
+data-ownership philosophy: a hero line, two calls to action (sign in, or the
+admin dashboard, the latter visually secondary), and a small feature grid
+that collapses to one column on narrow screens. It reuses the shared layout
+template wholesale rather than inventing new chrome — the nav header is
+already gated on whether a username is set, which is never true for an
+anonymous visitor, so the layout degrades gracefully with no extra work.
+
+One bug I introduced and then reverted: I initially tried to redirect a
+signed-in visitor straight to `/app` from the landing page, by reading the
+session cookie at `/`. That backfired badly — the session cookie is
+path-scoped to `/app`, so a browser never actually sends it to `/` in the
+first place, but merely *reading* the session there created a fresh empty
+one, and the sessions middleware then wrote that empty session's cookie back
+with `Path=/app`, silently overwriting the visitor's real session. Visiting
+the homepage was quietly logging people out of the app. I removed the
+redirect and all session access from the landing route entirely — it's now
+a pure, stateless render for everyone, signed in or not. The trade-off is
+that a signed-in user who navigates to `/` sees the landing page instead of
+bouncing straight to `/app`, which felt like the safer choice compared to
+the alternative of widening the session cookie's path just to power a
+cosmetic redirect.
+
+The admin's optional "about this instance" text does double duty here too —
+the same field that already populates the shared footer also renders as a
+card on the landing page when set, with no new settings field needed. The
+feature grid itself got a refresh once the page had fallen behind the
+shipped product — it originally only mentioned four things and never
+name-checked the CLI, the browser extension, 2FA, import/export, or
+theming, so it grew to six cards covering all of it, plus a third CTA once
+the OpenAPI docs became browsable, linking straight to `/docs.html`.
 
 ---
 
 ## Browser Extension
 
-A WebExtension (`Extension/`) that saves the current page to a Stash instance
-from Firefox or Chrome (including Zen). It talks directly to the REST API
-(`/api/v1/`) — **no backend, StashKit, or native-app changes**.
+The browser extension (`Extension/`) saves the current page to a Stash
+instance from Firefox or Chrome (including Zen), talking directly to the
+REST API — no backend, StashKit, or native-app changes needed at all.
 
-- **✅ Plain HTML + vanilla JS, no build step.** No npm, no bundler, no
-  framework — the same philosophy as the server-rendered web UI (§13). The
-  extension is small enough (a popup, an options page, a service worker) that a
-  framework would add tooling and a build artifact for no real gain. All files
-  load directly in the browser. The popup/options CSS copies the web UI's CSS
-  variables (system font stack, the same light/dark palette) and resolves dark
-  mode via `prefers-color-scheme`, so it reads as part of Stash without sharing
-  any code with the Leaf templates.
-- **✅ Manifest v3, one manifest for both browsers.** v3 is required by Chrome;
-  Firefox supports it too. The background is declared with **both**
-  `service_worker` (used by Chrome) **and** `scripts` (used by Firefox/Zen, which
-  do not enable `background.service_worker` by default and reject a
-  service-worker-only manifest with "background.service_worker is currently
-  disabled. Add background.scripts."). Each engine uses the key it supports and
-  ignores the other, so one `manifest.json` serves both without per-browser
-  variants. No `type: "module"` — `background.js` has no ES imports, so a classic
-  script is valid as both a Chrome service worker and a Firefox event-page
-  script, and dropping the key avoids depending on module-background support
-  (newer Firefox only).
-- **✅ `background.js` owns all token storage and API calls.** The service worker
-  is the only place that touches `chrome.storage.local` for tokens; the popup and
-  options page communicate with it over `chrome.runtime.sendMessage` (a small
-  message API: `login`, `verify2FA`, `logout`, `getStatus`, `apiCall`). This
-  keeps token logic in one place — login, the silent-refresh window, the
-  refresh-on-401 retry, and logout all live in the worker — and means the popup
-  never needs storage permissions or its own copy of the refresh logic. It
-  mirrors the app's `AuthRepository.refreshIfNeeded()` centralization (§16) and
-  the CLI's `CLIRuntime` proactive refresh (M7).
-- **✅ JWT `exp` decoded by hand, 60-second skew.** Like the CLI's `JWTDecoder`
-  and the app's `TokenManager`, the worker base64url-decodes the access token's
-  payload and reads `exp`, refreshing when within 60 s of expiry (and once more
-  on a `401`, after which it clears the session). No JWT library — `atob` in the
-  service worker is enough.
-- **✅ 2FA handled inline on the settings page.** `POST /api/v1/auth/login`
-  returns either a token pair or `{ requires2FA, tempToken }`, both as HTTP 200
-  (§8.2) — the worker switches on the body shape exactly as the CLI and app do.
-  When 2FA is required the options page reveals a code field and calls
-  `verify2FA` (→ `/api/v1/auth/totp`, with a "use a recovery code" toggle →
-  `/api/v1/auth/recovery`). The extension must work for users who have 2FA
-  enabled, so this can't be deferred. After a 2FA login the username isn't known
-  locally, so it is resolved via `GET /api/v1/me` for the status line.
-- **✅ `host_permissions: ["<all_urls>"]`.** A self-hosted tool's server URL is
-  user-supplied and unknown at build time (a LAN IP, a `.local` host, a public
-  domain), so there is no narrower host pattern to request — both engines require
-  this for cross-origin fetch from the extension.
-- **✅ URL field is read-only.** The extension saves the page you are on; the URL
-  is pre-filled from the active tab and shown read-only (with a ↗ link-out).
-  Making it editable would mean the user has to navigate away from the page they
-  want to save, which defeats the purpose. Title, description, and tags are
-  editable; "Fetch metadata" (`POST /api/v1/metadata`) fills only the empty
-  fields so it never clobbers what the user typed. Save sends
-  `fetchMetadata: false` — the extension drives metadata explicitly.
-- **✅ No undo and no "save another" in the popup.** The popup lifecycle is too
-  short for the timer-based undo the Share Extensions use (M9/M10) — closing the
-  popup would cancel the timer. Instead: save → confirmation (a single View
-  bookmark link, auto-closing after 3 s) → done. There is deliberately no "save
-  another" either: the extension saves the page you are on, so once that tab is
-  saved there is nothing more to add for it. Duplicate URLs surface inline as
-  "Already saved" with a link to the existing bookmark (the `409`'s `existingID`
-  → `/app/bookmarks/:id`); deletion is left to the web UI or a native app.
-- **✅ Tag autocomplete reuses the web UI's per-segment prefix rule.** The popup
-  fetches `GET /api/v1/tags` on open and offers suggestion chips matching the
-  comma-segment under the cursor, where a fragment matches any `/`-delimited
-  segment that starts with it (so `music` finds `kind/music-gear`) — the same
-  behavior as the Leaf forms' `data-known-tags` autocomplete (§13).
-- **✅ Icons generated programmatically.** `icons/icon.svg` is the master vector
-  (the Stash bookmark ribbon, deep indigo `#231468`); `icons/generate-icons.py`
-  rasterizes it to the four manifest sizes (16/32/48/128) with Pillow only, so
-  the PNGs are reproducible from source rather than committed opaquely.
-- **✅ "Build" = package, not compile.** With no build step, the only build-time
-  task is zipping the folder for store submission. An `Extension/Makefile`
-  (mirroring `Backend/Makefile`'s `## help` style) wraps it: `lint`, `icons`,
-  `package` (→ `dist/stash-extension-<version>.zip`, named from the manifest
-  version), and `clean`. The core targets use only `zip`/`python3`/`node` — no
-  npm or bundler, keeping the no-build-step promise. `package` zips just the
-  runtime files, excluding the Makefile and the icon source/generator.
-  `dist/` is gitignored.
-- **✅ `lint` degrades gracefully, no npm required.** Mozilla's `web-ext` is the
-  proper extension linter but it is an npm tool, which the project deliberately
-  avoids. `make lint` uses `web-ext` *if it happens to be installed*, otherwise
-  falls back to dependency-free checks (manifest is valid JSON; the three JS
-  files pass `node --check`). This is the one automated guard that matters, since
-  there is no compiler to catch a malformed manifest or a JS typo.
-- **✅ CI validates, release packages.** A small `extension` job in `ci.yml` runs
-  `make lint` on every push/PR (python3 + node are preinstalled on the ubuntu
-  runner; no npm step added). `release.yml` runs `make package` on a `v*.*.*` tag
-  and attaches `Extension/dist/*.zip` to the GitHub Release alongside
-  `docker-compose.yml`. The extension's manifest version is independent of the
-  image semver tag, so the attached zip reflects the extension's own version.
+It's plain HTML and vanilla JS with no build step, the same philosophy as
+the server-rendered web UI — no npm, no bundler, no framework. The
+extension is small enough (a popup, an options page, a service worker) that
+a framework would add real tooling overhead for no meaningful gain, and
+every file just loads directly in the browser. It's Manifest v3, and one
+manifest genuinely serves both browser engines: the background script is
+declared with both the `service_worker` key Chrome wants and the `scripts`
+key Firefox/Zen require instead (they reject a service-worker-only
+manifest outright), and each engine just uses the key it understands and
+ignores the other.
+
+`background.js` owns all token storage and every API call — it's the only
+place that touches extension storage for tokens at all, and the popup and
+options pages talk to it purely through message passing. That keeps login,
+the silent-refresh window, the refresh-on-401 retry, and logout all in one
+place, mirroring the same centralization pattern the app and the CLI both
+use. The JWT `exp` claim is decoded by hand here too, the same
+dependency-free approach as everywhere else in the project, refreshing
+within 60 seconds of expiry and once more on an outright 401. The 2FA
+branch is handled inline on the settings page, switching on the same
+either-token-pair-or-challenge response shape the CLI and app both handle —
+the extension has to support 2FA-enabled accounts, so this couldn't be
+deferred.
+
+The URL field in the popup is read-only by design — the extension saves the
+page you're currently on, and making the URL editable would mean navigating
+away from that page just to fix a typo, defeating the whole point. There's
+deliberately no undo and no "save another" here either, unlike the Share
+Extensions: a popup's lifecycle is too short for a timer-based undo (closing
+it cancels the timer), and since the extension only ever saves the tab
+you're on, there's nothing more to add once that's done. A duplicate URL
+just surfaces inline as "Already saved" with a link to the existing
+bookmark.
+
+Icons are generated programmatically from one master SVG via a small Python
+script using Pillow, so the various manifest sizes stay reproducible from
+source instead of being committed as opaque binaries with no lineage. With
+no compile step, "build" here just means packaging — a small Makefile wraps
+linting, icon generation, and zipping for store submission, using only
+`zip`/`python3`/`node`, keeping the no-build-step promise intact even for
+tooling. Linting itself degrades gracefully: Mozilla's proper extension
+linter is an npm tool the project deliberately avoids depending on, so `make
+lint` uses it if it happens to be installed and otherwise falls back to
+dependency-free checks — valid JSON, and each JS file passing a basic syntax
+check. That's the one automated guard that actually matters here, since
+there's no compiler to catch a malformed manifest or a JS typo otherwise.
 
 ---
 
 ## Web CSS and JS extracted to static assets
 
-- **🔁 CSS moved out of the Leaf templates into static `.css` files served by
-  `FileMiddleware`.** Until now every style lived in `<style>` blocks: one large
-  block in `layout.leaf` (the shared design system + theme variables) plus
-  per-page blocks in `landing.leaf`, `app-tags.leaf`, `app-smart-views.leaf`, and
-  `app-smart-view-form.leaf` (the "scoped `<style>` block" convention noted under
-  *Public landing page* and *Tags & Smart Views web UI*, now superseded). The
-  shared block became `Public/css/stash.css`; each per-page block became its own
-  file (`landing.css`, `tags.css`, `smart-views.css`, `smart-view-form.css`).
-  `FileMiddleware(publicDirectory:)` is registered once in `configure.swift`
-  (after `StashErrorMiddleware`); it falls through to the router when no file
-  matches, so the API and web routes are untouched. The Dockerfile staging step
-  now copies `Public/` next to `Resources/`.
-- **✅ Shared CSS linked in `layout.leaf`'s `<head>`; per-page CSS via an
-  `#import("css")` slot.** The layout carries `<link rel="stylesheet"
-  href="/css/stash.css">` plus an `#import("css")` placeholder in `<head>`. A page
-  that needs extra styles provides them with an `#export("css"): <link …>
-  #endexport` sibling of its `#export("content")`. Pages without that export
-  render nothing there — LeafKit's `ignoreUnfoundImports` defaults to `true`, so
-  an unmatched `#import` is dropped silently rather than erroring (verified in the
-  leaf-kit source before relying on it). No layout edits are needed per page.
-- **✅ The accent-theme override stays inline.** The second `<style>` block in
-  `layout.leaf` injects `--accent` from the `SiteSettings` cache
-  (`#(chrome.accentLight)` / `#(chrome.accentDark)`) and is therefore
-  Leaf-templated per request — it can't be a static file, so it remains inline,
-  immediately after the `stash.css` link so it overrides the defaults. The
-  flash-prevention `<script>` (§13) likewise stays inline (it must run before
-  first paint).
-- **🔁 The inline `<script>` blocks moved to `Public/js/` the same way.** Every
-  page's JavaScript was inline: the shared tag-autocomplete (`stashTagAutocomplete`
-  + the `data-known-tags` auto-wiring, §13) lived at the end of `layout.leaf`'s
-  `<body>`; per-page scripts lived in `app-bookmarks` (the `/` search shortcut),
-  `app-settings` (delete-all reveal/confirm), `app-tags` (rename-row toggle),
-  `app-smart-view-form` (the condition builder), and `appearance` (the about-text
-  char counter). None referenced Leaf variables — they all read DOM attributes or
-  query the DOM — so each became a static file (`tag-autocomplete.js`,
-  `bookmarks.js`, `settings.js`, `tags.js`, `smart-view-form.js`, `appearance.js`)
-  served by the same `FileMiddleware`. The shared `tag-autocomplete.js` is linked
-  once in `layout.leaf`'s `<head>`; per-page scripts use an `#import("scripts")`
-  slot fed by an `#export("scripts")` sibling, mirroring the `css` slot.
-- **✅ All extracted scripts are `defer`red; the theme-flash script stays inline.**
-  External scripts use `<script defer …>` so they execute after parse, in document
-  order, before `DOMContentLoaded`. The shared `tag-autocomplete.js` link precedes
-  the `#import("scripts")` slot in `<head>`, so it always runs before any page
-  script that depends on `window.stashTagAutocomplete` (e.g. the Smart View form).
-  The one script that must **not** be deferred is `layout.leaf`'s
-  flash-prevention snippet (§13): it sets `data-theme` from the cookie before first
-  paint, so it stays inline at the top of `<head>` — externalizing or deferring it
-  would reintroduce the wrong-theme flash. Inline event-handler attributes
-  (`onsubmit="return confirm(…)"`) were left as-is; they are markup, not script
-  blocks.
-- **✅ Verified.** `swift build` clean; a throwaway smoke test (run then removed,
-  per §19.6) confirmed `GET /css/stash.css` returns `200 text/css` and
-  `GET /js/tag-autocomplete.js` returns `200` JavaScript, that the landing page's
-  `<head>` links the static assets (no residual inline `<style>`/`<script>`
-  definitions), and that the flash-prevention script still precedes the deferred
-  shared script in head order.
+Every style used to live inline in `<style>` blocks scattered across the
+Leaf templates — one large shared block plus several per-page blocks that
+had accumulated as pages were built. I moved all of it into static `.css`
+files served by a `FileMiddleware`, registered once and falling through to
+the router when no file matches, so the API and web routes stay completely
+unaffected. The shared stylesheet is linked once in the layout's `<head>`;
+each page that needs extra styles provides them through a small
+Leaf import/export slot, and pages that don't need one just render nothing
+there — Leaf silently drops an unmatched import rather than erroring, which
+I confirmed against the Leaf source before relying on it.
+
+The one thing that deliberately stays inline is the accent-theme CSS
+override, since it's templated per request from the site settings cache and
+genuinely can't be a static file — same story for the flash-prevention
+script that sets the theme attribute before first paint, which has to run
+inline and un-deferred or the whole point of preventing a flash is lost.
+Every other inline `<script>` block moved to static JS files the same way —
+none of them actually referenced Leaf template variables, they all just read
+DOM attributes or queried the DOM directly, so externalizing them was
+mechanical. All the extracted scripts load with `defer`, in document order,
+so the shared tag-autocomplete script — which several page scripts depend
+on — always finishes loading before anything that needs it.
+
+---
 
 ## Favicon Caching
 
-- **✅ Cached per domain, not per bookmark or per user.** Favicons belong to a
-  domain, not to a private collection, so one `FaviconCache` row keyed by a
-  unique, lowercased, `www.`-stripped `domain` is shared across every user and
-  every bookmark on that host. A new bookmark for any URL on `github.com` reuses
-  the existing image with no fetch. The practical win: the cache fills in
-  proportion to **unique domains**, not bookmark count, which scales far better
-  for a heavy collection. `DomainExtractor` parses with `URLComponents` (the same
-  parser `Bookmark.validatedURL` uses, so a URL that validates resolves a
-  consistent host) and **keeps an explicit port** in the key (`192.168.1.5:8080`)
-  — without it, two services on one LAN host (the documented `http://192.168.1.x:8080`
-  use case) would collide on one row and show each other's icon.
-- **✅ Three-tier fetch, declared icon first.** `FaviconFetcher.fetchAndCache`
-  tries, in order: the page's declared `<link rel="icon">` (handed in from the
-  metadata fetch that already ran at bookmark creation), then a `/favicon.ico`
-  guess, then Google's `s2/favicons?sz=64&domain=` service as a last resort. This
-  mirrors the order the macOS app's `FaviconView` reaches for conceptually, now
-  centralized server-side. The `/favicon.ico` guess is built from the bookmark's
-  **origin** (`scheme://host[:port]`, derived by `DomainExtractor.origin` and
-  threaded through `enqueue(forURL:)`) rather than a hardcoded `https://` — an
-  http-only LAN box would never answer an https probe. The declared-icon URL is
-  an optional parameter, so the manual-refresh path — which has no page HTML and
-  no origin in hand — falls back to `https://<domain>/favicon.ico`.
-- **✅ Stored as a binary column, not a filesystem volume.** `image_data` is
-  `bytea` on Postgres / BLOB on SQLite. One database volume to back up, no extra
-  Docker volume to configure, acceptable because favicons are tiny — anything over
-  **100KB** is rejected as "not a favicon" and stored as `failed`. A
-  `Content-Length` header over the cap is rejected **before** the body is read;
-  a chunked response without one is still bounded by the post-read byte count plus
-  the 5-second read timeout. The `Content-Type` must start with `image/` **and**
-  must not be SVG: `image/svg+xml` is refused because it is active content, and
-  the serve endpoint returns favicon bytes from the Stash origin — an SVG with an
-  embedded `<script>` opened directly would execute in that origin. The serve
-  response also carries `X-Content-Type-Options: nosniff` as defense in depth so a
-  mistyped `image/*` body can't be MIME-sniffed into markup.
-- **✅ Fetch-once, manual-refresh-only.** A favicon is fetched exactly once, when
-  its domain is first encountered, and **never** automatically re-fetched — no
-  background polling, no scheduled refresh, no per-render staleness check. A site
-  changing its icon is rare enough that a user-triggered
-  `POST /api/v1/favicons/:domain/refresh` (which deletes the row and re-fetches)
-  is sufficient. Refresh is available to **any** active user, since favicons are
-  shared rather than privileged.
-- **✅ Detached, non-blocking, deduped via the unique index.** The fetch runs in a
-  `Task.detached` kicked off after the bookmark save responds, so it never blocks
-  creation (the same non-blocking philosophy as metadata fetching). Both create
-  controllers and the refresh endpoints funnel through one
-  `FaviconFetcher.enqueue(forURL:)` / `refresh(domain:)` pair so the URL→domain→
-  enqueue policy lives in a single place. `fetchAndCache` guards against duplicate
-  concurrent fetches for a brand-new domain by **inserting a `pending` row first**;
-  the `unique(on: "domain")` index makes the first writer win, and the insert
-  `catch` is **narrowed to `DatabaseError.isConstraintFailure`** (skip silently —
-  that is the dedup) while any other insert error is logged, so a transient DB
-  failure is no longer mistaken for "already in flight" and silently dropped. The
-  terminal `save` is likewise wrapped: on failure it logs and best-effort deletes
-  the row, so a failed write can't strand a permanent `pending` row that `serve`
-  would 404 forever (the unique index would otherwise block every future re-fetch).
-  This dedup is why two bookmarks on the same domain produce one row and one fetch.
-- **✅ `GET /api/v1/favicons/:domain` is unauthenticated.** Favicons are not
-  sensitive, and `<img>` tags can't easily attach Bearer tokens, so the serve
-  endpoint is open. A `cached` row returns the bytes with
-  `Cache-Control: public, max-age=2592000, immutable` (30 days) to push caching
-  out to the browser too; `failed`/`pending`/missing all return `404`, which the
-  web UI handles with an `onerror` handler that hides the `<img>` — graceful
-  degradation to no icon, never a broken-image glyph.
-- **✅ Bookmark `faviconURL` is no longer written, but the column stays.** New
-  bookmarks leave `favicon_url` `nil`; the web UI resolves favicons by domain at
-  render time instead (`AppBookmarkRow.faviconDomain`, computed via
-  `DomainExtractor`). Dropping the column would be a destructive migration for no
-  benefit this session, so existing values are simply left untouched and unread by
-  the web UI. The web row DTO's old `faviconURL` field was removed once nothing
-  read it, so the row carries only `faviconDomain`.
-- **✅ Imports backfill favicons.** The import path is web-only (the CLI imports
-  over the public API, where `BookmarkController.create` already enqueues), so a
-  successful web import calls `FaviconFetcher.enqueueBackfill(forUser:)`. That
-  spawns **one** detached task that walks the user's bookmark URLs, dedupes to
-  distinct domains, and calls `fetchAndCache` for each **sequentially**. A single
-  serial sweep — rather than one detached task per bookmark — bounds the outbound
-  fetch concurrency a bulk import would otherwise unleash, and the per-domain
-  `fetchAndCache` dedup means already-cached domains cost one rejected insert and
-  no HTTP. The sweep covers every domain the user owns, so re-importing also heals
-  any domain that previously failed or was never fetched.
-- **⚠️ No rate limiting on the manual refresh endpoint.** It could be used to
-  hammer a domain's server or Google's service repeatedly. Accepted for a
-  self-hosted single/small-team tool; flagged here for future hardening if abuse
-  ever becomes a concern.
-- **⚠️ The detached fetch is skipped under the `.testing` environment.**
-  `FaviconFetcher.enqueue` returns early when `app.environment == .testing` so the
-  test suite never makes real network calls from the create/refresh paths (the
-  in-memory test app has no mock HTTP client wired into `app.client`). The fetcher
-  logic itself is exercised directly against a `MockClient` `Client` conformance
-  — including the three-tier order, content-type/size rejection, the failure path,
-  and the same-domain dedupe — so coverage doesn't depend on the detached path.
-- **✅ Native apps moved onto the cached endpoint.** iOS/macOS `FaviconView` now
-  loads `GET <serverURL>/api/v1/favicons/:domain` (the unauthenticated, browser-
-  cacheable route) instead of hitting Google directly. It reads `serverURL` from
-  the `AppSettings` already in the SwiftUI environment, and the domain comes from
-  a `Bookmark.faviconDomain` computed property that **mirrors the backend's
-  `DomainExtractor`** (lowercased host, `www.` stripped, port kept) so the client
-  produces the exact cache key the server stored. A 404 (uncached/failed domain)
-  falls through `AsyncImage` to the existing `link` placeholder. The normalization
-  is duplicated in Swift on both sides because no module spans the backend and the
-  app (StashKit, the shared layer, is deliberately logic-free) — the property
-  carries a comment pointing at the server source of truth.
-- **✅ Favicons render on an always-light backdrop.** Both the native
-  `RoundFaviconModifier` and the web `.favicon` CSS draw the icon over a fixed
-  white background regardless of color scheme — many favicons are designed for
-  white backgrounds and look poor on the dark-mode surface, so the chip stays
-  light in both modes rather than following the theme. The icon keeps its nominal
-  16×16 size and a 1 px inset grows the chip to 18×18 (the app re-frames after the
-  background; the web CSS uses `box-sizing: content-box`) — earlier the inset ate
-  into the icon, shrinking it.
-- **✅ Verified.** Backend: `swift build` clean, `swift test --no-parallel` green
-  (133 tests incl. 23 favicon tests across domain extraction, the fetcher, the
-  per-domain import backfill, and the serve/refresh endpoints). Apps: `Stash`
-  builds for both iOS and macOS. All: `swiftformat . --lint` idempotent and
-  `swiftlint lint` reports 0 violations.
+Favicons are cached per domain, not per bookmark or per user, since a
+favicon genuinely belongs to a domain rather than to any one person's
+private collection — one row keyed by a normalized, lowercased,
+`www.`-stripped domain is shared across every user and every bookmark on
+that host. The practical win is that the cache grows in proportion to
+unique domains rather than bookmark count, which scales far better for a
+large collection. The domain key deliberately keeps an explicit port, since
+without it two different services running on the same LAN host — the
+documented `http://192.168.1.x:8080` deployment case — would collide on one
+cache row and show each other's icon.
+
+Fetching tries three sources in order: the page's own declared icon link
+(already discovered by the metadata fetch that ran at bookmark creation), a
+`/favicon.ico` guess at the domain's origin, and Google's favicon service as
+a last resort. The `/favicon.ico` guess is built from the bookmark's actual
+origin rather than a hardcoded `https://`, since an http-only LAN box would
+never answer an https probe.
+
+Images are stored as a binary database column rather than on a filesystem
+volume — one thing to back up, no extra Docker volume to configure, which is
+a reasonable trade-off since favicons are tiny; anything over 100KB gets
+rejected outright as "not a favicon." The content type has to start with
+`image/` and specifically can't be SVG, since SVG is active content and the
+serve endpoint returns bytes from the Stash origin — an SVG with an embedded
+script, opened directly, would execute in that origin. The response also
+carries a `nosniff` header as defense in depth, so a mistyped `image/*` body
+can't get MIME-sniffed into something it isn't. A favicon is fetched exactly
+once, when its domain is first encountered, and never automatically
+re-fetched afterward — no background polling, no scheduled refresh. A site
+changing its icon is rare enough that a user-triggered manual refresh
+endpoint is sufficient, and it's open to any active user, not just whoever
+saved the first bookmark on that domain, since favicons are shared rather
+than privileged.
+
+The actual fetch runs detached after the bookmark save already responded, so
+it never blocks bookmark creation — the same non-blocking philosophy as
+metadata fetching. Deduping concurrent first-time fetches for the same
+domain works by inserting a `pending` row first and letting the database's
+unique index make the first writer win; the insert failure path is narrowed
+specifically to a constraint violation, so a transient database error can't
+be mistaken for "already in flight" and silently swallowed. The serve
+endpoint itself is unauthenticated, since favicons aren't sensitive and
+`<img>` tags can't easily attach a bearer token anyway — a cached row
+returns the bytes with a month-long cache header so the browser caches it
+too, and anything failed, pending, or missing just returns a 404 that the
+web UI handles by hiding the broken image entirely rather than showing a
+broken-image glyph.
+
+New bookmarks no longer write the old per-bookmark `faviconURL` field at
+all — the web UI resolves favicons by domain at render time instead — but I
+left the column itself in place rather than running a destructive migration
+for no real benefit. Bulk imports backfill favicons too: a successful web
+import walks the user's bookmark URLs, dedupes down to distinct domains, and
+fetches each one sequentially in a single background sweep, rather than
+firing one detached task per bookmark — that bounds the outbound fetch
+concurrency a large import would otherwise unleash, and already-cached
+domains cost one rejected insert and no actual HTTP request. There's no rate
+limiting on the manual refresh endpoint, which I'm noting here as an
+accepted gap for a self-hosted, small-team tool rather than something I
+fixed — worth revisiting if abuse ever becomes a real concern.
+
+The native apps moved onto this same cached endpoint too, rather than
+hitting Google directly the way they used to. The domain-key computation has
+to be duplicated in Swift on both the backend and the app, since no shared
+module spans both sides of that boundary and StashKit is deliberately kept
+logic-free — so the client-side version carries a comment pointing back at
+the server as the source of truth. Favicons render on an always-light
+backdrop on both native and web, regardless of the active color scheme,
+since a lot of favicons are designed for white backgrounds and look poor
+sitting on a dark surface.
 
 ---
 
 ## macOS Share Extension — three platform-specific fixes
 
-The Share Extension worked on iOS but failed on macOS, always landing on the
-"Sign In to Stash" screen even with a signed-in app. Three separate, macOS-only
-defects were stacked behind that one symptom — each masked the next, so they
-were found and fixed in sequence. iOS was never affected by any of them.
+The Share Extension worked fine on iOS but always landed on the "Sign In to
+Stash" screen on macOS, even with a fully signed-in app. It turned out to be
+three separate, macOS-only defects stacked behind that one symptom, each one
+masking the next — I found and fixed them in sequence. iOS was never
+affected by any of the three.
 
-- **✅ Keychain sharing needs `kSecUseDataProtectionKeychain` on macOS.**
-  `KeychainStore` shares the token pair with the extension via an App-Group
-  access group (`kSecAttrAccessGroup`). On iOS that works because the
-  data-protection keychain is the *only* keychain; on macOS the default is the
-  legacy file-based keychain, which does **not** honor App-Group access-group
-  sharing — so the extension's read returned `errSecItemNotFound` and
-  `tokenManager.refreshToken` was `nil`. Adding `kSecUseDataProtectionKeychain:
-  true` to every query opts both processes into the modern keychain on macOS
-  (no-op on iOS, where it is already the default), so the extension reads the
-  tokens the app wrote. The `application-groups` entitlement already authorizes
-  the access group; **no `keychain-access-groups` entitlement is required**.
-  One-time cost: tokens previously written to the legacy keychain become
-  invisible, so existing users sign in once more after this change. Accepted for
-  a self-hosted app.
-- **✅ macOS Safari delivers `public.url` as `Data`/`String`, not `NSURL`.**
-  Even with auth fixed, the screen persisted because `bootstrap()` falls back to
-  the *same* `.signedOut` screen when `SharedItemLoader.loadURL` returns `nil`
-  (the screen conflates "not signed in" with "no shareable URL"). The attachment
-  *was* a `public.url` provider, but `provider.loadItem(...)` on macOS returns
-  the URL as `Data` (or a string), so the old `item as? URL` cast failed where
-  on iOS it succeeds (iOS hands back an `NSURL`). `SharedItemLoader.coerceURL`
-  now coerces `URL`/`String`/`Data` (the `URL` arm also catches the bridged
-  `NSURL`), keeping iOS unchanged. It is `nonisolated` so it runs synchronously
-  inside `loadItem`'s off-actor completion handler without sending the
-  non-`Sendable` item across the `@MainActor` boundary.
-- **✅ Toolbar actions don't render in the extension's hosting controller on
-  macOS.** With the URL loading, the form appeared but had no Save/Cancel — the
-  shared `AddBookmarkView` puts them in a `NavigationStack` `.toolbar`
-  (`.cancellationAction`/`.confirmationAction`), which the chrome-less
-  `NSHostingController` in the macOS share popover renders nowhere. The fix adds
-  a macOS-only bottom action bar via `.safeAreaInset(edge: .bottom)`, gated by a
-  new `usesInlineActionBar` flag (default `false`). Only the extension passes
-  `true`; the app's `AddBookmarkSheet` keeps its working toolbar buttons and the
-  `#if os(macOS)` guard keeps iOS on the toolbar. The flag — rather than a blanket
-  `#if os(macOS)` — is deliberate: the app's normal `.sheet` *does* render the
-  toolbar on macOS, so an unconditional bar would double the buttons there.
-- **✅ Verified.** Confirmed end-to-end via Safari → Share → Stash on macOS:
-  signs in from the shared session, extracts the page URL, and saves with the
-  inline Save button. Temporary on-screen diagnostics used to pinpoint the three
-  defects were removed before commit. iOS share flow unchanged. Style: American
-  English, `///` on types only, no inline comments.
+The first was Keychain sharing. `KeychainStore` shares the token pair with
+the extension through an App-Group access group, which works on iOS because
+the data-protection keychain is the only keychain that exists there — but
+macOS defaults to the legacy file-based keychain, which doesn't honor
+App-Group access-group sharing at all. The extension's read was silently
+returning nothing, so it looked exactly like "no refresh token" rather than
+"wrong keychain." Adding one flag to opt both processes into the modern,
+data-protection keychain on macOS fixed it — a no-op on iOS, where that's
+already the default. One real cost: tokens previously written to the legacy
+keychain became invisible after this change, so existing macOS users had to
+sign in once more. Acceptable for a self-hosted app.
+
+With auth working, the same screen still persisted, because the bootstrap
+logic conflated "not signed in" with "no shareable URL found" — both fell
+back to the same signed-out screen. The actual cause was macOS Safari
+delivering the shared URL as `Data` or a plain `String`, not as an `NSURL`
+the way iOS does, so the existing cast just silently failed on macOS. I
+widened the coercion logic to accept all three shapes, and iOS kept working
+exactly as before.
+
+With the URL now loading, the form appeared — but had no Save or Cancel
+buttons at all. The shared form puts its actions in a navigation-stack
+toolbar, which the chrome-less hosting controller macOS uses for its share
+popover just doesn't render anywhere. The fix was a macOS-only bottom action
+bar, gated behind a flag that only the extension sets — the app's own
+sheet already renders the toolbar correctly on macOS, so an unconditional
+bar would have doubled the buttons there.
+
+I verified the whole thing end to end through Safari's actual share sheet on
+macOS: sign-in from the shared session, URL extraction, and a save via the
+new inline button, with the iOS share flow completely unchanged throughout.
 
 ---
 
 ## Bookmark detail — consistent macOS Form action buttons
 
-On the macOS bookmark detail page the three action rows rendered with mismatched
-styles: "Open in Browser" (a `Link`) appeared as a borderless row in macOS's
-native system link blue, while "Archive" and "Delete" (`Button`s) picked up
-macOS's default bordered push-button chrome — a grey rounded rectangle sitting
-inside the grouped `Form` row. iOS was unaffected: a grouped `Form` there renders
-`Link` and `Button` rows identically (full-width, tinted, whole-row tappable).
+The macOS bookmark detail page's three action rows had visibly mismatched
+styles — "Open in Browser" rendered as a plain system-blue link, while
+Archive and Delete picked up macOS's default bordered push-button chrome, a
+grey rounded rectangle sitting inside an otherwise plain form row. iOS never
+showed this, since a grouped form there renders links and buttons
+identically.
 
-- **✅ All three rows are `Button`s sharing a macOS-only `formButtonRowStyle()`
-  helper.** The first attempt — keep the `Link` and restyle the two `Button`s to
-  match it — failed: macOS renders `Link` in its **native system link colour**,
-  which is not the app accent and cannot be overridden by `foregroundStyle`. So
-  "Open in Browser" was converted to a `Button` driving `@Environment(\.openURL)`
-  too, making all three the same control type. The helper (in `PlatformModifiers`)
-  applies `buttonStyle(.plain)`, a full-width leading frame,
-  `contentShape(Rectangle())` (whole-row tappable), and an explicit colour
-  (`Color.accentColor`, or `.red` when `isDestructive: true`) since `.plain`
-  otherwise drops to the primary label colour. It is a no-op on iOS, where the
-  grouped form already renders buttons this way — keeping the shared
-  `BookmarkDetailView` as plain SwiftUI with the platform divergence concentrated
-  in `PlatformModifiers`, per the M10 convention. (The separate URL-display
-  `Link` showing the bookmark's address is unchanged — only the action row
-  moved.) Verified: the macOS app builds, `swiftformat --lint` and `swiftlint
-  lint` are clean.
+My first instinct was to restyle the two buttons to match the link, but that
+failed — macOS renders a `Link` in its native system link color, which
+isn't the app's accent color and can't be overridden. So I went the other
+direction instead: "Open in Browser" became a button too, driving the
+environment's URL-opening action, making all three rows the same control
+type sharing one small macOS-only styling helper that gives them a
+consistent full-width, whole-row-tappable, accent-colored appearance. It's a
+no-op on iOS, where the grouped form already renders buttons this way —
+keeping the shared detail view itself as plain SwiftUI, with the platform
+divergence concentrated in one helper, the same pattern established back in
+M10.
 
 ---
 
 ## iOS account settings — password change + 2FA at macOS parity
 
-`AccountSettingsView` (change password, enrol / disable two-factor) shipped with
-the macOS Settings window in M10 but was wrapped entirely in `#if os(macOS)`, so
-the iOS app's `SettingsView` was only Server URL + Sign Out. A parity audit across
-the clients flagged it as the highest-impact native gap — iOS users could not
-change their password or manage 2FA from the app at all, only from the web `/app`
-or macOS.
+The account settings screen — change password, enroll or disable two-factor —
+shipped with the macOS Settings window but was entirely wrapped behind a
+macOS-only guard, so the iOS app's settings screen only ever offered server
+URL and sign out. A parity pass across all the clients flagged this as the
+single highest-impact native gap: iOS users genuinely couldn't change their
+password or manage 2FA from the app at all, only from the web frontend or
+macOS.
 
-- **✅ Un-gated the existing screen rather than writing a new one.** Every
-  dependency was already cross-platform: `AuthRepository`'s `changePassword` /
-  `beginTOTPSetup` / `completeTOTPSetup` / `disableTOTP` / `currentUser`, the
-  `TOTPSetup` model (`Common/Models`), and crucially `QRCodeView`, which renders a
-  `CGImage` via `CIContext` (no `UIImage`/`NSImage`), so the enrolment QR works on
-  iOS unchanged. Removing the `#if os(macOS)` wrapper from `AccountSettingsView`
-  and `TwoFactorEnrollView` was the bulk of the change.
-- **✅ Only window chrome stayed platform-specific.** The macOS-only bits — the
-  form's outer `.padding()` and the enrolment sheet's fixed
-  `.frame(width: 380, height: 460)` — moved behind a shared `settingsChromeStyle()`
-  (in `PlatformModifiers`) and a private `enrollSheetSize()` `View` helper
-  (`#if os(macOS)`, no-op on iOS), keeping the divergence at the edges per the M10
-  convention. `settingsChromeStyle()` is shared because the **Smart Views** tab
-  (whose `SmartViewManagementView` is a `List`, not a grouped `Form`) needs the same
-  macOS padding to line up with the General and Account tabs — without it the tab
-  sat flush against the settings-window edges while the others were inset. The two
-  TOTP code fields gained `.oneTimeCodeFieldStyle()` (from `PlatformModifiers`) for
-  an iOS numeric keyboard; it is already a no-op on macOS.
-- **✅ Entry points: a push on iPhone, a sheet on iPad.** iPhone's `SettingsView`
-  (inside the tab's `NavigationStack`) gains an Account `NavigationLink`. The
-  **iPad** `SidebarSplitView` previously had *no* Settings surface at all — not
-  even Sign Out — so it gains a sidebar toolbar gear that presents `SettingsView`
-  in a sheet, closing that gap too.
-- **✅ Verified.** Both platforms build (iOS Simulator + macOS), `swiftformat
-  --lint` idempotent, `swiftlint lint` 0 violations. Style: American English,
-  `///` on types only, no inline comments.
+The fix was un-gating the existing screen rather than writing a new one,
+since every dependency it needed was already cross-platform — including the
+QR code view, which renders through Core Image rather than any
+platform-specific image type, so the enrollment QR just worked on iOS
+unchanged once the guard came off. Only genuine window chrome stayed
+platform-specific — a fixed sheet size and some outer padding that only make
+sense in a floating macOS settings window — pushed behind a couple of small
+shared helpers so the divergence stayed at the edges rather than spreading
+through the view itself. On iPhone, the entry point is a plain navigation
+link from the existing settings screen; the iPad sidebar previously had no
+settings surface at all, not even sign out, so it gained a toolbar button
+presenting settings in a sheet, closing that gap too.
 
 ---
 
 ## Native apps — hierarchical tag sidebar (iOS + macOS)
 
-The web sidebar had a nice nested tag tree (a Views section over a hierarchical,
-indented tag tree); the native apps showed a **flat** tag list (iPhone Tags tab,
-iPad sidebar, macOS sidebar) with at most an "All"/"Untagged" entry. This brought
-the apps to web parity.
+The web sidebar had a proper nested, indented tag tree; the native apps
+still showed a flat tag list with barely more than an All/Untagged
+distinction. This work brought the apps up to web parity.
 
-- **✅ Tree built client-side, ported from the web's `buildSidebar`.** StashKit's
-  `GET /api/v1/tags` returns the flat `[{name, count}]` list (no tree endpoint), so
-  `[Tag].hierarchy() -> [TagNode]` (in `Common/Models/Tag.swift`, beside the
-  existing per-segment `autocomplete`) reproduces the server algorithm: every
-  `/`-delimited ancestor becomes a node, **synthetic parents** that exist only to
-  nest children carry no count, and children are alphabetical at each level. The
-  one shape difference from the web's flattened `[SidebarTag]` (which carries a
-  `depth` for CSS indentation) is that `TagNode` is **genuinely nested**
-  (`children: [TagNode]?`) — SwiftUI's `OutlineGroup` wants a recursive structure,
-  not a pre-flattened one.
-- **🔁 Collapsible, not flat-indented (the deliberate divergence from web).**
-  *Superseded by "Flat-indented (web-parity) tag tree".* The web is always-expanded with
-  `padding-left: calc(depth * 0.9rem)`; the apps originally used
-  `OutlineGroup(children: \.children)` so parents expand/collapse with native
-  disclosure triangles. Chosen at the time over a faithful flat-indent port because it
-  read as native and composed with `List(selection:)` and `NavigationLink` leaves for
-  free — but collapsed-by-default meant the whole list was never visible and the
-  picker's search was undercut, so this was later reversed to the flat-indent web port.
-- **✅ `count: Int?`, nil for synthetic parents.** Modeling the hidden count as
-  `nil` rather than `0 + "hide when zero"` both reads cleaner (`if let count`) and
-  sidesteps SwiftLint's `empty_count` rule, which fires on any `.count > 0`.
-- **✅ One shared row, three call sites.** `TagTreeLabel` (label + optional count)
-  is reused by the iPhone `TagBrowserView`, the iPad `SidebarSplitView`, and the
-  macOS `MacContentView`. Each surface keeps its own `OutlineGroup` wrapper because
-  selection (sidebars) vs. navigation (Tags tab) differ.
-- **✅ Full Views parity required a backend change.** The web Views are All /
-  Untagged / Today / This Week, but the **JSON API only honored `__untagged__`** —
-  `__today__`/`__this_week__` were web-frontend-only (they had been deliberately
-  left out of the API as web conveniences). To expose Today/This Week in the apps,
-  the `tag`-query filter (sentinels + the hierarchical prefix match) was extracted
-  into one shared `QueryBuilder<Bookmark>.filterByTag(_:boundaries:)` that both
-  `BookmarkController.list` and `AppWebController` call — no duplicated filter
-  expression to drift (it had drifted once before; see the Tag-sidebar section).
-  `dateBoundaries(now:)` likewise moved up to `Bookmark` (Monday week start, server
-  timezone). A `BookmarkTests` case backdates a bookmark and asserts
-  `?tag=__today__` / `?tag=__this_week__` filter correctly.
-- **✅ Sentinel constants single-sourced in StashKit.** The three `tag` sentinels
-  live on `BookmarkListQuery` (`untaggedTag` already existed; `todayTag`/
-  `thisWeekTag` were added beside it) and the app references those — rather than
-  re-declaring the `"__untagged__"` literal on the app's `Bookmark` model.
-  `BookmarkListView` maps each sentinel to a friendly title and empty-state message.
-  (The backend keeps its own `Bookmark` sentinels — a separate package that can't
-  depend on StashKit; the wire values are the shared contract.)
-- **✅ Tree cached on the repository, not rebuilt per redraw.** `[Tag].hierarchy()`
-  (Set + dict + recursion + per-level sort) is computed once in
-  `TagRepository.performLoad` and stored as `tagHierarchy`; the three sidebars read
-  the cached value. Calling `hierarchy()` inline in a view body rebuilt the whole
-  tree on every body evaluation — i.e. on every sidebar selection tap.
-- **✅ Verified.** Both platforms build (iOS Simulator + macOS), full backend suite
-  green (134 tests, incl. the new recency case), all three components
-  `swiftformat --lint` idempotent and `swiftlint lint` 0 violations.
+The tree is built client-side, ported directly from the web's own tree
+algorithm, since the tags endpoint only ever returns a flat list with counts
+— every `/`-delimited ancestor becomes a node, synthetic parents that exist
+purely to nest their children carry no count of their own, and children sort
+alphabetically at each level. Unlike the web's flattened representation (which
+carries an indentation depth per row), the native version is genuinely
+nested, since SwiftUI's disclosure-group view wants real recursive structure
+rather than a pre-flattened list.
+
+I initially made the tree collapsible, with native disclosure triangles,
+since it felt more idiomatic than a faithful flat-indented port and composed
+well with the existing list and navigation types. That turned out to be the
+wrong call in practice — collapsed by default meant the full tree was never
+actually visible, which undercut a tag picker's search — so I later reversed
+it back to the same always-expanded, indented style the web uses.
+
+Getting full parity with the web's Views section (All, Untagged, Today, This
+Week) actually required a backend change, since the JSON API had only ever
+honored the untagged sentinel — Today and This Week had been left as
+web-frontend-only conveniences. I extracted the whole sentinel-plus-prefix
+tag filter into one shared query-builder helper that both the API and the
+web frontend now call, so there's no duplicated filter expression left to
+drift apart the way it had once before (see the tag sidebar section above).
+The sentinel constants themselves live once in StashKit rather than being
+redeclared as string literals in the app.
+
+One performance fix along the way: the tree was originally being rebuilt
+from scratch on every SwiftUI body evaluation, including every single
+sidebar tap, since building the tree was called directly inside a view
+body. Moving that computation into the repository, computed once and cached
+after each load, fixed it.
 
 ---
 
 ## Smart Views on the CLI and native apps (consumption-only)
 
-Smart Views existed on the backend, in StashKit, and on the web (M12). This pass
-brought them to the `stash` CLI and the iOS/macOS apps as a **consumption-only**
-first step — list Smart Views and open their live results — deliberately deferring
-create/edit to a later step (users who want to author a Smart View do it on the
-web, or round-trip it through Stash JSON import/export, which already carries
-Smart Views). No backend or StashKit change was needed: `SmartViewRequestFactory`
-(`makeListRequest` / `makeBookmarksRequest(id:page:perPage:)`) and the DTOs were
-already in place from M12.
+Smart Views already existed on the backend, in StashKit, and on the web.
+This pass brought them to the CLI and the iOS/macOS apps as a
+consumption-only first step — list Smart Views and open their live
+results — deliberately leaving create/edit for later, since anyone who wants
+to author one can still do it on the web or round-trip it through Stash JSON
+import/export. No backend or StashKit change was needed at all; everything
+required was already in place.
 
-- **✅ CLI: a `smart-views` group, two read subcommands.** `stash smart-views`
-  (default subcommand `list`) prints a table — NAME, MATCH (`all`/`any`), a
-  `type=value` CONDITIONS summary, and the **full** UUID last (mirroring
-  `usersTable`, not the truncated bookmark table, because the id is the input to
-  the next command). `stash smart-views bookmarks <id>` runs the saved query via
-  `makeBookmarksRequest` and reuses `OutputFormatter.bookmarksTable` / the `--json`
-  page shape, so a Smart View's results look exactly like `stash list`. The id is
-  validated locally with the shared `requireUUID`; a foreign/missing view surfaces
-  the server's `Not found.` Both honor `--json`. No top-level alias (unlike
-  bookmarks) — `smart-views` is a less-frequent surface, so it stays under its
-  group.
-- **✅ App: a `SmartViewRepository` mirroring `TagRepository`.** Smart Views are a
-  small, per-user list browsed from the sidebar — not a paginated query — so the
-  repository is a shared `@Observable` singleton on `AppEnvironment` that loads
-  once and caches (`load`/`reload`/`reset`), reset on sign-out alongside the tag
-  cache. `SmartView` / `SmartViewCondition` domain models map from the DTOs in
-  `Common/` (compiled into both app and extension targets, consistent with the
-  other models), though the extension does not use them.
-- **✅ `BookmarkListView` reused via a `BookmarkListSource`, not a second list
-  screen.** Rather than duplicate the list (rows, pagination, context menu, detail
-  navigation, empty state), the existing view gained a `source` —
-  `.tag(String?)` or `.smartView(SmartView)` — with two initializers
-  (`init(tag:)` is unchanged, so every existing call site is untouched). In Smart
-  View mode the title is the view's name, and the search field, archived toggle,
-  and add button are hidden (the `:id/bookmarks` endpoint takes no `q`/archived,
-  and adding a bookmark to a saved query is meaningless). `BookmarkRepository`
-  gained a private `Source` enum (`.query` / `.smartView(UUID)`) stored so
-  `loadNextPage()` re-fetches the right endpoint; `fetch(page:)` switches on it.
-  The create/archive list-mutation guards that compared against the query's
-  `archived` flag now read a `displaysArchived` computed value (a Smart View
-  displays non-archived by default), so an archived bookmark still drops out of a
-  Smart View list.
-- **✅ Sidebars gained an optional Smart Views section.** The iPad
-  (`SidebarSplitView`), macOS (`MacContentView`), and iPhone (`TagBrowserView`)
-  sidebars show a **Smart Views** section between Views and Tags, only when the
-  user has at least one (matching the web's "section appears only when non-empty"
-  rule and its no-count choice). The two `List(selection:)` sidebars added a
-  `.smartView(SmartView)` case to their selection enum and branch the detail
-  between `BookmarkListView(tag:)` and `BookmarkListView(smartView:)`; the iPhone
-  Tags tab uses a `NavigationLink` to the Smart View list. Icon:
-  `line.3.horizontal.decrease.circle` (a saved-filter glyph), the native stand-in
-  for the web's `⊞`.
-- **✅ Search field made conditional via a small `SearchableIfNeeded`
-  `ViewModifier`.** `.searchable` can't be toggled in place, so the search field
-  (and its ⌘F shortcut) is applied through a modifier that no-ops in Smart View
-  mode — keeping one list body rather than forking it.
-- **✅ Verified.** CLI built and exercised live (`smart-views list` and
-  `smart-views bookmarks <id>` against a running backend); iOS Simulator and macOS
-  apps build clean; all three components `swiftformat --lint` idempotent and
-  `swiftlint lint` 0 violations. No app/CLI unit tests by design (§19.6).
+On the CLI, `stash smart-views` prints a table of name, match mode, and a
+condition summary, with the full UUID last rather than truncated, since it's
+the direct input to the next command; `stash smart-views bookmarks <id>`
+runs the saved query and prints results in the same shape `stash list`
+already uses. On the apps, a small `SmartViewRepository` mirrors the
+existing tag repository — a shared, cached, per-user list rather than a
+paginated query, reset on sign-out alongside the tag cache.
+
+The biggest design decision here was reusing the existing bookmark list view
+rather than building a second screen. It gained a `source` — either a tag
+filter or a Smart View — with everything else about it (rows, pagination,
+context menu, detail navigation, empty state) staying identical; in Smart
+View mode the title becomes the view's name and the search field, archived
+toggle, and add button all hide, since none of those make sense against a
+saved query's live results. The sidebars on all three native surfaces gained
+an optional Smart Views section between Views and Tags, shown only when the
+user actually has at least one — matching the web's same "only appears when
+non-empty, no count shown" convention.
 
 ---
 
 ## Smart View create / edit / delete in the native apps
 
-The previous pass made Smart Views consumption-only on the apps. This pass adds
-authoring (create / edit / delete) to iOS and macOS. The CLI stays consumption-only
-(a condition-builder CLI is lower value — authoring there is covered by import/export).
-Still no backend or StashKit change: `SmartViewRequestFactory`'s create/update/delete
-and the `SmartViewRequest` body already existed.
+The previous pass left Smart Views consumption-only on the apps; this one
+adds full authoring — create, edit, delete — to iOS and macOS. The CLI stays
+consumption-only, since a condition-builder CLI felt like lower value when
+import/export already covers authoring there. Once again, no backend or
+StashKit change was needed.
 
-- **✅ Management lives in Settings, sidebar stays browse-only.** The user chose a
-  dedicated management screen over inline sidebar editing. A shared
-  `SmartViewManagementView` (a `List` with New / Edit / Delete) is reached from
-  Settings — a `NavigationLink` on iOS, a third `Settings` tab on macOS. The
-  sidebars (`MainView`, `MacContentView`, `TagBrowserView`) were **not** touched;
-  because the shared `SmartViewRepository` cache is updated on every write (see
-  below), the always-mounted sidebar Smart Views section reflects edits/deletes
-  live without any sidebar code.
-- **✅ Repository writes update the cache in place, no refetch.** `create` /
-  `update` / `delete` on `SmartViewRepository` map the domain
-  `[SmartViewCondition]` → `[SmartViewConditionDTO]`, run the factory, then
-  insert / replace-by-id / remove in the cached `smartViews` and re-sort by name
-  (`localizedCaseInsensitiveCompare`, matching the API's name-sorted list). Mirrors
-  `BookmarkRepository`'s optimistic list mutations; avoids a round-trip and keeps
-  the small per-user list authoritative. Conditions/matchMode cross the repository
-  boundary as **domain** types so the views never touch StashKit DTOs (consistent
-  layering).
-- **✅ One shared `SmartViewFormView` sheet for create and edit.** Two inits
-  (`init(repository:onSaved:)` and `init(editing:repository:onSaved:)`); the edit
-  init pre-fills name, match mode, and condition rows. Built like `EditBookmarkView`
-  (`NavigationStack { Form }.formStyle(.grouped)`, Cancel/Save toolbar, macOS min
-  frame, inline error via `stashUserMessage`). A segmented All / Any picker maps to
-  the wire `matchMode`.
-- **✅ Condition rows model every editor kind, switch by `valueKind`.** A
-  `SmartViewConditionType` enum (one case per wire type) carries a `title` and a
-  `valueKind` (`text` / `tag` / `date` / `boolean`); a `ConditionRow` struct holds
-  a value for each kind (`text` / `date` / `bool`) so switching a row's type
-  preserves what was typed in the others. `ConditionRowView` renders the editor for
-  the active kind: a text field, a tag field that reuses `TagSuggestionView` chips
-  (`tagRepository.autocompleteTags(prefix:)`, the same autocomplete as the bookmark
-  forms), a `DatePicker`, or a Yes/No segmented picker. Rows serialize to the domain
-  `SmartViewCondition` by reading the field the type selects.
-- **✅ Dates serialized to full ISO-8601 client-side.** The web form submits a bare
-  `YYYY-MM-DD` and the *web controller* appends `T00:00:00Z`; the JSON API does no
-  such normalization, so `SmartViewConditionDate` formats the picked day as
-  `yyyy-MM-dd` + `T00:00:00Z` (and parses it back for editing). This was the one
-  contract subtlety that would have produced a silent `422` if missed. Booleans go
-  as lowercase `"true"`/`"false"`.
-- **✅ Client-side validation pre-empts the generic 422.** `StashAPIError`
-  collapses `validation_failed` to a single generic string, so the form validates
-  locally (non-empty name ≤ 100, ≥ 1 condition, every text/tag row non-empty) and
-  disables Save until valid — the user rarely reaches the server error. Delete uses
-  the established `confirmationDialog` pattern; per-row swipe (iOS) + context menu
-  (both) expose Edit/Delete.
-- **✅ Verified.** iOS Simulator and macOS apps build clean; `swiftformat --lint`
-  idempotent and `swiftlint lint` 0 violations. New files
-  (`Common/Models/SmartView.swift` additions, `SmartViewFormView`,
-  `SmartViewManagementView`) sit in synchronized Xcode folder groups — no
-  `.xcodeproj` edit. No app unit tests by design (§19.6).
+Management lives in Settings rather than inline in the sidebar, reached
+through a shared management screen with New/Edit/Delete. The sidebars
+themselves weren't touched at all — because the shared repository's cache
+updates in place on every write, the always-mounted sidebar section reflects
+edits and deletes live with zero sidebar code changes. Writes update that
+cache directly rather than triggering a refetch: create, update, and delete
+all map the domain model to its wire shape, run the request, then
+insert/replace/remove the cached entry and re-sort by name, mirroring the
+same optimistic-update pattern the bookmark repository already uses.
+
+One shared form sheet handles both create and edit, pre-filling from the
+existing Smart View when editing. Condition rows model every editor kind — a
+text field, a tag field reusing the same autocomplete chips the bookmark
+forms use, a date picker, or a Yes/No picker — switching what's rendered
+based on the condition's type while preserving whatever was typed in each
+field even as the type selector changes. One contract subtlety that would
+have quietly produced a generic validation error if I'd missed it: the web
+form's controller normalizes a bare date into full ISO-8601 server-side, but
+the JSON API does no such normalization, so the native form has to format
+the picked date as full ISO-8601 itself before sending it. Client-side
+validation also pre-empts the server's generic error message entirely — the
+form validates locally and disables Save until everything's actually valid,
+so a user essentially never sees the collapsed, unhelpful server-side
+validation string.
 
 ---
 
 ## SwiftUI view decomposition convention (native apps)
 
-- **✅ Subviews are `make…() -> some View` functions, not computed-`var` subviews.**
-  The owner's preferred style (used throughout the sibling project Triton): a view
-  sub-piece is a `private func makeXxx() -> some View`, named `make` + what it
-  produces (`makeEmptyState()`, `makeURLSection()`, `makeRowContextMenu(for:)`),
-  taking parameters when it needs data. `var body` stays a small composition of
-  `make…()` calls rather than one monolithic tree. `@ViewBuilder` is added only
-  when the function body branches (`if`/`switch`) or returns sibling views with no
-  single container; a function returning one container/modifier chain needs none.
-  Non-view computed properties (`isValid`, `navigationTitle: String`, …) stay
-  computed `var`s — only `some View`-returning members are functions.
-- **✅ Applied across all of `StashApp/` in one pass.** Converted the 14
-  computed-`var` subviews and renamed the 5 non-`make` view functions
-  (`row(for:)` → `makeRow(for:)`, `viewLink` → `makeViewLink`, `rowContextMenu` →
-  `makeRowContextMenu`, `setupView`/`recoveryCodesView` → `make…`), and sliced the
-  larger `body`s (bookmark detail, login, the auth screens, the Smart View form,
-  the sidebars) into `make…Section()` / `make…()` pieces. Purely structural — same
-  view trees, same modifier order, no behavior change. New views must follow this.
-- **✅ SwiftFormat places and marks them.** With `organizeDeclarations`
-  (`--organization-mode type`, SwiftUI-aware), view-returning functions are filed
-  under `// MARK: Content Methods` and re-sorted automatically — so we write the
-  functions and run `swiftformat .`; MARKs are never hand-placed. Verified: iOS +
-  macOS build clean, `swiftformat --lint` idempotent, `swiftlint lint` 0
-  violations. Recorded in `CLAUDE.md` → Code style.
+I settled on a consistent way to break up SwiftUI views across the whole
+app: a sub-piece of a view is a private `make…() -> some View` function,
+named `make` plus whatever it produces, rather than a computed-`var`
+subview — a style I'd already used throughout a sibling project and liked
+enough to standardize here. `var body` stays a small composition of those
+`make…()` calls instead of one sprawling view tree; a plain, non-view
+computed property like `isValid` or a navigation title stays a normal `var`,
+since only `some View`-returning members get the function treatment. I
+applied this across the whole app in one pass — converting existing
+computed-var subviews, renaming a handful of view-returning functions that
+didn't follow the `make` prefix, and slicing several of the larger bodies
+(the bookmark detail screen, login, the Smart View form, the sidebars) into
+proper pieces. Purely structural, with identical view trees and modifier
+order — no behavior changed. SwiftFormat's organization rule files these
+under one consistent MARK automatically, so I never have to hand-place them.
 
 ---
 
 ## App icon: the bookmark-ribbon mark (native apps)
 
-- **✅ The app now wears the same mark as the browser extension.** Replaced the
-  stock treasure-chest art with the Stash bookmark ribbon — the vertical ribbon
-  with a V-notch at the bottom that `Extension/icons/` already uses — so the app
-  and the extension share one identity.
-- **✅ Generated, not hand-drawn — mirroring the extension.** `StashApp/icon/`
-  `generate-app-icon.py` is the app-side twin of `Extension/icons/generate-icons.py`:
-  same ribbon polygon (rounded top corners + V-notch), same supersample-then-resize
-  approach. It renders the ribbon as a **white** glyph on a transparent 1024×1024
-  canvas and writes `AppIcon.icon/Assets/Ribbon.png`. Regenerate, don't hand-edit
-  the PNG. The folder lives outside the synchronized Xcode groups so the script is
-  never compiled into a target.
-- **✅ Icon Composer (`.icon`) supplies color and glass, the glyph stays flat.**
-  The app uses the Xcode 26 `AppIcon.icon` bundle, not an `.appiconset`. `icon.json`
-  keeps the single `glass: true` layer but now points at `Ribbon.png`, sets the
-  background `automatic-gradient` to the brand indigo `#231468`
-  (`extended-srgb:0.13725,0.07843,0.40784`), and resets the layer `scale`/
-  `translation` to `1`/`[0,0]` (the old `1.35` + offset were positioning the wide
-  chest art; the new glyph is already centered and sized in a square canvas). White
-  ribbon on indigo glass.
-- **✅ Renamed the layer asset `Foobar.png` → `Ribbon.png`** (and the layer `name`),
-  retiring the placeholder name. iOS Simulator build succeeds; no `.xcodeproj` edit
-  (the `.icon` bundle is referenced as-is).
-- **✅ Propagated the app-icon look to the web favicon and the extension display
-  icons.** The web UI had no favicon at all; it now serves the app mark — a white
-  ribbon on an indigo `#231468` rounded square — from `Backend/Public/`
-  (`favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, and a 16/32/48
-  `favicon.ico`), generated by `Backend/Scripts/generate-web-icons.py` (the web twin
-  of the two existing generators; it emits the SVG too, so all assets come from one
-  script). The `<link>` tags live in the single shared `layout.leaf` `<head>`, so
-  `/app`, `/admin`, the landing page, and every login page pick them up; `docs.html`
-  (a standalone Public page, not a Leaf template) got the same links directly.
-- **✅ Toolbar stays a bare ribbon; display surfaces wear the square.** The extension's
-  `generate-icons.py` now renders by size: 16/32 (the toolbar `default_icon`) keep the
-  indigo-on-transparent ribbon so they blend into light and dark browser toolbars,
-  while 48/128 (the add-ons-manager / store display icons) switch to the white-ribbon-
-  on-indigo-square app look. `manifest.json` already referenced all four sizes, so no
-  manifest change. Liquid Glass is an Apple-only render effect and cannot be
-  reproduced in a flat PNG/SVG — the static equivalent is the flat indigo rounded
-  square, so the web/extension marks match the app apart from the glass sheen.
+The app originally shipped with stock treasure-chest artwork; I replaced it
+with the same bookmark-ribbon mark the browser extension already used, so
+the app and the extension share one visual identity instead of looking like
+two different products. The icon is generated, not hand-drawn, mirroring
+the extension's own icon generator — the same ribbon shape, rendered as a
+white glyph on a transparent square canvas at high resolution and then
+resized down, so the source of truth is a script rather than a hand-edited
+PNG that could drift.
+
+The actual app icon uses Xcode 26's newer icon-composer format rather than a
+traditional flat icon set, which is what supplies the color, the indigo
+background, and the glass effect — the glyph itself stays flat and gets
+composed by the system.
+
+This same mark then propagated outward to the rest of the product: the web
+UI had no favicon at all before this and now serves the identical app mark,
+generated by a third sibling script so every surface's icon assets trace
+back to one consistent generation approach; and the browser extension's
+icon generator was updated to render size-appropriately — the small
+toolbar-button sizes keep a transparent-background ribbon so it blends into
+both light and dark browser toolbars, while the larger store/management
+sizes switch to the full app-icon look with the indigo background. Liquid
+Glass itself is an Apple-only rendering effect and can't be reproduced in a
+flat PNG or SVG, so the web and extension marks intentionally match the
+app's look minus the glass sheen.
 
 ---
 
 ## Accent palette: added the Terracotta theme
 
-- **✅ Added a tenth accent theme, `terracotta` (`#d17e4c`).** Appended to
-  `AccentTheme.all` after `slate`, keeping the existing nine untouched. It uses the
-  same hex for light and dark — a muted clay-orange that reads well on either
-  background — so unlike most themes its light and dark values are identical.
-- **✅ Name over hex.** "Terracotta" was chosen to match the palette's evocative
-  one-word style (Ocean, Aurora, Dusk, Slate) rather than a literal "Orange", since
-  the tone is a soft clay rather than a pure orange.
-- **✅ No other code changes.** `AccentTheme.validIdentifiers`, the admin picker, and
-  the swatch CSS all derive from `all`, so the new theme is selectable, validates,
-  and previews automatically. `PRODUCT.md` §7.6 (theme table + count) updated.
+I added a tenth accent theme, Terracotta — a muted clay-orange that, unlike
+most of the other themes, uses the identical hex value for both light and
+dark mode, since that particular tone reads well on either background. I
+picked the name to match the palette's existing evocative one-word style
+(Ocean, Aurora, Dusk, Slate) rather than something literal like "Orange,"
+since the actual tone is softer than a pure orange. No other code changes
+were needed — the admin picker, the validation, and the swatch CSS all
+derive from one central theme list, so adding an entry there was enough to
+make it selectable, valid, and correctly previewed everywhere automatically.
 
 ---
 
 ## Offline Sync — Phase 1 (backend sync endpoints + StashKit)
 
-Phase 1 of the native-app offline-sync feature: the **two backend endpoints** and
-the **StashKit additions** a sync engine will need, with no client behaviour change
-yet. The native apps, web frontend, CLI, and browser extension are untouched.
+This is the first phase of native-app offline sync: just the two backend
+endpoints and the StashKit additions a future sync engine will need, with no
+client behavior change yet. The native apps, web frontend, CLI, and browser
+extension are all untouched in this pass.
 
-- **✅ Tombstones for server-side deletions (`deleted_bookmarks` table).** A hard
-  delete removes the row from `bookmarks`, so a `changes?since=` query can never
-  report it — a client offline during the delete would keep the bookmark forever.
-  The new `DeletedBookmark` model records every hard delete (`user_id`,
-  `bookmark_id`, `deleted_at`), kept indefinitely (no cleanup this version). It is a
-  plain table with no FK to `users` — when a user is deleted the account is gone and
-  its tombstones are irrelevant, so a cascade buys nothing.
-- **✅ Tombstones written on *every* hard-delete path, not just the API.** Recorded
-  in `BookmarkController.delete` (JSON API), `AppWebController.deleteBookmark` (web
-  single delete), and `AppWebController.deleteAllBookmarks` (web bulk delete) — any
-  of which a synced user can trigger. A shared `DeletedBookmark.record(bookmarkID:
-  userID:on:)` helper keeps the call site one line; it runs *after* the row is
-  removed. The admin "delete user" cascade is intentionally excluded (see above).
-- **✅ `GET /bookmarks/changes?since=&page=&per=`** returns a `Page<BookmarkResponse>`
-  of all bookmarks — **archived included** — with `updated_at > since`, sorted
-  ascending by `(updated_at, id)` so incremental pagination is stable. Default
-  `per` 100, max 500 (higher than the 100-cap list endpoint, since this is a bulk
-  sync read). Omitting `since` returns everything (the initial full sync). Unlike
-  the list endpoint it does **not** split on `archived` — a sync needs both halves
-  in one stream.
-- **✅ `GET /bookmarks/deleted?since=`** returns a flat `[DeletedBookmarkResponse]`
-  (no pagination — tombstones are tiny), sorted ascending by `deleted_at`. The
-  response `id` is the **deleted bookmark's** ID (not the tombstone's own row id),
-  so a client matches it straight against a local copy. Omitting `since` returns all
-  tombstones.
-- **✅ `since` parsed as a string, not a `Content` `Date`.** Vapor's
-  `URLEncodedFormDecoder` date strategy is ambiguous for query params, so `since` is
-  read as a raw string and parsed with `ISO8601DateFormatter`, trying the
-  fractional-seconds variant first and plain internet-date-time second — matching
-  StashKit's `.iso8601` JSON strategy. A malformed value is a `validation_failed`
-  422 rather than a silent "no filter".
-- **✅ StashKit stays thin.** Added `DeletedBookmarkDTO { id, deletedAt }` and
-  `BookmarkRequestFactory.makeChangesRequest(since:page:perPage:)` /
-  `makeDeletedRequest(since:)`. The factories format `since` as
-  `[.withInternetDateTime]` ISO-8601. No formatter is held as a `static let` —
-  `ISO8601DateFormatter` isn't `Sendable` under StashKit's strict-concurrency
-  (swift-tools 6.2), so a tiny `iso8601String(from:)` builds one per call.
-- **✅ Tests.** `BookmarkSyncTests` covers changes-since (archived included),
-  changes-no-since, the delete→tombstone path, deleted-since, deleted-no-since, and
-  per-user isolation for both endpoints. Deterministic timestamps are set with a
-  query-builder `.set(\.$updatedAt, to:).update()` — a bulk update bypasses the
-  `@Timestamp(on: .update)` auto-touch that a model `save()` would apply, so the
-  controlled value persists. StashKit factory tests assert the paths, paging, and
-  ISO-8601 `since` items (and their omission when `since` is nil).
-- **Boundary.** No SwiftData, `SyncEngine`, connectivity monitoring, or UI — those
-  are Phases 2–4. The backend is deployable; the apps behave exactly as before.
+The core problem this solves is deletions: a hard delete just removes the
+row from the bookmarks table, so a simple "what's changed since" query can
+never report that something was deleted — a client that was offline during
+the delete would keep that bookmark forever. A new tombstone table records
+every hard delete (who, which bookmark, when), kept indefinitely for now
+with no cleanup, and — importantly — recorded on every single hard-delete
+code path that exists, not just the API, since a synced user could trigger
+a delete from the API, a single web delete, or the web's bulk "delete all"
+action. A shared one-line helper keeps that consistent across all three call
+sites, deliberately excluded from the admin's "delete user" cascade, since a
+deleted account's tombstones are meaningless once the account itself is
+gone.
+
+The changes endpoint returns every bookmark — archived included, unlike the
+regular list endpoint, since a sync needs both halves in one stream — with
+an `updated_at` after the given timestamp, sorted stably so incremental
+pagination doesn't skip or repeat rows. Omitting the timestamp entirely
+returns everything, which is how an initial full sync bootstraps. The
+deletions endpoint returns a flat, unpaginated list of tombstones, since
+they're tiny, keyed by the deleted bookmark's own id so a client can match
+it straight against its local copy. Both endpoints parse the timestamp as a
+plain string and try a couple of ISO-8601 variants, rather than relying on
+Vapor's ambiguous date-decoding strategy for query parameters — a malformed
+timestamp is a proper validation error rather than silently behaving as "no
+filter." StashKit's addition here is exactly what the M6 thin-package rule
+would predict: one new DTO and two new factory methods, nothing stateful.
+This phase deliberately stops at the backend — no SwiftData, sync engine,
+connectivity monitoring, or UI yet; the apps behave exactly as before, and
+the backend alone is fully deployable on its own.
 
 ## Offline Sync — Phase 2 (SwiftData local store)
 
-Phase 2 gives the native apps a persistent local copy of the user's bookmarks and
-makes `BookmarkRepository` read from it. There is still no delta sync or offline
-write queue (Phase 3) and no sync UI (Phase 4) — but the app now survives being
-killed and reads entirely from disk.
+Phase 2 gives the native apps a persistent local copy of the user's
+bookmarks and switches the bookmark repository to read from it. Still no
+delta sync, no offline write queue, and no sync UI — just local persistence.
 
-- **✅ `LocalBookmark` (`@Model`) + `LocalStore`, app-only.** `LocalStore` owns the
-  `ModelContainer` (configuration `"StashLocal"`, schema `[LocalBookmark]`) and is
-  created once by `AppEnvironment`; every per-list `BookmarkRepository` and the
-  `TagRepository` share its `mainContext`. Both files live under `Stash/` (the
-  app-only group) — **not** `Common/` — so the Share Extension never links SwiftData
-  and stays online-only. `LocalBookmark` carries a unique local `id` (stable SwiftUI
-  identity) plus `serverID` (the sync match key) and the sync-metadata fields
-  (`pendingSyncAt`, `locallyDeletedAt`, `isLocalOnly`) that Phase 3 will drive.
-- **✅ Write-through, not local-only (deviation from the brief's literal write path).**
-  The brief sketched Phase 2 writes as local-only (`pendingSyncAt = now`, no API
-  call), with the offline queue arriving in Phase 3. Because each phase is deployed,
-  shipping that would mean creates/edits/deletes silently never reach the server
-  until Phase 3. Instead, every write calls the API first (exactly as before) and
-  then mirrors the authoritative server result into the store (`upsert`/`remove`),
-  leaving the sync-metadata fields clean. The local store stays consistent with the
-  server, and no write is lost. Confirmed with the product owner. Phase 3 replaces
-  this with the real offline queue that sets and pushes `pendingSyncAt`.
-  🔁 Superseded: the write path is now optimistic-first for every write — see
-  *Offline Sync — Optimistic writes*.
-- **✅ Reads filter in memory, not via `#Predicate`.** `BookmarkRepository` fetches
-  the active records (`locallyDeletedAt == nil`), maps them to domain `Bookmark`s,
-  and filters/sorts/paginates in Swift via `BookmarkFilter`. SwiftData `#Predicate`
-  can't express the hierarchical tag-prefix match (`swift` matches `swift/*`), the
-  multi-column case-insensitive search, the recency sentinels, or the Smart View
-  rule set; the dataset is one user's bookmarks, so an in-memory pass is simpler and
-  exact. `BookmarkFilter` deliberately mirrors the backend (`QueryBuilder+Search`,
-  `SmartView.applyConditions`): pipe-wrapped `tags_search`, `__untagged__` /
-  `__today__` / `__this_week__`, `createdAt`-desc-then-`id` ordering, archived
-  default, match-any/all. Smart Views are evaluated locally (the repository now takes
-  the full `SmartView`, not just its id); their **definitions** still load from the
-  API via `SmartViewRepository`.
-- **✅ Pagination is a window over the filtered array.** `loadNextPage()` grows a
-  `shownCount` slice of the in-memory result instead of fetching a page; writes
-  recompute the filtered set and clamp the window, so a create/delete updates the
-  visible list without resetting scroll depth or re-hitting the network.
-- **✅ `TagRepository` derives from the store.** It counts each raw tag across the
-  active local bookmarks — the same aggregation `GET /tags` performs (all bookmarks,
-  archived included, no prefix expansion) — instead of calling the API. `refresh()`
-  recomputes after a mutation.
-- **✅ One-time full fetch, gated on first launch.** `AppEnvironment.bootstrapLocalStore()`
-  seeds the store via `GET /bookmarks/changes` (no `since`, paginated at 200,
-  archived included), guarded by a `localStoreSynced` flag in the App Group defaults.
-  `MainFlowView` shows a brief `ProgressView` until it completes so lists read a
-  populated store rather than flashing empty. On failure (offline) the flag is left
-  unset and the next launch retries; the app still opens (empty) rather than hanging.
-  Sign-out wipes the store and clears the flag so the next user re-fetches clean.
-- **✅ Previews seed an in-memory store.** `AppEnvironment(inMemory:)` builds the
-  container with `isStoredInMemoryOnly`; `AppEnvironment.preview` inserts
-  `Bookmark.samples` so sidebars and lists still render in Xcode previews.
-- **Boundary.** No `SyncEngine`, `NWPathMonitor`, `BGAppRefreshTask`, or sync UI —
-  Phases 3–4. The Share Extension, web frontend, CLI, and browser extension are
-  untouched. Both platforms build; lints clean.
+The local store and its model live entirely under the app-only source
+group, not the shared one, specifically so the Share Extension never links
+SwiftData at all and stays online-only as intended. The brief for this phase
+sketched writes as purely local — mark a record pending, no API call, with
+the real push queue arriving in the next phase — but shipping that as a
+deployed phase would have meant creates, edits, and deletes silently
+wouldn't reach the server at all until Phase 3 landed. I checked with the
+product owner and changed the approach: every write still calls the API
+first exactly as before, and the authoritative server result gets mirrored
+into the local store afterward, so nothing is ever lost and the store stays
+consistent with the server throughout this phase. (This write path was
+itself later superseded — see Optimistic writes below.)
+
+Reads filter entirely in memory rather than through SwiftData's native
+predicate system, since that system can't express the hierarchical
+tag-prefix matching, the multi-column case-insensitive search, or the Smart
+View rule evaluation this app needs — and the dataset is just one user's
+bookmarks, so an in-memory pass is both simpler and exact. The filtering
+logic deliberately mirrors the backend's own query logic line for line, so
+local results and server results never disagree. Smart Views specifically
+are now evaluated locally against the local store, while their definitions
+still come from the API.
+
+The first launch after this ships does one full seed fetch of the user's
+whole library, gated behind a flag so it only happens once; if that seed
+fails (say, the device is offline at first launch), the app still opens
+with an empty list rather than hanging, and the next launch just retries.
+Signing out wipes the local store and clears that flag, so the next person
+to sign in gets a clean re-fetch rather than inheriting anyone else's data.
 
 ## Offline Sync — Phase 3 (SyncEngine, connectivity, background refresh)
 
-Phase 3 adds the real sync: a delta pull + push cycle with last-write-wins, an
-offline write queue, connectivity-triggered sync, and iOS background refresh. The
-sync state (`isSyncing`, `lastSyncedAt`, `lastSyncError`, `pendingCount`) is
-published but **not yet consumed by any view** — that is Phase 4.
+Phase 3 is where sync actually becomes real: a delta pull-then-push cycle
+with last-write-wins conflict resolution, an offline write queue,
+connectivity-triggered syncing, and iOS background refresh. The sync state
+itself (whether it's syncing, when it last succeeded, any error, how many
+changes are pending) is published starting here but not yet shown in any
+view — that's the next phase.
 
-- **✅ `SyncEngine` (`@MainActor @Observable`), pull-then-push, last-write-wins.**
-  Pull pages `GET /bookmarks/changes?since=` (per 500) and applies each DTO by
-  `serverID`: insert if new; if the server's `updatedAt` is newer than the local
-  `serverUpdatedAt`, apply it unless a local pending edit is newer (then keep local
-  for the push). Then `GET /bookmarks/deleted?since=` removes tombstoned records.
-  Push sweeps every `pendingSyncAt != nil` record — create (`POST`), update
-  (`PUT`), or delete (`DELETE`) — clearing the metadata on success. Single-flight
-  via an `inflightSync: Task` (same pattern as `AuthRepository.refreshIfNeeded`).
-- **✅ The cursor subsumes the Phase 2 seed (supersedes `localStoreSyncedKey`).**
-  `lastSyncedAt` (persisted in App Group defaults) is the delta cursor; when it is
-  `nil` the pull omits `since` and fetches the whole library — exactly the Phase 2
-  one-time seed. So Phase 2's `bootstrapLocalStore()` and the `localStoreSyncedKey`
-  flag were removed in favor of `SyncEngine.sync()`. `RootView`'s `MainFlowView`
-  now blocks on the first cycle (`hasSyncedBefore == false`) and otherwise shows
-  content immediately while a delta sync runs in the background.
-- **✅ The cursor is the cycle's *start* time, not its end.** Set to the timestamp
-  captured before the pull, only after pull **and** push succeed. Using the start
-  (rather than `Date()` at the end) means any change racing the cycle is re-pulled
-  next time — `upsert` is idempotent, so over-fetching the boundary is harmless,
-  whereas using the end could skip it. Client-vs-server clock skew is accepted under
-  the last-write-wins simplicity.
-- **✅ Offline write queue replaces Phase 2's pure write-through (per the brief's
-  Phase 3 directive).** `BookmarkRepository` routes on `ConnectivityMonitor.isOnline`:
-  online it stays write-through (API first, then mirror — instantaneous and
-  conflict-free); offline (or when the API call fails with a transport error,
-  `StashAPIError.unknown`, surfaced as `Error.isConnectivityError`) it queues
-  locally — create inserts an `isLocalOnly` record with a temp `serverID`, update/
-  archive mutate the record, delete soft-deletes — all stamping `pendingSyncAt`, and
-  returns optimistically. The push drains the queue on the next cycle.
-  🔁 Superseded: the `isOnline`-routed write-through online path was later dropped —
-  all writes are now optimistic-first (apply locally, push in the background). See
-  *Offline Sync — Optimistic writes*.
-- **✅ Push conflict handling.** Create `409 duplicate_url` → the URL exists
-  server-side (saved on another device); local content wins, so `PUT` the local
-  title/description/tags onto the existing record and collapse onto whichever local
-  copy holds that id. Update/delete `404` → the bookmark is gone server-side, so the
-  local record is removed. A connectivity error mid-push aborts the cycle (cursor
-  not advanced, `lastSyncError` set); other per-record errors are skipped so one bad
-  record can't wedge the sweep. Push is a full sweep, never paginated (per the
-  stopping rules).
-- **✅ `ConnectivityMonitor` (`NWPathMonitor`).** Publishes `isOnline` and fires
-  `onReconnect` on an unsatisfied→satisfied transition, wired to `syncEngine.sync()`.
-  Starts optimistically online; the first path update corrects it.
-- **✅ Sync triggers.** First launch / post-login (`MainFlowView.task`), reconnect
-  (`onReconnect`), and return-from-background (`scenePhase` `.background → .active`,
-  authenticated only). Single-flight coalesces overlaps.
-- **✅ Background refresh is iOS-only this phase; `.backgroundTask(.appRefresh)`
-  over raw `BGTaskScheduler.register`.** The SwiftUI scene modifier registers the
-  handler and signals completion automatically — cleaner than an `AppDelegate` in a
-  multiplatform SwiftUI app, and it sidesteps the launch-time `register` crash if the
-  identifier is missing. `syncInBackground()` syncs then reschedules; the identifier
-  `cc.otavio.stash.backgroundSync` is in both `Info.plist`s (`BGTaskSchedulerPermitted`
-  `Identifiers`), with `UIBackgroundModes: [fetch]` on iOS. macOS `.appRefresh` is
-  unavailable (`BackgroundTasks.framework` is iOS-only), so `BackgroundSyncScheduler`
-  is `#if os(iOS)` and the modifier is on the iOS scene only; macOS needs no
-  background entitlement (see the Phase 4 entry).
-- **✅ Client provisioning via `StashClientProvider` + `SessionRefreshing`.** The
-  brief's `init(client:context:)` is adapted to the app's pattern so a silent token
-  refresh runs before each cycle and the engine always uses the configured server.
-- **Known Phase 3 limitations (no UI yet).** A reconnect/background sync that
-  changes the store does not live-refresh an already-visible list (lists refresh on
-  their own triggers); `pendingCount` updates per sync cycle, not the instant an
-  offline write is queued. Both are intentional — Phase 4 surfaces sync state and
-  can wire live refresh.
-- **Boundary.** No offline banner, pending row indicator, Settings sync section, or
-  the macOS background entitlement — Phase 4. The Share Extension, web frontend,
-  CLI, and browser extension are untouched. Both platforms build; lints clean.
+The sync engine pulls pages of changes since the last cursor and applies
+each one by matching on the server's id: insert if new, apply if the
+server's version is newer than the local one, but keep the local version if
+there's a pending local edit newer than what the server just sent (so a
+push can still deliver it). It then removes anything the deletions endpoint
+reports as tombstoned. Push sweeps every locally pending record and issues
+the matching create, update, or delete call, clearing that record's pending
+flag on success. The whole cycle is single-flight, the same coalescing
+pattern used for token refresh elsewhere in the app.
+
+The sync cursor itself absorbed what Phase 2's one-time seed flag used to
+do — when there's no cursor yet, a pull just omits the "since" parameter
+and fetches the whole library, which is exactly the old seed behavior, so
+the separate seed flag and its bootstrap function were removed entirely in
+favor of just running a sync. One subtlety worth recording: the cursor
+advances to the *start* time of a sync cycle, not the end, and only after
+both the pull and the push succeed — using the start means any change that
+races the cycle itself gets safely re-pulled next time (applying it twice
+is harmless, since applying an update is idempotent), whereas using the end
+time could silently skip it.
+
+The offline write queue itself replaces Phase 2's pure write-through
+approach, per what that phase's brief had actually called for: online, a
+write still goes straight to the API first and mirrors the result locally,
+just as before; offline, or when the API call fails with what looks like a
+connectivity problem rather than a real rejection, the write applies
+locally and gets queued for the next push instead. (This online/offline
+branch was itself later dropped in favor of a simpler, uniformly-optimistic
+write path — see Optimistic writes below.) Push-side conflicts get handled
+explicitly: a duplicate-URL conflict on create means the URL already exists
+server-side, saved from another device, so the local content wins and gets
+applied as an update onto the existing server record instead; a 404 on
+update or delete just means the bookmark is already gone server-side, so
+the local record gets removed to match. A genuine connectivity failure
+partway through a push aborts that cycle without advancing the cursor, so
+the same delta gets retried next time, while any other per-record failure
+just skips that one record rather than wedging the whole sweep.
+
+A network path monitor drives both reconnect-triggered syncing and the
+initial "assume online, correct on the first real path update" startup
+state. Sync itself fires on first launch or login, on reconnect, and on
+returning from the background. Background refresh itself is iOS-only in
+this phase, built on SwiftUI's own background-task scene modifier rather
+than the older, more manual scheduler API — it's simpler in a multiplatform
+SwiftUI app and avoids a launch-time crash risk if the task identifier were
+ever misconfigured.
 
 ## Offline Sync — Phase 4 (sync status UI) — feature complete
 
-Phase 4 surfaces the sync state Phase 3 published. No new sync behavior — only the
-banner, the pending indicator, and the Settings section. This completes the
-offline-sync feature.
+Phase 4 surfaces the sync state the engine has been publishing since Phase
+3 — no new sync behavior at all, just the banner, the pending indicator, and
+a settings section. This is the phase that completes the whole offline-sync
+feature.
 
-- **✅ Offline banner as `.safeAreaInset(edge: .top)` on `MainView` / `MacContentView`.**
-  Chosen over a toolbar item (would shift toolbar content inconsistently and compete
-  with existing buttons) and a modal (far too intrusive for an informational, fully
-  supported state). `OfflineBanner` is a slim, muted (`.secondary` on `.bar`) strip —
-  "Working offline — changes will sync when reconnected" — shown only while
-  `connectivityMonitor.isOnline == false`, animating in/out with a top move +
-  opacity transition driven by `.animation(_:value:)` on `isOnline`.
-- **✅ Pending indicator on the row/detail, not a count badge.** A trailing muted
-  `arrow.triangle.2.circlepath` (`PendingSyncBadge`) appears in `BookmarkRowView` and
-  the `BookmarkDetailView` header when a bookmark has unpushed local changes. A badge
-  with a number would imply *action required*; a row indicator is purely
-  informational and clears itself once the change syncs. It never blocks
-  interaction — a pending bookmark can still be opened, edited, archived, or deleted.
-- **✅ Pending state rides the domain model (`Bookmark.isPendingSync`).** The views
-  render the domain `Bookmark`, not `LocalBookmark`, so the badge needs the flag on
-  the domain type. `Bookmark(local:)` sets `isPendingSync = (pendingSyncAt != nil)`;
-  `Bookmark(dto:)` leaves it `false`. So list rows (built from local records) show
-  the badge and reflect it the instant an offline write re-runs the owning
-  repository's `refreshVisible()`. A reconnect/background sync that clears pending in
-  the store updates a *visible* list on its next refresh trigger (the Phase 3
-  cross-repository-refresh limitation stands — deliberately not widened here).
-- **✅ Sync status in Settings, not a persistent toolbar item.** Sync is a background
-  concern, not a primary action, so it lives where users look for it. A shared
-  `SyncStatusSection` (used by the iOS `SettingsView` and the macOS General tab)
-  shows "Last synced" (`RelativeDateTimeFormatter`, or "Never"), "Pending changes"
-  (only when `pendingCount > 0`), and a "Sync Now" button (disabled with a spinner
-  while syncing). It calls `refreshPendingCount()` on appear so the count reflects
-  offline writes queued since the last cycle (`pendingCount` otherwise updates only
-  per cycle, per Phase 3).
-- **✅ Sync errors are a dismissible inline notice, never a modal.** When
-  `lastSyncError != nil`, the Sync section shows a muted "Sync failed — tap Sync Now
-  to retry" row with an `xmark` dismiss button (`SyncEngine.dismissError()`); the
-  next cycle also clears it. Sync failures are non-blocking — the user keeps working
-  offline — so a modal alert would be wrong.
-- **✅ `BGAppRefreshTask`, not `BGProcessingTask`** (carried from Phase 3): the delta
-  sync is short and network-bound, which is exactly what app-refresh tasks are for;
-  processing tasks are for long CPU-bound work.
-- **✅ Background refresh is iOS-only, and macOS needs no entitlement.**
-  `BGTaskScheduler` / `BGAppRefreshTask` / SwiftUI's `.backgroundTask(.appRefresh)`
-  live in `BackgroundTasks.framework`, which **does not exist on macOS**, so
-  `BackgroundSyncScheduler` and the scene modifier are correctly `#if os(iOS)`
-  guarded. The `com.apple.developer.background-task-scheduler` entitlement is for
-  that iOS framework; it was briefly added to `Config/App-macOS.entitlements` by
-  mistake (it has no effect on macOS and is noise during provisioning / App Store
-  review) and has since been **removed**. `NSBackgroundActivityScheduler` — the
-  macOS mechanism for scheduling work while the app is running — was evaluated and
-  deliberately **not** added: macOS apps are rarely fully quit, and the existing
-  launch/sign-in, return-from-background (`scenePhase → .active`), and reconnect
-  (`ConnectivityMonitor.onReconnect`) triggers cover all practical sync needs. macOS
-  background sync is therefore **complete as-is** — no additional mechanism is needed
-  or planned.
-- **Scope.** Only the four specified surfaces. No new sync logic, no
-  cross-repository live-refresh-on-sync, no macOS background scheduler. The Share
-  Extension, web frontend, CLI, and browser extension are untouched. Both platforms
-  build; lints clean. **Offline sync is feature complete.**
+The offline banner is a slim, muted strip pinned to the top of the main
+content area, shown only while the app is actually offline, rather than a
+toolbar item (which would shift other toolbar content around inconsistently)
+or a modal (far too heavy-handed for a fully-supported, informational
+state). A pending-sync indicator — a small muted icon, not a numbered
+badge — appears on any row or detail view for a bookmark with unpushed local
+changes; a numbered badge would have implied something needs the user's
+attention, when really this is purely informational and never blocks
+interaction at all — a pending bookmark can still be opened, edited,
+archived, or deleted normally. Sync status itself lives in Settings rather
+than as a persistent toolbar element, since it's a background concern, not
+a primary action — showing last-synced time, a pending-changes count when
+there are any, and a "Sync Now" button. Sync errors show as a small,
+dismissible inline notice rather than a modal alert, since a sync failure
+is genuinely non-blocking — the user can keep working offline regardless,
+so interrupting them with a modal would be the wrong call.
+
+One platform note worth recording: I evaluated adding a macOS-specific
+background scheduling mechanism to complement the iOS one, and deliberately
+didn't — macOS apps are rarely fully quit, and the existing launch,
+return-from-background, and reconnect triggers already cover every
+practical sync scenario there. An entitlement for the iOS-only background
+framework had briefly and mistakenly been added to the macOS build too; it
+has no effect there and was just noise during provisioning, so I removed
+it. macOS background sync is complete as-is, with no additional mechanism
+planned.
 
 ## Offline Sync — Code review fixes
 
-Three issues from the post-feature code review, fixed in a targeted pass (no
-refactoring beyond the fixes).
+A post-feature code review turned up three real issues, fixed in a
+targeted pass with no broader refactoring.
 
-- **✅ [High] Involuntary auth failure no longer wipes pending offline writes.**
-  `clearSession()` (on an involuntary `tokenExpired` / `tokenInvalid` /
-  `invalidCredentials` / `accountSuspended` during a refresh) calls
-  `onSessionCleared` → `LocalStore.wipe()`, which previously deleted **all** local
-  bookmarks. `wipe()` now deletes only the clean rows
-  (`#Predicate { $0.pendingSyncAt == nil }`), preserving every record with a queued
-  offline change (`pendingSyncAt != nil`, which also covers offline soft-deletes).
-  On the next sign-in the cursor-less pull repopulates the store; preserved records
-  survive it — `mergePulled` only applies a server DTO when it is newer than the
-  local pending edit (last-write-wins), and `isLocalOnly` records carry a temporary
-  `serverID` the server never returns, so a pull never touches them. They push on
-  the first sync cycle after re-login.
-- **✅ `SyncEngine.reset()` intentionally still clears `lastSyncedAt` (audit
-  outcome).** The review fix suggested preserving the cursor so re-login is a delta
-  "that would not stomp pending writes." On inspection, a full (cursor-less) pull
-  does **not** stomp pending writes — the `mergePulled` LWW guard protects pending
-  edits and `isLocalOnly` records never match a pulled DTO — so the premise does not
-  hold. Preserving the cursor would instead break the explicit sign-out → *different
-  user* login path: the new user would inherit the previous user's cursor and get a
-  delta pull, leaving their library incomplete. So `reset()` keeps clearing the
-  cursor; a full pull on re-login is correct and safe for pending writes.
-  The explicit-logout case is handled separately — see "Explicit logout vs
-  involuntary expiry" below.
-- **✅ [Medium] Pull results are saved before the push begins.** `performSync()` now
-  calls `localStore.save()` immediately after `pull()` and before `push()`, so
-  server changes (inserts, merges, tombstone removes) are durable even if the push
-  later fails or the app is killed mid-cycle. The cursor is still advanced
-  (`setLastSyncedAt`) only after the push succeeds, so a push failure still re-pulls
-  the same delta next time — just without re-fetching a large initial pull from
-  scratch.
-- **✅ [Medium] `LocalStore` wipe-and-retries instead of crashing on container
-  failure.** A corrupt or schema-incompatible on-disk store previously hit a
-  `fatalError` on every launch. `init` now deletes the store file (and its
-  `-wal` / `-shm` sidecars) and recreates the container once; only a second failure
-  on a fresh store still traps. Because the recovery leaves the store empty,
-  `AppEnvironment` clears `lastSyncedAt` from the App Group defaults when
-  `LocalStore.didResetOnInit` is set, so the next sync is a **full** cursor-less pull
-  (a complete rebuild) rather than a delta that would leave the store partial — and
-  `RootView` blocks on that first pull as it does on a fresh install. The local store
-  is a disposable cache, so degrading to a re-seed beats crashing.
-- **Scope.** Only the three review fixes. The [Low] findings (clock-skew cursor,
-  `serverID` uniqueness, `serverUpdatedAt` client-clock semantics, sign-out race)
-  and the missing backend tests are deliberately left for later. No view, web, CLI,
-  or extension changes. Both platforms build; lints clean.
+The most serious one: an involuntary auth failure (the session getting
+cleared because a refresh definitively failed, not because the user chose
+to sign out) was wiping the *entire* local store, including any bookmarks
+with unpushed offline changes queued against them. That's a real data-loss
+bug — someone who edited bookmarks offline and then had their session
+expire before reconnecting would lose those edits entirely. The fix scopes
+that wipe to only the clean records, explicitly preserving anything with a
+pending change queued (including offline soft-deletes), so a subsequent
+sign-in's full re-pull merges back in around the preserved pending work
+rather than stomping it — and those preserved records push normally on the
+first sync cycle after re-login.
+
+I also audited a suggested fix to preserve the sync cursor across a
+sign-out/sign-in cycle, on the theory that a full re-pull might stomp
+pending writes — and concluded the premise didn't actually hold, since the
+last-write-wins merge logic already protects pending edits regardless of
+whether the pull is a full one or a delta. Preserving the cursor would have
+introduced a worse bug instead: if a different user signs in on the same
+device, they'd inherit the previous user's cursor and get a delta pull
+instead of their own full library. So the cursor still clears on reset, and
+a full pull on every fresh sign-in stays correct and safe.
+
+Two smaller robustness fixes rounded out the pass: pull results now save to
+disk immediately after the pull completes and before the push begins, so
+server-side changes are durable even if the push fails or the app gets
+killed mid-cycle; and a corrupt or schema-incompatible on-disk store no
+longer crashes the app on launch — it deletes the broken store file once,
+recreates a fresh one, and triggers a full re-pull to rebuild it, since the
+local store is fundamentally a disposable cache and degrading to a
+clean re-seed beats a hard crash.
 
 ### Explicit logout vs involuntary expiry
 
-Resolves the residual from Fix 1: an explicit sign-out must not leave the previous
-user's unpushed writes in the store (they would push into the next user's account).
+The fix above deliberately preserves pending writes on an involuntary
+session clear, but that raised a new question: what should happen to those
+pending writes when the user explicitly signs out and a *different* person
+signs into the same device? Preserving them there would mean the next
+user's offline queue pushes the previous user's edits into their own
+account — clearly wrong. So session-clearing now splits into two distinct
+paths: an involuntary expiry (token revoked, account suspended) preserves
+pending records exactly as the fix above describes, while an explicit
+"Sign Out" tap wipes everything, pending changes included, since the next
+person on that device must never inherit someone else's unsynced data. No
+new user-facing method was needed — both Settings screens already called
+one shared logout function, so the split lives entirely behind that
+existing call.
 
-- **✅ Two teardown callbacks on `AuthRepository`.** `clearSession(explicit:)` now
-  routes to one of two closures. **Involuntary expiry** (the `clearSession()` calls
-  in `performRefresh()` — token expired/revoked, account suspended) fires
-  `onSessionCleared`, wired in `AppEnvironment` to the preserving `LocalStore.wipe()`
-  (keeps `pendingSyncAt != nil` records). **Explicit logout** (`logout()`, via
-  `defer { clearSession(explicit: true) }`) fires the new `onExplicitLogout`, wired
-  to `LocalStore.wipeAll()` (deletes every record, including pending). Both paths
-  also reset the tag/Smart View caches and the sync cursor.
-- **✅ No new public method, no view changes.** `logout()` was already the only
-  user-initiated sign-out (both the iOS `SettingsView` and the macOS General tab
-  call `authRepository.logout()`), so the explicit/involuntary split lives entirely
-  inside `clearSession(explicit:)` plus the new `wipeAll()` — the cleanest fit for
-  the existing funnel. The Settings views are unchanged; they already call
-  `logout()`, which now takes the full-wipe path. Chosen over adding a separate
-  `logoutExplicitly()` method, which would have duplicated `logout()`.
-- **Trade-off (intended).** A user who signs out explicitly with pending offline
-  writes loses them. This is correct: the next user must not inherit another user's
-  unsynced data. Involuntary expiry still preserves the queue, since it is the same
-  user whose session will resume.
-
-| Scenario | Path | Wipe | Result |
-|----------|------|------|--------|
-| Token expired/revoked | `onSessionCleared` | `wipe()` | Pending writes survive, push on next login |
-| Account suspended | `onSessionCleared` | `wipe()` | Pending writes survive, push when unsuspended |
-| User taps "Sign Out" | `onExplicitLogout` | `wipeAll()` | Complete clean slate, no pending records left |
+| Scenario | Wipe behavior | Result |
+|----------|------|--------|
+| Token expired/revoked | Preserving | Pending writes survive, push on next login |
+| Account suspended | Preserving | Pending writes survive, push when unsuspended |
+| User taps "Sign Out" | Full wipe | Clean slate, no pending records left behind |
 
 ### Follow-up: serverID uniqueness + backend sync tests
 
-- **✅ `LocalBookmark.serverID` is now `@Attribute(.unique)`.** `serverID` is the
-  sync match key for `upsert`/`record(forServerID:)`; the constraint makes the model
-  self-enforcing rather than relying solely on fetch-before-insert under `@MainActor`.
-  Adding `.unique` to an existing attribute is a non-additive schema change that
-  SwiftData will not auto-migrate, but no `VersionedSchema`/`SchemaMigrationPlan` is
-  needed: `ModelContainer` creation throws on the incompatible store, and
-  `LocalStore.init()`'s existing wipe-and-retry deletes the store and recreates it,
-  setting `didResetOnInit` → `AppEnvironment` clears `lastSyncedAt` → the next sync is
-  a full cursor-less re-seed. The store is a disposable cache, so this one-time
-  rebuild on upgrade is acceptable (already-decided recovery strategy).
-- **✅ Backend sync test gaps from the review are closed.** `BookmarkSyncTests` now
-  also verifies: the **web single delete** (`POST /app/bookmarks/:id/delete`) and
-  **web bulk delete** (`POST /app/settings/delete-all-bookmarks`) each record
-  tombstones — so "tombstone on every hard-delete path" is covered for all three
-  user-facing paths, not just the JSON API; `/changes` returns results **ascending by
-  `updatedAt`** (the ordering the sync cursor pagination depends on); `/changes`
-  **clamps `per` to 1…500** (oversized and zero both 200, not 422); and a **malformed
-  `since` returns 422 `validation_failed`**. Web routes authenticate via a
-  `stash_session` cookie helper mirroring the existing `adminWebSession` pattern.
-  145 backend tests pass.
+Two loose ends from that review round. First, the local store's server-id
+field — the key used to match a local record against its server
+counterpart — became a database-enforced unique constraint rather than
+relying purely on "fetch before insert" application logic, making the model
+self-enforcing. Adding a uniqueness constraint to an existing field isn't a
+migration SwiftData can apply automatically, but the store already has a
+wipe-and-recreate recovery path for exactly this kind of incompatible-schema
+situation, so no separate migration plan was needed — an existing local
+store on upgrade just gets rebuilt from a fresh full sync once.
+
+Second, the backend test suite gained coverage for the gaps the review
+actually found: that tombstones get recorded on the web's single-delete and
+bulk-delete paths, not just the JSON API; that the changes endpoint's
+results are properly ordered for cursor pagination to work at all; that its
+page size is correctly clamped; and that a malformed cursor is rejected
+with a proper validation error rather than silently ignored.
 
 ## Offline Sync — Optimistic writes (supersedes write-through)
 
-🔁 **Supersedes the Phase 2/3 write-through write path.** Write-through awaited the
-API on the UI path whenever `ConnectivityMonitor.isOnline` was true. But
-`NWPathMonitor` reports the *network path*, not *server reachability* — with the
-server down but Wi-Fi up, `isOnline` stays true, so a create/delete blocked on the
-URLSession timeout (tens of seconds) before the offline-queue fallback ran. Result:
-the Add sheet didn't dismiss and the row appeared/disappeared only after the
-timeout, instead of instantly. The connectivity-based routing could not fix this —
-the only way to be instant regardless of server state is to not await the network on
+The write-through approach from Phases 2 and 3 awaited the API on the UI
+path whenever the network path looked reachable — but a network path
+monitor reports whether Wi-Fi is up, not whether the actual server behind
+it is reachable. With the server down but Wi-Fi up, a create or delete
+would block on a full request timeout — tens of seconds — before falling
+back to the offline queue. In practice that meant the add-bookmark sheet
+just sat there instead of dismissing, and a row appeared or disappeared
+only after that long timeout instead of instantly. Connectivity-based
+routing genuinely couldn't fix this, since the only way to be instant
+regardless of server state is to simply not wait on the network at all on
 the UI path.
 
-- **✅ Writes are now optimistic-first.** `create`/`update`/`setArchived`/`delete`
-  apply to the local store and return immediately (the UI updates instantly, online
-  or off), then call `scheduleSync()` — a detached `SyncEngine.sync()` followed by
-  `refreshVisible()` — to push the queued change and reconcile this list with the
-  server's authoritative result (real `serverID`, normalized tags, fetched metadata).
-  The `isOnline` write routing and the per-write API calls are gone from
-  `BookmarkRepository`; pushing is entirely the sync engine's job. `BookmarkRepository`
-  now holds the `SyncEngine` (injected via `makeBookmarkRepository`) instead of the
-  `ConnectivityMonitor`.
-- **✅ Metadata fetch preserved across the optimistic path.** An online create still
-  gets server-fetched title/description: `LocalBookmark.wantsMetadataFetch` records
-  the create's `fetchMetadata` flag, and `SyncEngine.pushCreate` sends it on the
-  `POST` (replacing the previous hard-coded `false`). The row first shows the local
-  values, then updates to the server's when the push reconciles.
-- **Trade-offs (accepted, per product owner).** An online create briefly shows local
-  data before the background push replaces it with the server's normalized version (a
-  short flicker; the optimistic record's `serverID` also changes from a temp UUID to
-  the real one, so the list row re-identifies). When the server is unreachable but the
-  network is up, the background push still wastes one request timeout — but off the UI
-  path, so writes stay instant; the pending change pushes on the next sync trigger
-  (foreground, reconnect, manual "Sync Now", or the next write). The pending badge on
-  the detail view clears on the next list refresh, not instantly (the standing
-  cross-repository-refresh limitation).
-- **Scope.** `BookmarkRepository`, `LocalBookmark` (+`wantsMetadataFetch`),
-  `SyncEngine.pushCreate`, and the `AppEnvironment` wiring. No `SyncEngine` algorithm
-  change, no view changes, no backend/CLI/extension changes. Both platforms build;
-  lints clean.
+So writes became optimistic-first across the board: every create, update,
+archive, or delete now applies to the local store and returns immediately —
+the UI updates instantly whether online or offline — and a background sync
+picks up the queued change and reconciles it with the server's
+authoritative result afterward (the real server-assigned id, normalized
+tags, fetched metadata). The per-write API call and the online/offline
+branch both came out of the repository entirely; pushing changes is now
+purely the sync engine's job. One thing that had to be preserved carefully
+in this move: an online create still needs server-fetched metadata, so the
+local record now remembers whether metadata fetching was requested, and the
+background push honors that flag when it finally reaches the server — the
+row shows local values first and then updates to the server's normalized
+version once the push completes, a brief accepted flicker rather than a
+correctness problem.
 
 ## Offline Sync — Live list refresh after an external sync
 
-Resolves the standing cross-repository-refresh limitation (flagged since Phase 3).
-
-- **Problem.** Each visible list owns its own `BookmarkRepository`, refreshed only by
-  its own triggers and its own writes' `scheduleSync()`. A sync started **elsewhere**
-  — the Settings "Sync Now", a reconnect, foreground, or background refresh — mutates
-  the shared store (clears pending flags, applies server data) but left the visible
-  list's published `bookmarks` stale. Repro: add a bookmark while the server is down,
-  bring it back, tap "Sync Now" — the row kept its pending badge even though the push
-  succeeded.
-- **✅ The list observes sync completion.** `BookmarkListContent` now has
-  `.onChange(of: environment.syncEngine.isSyncing)`; when it goes `true → false` (any
-  cycle finished) it calls a new `BookmarkRepository.refresh()`. This covers every
-  externally-triggered sync, not just the list's own writes.
-- **✅ `refresh()` preserves the pagination window.** It calls the private
-  `refreshVisible()` (re-read + re-filter, clamping the existing `shownCount`), unlike
-  `reload()`/`load()` which reset to the first page. So a background sync reconciles
-  the visible rows in place without snapping a scrolled list back to the top.
-- **Scope.** `BookmarkRepository.refresh()` and one `.onChange` in
-  `BookmarkListContent`. No `SyncEngine` change. Both platforms build; lints clean.
+Each visible list owns its own repository instance, refreshed only by its
+own triggers and its own writes. That meant a sync triggered *somewhere
+else* — a manual "Sync Now" in Settings, a reconnect, or a background
+refresh — correctly updated the shared local store but left an already
+visible list's rows stale: add a bookmark while the server's down, bring
+the server back, tap "Sync Now," and the row kept showing its pending badge
+even though the push had actually succeeded. The fix has a visible list
+observe the sync engine's own busy state and refresh itself the moment any
+sync cycle finishes, regardless of what triggered it — while carefully
+preserving the current scroll position and page window rather than
+resetting back to the first page the way a full reload would.
 
 ## Offline Sync — "Last synced" ticks live
 
-- **Problem.** The Settings "Last synced" value was computed with
-  `RelativeDateTimeFormatter` against `Date()` only when the view body re-evaluated.
-  With the Settings view mounted and no observed value changing, it froze (e.g. stuck
-  at "5 seconds ago") even as time passed or the user navigated between screens.
-- **✅ Fix.** `SyncStatusSection` renders the value inside
-  `TimelineView(.periodic(from: lastSyncedAt, by: 1))`, computing the relative string
-  against the timeline's `context.date`, so it advances once a second on screen
-  ("5 seconds ago" → "2 minutes ago"). "Never" still shows when there is no
-  `lastSyncedAt`. One view method; no other changes.
+A small but noticeable bug: the "Last synced" time in Settings was computed
+against the current moment only when the view happened to re-render for
+some unrelated reason, so with nothing else changing on screen it would
+visibly freeze — stuck at "5 seconds ago" long after five seconds had
+passed. Wrapping that one label in a periodically-ticking timeline view
+fixed it, so it now advances once a second the way a relative timestamp
+should.
 
 ## Offline Sync — Cross-user data integrity fixes
 
-Two cross-user bugs from the full-feature code review (findings #1 and #2).
+Two more serious bugs turned up in a full-feature review, both genuinely
+cross-user issues.
 
-- **✅ [Critical] `LocalBookmark.userID` stops one user's pending writes pushing into
-  another's account.** `LocalBookmark` gained a non-optional `userID: String` (the
-  owner's server ID), set at every insert from the authenticated session and never
-  changed (`apply(dto)` leaves it alone). Source: the access token's `sub` claim —
-  `TokenManager.currentUserID` decodes it (reusing the existing base64url JWT
-  parsing), exposed as `StashClientProvider.currentUserID()`. This is synchronous and
-  offline-safe (no `/me` round-trip), so it's available both in `SyncEngine` (tagging
-  pulled records) and in `BookmarkRepository.queueCreate` (tagging optimistic
-  creates). `String` not `UUID` to keep the model free of a Foundation-UUID Codable
-  dependency.
-- **✅ Push is scoped to the current user.** `LocalStore.fetchPending(userID:)` (and
-  `pendingCount(userID:)`) filter on `pendingSyncAt != nil && userID == current`.
-  `SyncEngine.performSync` captures the user ID once per cycle and threads it into
-  `pull` (inserts) and `push` (the pending sweep), so even when a previous user's
-  pending records are preserved in the store, they are never fetched for push under a
-  different user's token. This is the airtight guard for the Critical bug.
-- **✅ Schema migration via the existing wipe-and-retry.** Adding a required `userID`
-  is a non-additive change; `ModelContainer` creation throws on the old store,
-  `LocalStore.init()` deletes and recreates it, sets `didResetOnInit`, and
-  `AppEnvironment` clears `lastSyncedAt` so the next launch does a full re-seed that
-  re-tags every record. No `VersionedSchema` needed (same strategy as the `serverID`
-  uniqueness change).
-- **✅ `wipe()` userID predicate — filter-if-known, else conservative.**
-  `LocalStore.wipe(currentUserID:)` preserves only the current user's pending records
-  when an ID is given (dropping any other user's leftovers), and falls back to
-  preserving all pending records when it is `nil`. In practice `onSessionCleared`
-  fires *after* `AuthRepository.clearSession()` has already cleared the tokens, so
-  `currentUserID()` is `nil` there and the conservative branch runs — which is safe
-  because the `fetchPending(userID:)` filter, not the wipe, is what prevents a
-  wrong-user push. `wipeAll()` (explicit logout) is unchanged.
-- **✅ [High] `SyncEngine.reset()` cancels the in-flight cycle.** `reset()` now calls
-  `inflightSync?.cancel()` first. Previously a cycle racing a sign-out would resume,
-  `save()` the rows the wipe just deleted, and `setLastSyncedAt()` re-persist the
-  cursor — so the next user skipped the blocking full pull and browsed the previous
-  user's bookmarks. `SyncEngine` is `@MainActor`, so the cancel and the caller's wipe
-  do not interleave; `pull()` and `push()` each call `try Task.checkCancellation()` at
-  entry (plus the cancellation-aware `URLSession` awaits), so a cancelled cycle aborts
-  before `save()`/`setLastSyncedAt` rather than completing.
-- **✅ A finishing cycle clears `inflightSync` only if it still owns the slot.** `sync()`
-  and `pushPending()` previously ended with an unconditional `inflightSync = nil`. When
-  `reset()` cancelled a cycle mid-flight and a new cycle then registered, the old cycle's
-  resume would null out the *new* cycle's registration — letting a third caller see an
-  empty slot and start a second concurrent cycle (two cycles sharing one `@MainActor`
-  `ModelContext`, double-pushing the same pending rows). Each registration now bumps a
-  `syncGeneration` counter and captures its value; the completion clears `inflightSync`
-  only when `syncGeneration` still matches, so a cancelled cycle's resume is a no-op once
-  a newer cycle has taken the slot. Narrow (needs a sync racing sign-out) and largely
-  self-healing — a double create surfaces as `duplicate_url`, which `resolveDuplicate`
-  handles — but the guard is trivial and removes the race outright.
-- **Residual (not in scope here).** Reads (`LocalStore.fetchActive`, used by
-  `BookmarkRepository` and `TagRepository`) are still **not** user-scoped, so a
-  previous user's preserved/pulled records could be *visible* in a new user's list
-  until they are cleared. The push leak (writing to the wrong account) is fully
-  closed; fully closing the read-side visibility would need user-scoped reads or a
-  different-user-login wipe, which touches `TagRepository`/read paths excluded from
-  this change. Logged as a follow-up.
+The critical one: nothing in the local store actually recorded *which
+user* a pending write belonged to. Combined with the earlier fix that
+preserves pending writes across an involuntary session clear, that opened a
+real path for one user's queued offline change to get pushed into a
+completely different account — if user A's pending write survived a
+session clear and user B then signed into the same device, a sync cycle
+could push user A's change using user B's credentials. The fix tags every
+local record with its owning user's id at creation time, read synchronously
+from the access token itself with no network round-trip needed, and scopes
+the actual push sweep to only the current user's records — so even when a
+previous user's pending writes are sitting preserved in the store, they can
+never be picked up and pushed under a different user's session. That scoped
+push is the real, airtight fix; adding the user id to existing local
+records required the same wipe-and-rebuild schema migration path used
+elsewhere.
+
+The second, related bug: cancelling a sync cycle on sign-out had a race
+where an already-in-flight cycle could still finish and save its results
+*after* the wipe had already run, effectively resurrecting rows the sign-out
+had just deleted and letting the next user browse the previous user's
+bookmarks. The fix makes a reset actively cancel any in-flight cycle rather
+than just ignoring it, with the sync engine's pull and push loops checking
+for cancellation at safe points so a cancelled cycle aborts cleanly before
+it ever saves anything or advances the cursor. A related, narrower race —
+a cancelled cycle's cleanup accidentally clearing a *newer* cycle's
+in-flight marker and letting two cycles run concurrently — got closed with
+a simple generation counter, so a stale cycle's completion handler can tell
+it's no longer the current one and does nothing.
+
+One residual gap I explicitly left out of scope here: while pushes are now
+correctly scoped to the current user, *reads* from the local store still
+aren't user-filtered, so a previous user's preserved or pulled records
+could theoretically still be visible in a freshly-signed-in user's list
+until the store gets cleared. The push-side leak — actually writing to the
+wrong account — is fully closed; fully closing the read-side visibility gap
+would touch more of the read path than this pass covered, so it's logged
+as a follow-up rather than bundled in here.
 
 ## Offline Sync — Sync correctness fixes (#4 + #8)
 
-Two correctness bugs from the full-feature review.
+Two more correctness bugs from that same review.
 
-- **✅ [#4] `isArchived` is preserved on offline-created bookmarks.** A bookmark
-  created offline then archived offline (still `isLocalOnly`) lost its archive state
-  on push: `pushCreate`'s `CreateBookmarkRequest` had no `isArchived`, the backend
-  always created unarchived, and `apply(dto)` then reset the local flag. Added
-  `isArchived` to the backend's `CreateBookmarkInput` and StashKit's
-  `CreateBookmarkRequest` as `Optional<Bool>` (default `nil` ⇒ `false`), so existing
-  clients (CLI, web, extension) that send no field are unaffected;
-  `BookmarkController.create` applies `input.isArchived ?? false`. `SyncEngine.pushCreate`
-  now sends `record.isArchived`, and `resolveDuplicate` (the 409 path) adds
-  `isArchived` to its `PUT` so the merge keeps the local archive state too.
-- **✅ [#8] `/changes` uses keyset, not offset, pagination — no row can be silently
-  skipped.** Offset `.paginate()` over the mutable `updatedAt` sort key could skip a
-  row when a concurrent edit shifted the offsets mid-pagination, and the
-  `cycleStart` cursor never re-fetched it. Replaced with a `(updatedAt, id)` keyset:
-  the query filters `updatedAt > since AND (updatedAt > afterUpdatedAt OR (updatedAt
-  == afterUpdatedAt AND id > afterId))`, sorts `updatedAt, id` ascending, and fetches
-  `per + 1` to compute `hasMore`. `id` (a UUID) breaks ties deterministically, so a
-  bumped row simply re-appears on a later page (idempotent upsert) rather than being
-  skipped. The `Page<T>` envelope is replaced by `ChangesPage<T>` (`items`,
-  `hasMore`, `nextAfterUpdatedAt`, `nextAfterId`); `SyncEngine.pull()` now loops on
-  `hasMore`, carrying the cursor forward, instead of a page counter.
-- **⚠️ The keyset timestamp cursor is an opaque string, not a `Date` (deviation from
-  the task's typing).** The API serializes timestamps at second precision (the
-  StashKit decoder is non-fractional), so round-tripping the cursor as a `Date` would
-  truncate it — and a same-second cluster larger than `per` (e.g. a tag rename
-  touching hundreds of bookmarks at once) would make `updatedAt > afterUpdatedAt`
-  perpetually true, never advancing: an infinite pull loop. Instead the server emits
-  `nextAfterUpdatedAt` formatted with **fractional** precision and parses
-  `afterUpdatedAt` fractionally; the client (`ChangesPageDTO.nextAfterUpdatedAt: String`)
-  treats it as an opaque continuation token echoed back verbatim, never interpreting
-  it — so no precision is lost and the keyset stays exact. `nextAfterId` stays a
-  `UUID` (round-trips exactly).
-- **Tests.** Backend `BookmarkSyncTests`: the existing `/changes` tests now decode
-  `ChangesPage`; `changesClampsPer` asserts via `hasMore`/`items.count` (no
-  `metadata`); a new `changesKeysetStable` proves a row bumped after page 1 reappears
-  on page 2 with nothing skipped; `createArchived` proves `isArchived: true` on
-  create persists. StashKit factory tests cover the new keyset parameters. 147
-  backend tests pass; StashKit 23; both app platforms build; all lints clean.
+First: a bookmark created offline and then archived while still offline
+lost its archived state the moment it finally pushed to the server, since
+the create request the sync engine sent had no way to carry an archived
+flag at all — the backend always created new bookmarks unarchived, and
+applying the server's response back onto the local record then stomped the
+local archive flag with that default. The fix threads an optional archived
+flag through the create request end to end, defaulting to `false` so every
+existing client that doesn't send it is unaffected, and the duplicate-URL
+merge path picks up the same flag so it's preserved on that route too.
+
+Second, and more subtle: the changes endpoint used offset-based pagination
+over a sort key that can change while pagination is in progress. A
+concurrent edit shifting rows mid-pagination could cause a row to be
+silently skipped entirely — invisible to a client, and never re-fetched,
+since the sync cursor had already moved past it. I replaced offset
+pagination with proper keyset pagination: each page's request carries the
+exact position it left off at (both the timestamp and a tiebreaking id), so
+a row that gets bumped during pagination simply reappears on a later page
+instead of vanishing, and applying it twice is harmless since applying an
+update is idempotent. One deliberate deviation from a more "obvious"
+design: that keyset cursor is transmitted as an opaque string the client
+echoes back verbatim rather than as a typed date, specifically because the
+API only serializes timestamps at whole-second precision — round-tripping
+through a truncated date could make a keyset comparison never advance at
+all if enough rows shared the same second (a bulk tag rename touching
+hundreds of bookmarks at once, for instance), which would have caused an
+infinite pull loop.
 
 ## Offline Sync — Sync correctness fix (#3)
 
-A pending record whose push hit a permanent error (e.g. 422/403) kept `pendingSyncAt`
-set, so every cycle retried it forever while `pendingCount` stayed elevated, no
-error surfaced, and the user had no way to clear it short of signing out.
+The last correctness bug from that review: a pending write that hit a
+*permanent* server rejection — a validation error, a forbidden response —
+kept retrying forever on every single sync cycle, with the pending count
+staying stuck and no error ever surfacing, and no way for the user to clear
+it short of signing out entirely and losing all their other pending work
+too.
 
-- **✅ `LocalBookmark.syncError: String?`** holds the user-facing message of a
-  permanent push failure; `nil` means none. Set alongside clearing `pendingSyncAt`
-  (which stops the retry), and re-cleared whenever the record is synced (`apply`) or
-  re-queued by a later edit/delete (`markPending`/`queueDelete` set it back to `nil`).
-- **✅ Error classification in `push(_:)`.** The per-record `catch` now splits errors:
-  connectivity is rethrown (aborts the cycle, as before), `CancellationError` is
-  rethrown (preserves the reset-cancellation from the #2 fix), and the rest go through
-  `isPermanentFailure`. **Recoverable** (left pending, retried): connectivity, auth
-  (`tokenExpired`/`tokenInvalid`/`accountSuspended`), and transient `serverError`
-  (5xx) — a server hiccup should not burn the offline write. **Permanent** (marked
-  failed, dequeued): `validationFailed` (422), `forbidden` (403), and the other
-  deterministic API errors. This treats `serverError` as recoverable, a deliberate
-  refinement of the task's "everything non-connectivity/non-auth is permanent" so a
-  transient 5xx doesn't discard a user's offline change.
-- **✅ `SyncEngine.failedCount` + `clearFailedRecords()`.** `failedCount` is recomputed
-  (user-scoped, like `pendingCount`) by `refreshPendingCount()` and at each cycle end.
-  `SyncStatusSection` shows a "Failed to sync — N bookmarks [Clear]" row when
-  `failedCount > 0`; **Clear** calls `clearFailedRecords()`, which deletes the current
-  user's failed records (the user accepts losing the unrecoverable change).
-- **✅ `Bookmark.hasSyncError`** (mapped from `syncError != nil` in `Bookmark(local:)`)
-  drives `PendingSyncBadge(failed:)`: the muted `arrow.triangle.2.circlepath` for
-  pending becomes an orange `exclamationmark.arrow.triangle.2.circlepath` for failed.
-  The row/detail show it when `isPendingSync || hasSyncError`.
-- **Schema migration (correction to the task's assumption).** `syncError` is an
-  *optional* attribute, so it is an **additive** change — SwiftData lightweight-migrates
-  existing stores in place (existing rows get `nil`), no wipe needed. The
-  `LocalStore.init()` wipe-and-retry remains only as the fallback for a genuinely
-  incompatible store.
-- **Known limitation.** Clearing failed records from Settings updates `failedCount`
-  immediately, but an already-visible bookmark list reflects the removal on its next
-  refresh (the standing cross-repository-refresh behavior), not instantly. Both app
-  platforms build; lints clean.
+The fix adds a proper distinction between recoverable and permanent push
+failures. Connectivity problems, auth failures, and even a transient
+server error all stay recoverable and keep retrying, since a momentary
+server hiccup shouldn't cost someone their offline change — but a
+deterministic rejection like a validation failure now marks the record as
+permanently failed and stops retrying it, surfacing a small "Failed to
+sync — N bookmarks" row in the sync status section with a Clear action that
+lets the user explicitly accept losing that particular unrecoverable
+change. The pending-sync icon itself also gained a visually distinct failed
+state — an orange warning variant instead of the usual muted pending
+icon — so a failed write actually looks different from one that's simply
+still in flight.
 
 ## Offline Sync — Cleanup sweep
 
-Four no-behavior-change cleanups from the review.
-
-- **✅ Dead `LocalStore` methods removed.** `remove(serverID:)` had no callers (grep
-  confirmed) and is gone; `upsert(_:)` was already removed when the `userID` init
-  change orphaned it (the #1 fix), so only `remove(serverID:)` remained to delete.
-- **✅ `scheduleSync()` pushes only, no pull.** A write-triggered sync has nothing to
-  pull — the device just produced the change — yet it ran a full `sync()` (pull then
-  push) on every create/edit/delete, costing an extra round-trip and a redundant list
-  refresh per write. Added `SyncEngine.pushPending()`, a push-only cycle that reuses
-  the single-flight `inflightSync` guard; `scheduleSync()` now calls it. Full `sync()`
-  (pull + push) still runs on launch/sign-in, foreground, reconnect, "Sync Now", and
-  background refresh. Trade-off of the shared guard: if a write-push is in flight when
-  a full sync is requested, the full sync coalesces onto it and skips that cycle's
-  pull; this is rare and self-heals on the next pull trigger (foreground/launch/Sync
-  Now), and is preferable to racing two cycles.
-- **✅ Duplicated favicon-domain logic removed.** The host-derivation lived on both
-  `Bookmark.faviconDomain` (instance) and `LocalBookmark.faviconDomain(for:)` (static).
-  Made `Bookmark` the single owner — added `Bookmark.faviconDomain(for: URL)` static
-  with the instance property delegating to it — and pointed `LocalBookmark`'s inserts
-  at `Bookmark.faviconDomain(for:)`, deleting its copy. (The stored
-  `LocalBookmark.faviconDomain` column is unchanged; only the duplicated derivation
-  was removed.)
-- **✅ `ConnectivityMonitor` doc comment corrected.** It claimed `BookmarkRepository`
-  routes writes through the monitor to an offline queue — removed by the
-  optimistic-write refactor. Now it states the monitor backs the offline banner
-  (`MainFlowView`) and gates `SyncEngine` cycles, fires `onReconnect`, and is not used
-  by `BookmarkRepository`.
+A handful of no-behavior-change cleanups fell out of the review too: a
+couple of genuinely dead local-store methods with no remaining callers got
+deleted; a write-triggered sync was needlessly running a full pull-then-push
+cycle when the device had literally just produced the change itself and had
+nothing to pull, so it now runs a push-only cycle instead, saving a
+redundant round-trip on every single write; some duplicated favicon-domain
+derivation logic that had drifted into two places got consolidated into
+one; and a stale doc comment describing behavior the optimistic-write
+refactor had already removed got corrected.
 
 ## Offline Sync — Sync correctness fix (#5)
 
-- **Problem.** Every hard-delete deleted the bookmark row and recorded its
-  `DeletedBookmark` tombstone as two separate `await`s with no transaction. A crash
-  or dropped connection in the gap left the bookmark gone server-side with no
-  tombstone — a synced client would never see it again via `changes?since=` (gone)
-  nor `deleted?since=` (no tombstone), orphaning the local copy forever.
-- **✅ Fix.** All three hard-delete paths now wrap the delete and the tombstone
-  record(s) in a single `req.db.transaction { db in … }`: `BookmarkController.delete`
-  (API single), `AppWebController.deleteBookmark` (web single), and
-  `AppWebController.deleteAllBookmarks` (web bulk — the whole delete-then-record loop
-  is inside one transaction). Either the bookmark is deleted **with** its tombstone or
-  neither takes effect. Fluent's `db.transaction {}` is honored by both SQLite (tests,
-  in-memory) and PostgreSQL (production). The `bookmarkCount`/`user.save` update stays
-  outside the transaction (a denormalized counter, not part of the delete/tombstone
-  atomicity).
-- **Tests.** The existing tombstone tests (`deleteRecordsTombstone`,
-  `webDeleteRecordsTombstone`, `webBulkDeleteRecordsTombstones`) cover the success path
-  under the transaction (147 backend tests pass). The rollback-on-failure assertion was
-  **skipped**: there is no clean failure-injection point in the current harness —
-  `DeletedBookmark` has no unique/NOT-NULL constraint to trip mid-transaction, and the
-  only alternative is a production test-only hook, which the task explicitly directed to
-  avoid over a fragile workaround. The atomicity rests on Fluent's transaction wrapper.
+Every hard delete recorded the actual row deletion and its tombstone as two
+separate, unrelated database calls with no transaction wrapping them. A
+crash or dropped connection in the narrow gap between the two would leave a
+bookmark gone from the server with no tombstone recorded at all — a synced
+client would never find out it was deleted through either sync endpoint,
+orphaning the local copy forever with no way to reconcile. The fix wraps
+the delete and its tombstone write in a single database transaction across
+all three hard-delete code paths (the API, the web single delete, and the
+web bulk delete), so either both happen or neither does. The one thing I
+couldn't cleanly add was a rollback-on-failure test, since there's no clean
+way to inject a mid-transaction failure in the current test harness without
+a fragile, test-only hook — the atomicity here rests on the database
+transaction wrapper itself rather than an explicit test proving the rollback
+path.
 
 ## Offline Sync — landing page copy
 
-- **✅ Landing page now advertises offline.** The public landing page
-  (`Backend/Resources/Views/landing.leaf`) predated offline sync and described the
-  native apps with no mention of local storage or sync. Updated the hero lead to say
-  the iOS/macOS apps "work offline" and rewrote the "Every platform" feature card to
-  spell out the differentiator: the apps keep a full local copy of the library, browse
-  and save offline, and sync automatically on reconnect (mirroring `PRODUCT.md` §16 and
-  the Offline Sync phases above).
-- **Folded into the existing card, not a 7th.** Offline was added to the "Every
-  platform" card rather than as a new feature card, to preserve the balanced 3×2
-  features grid (`landing.css` `repeat(3, 1fr)`) — a 7th card would have left a lone
-  card on the last row. Content-only change: no template structure or CSS touched.
+The public landing page predated offline sync entirely and still described
+the native apps with no mention of local storage or syncing at all. I
+updated the hero copy to say the apps "work offline," and rewrote the
+platform feature card to spell out the actual differentiator — a full local
+copy of the library, browsing and saving while offline, automatic sync on
+reconnect. I folded this into the existing platform card rather than adding
+a seventh feature card, specifically to keep the feature grid's balanced
+three-by-two layout intact.
 
 ## Offline Sync — Refresh button triggers a sync
 
-- **✅ ⌘R / the list Refresh button now runs `SyncEngine.sync()`.** Before offline
-  sync, the bookmark list's Refresh action (`reload()` → `BookmarkRepository.load`)
-  re-fetched from the server. After M13 the repository reads entirely from the local
-  SwiftData store, so `load()` only re-read what was already on screen — the button
-  reached nothing remote and was effectively a no-op. `BookmarkListView`'s Refresh
-  button (and its ⌘R shortcut) now call a new `sync()` that awaits
-  `environment.syncEngine.sync()`, the same single-flight pull-then-push cycle the
-  Settings "Sync Now" button uses. The existing
-  `.onChange(of: syncEngine.isSyncing)` handler repopulates the visible list when the
-  cycle ends, so pulled-in bookmarks appear without an extra refresh call.
-- **`reload()` / `load()` left alone.** They still back the local-only filter re-runs
-  (search submit, search clear, source change, archived toggle) and the initial
-  `.task` load — those must not hit the network, so only the Refresh button's action
-  was repointed.
-- **Pull-to-refresh removed.** The iOS `.refreshable { await load() }` had the same
-  dead behavior (local re-read only) and was dropped rather than rewired — the ⌘R /
-  toolbar sync is the single "get fresh data" affordance now.
+Before offline sync existed, the bookmark list's Refresh button re-fetched
+from the server. After the repository moved to reading entirely from the
+local store, that same button silently became a no-op — it just re-read
+whatever was already sitting on screen, reaching nothing remote at all. I
+repointed both the Refresh button and its keyboard shortcut at an actual
+sync cycle, the same one the Settings "Sync Now" button already used, while
+deliberately leaving the plain local reload alone for the cases that
+genuinely should stay local-only — a search submit, clearing a filter,
+switching sources. iOS's pull-to-refresh gesture had the exact same dead
+behavior and got removed entirely rather than rewired, since the toolbar
+button and shortcut are now the one clear "get fresh data" affordance.
 
 ## Offline Sync — macOS foreground sync trigger
 
-- **Problem.** Saving a bookmark from an extension (the browser extension or the
-  macOS Share Extension — both write to the backend only and never touch the app's
-  local store) and then switching back to an already-open macOS app window did not
-  show the new bookmark until ⌘R / "Sync Now" / relaunch. The live-list-refresh wiring
-  (`.onChange(of: syncEngine.isSyncing)`) was already in place, but **no sync cycle
-  was firing**: macOS reached none of its triggers (launch, reconnect, ⌘R, Sync Now,
-  or `scenePhase .background → .active`).
-- **Root cause — macOS `ScenePhase` doesn't track focus.** SwiftUI's `scenePhase`
-  reaches `.background` only when all of the app's windows are hidden/closed/minimized,
-  **not** when the app merely loses key focus (the user clicking over to a browser).
-  So returning to a still-visible Stash window produces no `.background → .active`
-  transition, and the Phase 3 return-from-background trigger never runs. This corrects
-  the Phase 4 claim that "return-from-background (`scenePhase → .active`) ... cover all
-  practical sync needs" on macOS — true on iOS, false on macOS for the focus-switch
-  case.
-- **✅ Fix.** `StashApp` adds a **macOS-only** `.onReceive` for
-  `NSApplication.didBecomeActiveNotification` that runs the same authenticated
-  `SyncEngine.sync()` as the `.active` scene-phase case (both now funnel through a
-  shared `syncIfAuthenticated()` helper). This is the macOS analogue of the iOS
-  foreground trigger. Single-flight (`SyncEngine.sync()`) coalesces an activation that
-  races the launch `.task` sync, and a delta sync is cheap, so firing on every
-  activation is acceptable — the same cost profile as the iOS foreground trigger.
-  iOS keeps using `scenePhase` (foregrounding is already covered there), so the
-  `didBecomeActive` observer is `#if os(macOS)`-guarded, alongside an
-  `#if os(macOS) import AppKit`.
-- **The `NotificationCenter` is injected, not referenced as `.default`.** `AppEnvironment`
-  exposes a `notificationCenter` dependency (defaulting to `.default` in its init), and
-  the observer subscribes via `appEnvironment.notificationCenter.publisher(for:)` rather
-  than reaching for the global singleton in the view — consistent with the rest of the DI
-  container and keeping the trigger testable.
-- **`NSBackgroundActivityScheduler` still not added.** The reported case only needs
-  the app to be foregrounded, which this trigger covers; the Phase 4 decision to skip
-  a macOS background scheduler stands.
-- **Scope.** `StashApp.swift` plus the `notificationCenter` injection point in
-  `AppEnvironment`. No `SyncEngine`, extension, backend, CLI, or browser-extension
-  change. Both platforms build; lints clean.
+Saving a bookmark from the browser extension or the macOS Share Extension —
+both of which write straight to the backend and never touch the app's local
+store — and then switching back to an already-open Stash window on macOS
+didn't show the new bookmark until an explicit refresh or a relaunch. The
+live-list-refresh wiring from earlier was already in place and working; the
+actual problem was that no sync cycle was firing at all when this happened,
+because none of the existing triggers covered it.
+
+The root cause turned out to be a real gap in a Phase 4 assumption: SwiftUI
+scene-phase tracking only reaches its background state when every window of
+an app is actually hidden or minimized, not when the app simply loses key
+focus because the user clicked over to a browser. So switching back to a
+still-visible Stash window never produces the transition the return-from-
+background trigger was watching for — that trigger genuinely does cover
+this case on iOS, but not on macOS, correcting what I'd assumed back in
+Phase 4. The fix adds a macOS-only observer on the app becoming active
+again (not merely visible), running through the same shared sync helper as
+every other trigger, single-flight as always so it safely coalesces with
+anything already in progress.
 
 ## Tag picker (native apps)
 
-- **✅ `TagPickerSheet` replaces the comma-separated tag field.** The add and edit
-  bookmark forms previously edited tags through a comma-separated `TextField` plus the
-  `TagSuggestionView` autocomplete chips (`TagInputSection`). Both forms now show a
-  read-only tag summary (capsule `TagPill`s, or a muted "No tags") and an "Add Tags"
-  button that presents `TagPickerSheet` — a touch-first surface where existing tags are
-  picked from the hierarchical tree with no keyboard required. `TagInputSection` was the
-  only caller of the comma-field machinery and is deleted; the picker is the sole
-  tag-editing surface on the forms.
-- **`TagSuggestionView` retained for `SmartViewFormView`.** The Smart View editor's `tag`
-  condition value is a *single*-tag field, so the inline autocomplete chip pattern is
-  still the right fit there — `TagSuggestionView` keeps that one caller and is not removed.
-- **Search-as-create.** The picker's search field doubles as new-tag input: it filters
-  the tree live, and when the normalized query matches no existing tag path a `+ Create
-  "…"` row appears at the top. Tapping it (or pressing return) adds the tag and clears the
-  field *without closing the sheet*, so several new tags can be added in a row. The query
-  is normalized before adding via the shared `String.normalizedTagQuery()` — trim,
-  lowercase, strip wrapping slashes, drop pipes — mirroring the backend's
-  `Bookmark.normalizeTagQuery`. That helper now lives in `Common` (`Tag.swift`) and
-  `BookmarkFilter` delegates to it, so the offline filter and the picker share one
-  normalization (and the extension, which can't see the app-only `BookmarkFilter`, gets it
-  too). The backend's normalization does **not** collapse duplicate `/`, so the client
-  doesn't either.
-- **Parent-visible filtering.** `TagPickerSheet.filtered` walks the `[TagNode]` tree
-  recursively: a node survives if its own label matches or any descendant matches, so a
-  matching child keeps its ancestors visible and the hierarchy stays navigable. A parent
-  that matches by name keeps its full unfiltered subtree (all children stay selectable); a
-  parent kept only because a descendant matched shows just the matching branch. The
-  `OutlineGroup` disclosure behaviour is left native on both platforms.
-- **Live binding, no Cancel.** Every tap toggles the tag in the `selectedTags` binding
-  immediately, so Done and swipe-down both commit the same state — consistent with how iOS
-  pickers generally behave. iPhone gets `.presentationDetents([.medium, .large])`; macOS
-  uses a fixed-frame sheet.
-- **Shared into the Share Extension.** `AddBookmarkView` (and thus the picker) is shared
-  with the Share Extension, so `tagHierarchy: [TagNode]` was added to the
-  `TagAutocompleting` protocol. The app's `TagRepository` already caches it;
-  `ExtensionTagRepository` derives it on access via `[Tag].hierarchy()` (cheap — the
-  process is short-lived). `TagTreeLabel` and `TagPill` moved from the app-only
-  `Stash/Views/` into `Common/Views/` so the shared picker and summary can use them.
-  Offline, the extension's tag list is empty and the picker shows a "No Tags Yet" empty
-  state with only the Create path available — the same graceful degradation the old
-  autocomplete had.
+The add and edit bookmark forms used to edit tags through a plain
+comma-separated text field with autocomplete chips — functional, but very
+much a keyboard-first design bolted onto a touch app. Both forms now show a
+read-only summary of the current tags plus an "Add Tags" button that
+presents a proper picker sheet: a touch-first surface where existing tags
+are picked directly from the hierarchical tree, no keyboard required unless
+you're creating a brand new tag. The old comma-field machinery is gone
+entirely from the bookmark forms — it's the sole tag-editing surface there
+now. (The Smart View condition editor's single-tag field is a different use
+case, still genuinely suited to inline autocomplete, so that one keeps its
+own separate chip-based picker.)
 
----
+The picker's search field doubles as tag creation: it filters the tree
+live, and when the typed query doesn't match any existing tag path, a
+"Create" row appears at the top — tapping it adds the tag and clears the
+field without closing the sheet, so several new tags can be added back to
+back in one sitting. Filtering itself is parent-visible: a node survives the
+filter if its own label matches or *any* descendant does, so a matching
+child keeps its ancestors visible and the hierarchy stays navigable rather
+than collapsing into an unrelated flat list of matches. Every tap toggles a
+tag immediately rather than staging changes behind a separate Cancel/Done —
+consistent with how iOS pickers generally behave, and simpler than tracking
+two parallel states. The picker is shared with the Share Extension too,
+which derives its own tag tree on the fly since its process is too
+short-lived to bother caching one, and degrades gracefully to a "No Tags
+Yet" empty state with just the create option when there's no tag data
+available at all.
 
 ## Tag pills mirror the web's hierarchy rendering (native apps)
 
-- **✅ `TagPill` displays `swift › server`, not `swift/server`.** The web frontend
-  already presents a hierarchical tag with a middot separator (`AppWebController.display(_:)`
-  → `tag.components(separatedBy: "/").joined(separator: " › ")`), which reads far better than
-  the raw slash slug. The apps now match it: `TagPill` (`Common/Views/TagPill.swift`) renders a
-  `displayName` computed from the same split-and-join (`" › "`, U+2023). **Presentation-only** —
-  the stored tag, the `tag=` filter slug, and every query keep the raw `swift/server` form; only
-  the pill's `Text` changes. Because `TagPill` is the single shared capsule, the change lands on
-  the bookmark rows, the detail view, and the add/edit tag summary (and thus the Share Extension)
-  at once. `TagTreeLabel` is deliberately left showing the leaf segment (`node.label`) — the tree
-  conveys hierarchy by nesting, so it needs no separator.
-- **🔁 Default-expanded tag trees were considered and deferred.** *Superseded by "Flat-indented
-  (web-parity) tag tree" below.* Making the four `OutlineGroup(_:children:)` trees open expanded
-  would require replacing `OutlineGroup` (which exposes no default-expanded / expansion-binding
-  option) with a recursive `DisclosureGroup` wrapper across all four call sites — judged too much
-  machinery for the payoff at the time. That recursive-`DisclosureGroup` path remains rejected; the
-  simpler flat-indent port below was taken instead.
+The web frontend already presents a hierarchical tag with a middot
+separator rather than the raw stored slash — `swift › server` instead of
+`swift/server` — which reads far more naturally. The native apps now match
+that presentation exactly, through the one shared tag-pill component, so
+the change lands on bookmark rows, the detail view, and the add/edit tag
+summary all at once. This is presentation-only — the actual stored tag, the
+filter query, and every request still use the raw slash form; only the
+displayed text changes. The indented tag-tree rows deliberately keep
+showing just the leaf segment of each tag rather than the full path, since
+the tree already conveys hierarchy through nesting and indentation, so a
+separator there would be redundant.
 
 ## Flat-indented (web-parity) tag tree (native apps)
 
-- **✅ The four tag trees are always-visible and indented, not collapsible.** The
-  `OutlineGroup(_:children:)` at all four call sites (iPad `MainView`, macOS `MacContentView`,
-  iPhone `TagBrowserView`, and the add/edit `TagPickerSheet`) was collapsed-by-default with no way
-  to open it — to browse or pick a tag you had to expand each parent, and the whole list was never
-  visible at once. Replaced with `ForEach(nodes.flattened())`, mirroring the always-expanded web
-  sidebar (which flattens to `[node, depth]` and indents with `padding-left`). **Why:** the entire
-  tag list is now visible without expanding; it is *less* machinery than `OutlineGroup` (a flat
-  `ForEach`, no recursion/disclosure state), not a workaround. The rejected alternative was the
-  recursive-`DisclosureGroup` wrapper noted just above.
-- **✅ Nested model kept; only rendering flattened.** `[Tag].hierarchy() -> [TagNode]` and the
-  picker's parent-visible `filtered` (both walk `TagNode.children`) are unchanged. A new
-  `[TagNode].flattened() -> [FlatTagNode]` (`Common/Models/Tag.swift`) produces a depth-tagged,
-  pre-order sequence; the shared `TagTreeLabel` gained a `depth` that applies `padding(.leading,
-  depth * indentPerLevel)`, so indentation lives in the one row used by all four sites (depth 0 = no
-  padding, so top-level tags stay aligned with the `Views` section).
-- **✅ Flattened form cached on `TagRepository`, like `tagHierarchy`.** The two sidebars and the Tags
-  tab read a cached `flattenedTagHierarchy` (computed in `derive()` beside `tagHierarchy`, cleared in
-  `reset()`) rather than calling `.flattened()` in the view body — same reasoning that cached
-  `tagHierarchy`: a sidebar body re-evaluates on every selection tap, and re-walking the tree each
-  time would defeat that cache. The picker keeps `filteredHierarchy.flattened()` inline (the filtered
-  set changes per keystroke, so there is nothing to cache); `flattened()` itself uses an append
-  accumulator rather than `[node] + recurse` to avoid per-level array reallocation.
-- **✅ Search composes instead of fighting.** In `TagPickerSheet`, `OutlineGroup` undercut its own
-  search: `filtered` narrowed the set but the collapsed-by-default tree still hid matching children
-  behind a triangle. Flattening the already-filtered `filteredHierarchy` renders every surviving
-  branch visible and indented, so matches appear immediately — no new search mechanism, just a flat
-  render of the existing filtered subset.
-- **✅ Verified.** Both platforms build (iOS Simulator + macOS), `swiftformat --lint` idempotent and
-  `swiftlint lint` 0 violations. Drag-to-tag (`bookmarkTagDropDestination`) stays per-row and the
-  Views-section sentinels are untouched.
+All four of the native tag trees — both sidebars, the iPhone tags tab, and
+the tag picker — started out as native collapsible, disclosure-triangle
+trees, collapsed by default with no way to open everything at once. That
+turned out to actively undercut the picker's own search: narrowing the list
+still left matching children hidden behind a closed triangle above them,
+so a search that should have surfaced a result visually hid it instead. I'd
+briefly considered making the trees expand by default, which would have
+needed replacing the native disclosure-group view with a hand-rolled
+recursive wrapper across all four call sites — more machinery for the
+payoff than I wanted. What I actually did instead was simpler than either
+option: replace the collapsible tree with a flat, indented list — mirroring
+exactly what the web sidebar already does — so the whole tree is visible at
+once with indentation conveying the hierarchy, and it's genuinely *less*
+code than the disclosure-group approach would have been, not a workaround.
+The underlying nested tree model itself didn't change at all; only how it's
+rendered did, and the flattened form is cached the same way the nested one
+already was, so a sidebar tap doesn't pay to re-walk the whole tree on every
+redraw.
 
 ## Drag-and-drop tagging (native apps)
 
-- **✅ Drag a bookmark row onto a sidebar tag to add that tag — iPad and macOS only.**
-  Those are the two layouts where the tag sidebar and the bookmark list share the screen
-  (`SidebarSplitView` on iPad, `MacContentView` on macOS). On iPhone the tags are a separate
-  tab, so there is no on-screen drop target; the gesture would also compete with the row's
-  long-press context menu. Dragging is therefore gated off in compact width:
-  `draggableBookmark(_:enabled:)` (`Common/Support/PlatformModifiers.swift`) applies
-  `.draggable` only when enabled, and `BookmarkListContent.isDragEnabled` is `true` on macOS
-  and only at `horizontalSizeClass == .regular` on iOS. `.draggable` and the existing row
-  `.contextMenu` coexist (long-press lifts into the menu on iPad; drag = mouse, menu =
-  right-click on macOS).
-- **✅ `Bookmark` is `Transferable` via a custom UTType, not generic JSON.** `Bookmark`
-  gained `Codable` and a `CodableRepresentation(contentType: .stashBookmark)` where
-  `.stashBookmark = UTType(exportedAs: "cc.otavio.stash.bookmark")`. The dedicated type stops
-  the tag rows from accepting arbitrary dropped JSON. **The type must be declared** in the app's
-  Info.plist (`UTExportedTypeDeclarations`, conforming to `public.data`) on both platforms —
-  without the declaration the drag still lifts, but `dropDestination(for: Bookmark.self)` can't
-  resolve the conformance for an unregistered exported type and silently rejects every drop (the
-  bug that "intra-app drags need no declaration" assumed away). Only the two App Info.plists need
-  it; the Share Extension does no drag-and-drop. The drag carries a snapshot of the bookmark's tags at lift
-  time — an accepted trade-off, since the append is a single field and last-write-wins sync
-  reconciles any drift.
-- **✅ The drop reuses the optimistic `update` path; no new write API.** A
-  `BookmarkTagDropModifier` (`Stash/Views/`, app-only because it depends on
-  `AppEnvironment`/`BookmarkRepository`, which are not in `Common/`) wraps each `TagTreeLabel`
-  via `.dropDestination(for: Bookmark.self)` in both sidebars' `makeTagsSection()`. On drop it
-  appends `node.slug` to each dropped bookmark's tags (skipping ones that already have it) and
-  calls `BookmarkRepository.update(id:title:description:tags:)`, then
-  `TagRepository.refresh()` to update the sidebar counts. It builds a throwaway repository via
-  `makeBookmarkRepository()` — every repository writes to the one shared `LocalStore`, so the
-  drop lands regardless of which list owns the visible state. **Gotcha:** the handler passes
-  `description: bookmark.description` (not `nil`) because `queueUpdate` assigns
-  `record.bookmarkDescription = description` unconditionally — `nil` would wipe the description.
-- **✅ Sentinels are never drop targets.** `__untagged__`, `__today__`, and `__this_week__`
-  live in the **Views** section, not in `tagHierarchy`, so only real tag nodes get the drop
-  modifier. Synthetic parent nodes (count `nil`, e.g. `swift`) carry a real `slug` and are valid
-  targets. A drop highlights the targeted row with a translucent accent `listRowBackground`.
+Dragging a bookmark row directly onto a sidebar tag to tag it works on iPad
+and macOS, the two layouts where the tag sidebar and the bookmark list
+genuinely share the same screen — it's deliberately not available on
+iPhone, where tags live on a separate tab entirely and there's no on-screen
+drop target for the gesture to land on, and it would compete with the row's
+existing long-press context menu anyway.
+
+Making a bookmark draggable needed a dedicated, custom transferable type
+rather than generic JSON, specifically so a tag row can't be tricked into
+accepting arbitrary dropped data from somewhere else. That type has to be
+explicitly declared in both apps' configuration — without that declaration
+the drag still visually lifts off the row, but the drop target silently
+can't resolve the type and rejects every drop with no visible error at
+all, which took a bit of tracing to pin down since "intra-app drags need no
+extra declaration" turned out to be a wrong assumption. The drop itself
+reuses the same optimistic update path every other tag edit already goes
+through — no new write API needed for this at all. The three sidebar
+sentinels (Untagged, Today, This Week) live in a separate section from the
+tag tree entirely, so they're never accidentally valid drop targets — only
+real tag nodes are.
 
 ## Native share (bookmark row menu + detail actions)
 
-- **✅ Native `ShareLink`, not a pasteboard-style `#if` helper.** A **Share…** entry was added to
-  both the bookmark row context menu (`makeRowContextMenu(for:)` in `BookmarkListView`) and the
-  detail actions section (`makeActionsSection()` in `BookmarkDetailView`), placed after the Copy
-  actions and before Archive so read/copy/share group above the mutating Archive/Delete actions.
-  It uses SwiftUI's `ShareLink(item: bookmark.url)`, which is cross-platform and presents the system
-  share sheet itself — no action closure and, unlike `copyToPasteboard(_:)`, no `#if` platform
-  branch. Shares the URL only (the request was "share the URL"); `bookmark.url` is already a typed
-  `URL`, exactly what `ShareLink(item:)` wants. In the detail it carries the sibling
-  `.formButtonRowStyle()`.
+Both the bookmark row's context menu and the detail view's actions section
+gained a native Share entry, placed after the copy actions and before the
+mutating archive/delete actions so the ordering groups read-only actions
+above destructive ones. It uses SwiftUI's built-in share link rather than a
+hand-rolled platform-specific helper, which is genuinely cross-platform and
+needs no `#if` branch at all, unlike the clipboard helper elsewhere in the
+app — sharing just the bookmark's URL, which is what was actually asked for.
 
 ## Smart View relative date conditions (olderThan / newerThan)
 
-- **✅ Two new condition types — `olderThan` / `newerThan` — filter by age relative to now.** They
-  join the existing absolute `createdBefore` / `createdAfter` conditions without replacing or altering
-  them (§7.7). `olderThan` matches `createdAt < now - offset`; `newerThan` matches `createdAt > now -
-  offset`. Added to the backend `SmartViewCondition` enum, the web condition builder, the native
-  `SmartViewFormView`, and the offline `BookmarkFilter`.
-- **✅ Value is a compact duration string (`Nd` / `Nm` / `Ny`, N ≥ 1).** A positive integer with a
-  unit suffix — `d` days, `m` months, `y` years (`"30d"`, `"3m"`, `"1y"`). `"0d"`, `"-7d"`, `"1w"`,
-  `"abc"`, `""`, and `"30"` (no unit) are invalid and rejected with `422 validation_failed`, the same
-  way a malformed ISO-8601 date is for the absolute conditions. A shared `SmartViewDuration` value
-  type owns the parse-or-`nil` logic and the cutoff calculation; it is duplicated deliberately on the
-  backend (`Sources/App/Models/SmartView.swift`) and in the native `Common/Models/SmartView.swift`,
-  the same DTO-vs-domain split used elsewhere (StashKit stays a thin wire layer).
-- **✅ Evaluated at query time against `Date()`, with `Calendar` arithmetic.** The cutoff is computed
-  when the query runs (server time on the backend via `Calendar.current`, device time in
-  `BookmarkFilter`), never frozen at Smart View creation — so "older than 6 months" stays current as
-  time passes. Months and years are **calendar** units (`Calendar.date(byAdding:)`), not fixed-second
-  multiples, so `"1m"` is one calendar month rather than 30 days. Same server-timezone trade-off
-  already accepted for the `__today__` / `__this_week__` sentinels.
-- **✅ Code-only — no schema migration.** The `conditions` JSON column already stores arbitrary
-  `{ type, value }` objects, so a new type costs nothing at the storage layer (the precedent set when
-  `hasTags` was added). StashKit's `SmartViewConditionDTO` is unchanged beyond a doc comment — `type`
-  and `value` are already generic strings.
-- **✅ Distinct value editors per surface, both assembling the wire string.** The web condition
-  builder renders a compound control (a number `<input>` + a Days/Months/Years `<select>`) that a
-  small vanilla-JS handler assembles into the hidden `conditionValue[]` carrier on change; the native
-  form renders an `Int`-bound `TextField` (number-pad on iOS, clamped to ≥ 1) plus a segmented unit
-  `Picker`, serialized through `SmartViewDuration.wireValue`. The management table's condition summary
-  renders the duration readably ("older than 30 days") rather than the raw `30d`.
-- **✅ The web form clears a row's value carrier on type change, not on render.** Because the shared
-  text `<input>` doubles as the hidden carrier for the assembled duration, switching a row's type
-  (e.g. `olderThan` → `titleContains`) would otherwise leave the stale `"30d"` visible in the now-text
-  field. The reset lives in the type `<select>`'s `change` handler (fires only on user interaction),
-  never in `syncRow` (which also runs on page load) — so editing an existing Smart View still shows
-  its saved values, while a switch to a duration type is immediately repopulated by `assembleDuration`.
+Two new Smart View condition types, `olderThan` and `newerThan`, filter by
+age relative to right now rather than a fixed date, joining the existing
+absolute before/after conditions without replacing them. The value is a
+compact duration string — a positive integer plus a unit suffix for days,
+months, or years — parsed and validated the same strict way a malformed
+ISO-8601 date already was, rejecting anything ambiguous like a missing unit
+or a negative number. The cutoff is computed fresh every time the query
+actually runs, using real calendar arithmetic rather than fixed-second
+multiples, so "older than 1 month" means an actual calendar month and stays
+correct as time passes rather than being frozen at the moment the Smart
+View was created. Since the conditions column already stores arbitrary
+typed values, adding this was purely code-only — no schema migration, the
+same precedent set when the `hasTags` condition was added earlier. The web
+and native forms both got their own compound value editor (a number plus a
+unit picker) that assembles into the same wire string underneath.
 
 ## OpenAPI specification
 
-- **✅ Hand-written YAML, not generated — zero new dependencies.** `Backend/Public/openapi.yaml` is an
-  OpenAPI 3.0.3 description authored by hand from `PRODUCT.md` §7–§9 / §19.4, `Docs/api.md`, and the
-  backend's `Content` response structs / StashKit DTOs. No code-generation step, no new Swift package,
-  no generated Swift. The spec is the source of truth and lives alongside the other docs.
-- **🔒 Rule — the spec is part of the API contract and is kept in lockstep, by hand.** Because nothing
-  generates it, any change to the `/api/v1/` + `/health` surface — a new or removed endpoint, a renamed
-  or added field, a changed status code, a new error case, a new query param — **must update
-  `Backend/Public/openapi.yaml` in the same commit**, and re-validate (`npx @apidevtools/swagger-cli
-  validate Backend/Public/openapi.yaml`). A spec that lags the code is treated as a bug. The wire shapes
-  mirror the backend `Content` structs and StashKit DTOs — those two and the spec must agree. This rule
-  is also stated in `CLAUDE.md` (Backend conventions) so every session sees it.
-- **✅ Served statically from `Public/openapi.yaml` via the existing `FileMiddleware`.** No new route —
-  the spec and the Swagger UI page are plain static assets picked up by the `FileMiddleware` already
-  registered in `configure.swift`. No Swift source was touched.
-- **✅ Swagger UI served from a CDN at `/docs.html` — no library, no build step.** `Public/docs.html`
-  loads `swagger-ui` 5.29.1 from cdnjs and points it at `/openapi.yaml`. Browsing needs network access
-  (CDN); the spec file itself is self-contained. Served at `/docs.html` rather than a bare `/docs`
-  alias deliberately — the alias would have required a new Swift route, which was out of scope.
-- **✅ Covers `/api/v1/` and `/health` only — web UI routes excluded.** The `/app` and `/admin`
-  surfaces are session-cookie driven and not part of the public token API, so they are left out.
-- **⚠️ Spec reflects the *implemented* API, not the PRD where they diverge.** `Bookmark`, `SmartView`,
-  and `UserProfile` schemas follow the actual wire shapes (no `userID`; `UserProfile` has no `updatedAt`),
-  and `GET /bookmarks/changes` is documented as keyset-paginated (`afterUpdatedAt`/`afterId`), matching
-  the controller rather than the older offset-page wording in `Docs/api.md`. (Initially `POST
-  /auth/totp/disable` and `POST /admin/users/:id/reset-totp` were also omitted as web-only; they were
-  subsequently implemented on the JSON API — see "2FA disable / reset land on the JSON API" below.)
-- **✅ Validated with `@apidevtools/swagger-cli`.** `npx @apidevtools/swagger-cli validate` reports the
-  spec valid. Schema-level `examples` (an OpenAPI 3.1 feature) was reduced to a single 3.0.3 `example`
-  on `SmartViewCondition`; the full per-type value catalogue lives in that schema's `description`.
+The API spec (`Backend/Public/openapi.yaml`) is hand-written, not generated
+from any code-scanning tool — authored directly from the product spec, the
+API docs, and the backend's actual response types, with zero new
+dependencies or build step involved. Because nothing generates it
+automatically, I hold myself to a hard rule: any change to the `/api/v1/`
+surface — a new or removed endpoint, a renamed field, a changed status
+code, a new error case — has to update this file in the same commit, and I
+treat a spec that's fallen out of sync with the code as a bug in its own
+right, not a documentation nice-to-have. It's served as a plain static
+asset, no new route needed, and a Swagger UI page at `/docs.html` loads a
+CDN copy of the viewer and points it at the spec — no bundled library, no
+build step there either. The spec deliberately reflects the API as actually
+implemented rather than the original plan where the two diverge, and I
+validate it with a schema linter after every edit.
 
 ## 2FA disable / reset land on the JSON API
 
-- **✅ Closed the two PRD §9.2/§9.6 endpoints that previously existed only on the web UI.** `POST
-  /api/v1/auth/totp/disable` (self-service) lives in `UserController` under the existing
-  `auth/totp` group; `POST /api/v1/admin/users/:id/reset-totp` lives in `AdminController` under the
-  `:userID` group (admin-only via `AdminMiddleware`). StashKit's `makeTOTPDisableRequest` /
-  `makeResetTOTPRequest` already targeted these exact paths, so no client change was needed — this only
-  catches the backend up to the spec, PRD, and StashKit.
-- **✅ Both invalidate refresh tokens, matching PRD §8.4/§8.6.** Each handler deletes the user's recovery
-  codes, clears `totpSecret`, sets `isTOTPEnabled = false`, and **deletes all refresh tokens** so other
-  sessions are signed out. (The web self-service disable historically skipped the token revocation; the
-  API does it per spec — a deliberate, spec-aligned divergence from the older web handler.)
-- **✅ Behavioural choices.** Self-service disable requires a current TOTP code; a wrong code — or a call
-  when 2FA isn't enabled — is `401 totp_invalid` (consistent with `verify-setup`). Admin reset needs no
-  code and allows self-reset. Both teardown endpoints return **`204 No Content`** — matching each other and
-  the shipped StashKit `VoidResponse` factories (`makeTOTPDisableRequest`/`makeResetTOTPRequest`). Admin
-  reset is a **true no-op for a user with no 2FA footprint** (`isTOTPEnabled` false *and* `totpSecret`
-  nil): it returns `204` without touching the user, so it never silently revokes the sessions of someone
-  who never had 2FA. (Earlier this endpoint returned `200` + `UserResponse` and ran the teardown
-  unconditionally; both were changed during the `/code-review` pass — the `200`+body drifted from the
-  `VoidResponse` factory and the sibling `204`, and the unconditional teardown signed out non-2FA users.)
-- **✅ Tests + docs in the same change.** Added `TwoFactorTests` cases (disable success revokes
-  codes/tokens, wrong code, not-enabled, unauthenticated) and `AdminTests` cases (reset success,
-  not-enabled no-op, unknown user 404, non-admin 403). Updated `Backend/Public/openapi.yaml`
-  (`disableTOTP` + `adminResetUserTOTP` operations, `TOTPDisableRequest` schema — re-validated) and
-  `Docs/api.md`, per the spec-lockstep rule. PRD §9.2/§9.7 now match the implementation.
+Two endpoints the original spec called for — self-service 2FA disable and
+an admin-triggered 2FA reset — had only ever been implemented on the web
+controllers, even though StashKit's request factories already targeted
+their documented API paths in anticipation. This closed that gap: both now
+exist on the JSON API too, at exactly the paths StashKit already expected,
+so no client code needed to change at all — this was purely catching the
+backend up to the contract everyone else already assumed. Both invalidate
+every refresh token for the account on success, matching the spec, which
+is actually a small deliberate improvement over the older web handler that
+had historically skipped that revocation step. Along the way, a code review
+pass caught two rough edges before they shipped: the response shape had
+drifted from the sibling endpoint's convention, and the admin reset
+endpoint was unconditionally running its teardown logic even against a
+user who'd never enabled 2FA in the first place, which would have silently
+signed out every one of that user's sessions for no reason — both fixed
+before release, with new test coverage for the success path, the
+already-disabled no-op case, and the permission-denied case.
 
 ## Visual polish — bookmark list, detail, empty states (native apps)
 
-- **✅ A content-first polish pass on the bookmark row, detail header, and empty states — no new
-  features, no navigation or data-flow changes.** Aesthetic reference is Things / Craft: structured,
-  generous whitespace, refined typographic details, chrome that disappears.
-- **Typographic hierarchy — three levels via semantic styles.** Each row reads as a clear scale instead
-  of three equal-weight elements: **title** primary (`.body` weight `.medium`, `.primary`, 2-line),
-  **domain** secondary (`.caption` weight `.medium`, `.secondary`), **tags** tertiary (`.caption2`,
-  `.tertiary`). The same scale is applied in the detail header (`.title2` semibold title, identical
-  domain line, `.caption` `.secondary` URL). No hardcoded point sizes — semantic text styles throughout,
-  so Dynamic Type and dark mode work for free.
-- **Domain as the visual anchor.** The row's secondary line is now `favicon + domain`
-  (`bookmark.faviconDomain ?? hostname`, `www.`-stripped) rather than the full URL — more scannable and
-  more meaningful. The favicon sits on the domain line, vertically centred. The detail view keeps the
-  full URL too, but demoted to a quiet `.caption` `.secondary` `Link` *below* the domain line.
-- **Tags text-only in the list row; styled capsule retained in the detail view.** `TagPill` gained an
-  `isPlain` parameter: the default is the accent-tinted capsule (used in the detail Tags section and the
-  add/edit summary), `isPlain: true` drops the background to quiet `.tertiary` text for the row. The
-  `swift › server` hierarchy rendering and the 3-tags-+N overflow logic are unchanged — only the
-  treatment.
-- **Increased row padding.** Row vertical padding went `4` → `10`, inner `VStack` spacing `4` → `6`, so
-  rows breathe. No fixed row height — content drives it.
-- **Favicon monogram fallback.** `FaviconView`'s placeholder (shown while loading and on a 404) is now a
-  rounded-square monogram of the domain's first letter (`.quaternary` fill, `.secondary` text, matching
-  the 18×18 / 4pt-radius favicon frame) instead of the `link` SF Symbol — a calmer, less broken-looking
-  empty state.
-- **`BookmarkEmptyState` — one shared empty-state component with specific, actionable copy per context.**
-  Symbol (`.system(size: 44)`, `.quaternary`) → title (`.title3` semibold) → message (`.body`
-  `.secondary`, centred, max width 280pt), centred in the available space. Replaces the per-context
-  `ContentUnavailableView` calls for the first-run, archived, tag-filter, and Smart-View cases with copy
-  that names the active filter and says what to do next ("No bookmarks yet" → "Save your first bookmark
-  using the + button, the Share Extension, or the browser extension"; tag filter shows the
-  `›`-separated display name; the untagged/today/this-week sentinels keep their own tailored copy).
-  The active-search case keeps Apple's `ContentUnavailableView.search(text:)` — already well-designed.
-  No buttons on any empty state: the toolbar `+` already provides the action.
-- **Scope.** Touched only `BookmarkRowView`, `BookmarkDetailView` (header section only — the grouped
-  `Form` and its action rows are unchanged), `BookmarkListView` (empty states), `TagPill`, `FaviconView`,
-  and added `BookmarkEmptyState`. No backend / StashKit / CLI / web / extension changes; no app unit
-  tests (§19.6). Builds clean on both iOS and macOS.
-- **Follow-up — two-line description in the row (native apps).** The original pass kept description
-  detail-only; the row was domain → title → tags. After the web list adopted a two-line description
-  excerpt (see *Visual polish — bookmark list mirrors the native row (web frontend)*), the native
-  `BookmarkRowView` was brought back to parity: a `makeDescription()` line (`.subheadline`, `.secondary`,
-  `lineLimit(2)`) now sits between the title and the tags, shown only when the bookmark has a non-empty
-  description. The web's two-line clamp and the native `lineLimit(2)` are the same idea — a short,
-  proportionate excerpt rather than a fixed character count. iOS/iPadOS/macOS share the one row view.
+A content-first visual polish pass on the bookmark row, the detail header,
+and the empty states — no new features, no navigation or data changes,
+just refinement. The look I was chasing is closer to Things or Craft:
+structured, generous whitespace, chrome that gets out of the way. Each row
+now reads as a clear three-level hierarchy — a primary title, a secondary
+domain line, and tertiary tags — using only semantic text styles throughout
+rather than hardcoded point sizes, so Dynamic Type and dark mode keep
+working automatically. The domain became the row's real visual anchor
+(favicon plus domain, not the full URL), which is both more scannable and
+more meaningful than a raw URL string; the detail view still shows the full
+URL, just demoted to a quiet secondary line below the domain. Tags in the
+list row dropped their capsule background in favor of plain quiet text,
+while the detail view and add/edit summary keep the more prominent styled
+capsule treatment — same underlying component, just a plainer mode for the
+row context. The favicon's loading/failure placeholder became a calm
+letter-monogram of the domain's first character instead of a generic broken
+link icon. And every context-specific empty state (first run, archived,
+filtered by tag, a Smart View) now shares one component with copy that
+actually names the active filter and suggests what to do next, rather than
+a handful of separately-worded messages.
 
 ## Add/Edit Bookmark — custom layout (native apps)
 
-- **✅ Replaced the grouped `Form` in both the add (`AddBookmarkView`) and edit (`EditBookmarkView`)
-  screens with a plain `ScrollView` + `VStack(spacing: 0)` of field groups.** The grouped form's
-  table-cell chrome (inset rounded sections, separators, system row insets) is gone; spacing and thin
-  dividers do the structural work instead, giving precise control over a calmer, more breathable layout.
-  Same Things / Craft direction as the bookmark-list polish.
-- **Label-above-field pattern (Things-style).** Each field group is a small `FieldLabel` (`.caption`
-  `.medium` `.secondary`, the same tertiary level as the list/detail scale) floating above a `.body`
-  field, rather than a `Form` section header to the left. New shared `FieldLabel` view in `Common/`.
-  Each group is padded `.horizontal 20` / `.vertical 14`, separated by `Divider().opacity(0.3)`.
-- **Borderless fields.** Text fields use `.textFieldStyle(.plain)` and sit directly on the sheet
-  background (no per-field box). Title/description are `axis: .vertical` with `lineLimit(1...3)` /
-  `lineLimit(3...6)` so they grow in place. `.scrollDismissesKeyboard(.interactively)` keeps the
-  keyboard out of the way as the user scrolls.
-- **Metadata preview row.** After a successful fetch (manual on the app, auto-on-appear in the
-  extension) a compact `favicon 24×24 + domain` row fades in (`.transition(.opacity)`) between the URL
-  and title groups — visual confirmation of *which* site was fetched, without a separate status line.
-  Editing the URL clears it (and re-shows the Fetch button). The Fetch button itself shows only while
-  the URL is non-empty and unfetched, becoming a small `ProgressView` while in flight.
-- **Favicon across the target boundary.** `FaviconView` is app-only (it reads the `@Observable`
-  `AppSettings`), but the add form lives in `Common/` and compiles into the Share Extension, which has
-  no `AppSettings`. Rather than push that dependency into the extension, the shared favicon **styling**
-  (`RoundFaviconModifier` / `roundedFavicon(size:)`) and the **monogram fallback** (`FaviconMonogram`)
-  moved to `Common/Views/FaviconStyle.swift`, and a sibling `MetadataFaviconView` (also `Common/`) reads
-  the server URL straight from the App Group's shared `UserDefaults` (`AppGroup.serverURLKey` — the same
-  value `AppSettings` writes through). The app's `FaviconView` data flow is unchanged; list/detail
-  favicons are untouched. Both views now share one look. `FaviconView` also gained a `size` parameter
-  (default 18) so the preview can render at 24.
-- **Save/Cancel stay in the navigation toolbar** (cancellation/confirmation placements) on all
-  platforms, consistent with the rest of the app's chrome; Save is disabled until the URL parses and
-  becomes a `ProgressView` while saving. The macOS Share Extension's inline bottom action bar
-  (`usesInlineActionBar` → `.safeAreaInset(edge: .bottom)`) is preserved.
-- **Share Extension compatibility preserved.** `isURLEditable` (read-only `.body` URL text, no paste /
-  fetch when locked), `autoFetchOnAppear` (fetch in `.task`), and `usesInlineActionBar` all continue to
-  work unchanged. `TagSummarySection` was reworked from a `Form` `Section` into the label-above-field
-  layout (up to three `TagPill` chips + `+N`, trailing "Add Tags →" button presenting the unchanged
-  `TagPickerSheet`); it is shared by both forms so tag editing stays identical everywhere.
-- **Scope.** No backend / StashKit / CLI / web / extension-folder changes; `TagPickerSheet` untouched
-  (a later pass); no data-layer changes; no app unit tests (§19.6). Builds clean on iOS and macOS
-  (extension target included).
+Both the add and edit bookmark screens moved off SwiftUI's grouped form
+style entirely, replaced with a plain scrolling stack of field groups —
+removing the table-cell chrome (inset rounded sections, system separators)
+in favor of spacing and thin dividers doing the structural work, the same
+Things/Craft direction as the list polish above. Each field now has its
+label floating above it rather than off to the side the way a form section
+header would, and text fields sit borderless directly on the sheet
+background rather than in an inset box. After a successful metadata fetch,
+a small favicon-plus-domain row fades in between the URL and title fields
+as a lightweight visual confirmation of which site actually got fetched.
+One structural wrinkle worth noting: the favicon view used elsewhere in the
+app depends on app-only settings that don't exist inside the Share
+Extension's process, so the shared favicon styling and its monogram
+fallback moved into the common layer, with a small extension-safe variant
+that reads the server URL straight from the shared App Group storage
+instead. Tag editing on both forms was reworked into the same label-above-
+field layout, and the Share Extension's read-only URL, auto-fetch-on-appear,
+and inline action bar all kept working unchanged throughout this pass.
 
 ## Tag Picker Sheet — visual polish (native apps)
 
-- **✅ A visual polish pass on `TagPickerSheet` matching the bookmark-list / Add-Edit aesthetic.**
-  Functional behaviour is unchanged — single-tap toggles, search-as-create, Done commits. Two visible
-  improvements plus minor row/empty-state refinements.
-- **Leading selection circle replaces the trailing checkmark.** Each tag row now leads with
-  `circle` (unselected, `.secondary`) / `circle.fill` (selected, accent), the iOS multi-select pattern
-  from Mail / Reminders / Shortcuts. The circle is flush-left for every row; `TagTreeLabel` (unchanged)
-  still carries the per-depth indent, so the hierarchy reads from the label's inset while the circles
-  form a clean leading column. Row stays fully tappable (`contentShape(Rectangle())`).
-- **Selected-tags chip strip above the list.** When `selectedTags` is non-empty a horizontally
-  scrollable strip of chips appears between the search field and the list, in insertion order (the
-  `[String]` selection already preserves order). It animates in/out with
-  `.transition(.move(edge: .top).combined(with: .opacity))` driven by
-  `.animation(.default, value: selectedTags.isEmpty)`, so it slides in on the first selection and out
-  when the last is removed. The strip's horizontal scroll and the list's vertical scroll don't conflict.
-- **`SelectedTagChip` — a new view in `Common/Views/TagPickerSheet.swift`.** Renders the tag in the
-  same `›`-separated format as `TagPill` (logic re-derived, not a dependency) with a `×` remove button,
-  but on a muted `.quaternary` capsule rather than the accent tint — deliberately quiet so the strip
-  doesn't compete with the accent selection circles below. Kept distinct from `TagPill`, which remains
-  the styled summary chip for the detail view and the add/edit forms.
-- **Create row distinguished from tag rows.** The search-as-create row now leads with
-  `plus.circle.fill` in the accent colour and a `.body` `.medium` label, instead of a plain `circle`,
-  so the create action reads as an action rather than another selectable tag.
-- **Empty state reuses `BookmarkEmptyState`.** That component (pure SwiftUI, no app dependencies)
-  moved from `Stash/Views/` to `Common/Views/` so the shared picker — which compiles into the Share
-  Extension — can use it; the bookmark list (in `Stash/`) still references it unchanged. The no-tags
-  state shows the calm symbol / title / message ("No tags yet" / "Type a name above to create your
-  first tag."); the no-search-match case keeps a `magnifyingglass` `ContentUnavailableView`.
-- **Scope.** Only `TagPickerSheet.swift` changed (plus relocating `BookmarkEmptyState`); `TagTreeLabel`,
-  `TagPill`, the selection/normalisation logic, and `TagPickerSheet`'s interface are all untouched. No
-  backend / StashKit / CLI / web / extension-folder changes; no data-layer changes; no app unit tests
-  (§19.6). Builds clean on iOS and macOS (extension target included).
+A matching polish pass on the tag picker itself, purely visual — the
+underlying tap-to-toggle and search-as-create behavior is unchanged. Each
+row now leads with a selection circle (empty when unselected, filled with
+the accent color when selected) rather than a trailing checkmark, the same
+multi-select pattern Mail and Reminders use. When at least one tag is
+selected, a horizontally scrolling strip of removable chips appears between
+the search field and the tag list, showing the current selection in the
+order it was picked, sliding in and out smoothly as the selection goes from
+empty to non-empty and back. The search-as-create row got its own distinct
+visual treatment too — a filled plus-circle rather than a plain selection
+circle — so it reads clearly as an action rather than just another
+selectable row.
 
 ## Add/Edit Bookmark — tag chip strip (native apps)
 
-- **✅ Follow-up to the Add/Edit custom layout: the tag row (`TagSummarySection`) now uses the
-  removable `SelectedTagChip` strip instead of static `TagPill`s.** Selected tags render as the same
-  muted `.quaternary` capsules with a `×` dismiss as in `TagPickerSheet`; tapping `×` removes the tag
-  from the binding immediately (`selectedTags.removeAll { $0 == tag }`) — no need to reopen the picker
-  to drop a tag. The strip scrolls horizontally and the trailing "Add Tags" button (arrow dropped, the
-  chips make the context clear) stays put to add more. With no tags selected the strip is absent and the
-  button is the only element, as before.
-- **`SelectedTagChip` moved to its own `Common/Views/SelectedTagChip.swift`** (it had been file-scoped
-  in `TagPickerSheet.swift`) so it reads as the shared chip it now is — used by both the picker's
-  selected-tags strip and the forms' tag row, and compiled into the Share Extension. Pure SwiftUI, no
-  app dependencies. `TagPickerSheet` is otherwise unchanged.
-- **Scope.** Only `TagSummarySection` (chip strip) and the `SelectedTagChip` relocation; `TagPickerSheet`
-  selection logic/interface and `TagPill` untouched. No backend / StashKit / CLI / web / extension-folder
-  changes; no data-layer changes; no app unit tests (§19.6). Builds clean on iOS and macOS (extension
-  included).
+A direct follow-up to the custom layout work above: the tag summary row on
+both the add and edit forms now uses the same removable chip strip the tag
+picker introduced, instead of static, non-interactive tag pills. Tapping a
+chip's remove button drops that tag immediately, without needing to reopen
+the full picker sheet just to remove one tag — a small but genuinely useful
+convenience once the chip strip existed elsewhere in the app anyway. The
+shared chip component moved into its own file in the common layer so it's
+clearly reusable rather than looking like an implementation detail of the
+picker alone.
 
 ## Settings — visual polish (native apps)
 
-- **✅ A polish pass on the Settings screens (iOS `SettingsView`, macOS `GeneralSettingsView`, the
-  shared `AccountSettingsView` / `SmartViewManagementView` / `SyncStatusSection`).** Same Things / Craft
-  direction. The recurring problem was in-place action buttons inheriting `Form` cell styling (full-width
-  tappable rows) and cramped, undifferentiated sections.
-- **In-place actions now look like buttons.** Buttons that act in place — Sync Now, Sign Out, Change
-  Password, Enable/Disable Two-Factor, New Smart View — are explicit `.bordered` / `.borderedProminent`
-  buttons, sized to content and left-aligned, not `Form` rows. Navigation rows (Account →, Smart Views →)
-  stay as `NavigationLink`s, the correct native pattern. Destructive actions (Sign Out, Disable
-  Two-Factor) use `.bordered` + `.tint(.red)`; the primary New Smart View action uses
-  `.borderedProminent` (accent fill).
-- **iOS `SettingsView` / macOS General stay `Form`-based** (appropriate for a compact settings list and
-  the editable macOS server URL field) — only the buttons changed: Sync Now and Sign Out are now
-  left-aligned bordered buttons (`HStack { … ; Spacer() }` inside their section), Sign Out red-tinted in
-  its own section so it reads as a standalone dangerous action rather than a row tucked under Sync Now.
-  `SyncStatusSection` is shared by both, so the Sync Now restyle lands in one place; its spinner-while-
-  syncing behaviour is preserved.
-- **`AccountSettingsView` converted from `Form` to a `ScrollView` + `VStack`** with the label-above-field
-  pattern from Add/Edit: a `FieldLabel` floats above each `SecureField` (kept `.roundedBorder` so a
-  password box still reads as an input), `spacing: 16` between fields, `spacing: 32` between the Change
-  Password and Two-Factor sections for clear air. Section headers are `.headline`; the "At least 12
-  characters" helper is `.caption .secondary`; the 2FA status is a `.body .secondary` line (a status, not
-  a cell) above its bordered action. The password-change and 2FA enrol/disable logic is unchanged.
-- **`SmartViewManagementView` restructured.** The "New Smart View" button moved out of the `List` to the
-  top of a `VStack` as a left-aligned `.borderedProminent` button (was a chip-like `Form` row), removing
-  the redundant section divider that sat between it and the list. Rows now show a two-level hierarchy —
-  name `.body .medium .primary`, condition summary `.caption .secondary` — and keep their swipe-to-delete
-  and context menu (still a `List` below the button). The empty state uses the shared `BookmarkEmptyState`
-  ("No Smart Views" / "Create a saved filter to quickly find bookmarks matching specific conditions.").
-- **Scope.** Touched only the Settings views listed above; no navigation/routing changes, no behavioural
-  changes to any settings action, `SmartViewFormView` untouched. No backend / StashKit / CLI / web /
-  extension-folder changes; no data-layer changes; no app unit tests (§19.6). Builds clean on iOS and
-  macOS (extension target included).
+The same Things/Craft-inspired polish extended to the Settings screens. The
+recurring problem here was that in-place action buttons — Sync Now, Sign
+Out, Change Password, enrolling or disabling 2FA, New Smart View — were
+inheriting plain full-width form-row styling instead of looking like actual
+buttons, and destructive actions had no visual weight distinguishing them
+from routine ones. In-place actions became genuine bordered buttons, sized
+to their content and left-aligned rather than stretched across the row, with
+destructive ones (Sign Out, Disable Two-Factor) tinted red and the primary
+creation action (New Smart View) given a filled accent style. Navigation
+rows correctly stayed as plain navigation links, since that's the right
+native pattern for "go to another screen" rather than "do something here."
+The account settings screen and the Smart View management screen both moved
+off the grouped form style entirely, onto the same label-above-field layout
+introduced for the bookmark forms, with clearer visual separation between
+sections.
 
 ## Share Extension — visual polish (native apps)
 
-- **✅ A refinement pass on the four Share Extension states (loading, signed out, add form,
-  confirmation).** The add form is the shared `AddBookmarkView` and already carries the redesigned
-  layout (label-above-field, metadata preview, tag chip strip) plus the iOS toolbar / macOS inline
-  action bar — that flows through untouched, so this pass is the extension-specific chrome only. Same
-  Things / Craft direction; semantic colours throughout.
-- **Loading.** Replaced the `ProgressView` + "Stash" text label with a large `.quaternary`
-  `bookmark.fill` ribbon mark above a `.secondary`-tinted spinner — a quiet, distinctive presence with
-  no redundant label, centred in the popover.
-- **Signed out.** Replaced the generic `ContentUnavailableView` with the shared `BookmarkEmptyState`
-  (`person.crop.circle`, "Sign in to Stash", "Open the Stash app to sign in, then share this page
-  again.") — calm and directive rather than apologetic. The toolbar Cancel to dismiss the extension is
-  kept.
-- **Confirmation.** Reworked into a calmer moment: `checkmark.circle.fill` (48pt, `.green`), "Saved to
-  Stash" (`.title3 .semibold`), the saved bookmark's **domain** (`faviconDomain`, `.body .secondary`) as
-  a concrete confirmation of what was saved, the bookmark's **tags** as read-only `SelectedTagChip`s
-  (shown only when present), and an unobtrusive `.plain` `.secondary` "Undo" text button (was a bordered
-  destructive button). The form→confirmation swap cross-fades via `.transition(.opacity)` wrapped in
-  `withAnimation`.
-- **`SelectedTagChip` gained `showsDismissButton: Bool = true`** so the confirmation can render the
-  read-only (no-`×`) variant while the picker/forms keep the removable one; existing call sites are
-  unaffected by the defaulted parameter.
-- **Auto-dismiss shortened from 3s to 1.5s.** The confirmation's `Task.sleep` before
-  `completeRequest` is now 1.5 seconds; the Undo button still cancels the task by removing the view, and
-  the delete-on-undo logic is unchanged.
-- **Scope.** Only `ShareExtensionView.swift` (the four state views + timer) and the `SelectedTagChip`
-  parameter changed; `AddBookmarkView`, `SharedItemLoader`, the `Phase` enum / transition logic, the
-  view controllers, and the extension repositories/session are untouched. No backend / StashKit / CLI /
-  web / extension-folder changes; no data-layer changes; no app unit tests (§19.6). Builds clean on iOS
-  and macOS (extension target included).
+A matching refinement pass on the Share Extension's four states — loading,
+signed out, the add form, and confirmation. The add form itself is the
+shared bookmark form and already picked up the redesign automatically; this
+pass was specifically about the extension's own surrounding chrome. Loading
+became a quiet ribbon mark with a muted spinner instead of a generic
+progress view with a redundant text label. The signed-out state switched to
+the same shared empty-state component used elsewhere, with directive rather
+than apologetic copy ("Open the Stash app to sign in, then share this page
+again"). Confirmation became a calmer moment overall — a green checkmark,
+"Saved to Stash," the actual domain that was saved as concrete confirmation,
+the bookmark's tags shown read-only, and an unobtrusive text-only Undo
+button instead of a heavier bordered destructive one. The auto-dismiss timer
+also got noticeably shorter, from three seconds down to one and a half, once
+the confirmation moment itself felt substantial enough not to need lingering
+as long.
 
-## Settings — General tab follow-up (macOS)
+## Settings — General tab follow-ups (macOS)
 
-- **✅ Fixed the macOS General tab, which the first Settings pass missed.** It was still a grouped
-  `Form`, so "Sync Now" and "Sign Out" rendered as full-width cells (the `.bordered` styling was being
-  swallowed by the section-row chrome) and the tab carried noticeably more empty space than the
-  `ScrollView`/`VStack`-based Account and Smart Views tabs.
-- **Converted `GeneralSettingsView` to `ScrollView` + `VStack`** matching `AccountSettingsView` — same
-  `.padding(20)`, `.headline` section headers, `spacing: 32` between sections — so all three tabs start
-  at the same vertical position and share horizontal margins. "Sync Now" and "Sign Out" are now genuine
-  left-aligned bordered buttons (Sign Out red-tinted, separated by the 32pt section gap). The Server URL
-  stays an editable `LabeledContent`-style value row (label leading, trailing inline field).
-- **`SyncStatusSection` split into `SyncStatusSection` + `SyncStatusRows`** to share the rows across the
-  two containers without disturbing iOS. `SyncStatusRows` is a flat `Group`, so the iOS settings `Form`
-  still renders each row as its own cell (`SyncStatusSection` remains the thin `Section("Sync")`
-  wrapper, unchanged in appearance) while the macOS `VStack` stacks the same rows under its own "Sync"
-  header. The once-per-appearance `refreshPendingCount()` `.task` now hangs off the single always-present
-  "Last synced" row rather than the container, so it still fires exactly once. iOS `SettingsView` is
-  unchanged (a `Form` remains appropriate there).
+The first Settings polish pass missed the macOS General tab, which was
+still a grouped form and stood out visually next to the newly-restyled
+Account and Smart Views tabs — noticeably more empty space, and its
+buttons weren't picking up the new bordered styling at all since the form's
+own row chrome was swallowing it. I converted it to match the other two
+tabs' layout, and while I was in there also fixed its Server URL field to
+use the same label-above-field pattern as the rest of the form, rather than
+a plain static-looking value row.
 
-## Settings — General tab URL field follow-up (macOS)
-
-- **✅ The General tab's Server URL converted from a `LabeledContent` value row to the label-above-field
-  pattern** — a `FieldLabel("Server URL")` over a `.roundedBorder` `TextField` (keeping `.urlFieldStyle`)
-  — matching the Account tab's field styling so it reads as an editable input rather than a static data
-  row. No change to URL validation or how it persists to `AppSettings`.
+That same URL field then got one more correction shortly after: I'd made it
+editable on macOS in that earlier pass, but Settings is only reachable while
+already signed in, and switching servers genuinely requires signing out and
+setting up against the new instance from scratch — so an editable field
+there was actively misleading, not a nice convenience. Both platforms now
+show it strictly read-only, with a small footnote explaining that signing
+out is how you connect to a different server.
 
 ## Smart View form — condition row buttons follow-up (native apps)
 
-- **✅ The condition row's small bordered `−`/`+` buttons replaced with `minus.circle` / `plus.circle`
-  SF Symbol buttons** (`.plain` style, `.title3` size): `minus.circle` in `.secondary` (neutral remove),
-  `plus.circle` in `Color.accentColor` (primary add). The remove button keeps its single-condition
-  disabled state, now shown as `.opacity(0.3)`. Add/remove logic unchanged.
-
-## Settings — Server URL is read-only while signed in (native apps)
-
-- **✅ The macOS General tab's Server URL is now read-only, matching iOS.** The Settings screens are only
-  reachable while signed in, and changing servers requires a fresh login + setup against the new
-  instance — so an editable field there was misleading (the earlier macOS "editable field" follow-up
-  was wrong). macOS now shows the URL as a read-only `Text` under the `FieldLabel` (replacing the
-  `TextField`); `GeneralSettingsView` no longer needs the `@Bindable` server-URL binding. iOS already
-  displayed it read-only (`LabeledContent`) and is unchanged in that respect.
-- **Both platforms gained a "Sign out to connect to a different server." footnote** so the read-only
-  field is self-explanatory (a `Section` footer on iOS, a `.caption .secondary` line on macOS). No
-  change to how the server URL is stored or validated.
+A small icon-only follow-up: the condition row's add/remove buttons in the
+Smart View form switched from generic bordered buttons to proper SF Symbol
+icon buttons — a neutral minus-circle for remove, an accent-colored
+plus-circle for add — which reads more consistently with the rest of the
+app's iconography. No behavior change.
 
 ## Add/Edit Bookmark — description field fill + scroll (native apps)
 
-- **✅ The description field converted from `TextField(axis: .vertical)` to a `TextEditor`** (new shared
-  `DescriptionEditor` in `Common/Views/`, used by both forms and the Share Extension). `TextField` isn't
-  a scroll view, so on macOS it ignored the mouse wheel once the text overflowed; `TextEditor` is a
-  proper scrollable text view (wheel on macOS, touch on iOS). Quirks handled: the placeholder is drawn
-  manually in a `ZStack` (TextEditor has no placeholder), and `.scrollContentBackground(.hidden)` +
-  `.background(.clear)` keep the borderless look from the form redesign; `.font(.body)` set explicitly.
-- **✅ The description now fills the sheet's remaining vertical space**, removing the dead gap between the
-  tags section and the action buttons when the description is short. The form holder no longer scrolls:
-  each body is a fixed `VStack` pinned to `maxHeight: .infinity` (top-aligned), and the description
-  section is the lone `maxHeight: .infinity` sibling (120pt floor), so it absorbs the slack while the
-  URL/title/tags and the action buttons stay put. Only the description scrolls — internally, within the
-  `TextEditor` — when its text overflows; the surrounding view does not. This dropped the outer
-  `ScrollView` (and with it `.scrollDismissesKeyboard`), which was the holder that previously scrolled.
+The description field switched from a plain growing text field to a proper
+text editor, since a plain text field isn't actually a scroll view and
+silently ignored the mouse wheel on macOS once its content overflowed the
+visible space — a real usability bug for anyone pasting in a longer
+description. Along with that fix, the description field now expands to
+fill whatever vertical space is left in the sheet, removing an awkward gap
+that used to sit between the tags section and the action buttons when the
+description was short — only the description itself scrolls internally when
+its content is long, while the rest of the form stays fixed in place.
 
 ## Settings — grouped background for custom-layout sheets (native apps)
 
-- **✅ Restored the system grouped background on the custom (non-`Form`) settings/Smart View sheets.**
-  Root cause: a grouped `Form`/`List` supplies `systemGroupedBackground` automatically; once
-  `AccountSettingsView` and `SmartViewFormView` moved to a plain `ScrollView + VStack` (for the
-  label-above-field layout / custom condition rows), they fell through to the plain white system
-  background on iOS — visibly inconsistent with the `Form`-based Settings and the `List`-based Smart
-  Views screens. (macOS was unaffected: a plain `ScrollView` there already shows the window background,
-  matching the other tabs.)
-- **A shared `groupedBackgroundStyle()` view modifier** lives in `PlatformModifiers.swift` (where the
-  repo concentrates `#if os` chrome): iOS uses `Color(uiColor: .systemGroupedBackground)`, macOS
-  `Color(nsColor: .windowBackgroundColor)` — `.systemGroupedBackground` is UIKit-only, so an inline
-  modifier wouldn't compile on macOS. Applied to both `AccountSettingsView` and `SmartViewFormView`; the
-  second call site is what confirmed this is a reusable pattern rather than a one-off paint job.
+Once the account settings and Smart View form screens moved off the native
+grouped form/list style for their custom label-above-field layout, they
+lost the grouped background color that a form or list supplies for free,
+and fell through to a plain white background on iOS — visibly inconsistent
+with the still-form-based Settings screen sitting right next to them. A
+small shared style helper restores the correct grouped background color on
+each platform (they use different system colors under the hood), applied to
+both affected screens.
 
-## Tag count badge (native apps)
+## Tag count badge (native apps, then the web frontend)
 
-- **The plain tag-count number in the sidebar tag tree is now a styled badge that surfaces archived
-  items.** `Tag` gains a second count: `count` is the active (non-archived) bookmarks carrying the tag,
-  `totalCount` includes archived ones (the badge derives "has archived items" inline as `totalCount >
-  count`). `TagRepository.derive()` computes both in one pass over the local SwiftData store — `fetchActive()`
-  already excludes soft-deleted records (`locallyDeletedAt == nil`), so it just splits each tag's tally
-  by `isArchived`. The tag map is keyed off the total tally so a tag whose bookmarks are *all* archived
-  still appears (active 0, total N). The backend `/tags` endpoint and StashKit `TagDTO` are unchanged —
-  they return the active count only; `totalCount` is a purely client-side derivation (the DTO init sets
-  both equal).
-- **`TagNode` / `FlatTagNode` propagate both counts.** `TagNode` gains `totalCount: Int?` (still `nil`
-  for synthetic parents); its initializer defaults `totalCount` to `nil` so `TagPickerSheet`'s
-  `filtered()` rebuild — which doesn't carry the total — keeps compiling unchanged. `hierarchy()` builds
-  a parallel `totals` dictionary alongside `counts`.
-- **`TagCountBadge` (`Common/Views/`) is the shared badge.** The colour language is consistent: accent
-  always means "visible", dimmed always means "hidden/archived". A plain **accent** capsule (white text)
-  when `count == totalCount` (everything is visible); a split pill when `totalCount > count` — accent
-  left half (visible count, white text), a hairline divider, and a muted right half showing the
-  **hidden** count (`totalCount - count`), *not* the total. So `4|2` reads "4 visible, 2 hidden" with no
-  mental math, and an all-archived tag reads `0|5`.
-- **`TagTreeLabel` gained `showsCountBadge` (default `false`).** The three sidebar call sites (iPhone
-  size-class sidebar `MainView`, the Tags tab `TagBrowserView`, and the macOS `MacContentView`) opt in
-  with `showsCountBadge: true` to render the badge. `TagPickerSheet` is deliberately left untouched: it
-  uses the default, showing the active count as plain text — a picker is about finding and selecting
-  tags, so archival state is not relevant there. Defaulting to `false` is what keeps the picker's call
-  site (and behavior) unchanged while the sidebars opt in.
-
-## Tag count badge (web frontend)
-
-- **The web `/app` sidebar tag tree gained the same split count badge** so the web UI reads identically
-  to the native apps. Previously the sidebar showed a single muted `(N)` per tag where `N` was the
-  *total* (active + archived) tally — misleading, since the list itself defaults to active-only. The
-  count is now split the same way the native apps split it: `count` is the visible (non-archived) tally,
-  `totalCount` includes archived, and the badge is accent-visible / muted-hidden.
-- **`SidebarTag` carries `count`, `totalCount`, and a precomputed `hiddenCount`** (`totalCount - count`).
-  Leaf has no arithmetic, so the hidden tally is computed server-side rather than in the template.
-  `AppWebController.sidebarTags` tallies both maps in its single pass over the user's bookmarks (every
-  tag into `totalCounts`, non-archived also into `counts`); `buildSidebar` iterates `totalCounts.keys`
-  (the superset) so an all-archived tag still produces a row. Synthetic parents — slugs with no exact
-  bookmark — land at `totalCount == 0` and render no badge, matching the native `count == nil` rule and
-  the prior `count > 0` guard.
-- **The badge is pure CSS in `stash.css` (`.count-badge` / `.count-badge.split`)**, reusing `--accent`
-  for the visible half and `--tag-bg` / `--text-muted` for the hidden half — the same colour language as
-  `TagCountBadge` (accent = visible, muted = hidden). The Views section (All / Untagged / Today / This
-  Week) keeps its plain `(N)` count: those are not real tags and the native Views rows carry no badge
-  either.
+The sidebar's plain tag count number became a proper badge that
+distinguishes visible from archived bookmarks, on both the native apps and
+then the web frontend to match. Previously a tag's count was just one
+number — either the active count natively, or confusingly the *total*
+including archived on the web, which didn't match what the list itself
+actually showed by default. Now every tag tracks both an active count and a
+total count; when they're equal, the badge is a plain accent capsule
+showing that one number, and when a tag has archived bookmarks too, it
+splits into a two-tone pill — an accent half showing the visible count and
+a muted half showing specifically the *hidden* count, not the total — so a
+tag whose bookmarks are all archived still shows up in the sidebar instead
+of silently disappearing, reading clearly as "0 visible, 5 hidden" with no
+mental arithmetic required. The tag picker deliberately keeps showing a
+plain, badge-free count, since picking and assigning tags isn't a context
+where archival state matters.
 
 ## Sidebar selection occasionally stops refreshing the detail list
 
-- **Problem.** On the iPad (`SidebarSplitView`) and macOS (`MacContentView`) split views, the sidebar
-  selection would, intermittently, stop driving the detail list: tapping a different tag/View
-  re-highlighted the sidebar row but the bookmark list never changed, and once it happened it stayed
-  stuck for every subsequent selection until the app was relaunched. Hard to reproduce because it is
-  navigation-history- and timing-dependent.
-- **Root cause — not a missing reload trigger.** The reload path was already wired
-  (`BookmarkListContent.onChange(of: source)` → `reload()`), and `BookmarkRepository.load` is synchronous
-  main-actor work (it filters the local store), so whenever that fires the list *does* update. The
-  fragility was the detail column: `detail: { NavigationStack { makeDetail() } }` had **no stable
-  identity and no path binding**, while two things mutated the stack's *root*: `makeDetail()` returns
-  `BookmarkListView` from two distinct `if/else` branches (`.smartView` vs the tag list — separate
-  `_ConditionalContent` identities), and bookmark rows push `BookmarkDetailView` *into* that same stack
-  via closure-based `NavigationLink`s. Changing the selection while a detail was pushed (or across the
-  Smart View ↔ tag branch flip) swapped the stack's root underneath its pushed view; with nothing keying
-  the stack, its internal navigation state desynced from the swapped root and wedged. After that the
-  root list was no longer re-presented, so further selection changes updated `selection` (sidebar
-  highlight) but never refreshed the detail column.
-- **✅ Fix — key the detail `NavigationStack` to the selection.** Both split views apply
-  `.id(selection)` to the detail `NavigationStack`. Each selection now deterministically builds a fresh
-  stack — discarding any pushed `BookmarkDetailView` and any wedged state — with a fresh
-  `BookmarkListView` that loads the new filter from its initial `.task`. This is the idiomatic pattern
-  for a selection-driven detail column and has the welcome side effect that selecting a new tag resets
-  the detail to the top of that tag's list (and clears the per-tag search), rather than stranding a
-  pushed detail from the previous selection. The in-place `onChange(of: source)` reload becomes
-  redundant for selection changes (source is now fixed per stack identity) but is harmless and left in
-  place. Scope: one line each in `MacContentView` and `MainView`; no repository, StashKit, or backend
-  change.
+An intermittent, genuinely tricky bug on the iPad and macOS split-view
+layouts: tapping a different tag or view in the sidebar would sometimes
+re-highlight correctly but leave the actual bookmark list on screen
+unchanged, and once it happened it stayed stuck for every subsequent
+selection until the app was force-relaunched. Timing- and
+navigation-history-dependent, which made it hard to pin down.
+
+The reload logic itself was firing correctly the whole time — the actual
+problem was the detail column's navigation stack having no stable identity
+at all. Two different things were mutating that same stack's root
+underneath it: switching between a tag filter and a Smart View selection
+swapped which branch of a conditional built the root view, and tapping into
+a bookmark's detail pushed a new screen onto that same stack. Change the
+selection while a detail was pushed, or flip between the tag and Smart View
+branches, and the stack's root would get swapped out from under its pushed
+content with nothing keying the stack's identity to notice — its internal
+navigation state would desync from the new root and effectively wedge,
+after which further selections updated the sidebar highlight but never
+touched the actual displayed content again.
+
+The fix was giving the detail navigation stack an explicit identity tied to
+the current selection, so every selection change deterministically
+rebuilds a fresh stack from scratch — discarding any pushed detail view and
+any wedged internal state along with it. That's the idiomatic pattern for
+a selection-driven detail column, and it has the nice side effect that
+picking a new tag now resets the detail column back to the top of that
+tag's list rather than stranding a previous selection's pushed detail view
+behind it.
 
 ## Visual polish — bookmark list mirrors the native row (web frontend)
 
-- **✅ The `/app` bookmark list now reads with the same content-first hierarchy as the native apps'
-  `BookmarkRowView`** (see *Visual polish — bookmark list, detail, empty states (native apps)*). A
-  presentation-only pass on `app-bookmarks.leaf` rows — no new fields, no controller, StashKit, or
-  backend change; the same context (`faviconDomain`, `tags[].display`, `description`, `createdAt`) feeds
-  the new layout.
-- **Domain replaces the full URL as the row's source line.** The prominent green full-URL line under the
-  title is gone; in its place a muted **domain eyebrow** (`favicon + faviconDomain`) sits *above* the
-  title — more scannable and meaningful, matching the native row's domain anchor. The domain still links
-  to the bookmark's URL (`target=_blank`); the title links to the `/app` detail page as before.
-- **Typographic hierarchy.** Title is the hero (`1.1rem`, weight `600`); domain and date are quiet
-  `0.8rem` `--text-muted`; description stays readable (`--text-2`) but is sized down to `0.9rem` and
-  clamped to two lines (`-webkit-line-clamp`) so rows stay even. Per the answered design choice the web
-  keeps the description and date that the native row omits — the web is a denser reading surface.
-- **Tags are text-only in the list.** Scoped `.list-item .tags .tag` overrides drop the filled capsule to
-  muted middot-separated text links (`background: none`, `--text-muted`, accent + underline on hover),
-  mirroring the native row's `isPlain` tags. The capsule `.tag` style is unchanged everywhere else (the
-  "Filtered by tag" pill, the tag browser). The `swift › server` display rendering is untouched.
-- **Cards retained.** Per the answered design choice the rows keep their bordered-card container
-  (`--surface` + border + radius) rather than switching to hairline dividers — only the inner hierarchy
-  changed. The detail page (`app-bookmark-detail.leaf`) is unchanged and still shows the full URL via the
-  retained `.url` style.
+The web bookmark list picked up the same content-first row hierarchy the
+native apps got — a presentation-only pass on the existing template, no new
+fields or backend changes. The prominent full-URL line under each title is
+gone, replaced by a quieter domain line (favicon plus domain) sitting above
+the title instead, mirroring the native row's domain-as-anchor treatment,
+while the title still links through to the bookmark's detail page and the
+domain itself links straight out to the URL. Tags in the row lost their
+filled capsule background in favor of plain muted text, matching the
+native row's quieter list-context treatment — the capsule style itself is
+untouched everywhere else it's used, like the tag browser. Per an explicit
+product decision, the web row keeps its bordered card container and keeps
+showing the description and date the native row omits, since the web is
+inherently a denser reading surface than a phone screen.
 
 ## Tag sidebar refreshes after a sync (not just after a local write)
 
-A bug closing the Phase 3/4 "cross-repository live-refresh-on-sync" limitation, scoped to the tag list.
-
-- **Symptom.** After launch (or a manual "Sync Now" / pull-to-refresh / reconnect), the bookmark list
-  updated with newly pulled bookmarks, but the **sidebar tag list did not** — a bookmark synced in with a
-  brand-new tag showed in the list while its tag was missing from the Views/Tags sidebar. The tag only
-  appeared after fully quitting and relaunching the app.
-- **Root cause.** `TagRepository` derives its tags from the local store and is a shared singleton, but
-  the sidebars (`SidebarSplitView`, `MacContentView`, `TagBrowserView`) only called `load()` once on
-  appearance (a no-op after the first derive) — they never re-derived when a sync mutated the store. Only
-  *local* bookmark writes refreshed it (`AddBookmarkSheet`, `EditBookmarkView`, the tag drop modifier all
-  call `tagRepository.refresh()`). A sync's pulled changes had no such trigger, so the cached tag tree
-  went stale. `BookmarkListView` already had the right pattern — `.onChange(of: syncEngine.isSyncing)`
-  re-filtering the list when a cycle ends — but no sidebar mirrored it for tags.
-- **✅ Fix — refresh tags when a sync completes.** Each of the three tag sidebars now re-derives its tags
-  on the sync engine's syncing-to-idle transition. `refresh()` re-derives from the local store and leaves
-  the current tags visible until the new set is ready (no empty flash). Scope: the two split-view sidebars
-  (`MainView`, `MacContentView`) and the iPhone Tags tab (`TagBrowserView`); no repository, StashKit, or
-  backend change. The pending-row cross-repository limitation noted in Phase 4 is unrelated and still
-  stands.
-- **✅ Shared `.onSyncCompleted` modifier (cleanup).** The observation was originally a near-identical
-  `onChange(of: syncEngine.isSyncing)` block inlined at each call site — three new copies plus the one
-  `BookmarkListView` already had. All four now use a single `.onSyncCompleted { … }` view modifier
-  (`Stash/Support/SyncModifiers.swift`, app-only since it reads `AppEnvironment` — which the shared
-  `Common/` target lacks). The per-view opt-in is kept deliberately (views own their refresh triggers, per
-  Phase 3/4); the modifier only removes the duplication, it does not centralize the trigger into
-  `SyncEngine`.
+A narrower instance of the same cross-repository staleness class of bug
+covered earlier: after a launch, a manual sync, or a reconnect, the
+bookmark list itself would correctly show newly-synced bookmarks, but the
+sidebar's tag list would not — a bookmark that synced in carrying a
+brand-new tag would appear in the list while that tag was still missing
+from the sidebar entirely, only showing up after a full app relaunch. The
+tag repository derives its data from the local store and is a shared
+singleton, but the sidebars only ever called its load method once on first
+appearance, which became a no-op on every subsequent call — nothing was
+re-deriving the tag list when a sync mutated the underlying store out from
+under it. The fix has each tag sidebar re-derive on the same
+syncing-to-idle transition the bookmark list already watches for, keeping
+the previous tags visible until the fresh set is ready so there's no empty
+flash. I also noticed by this point that the same watch-for-sync-completion
+logic had been copy-pasted at each call site, so I pulled it into one
+small shared view modifier — a cleanup, not a behavior change; each view
+still opts in individually rather than centralizing the trigger itself into
+the sync engine.
 
 ## Per-machine signing & bundle identifier (xcconfig)
 
-The maintainer builds the app under two different Apple developer accounts on two machines — one uses
-the `cc.otavio.stash*` bundle prefix, the other `com.otaviocc.stash*`. Previously the team id and the
-prefix were hardcoded throughout the committed `Stash.xcodeproj`, four entitlements, four `Info.plist`s,
-and several Swift constants, so switching machines meant editing tracked files (and risking a commit of
-the wrong account).
+I build this app under two different Apple developer accounts on two
+different machines, each with its own bundle prefix. Previously the team id
+and prefix were hardcoded throughout the committed Xcode project, several
+entitlement files, several Info.plists, and a handful of Swift constants —
+switching machines meant editing tracked files by hand and risking
+accidentally committing the wrong account's identifiers.
 
-- **✅ One source of truth — `StashApp/Config/Stash.xcconfig`.** A committed base xcconfig defines two
-  settings: `STASH_BUNDLE_PREFIX` (the reverse-DNS org prefix, everything before `.stash`) and
-  `DEVELOPMENT_TEAM`. It is wired as the `baseConfigurationReference` on the **project-level** Debug/Release
-  configs, so both targets inherit the values. The committed defaults (`com.example.otavio` / `ABCDE12345`) keep the
-  primary machine building with no extra file.
-- **Machine-local override via optional include.** The base xcconfig ends with
-  `#include? "Stash.local.xcconfig"` — the `?` makes it optional. A second machine drops a gitignored
-  `Config/Stash.local.xcconfig` (templated by the committed `Stash.local.xcconfig.example`) overriding
-  either setting; it wins when present and is silently absent otherwise. `Stash.local.xcconfig` is in the
-  root `.gitignore`.
-- **The prefix drives every bundle-keyed identifier in lockstep.** `PRODUCT_BUNDLE_IDENTIFIER` for the app
-  (`$(STASH_BUNDLE_PREFIX).stash`) and extension (`…​.stash.ShareExtension`) reference it directly; the
-  four entitlements declare the App Group as `group.$(STASH_BUNDLE_PREFIX).stash`; the two app `Info.plist`s
-  build the `BGTaskSchedulerPermittedIdentifiers` and the exported `UTType` from it. Build-setting
-  substitution in entitlements/plists is standard Xcode behaviour (the "Process Product Packaging" step).
-- **Runtime reads it back, never hardcodes it.** Each `Info.plist` carries `STBundleBase =
-  $(STASH_BUNDLE_PREFIX).stash`. `AppGroup.bundleBase` reads that key from `Bundle.main` (fallback
-  `com.example.otavio.stash` for previews, which have no bundle) and **derives** `AppGroup.identifier` (the App
-  Group / Keychain access group / defaults suite), the token/cursor keys, `BackgroundSyncScheduler.taskIdentifier`,
-  and `UTType.stashBookmark`. So the build settings and the Swift constants can never drift — change the
-  one xcconfig line and the whole graph follows. The Keychain item *account names* and the
-  `UserDefaults` suite both move with the prefix; the actual cross-process sharing is scoped by the App
-  Group, which is the same derived value in both processes.
-- **Verified.** `xcodebuild -showBuildSettings` resolves the prefix, team, and bundle IDs at the target
-  level (proving project→target inheritance); the built `Info.plist`s show `com.example.otavio.stash`-derived
-  values; and a temporary `Stash.local.xcconfig` flips the resolved prefix to `com.otaviocc.stash` and the
-  team, confirming the override path. Builds clean on iOS and macOS; the token-key *names* changing shape
-  per machine is harmless (they are account names within the App Group, not OS-registered identifiers).
+Now there's exactly one source of truth: a committed base xcconfig file
+defining the bundle prefix and the development team, wired in at the
+project level so both targets inherit it. A second, gitignored xcconfig can
+optionally override either value on a given machine — present, it wins;
+absent, the committed defaults apply silently, so the primary machine needs
+no extra file at all. Every bundle-keyed identifier — the app's bundle id,
+the extension's, the App Group name, the exported file type, the background
+task identifier — derives from that one prefix at build time and again at
+runtime by reading it back out of the built app's own Info.plist, so the
+build settings and the Swift constants can never drift apart from each
+other. Change the one xcconfig line, and the whole graph of derived
+identifiers follows automatically.
 
 ## Bookmark row tags — accent capsules (native apps)
 
-- **✅ The list row's tags now use the accent-tinted capsule `TagPill`, not the plain text-only
-  variant.** The row was otherwise colourless — grey domain, primary title, secondary description,
-  `.tertiary` text tags — with the favicon the only spot of colour. Dropping `isPlain: true` in
-  `BookmarkRowView.makeTags()` gives the row a deliberate touch of the app accent while keeping the
-  content-first typographic hierarchy intact (the capsule is `.caption2`, still the smallest, quietest
-  line). This reverses the earlier *Visual polish — bookmark list* call ("Tags text-only in the list
-  row; styled capsule retained in the detail view"); the row and detail view now share the one styled
-  treatment, so a tag reads identically everywhere.
-- **Scope.** One line in `BookmarkRowView`; `TagPill`'s `isPlain` parameter is retained (still used by
-  other call sites). The `swift › server` rendering and 3-tags-+N overflow are unchanged. No backend /
-  StashKit / CLI / web changes; builds clean on macOS.
+I reversed an earlier polish decision here: the bookmark row's tags had
+been switched to plain, quiet text as part of the content-first visual
+pass, but that left the row entirely colorless — a grey domain line, a
+primary title, and quiet tags, with only the favicon carrying any color at
+all. I brought back the accent-tinted capsule treatment for the row's tags,
+so the row and the detail view now render tags identically everywhere
+rather than the row using a plainer variant.
 
 ## Documentation — Podman runtime & local-dev compose override
 
-- **✅ Podman documented as a supported container runtime alongside Docker.** `Docs/backend-docker.md`
-  now lists Podman 4+ as a prerequisite option and adds a *Running with Podman* section. Rationale:
-  Podman is API-compatible, so the published image and committed `docker-compose.yml` run unchanged —
-  the only work is on the operator's machine (point the `docker` CLI at Podman's socket, or use `podman
-  compose`), so **nothing in the repo changes** to support it. The committed Makefile and compose files
-  stay Docker-native by design (CI builds/pushes the image with Docker buildx on GitHub runners, and the
-  published artifacts are unaffected); documenting Podman at the CLI level rather than editing the
-  Makefile keeps a personal-machine runtime choice out of shared code. The macOS/Windows `podman machine
-  start`-after-reboot caveat is called out (no always-on daemon like Docker Desktop). Machine-specific
-  setup troubleshooting (provider choice, stale forwarder processes) is deliberately kept out of the
-  user guide.
-- **✅ The local-dev compose override is now documented.** `Docs/backend-docker.md` gains a *Local
-  development (build from source)* section explaining `Backend/docker-compose.override.yml` — Compose
-  auto-merges it from `Backend/`, switching the `app` service from `ghcr.io/otaviocc/stash:latest` to a
-  build of the working tree (`image: stash-local` + `build: .`) — and how the `Backend/Makefile` targets
-  (`make build-up`, `up`/`down`/`logs`/`migrate`) wrap it. Previously this workflow lived only in the
-  Makefile and `CLAUDE.md`, not the user-facing docs.
-- **Scope.** Docs only — two sections plus a prerequisite line in `Docs/backend-docker.md`. No new doc
-  file (so no root `README.md` table entry), and no code, Makefile, or compose changes.
+Two documentation-only additions. First, Podman is now documented as a
+supported alternative to Docker for running Stash, since it's API-compatible
+enough that the published image and the committed compose file work
+completely unchanged — the only difference is at the operator's own
+machine, pointing tooling at Podman's socket instead of Docker's, so nothing
+in the repo itself needed to change to support it. Second, the local-dev
+workflow for building from source (rather than the published image) — which
+previously only lived in the Makefile and in my own dev-environment
+notes — finally got written up properly in the user-facing docs, so a
+contributor doesn't have to reverse-engineer it from the Makefile alone.
 
 ## Unreachable backend — fail-fast timeout & a recoverable 2FA setup state
 
-When the device has a network path but the Stash backend is unreachable (the user is off the LAN
-where Stash is hosted, the server is down, the URL is wrong), `ConnectivityMonitor.isOnline` stays
-`true` — `NWPathMonitor` reports the *network path*, not server *reachability* (the same limitation
-that motivated *Offline Sync — Optimistic writes*). Requests therefore proceed and block on the
-URLSession timeout. Two surfaces that *must* hit the network — Settings "Sync Now" and 2FA
-enrolment — left a spinner running the whole time. Writes already dodge this (optimistic-first), but
-these can't.
+When a device has a working network path but the Stash backend specifically
+is unreachable — off the home LAN, the server down, a wrong URL — the
+connectivity monitor still reports online, since it only sees the network
+path, not whether the actual server behind it answers. Requests would
+therefore proceed and just sit blocked on the default 60-second URLSession
+timeout. Writes already dodge this entirely thanks to the optimistic-write
+work, but two surfaces that genuinely have to wait on the network — a
+manual "Sync Now" and 2FA enrollment — were left showing a spinner for a
+full minute with no way out.
 
-- **✅ The default request timeout is 15 s, not URLSession's 60 s.** `StashClient`'s public
-  convenience init now uses a process-wide `StashClient.defaultSession` — a single
-  `URLSession(configuration:)` with `timeoutIntervalForRequest = 15` — in place of `URLSession.shared`.
-  An unreachable server now fails in ~15 s instead of ~60 s, app-wide *and* CLI-wide (both go through
-  this init). 15 s is generous for a small JSON API on a LAN yet short enough that an actively-waiting
-  user gets a clear failure quickly. Only the *request* timeout is set (not
-  `timeoutIntervalForResource`): it caps the wait for **new data** and resets whenever data arrives, so
-  an unreachable host still fails fast (no data ever arrives) while a slow-but-progressing transfer — a
-  paginated full-sync page, a CLI export — is never aborted mid-flight. The session is a **single
-  shared static** (mirroring `URLSession.shared`: long-lived, never invalidated, one connection pool)
-  rather than one-per-client, so rebuilding a `StashClient` when the server URL changes recreates only
-  the lightweight wrapper and never orphans a session. The internal `session:`-injecting init (used by
-  tests with a mock session) is unchanged, so the StashKit test suite is unaffected. Kept in StashKit
-  rather than per-client config to stay one decision for every caller; StashKit remains thin (this is
-  configuration, not logic).
-- **✅ 2FA enrolment now has a recoverable error state (was a genuine stuck-spinner bug).**
-  `TwoFactorEnrollView.makeContent()` rendered the initial `GET /auth/totp/setup` failure's
-  `errorMessage` only inside `makeSetupView` (the `setup != nil` branch). On a failed `beginSetup()`,
-  `setup` stays `nil`, so the view sat on `else { ProgressView() }` **forever** — the error was set but
-  never shown. Added an `else if let errorMessage` branch rendering a `ContentUnavailableView`
-  ("Couldn't Start Setup" + the message + a **Try Again** button → `retrySetup()` clears the error and
-  re-runs `beginSetup()`). The verify-step error path already reset correctly (`defer { isWorking =
-  false }`) and is unchanged; the Sync Now path already reset `isSyncing` and showed the "Sync failed"
-  notice — it only needed the faster timeout.
-- **Scope.** `StashClient` (timeout) and `AccountSettingsView`'s `TwoFactorEnrollView` (error branch +
-  `retrySetup()`). No new sync logic, no `ConnectivityMonitor` change (server reachability can't be
-  probed cheaply), no backend/web/extension changes. StashKit builds + 23 tests pass; both app
-  platforms build; lints clean.
+The fix has two parts. First, every request now uses a much shorter
+15-second timeout instead of the default 60, applied once at the shared
+client layer so both the app and the CLI benefit automatically — generous
+enough for a small JSON API on a LAN, short enough that a genuinely
+unreachable server fails with a clear, fast error instead of a long silent
+hang. Second, I found and fixed a genuine stuck-spinner bug while looking
+into this: the 2FA enrollment screen's error state was only ever rendered
+inside the branch where setup had actually started, so a failure on the
+very first request left the screen showing a progress spinner forever, with
+the error message captured but never displayed anywhere. It now shows a
+proper error state with a Try Again button that clears the error and
+retries.
 
 ## iOS background refresh logged the user out (Keychain protection class)
 
-iOS users were involuntarily logged out after enabling background app refresh; disabling it stopped
-the logouts, and macOS was never affected. Root cause: tokens were stored with the Keychain's default
-`kSecAttrAccessibleWhenUnlocked` protection class, but iOS fires the `cc.otavio.stash.backgroundSync`
-`BGAppRefreshTask` while the device is **locked** — at which point the Keychain returns nothing.
-`TokenManager.isAccessTokenExpiringSoon()` treats a nil access token as "expiring soon", so a refresh
-is attempted; the refresh token also reads nil, and `AuthRepository.performRefresh()`'s guard called
-`clearSession()` and threw. The user woke up to the login screen. macOS is unaffected because
-`.backgroundTask(.appRefresh)` and `BackgroundSyncScheduler` are iOS-only — macOS syncs on
-foreground/reconnect only, never while locked.
+A genuinely nasty one: iOS users who enabled background app refresh started
+getting logged out involuntarily, with no clear trigger — disabling
+background refresh made the logouts stop, and macOS was never affected at
+all. The root cause turned out to be the Keychain's default accessibility
+setting: tokens were stored with the "accessible when unlocked" protection
+class, but iOS runs its background sync task while the device is genuinely
+locked — at which point the Keychain correctly, and by design, returns
+nothing at all for that item. The token manager treats a missing access
+token as "expiring soon" and tries to refresh; the refresh token read as
+missing too, and the existing refresh logic's guard clause treated that as
+a definitive failure and cleared the whole session. The user would then
+wake their phone to find themselves logged out, with seemingly no
+explanation. macOS was never affected simply because it has no equivalent
+locked-background sync trigger at all.
 
-- **✅ Tokens are now written with `kSecAttrAccessibleAfterFirstUnlock` (root cause).**
-  `KeychainStore`'s `wrappedValue` setter adds `kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock`
-  to the **add query only** — it is a write attribute, not a search criterion, so it must not go in the
-  shared `baseQuery()` that also backs reads and deletes. The item stays readable in a locked-device
-  background context once the device has been unlocked at least once since boot (standard for tokens
-  used in background tasks). Because `KeychainStore` lives in `Common/`, the app and the Share Extension
-  both inherit it. The setter's delete-then-add migrates existing `WhenUnlocked` items automatically on
-  the next token rotation (≤15 min of foreground use, given the 15-min access-token lifetime); the
-  delete matches by account/class/group regardless of the old protection class, so no orphaned item is
-  left behind.
-- **✅ A nil refresh token no longer clears the session (defense in depth).** `performRefresh()`'s guard
-  previously called `clearSession()` when the refresh token read nil. That contradicted this method's
-  own contract (see *Token refresh — concurrent-refresh race*): only a **definitive** auth failure
-  clears the session. A nil read is transient — a locked-device Keychain, or an un-migrated token before
-  the fix above lands. The guard now just `throw`s `AppError.sessionExpired` without clearing. Genuinely
-  dead tokens still log out correctly: a rejected *access* token surfaces in `AuthorizedClient.run`,
-  which forces one refresh; a rejected *refresh* token hits `performRefresh()`'s catch block, which
-  clears the session on `tokenExpired`/`tokenInvalid` (with the token-still-matches re-read guard). The
-  `sessionExpired` throw is an `AppError`, not a `StashAPIError`, so `AuthorizedClient.run`'s
-  retry-on-`isRetryableAuthFailure` does not catch it — no refresh loop. Worst case (Keychain corruption
-  mid-session) is recoverable on next launch, where `init` reconciles `isAuthenticated` from the refresh
-  token.
-- **Scope.** `KeychainStore.swift` (protection class) and `AuthRepository.swift` (guard). No backend,
-  web, extension-logic, or scheduler changes. iOS build succeeds; both lints clean (the app has no unit
-  tests by design).
+The real fix was changing the token's Keychain accessibility to a class
+that stays readable in a locked-but-previously-unlocked-since-boot
+background context, which is exactly the standard choice for tokens used by
+background tasks — existing tokens migrate to the new setting automatically
+on their next normal rotation. I also hardened the refresh logic itself as
+defense in depth: a missing refresh token read no longer clears the session
+outright, since that read can legitimately be transient (a locked device,
+or a not-yet-migrated token before this exact fix lands) — only a
+genuinely rejected, dead token from the server still triggers a real
+logout, consistent with the same "only a definitive failure clears the
+session" principle established back in the original concurrent-refresh
+race fix.
 
 ## Account & Smart View screens moved onto native grouped Forms
 
-The native apps' **Settings → Account** screen and the **Smart View editor** read like flat HTML
-forms rather than native iOS/macOS UI — a complaint that held on iPhone, iPad, and macOS while the web
-frontend rendered the same features cleanly. Root cause: both were built as a custom
-`ScrollView { VStack(spacing:) { … } }` of `.roundedBorder` text fields and `.buttonStyle(.bordered)`
-buttons stacked on a flat background, with no row grouping — and Account was *pushed inside*
-`SettingsView`'s grouped `Form`, so the mismatch was jarring. The rest of the app (the iOS
-`SettingsView`, the shared cross-platform `BookmarkDetailView`) already uses grouped `Form`/`Section`,
-and `PlatformModifiers` already carried the cross-platform glue (`formButtonRowStyle`,
-`inlineNavigationTitleStyle`). The fix was to adopt that existing pattern, not invent anything.
-
-- **✅ `AccountSettingsView` is a grouped `Form`.** Two `Section`s (Change Password, Two-Factor
-  Authentication); plain `SecureField`/`TextField` rows (no `.roundedBorder`); the "At least 12
-  characters" hint and the success/error messages live in `Section` footers; buttons use
-  `formButtonRowStyle()` / `formButtonRowStyle(isDestructive:)`. The `makeField`/`FieldLabel`/
-  `SettingsSectionHeader` custom chrome is gone from this file. The `TwoFactorEnrollView` sheet is
-  unchanged (it is a centered sheet, already native).
-- **✅ `SmartViewFormView` is a grouped `Form` with native rule rows.** A Name section, then a
-  Conditions section whose first row is the All/Any `Match` picker, the condition rows, and an **Add
-  Condition** button row. Deletion is platform-native: iOS uses swipe (`.onDelete`), and macOS — where
-  lists have no swipe gesture — shows a visible trailing red minus button per row (disabled at the last
-  row); both keep a right-click/long-press context-menu delete. The old per-row `minus.circle`/
-  `plus.circle` buttons (and `ConditionRowView`'s `onRemove`/`onAdd`/`canRemove`) are gone, since add
-  now lives in the section's Add-Condition row. This matches Apple's Mail/Music rule editors. Value
-  editors keep the type-driven `valueKind` switch (tag chips, date picker, duration amount+unit,
-  Yes/No), now borderless in-row (the small duration amount field keeps its border beside the segmented
-  unit picker).
-- **✅ macOS General Settings tab converted too, for a consistent Settings window.** `GeneralSettingsView`
-  (in `MacSettingsView`) became a grouped `Form` — `Section("Server")` with `LabeledContent`,
-  `SyncStatusSection()` reused directly (it was already a `Form` section), and a `formButtonRowStyle`
-  Sign Out — so all three macOS Settings tabs (General, Account, Smart Views) match.
-- **✅ `SmartViewManagementView` New affordance is platform-correct.** iOS gets a toolbar `+`
-  (`smartViewNewToolbar`, a no-op on macOS), because on iOS the screen is pushed in a navigation stack;
-  macOS keeps the in-content prominent button, because a `Settings` tab has no toolbar surface. The
-  `#if` lives in a leaf `View` extension rather than mid-modifier-chain (which SwiftFormat over-indents
-  and slows type-checking).
-- **✅ Dead `SettingsSectionHeader` removed.** Moving Account and the macOS General tab to grouped
-  `Form`s left `SettingsSectionHeader` with no callers (it only styled the old custom-`VStack` section
-  titles), so the file was deleted. `FieldLabel` stays — it is still used by the add/edit bookmark
-  forms (`AddBookmarkView`, `EditBookmarkView`, `TagSummarySection`).
-- **✅ Condition deletion is consistent at one-row minimum.** A Smart View must keep ≥1 condition (as
-  before, and as Apple's Mail/Music rule editors enforce): every delete affordance is guarded the same
-  way — iOS swipe via `.deleteDisabled(rows.count <= 1)`, the context-menu item and the macOS minus
-  button via `.disabled(rows.count <= 1)`.
-- **Scope.** Four app view files (`AccountSettingsView`, `SmartViewFormView`, `MacSettingsView`,
-  `SmartViewManagementView`) plus the deleted `SettingsSectionHeader.swift`; reuses existing
-  `PlatformModifiers` helpers. No model, repository, StashKit, backend, web, or extension changes —
-  feature behavior is identical, so PRODUCT.md is unchanged. Both app platforms build; SwiftFormat
-  `--lint` idempotent and SwiftLint clean.
+The Settings → Account screen and the Smart View editor had drifted into
+reading like flat HTML forms translated into SwiftUI, rather than native
+iOS/macOS UI — a fair complaint, and one that stood out specifically
+because the rest of the app, including the very screen Account was nested
+inside, already used proper native grouped forms with row-based sections.
+The fix wasn't to invent anything new, just to actually adopt the pattern
+already established everywhere else: both screens became real grouped
+forms with proper sectioned rows, footer text for hints and error messages,
+and platform-appropriate delete affordances — swipe-to-delete on iOS,
+since lists have no swipe gesture on macOS a visible remove button there
+instead, both alongside a context-menu delete. The macOS General Settings
+tab got the same treatment in the same pass, so all three macOS Settings
+tabs finally read as one consistent surface instead of two native ones and
+one that looked hand-rolled.
 
 ## Native clients fetch metadata on-device (out-of-radius add)
 
-The add-bookmark "Fetch metadata" preview was **backend-only**: both the app's `BookmarkRepository`
-and the Share Extension's `ExtensionBookmarkRepository` POSTed to `/api/v1/metadata`, and the server
-did the GET + parse. Away from the home-lab network the backend is unreachable *while the internet is
-still up*, so the preview couldn't work — and, worse, any "try the backend, then fall back locally"
-scheme would have to wait out the client session's request timeout before it could even tell the
-backend was gone, hanging every fetch by seconds. Since the backend's `MetadataFetcher` is a small,
-dependency-free regex parser, it ports to the device unchanged, and the round-trip buys the native
-clients nothing (favicon caching — the one server-side side effect — is triggered separately at create
-time, §7.8/§10).
-
-- **✅ Decision: native clients always fetch metadata locally.** New `ClientMetadataFetcher`
-  (`StashApp/Common/Support/`) is a **verbatim port** of `Backend/.../MetadataFetcher` — same regex
-  patterns, `[.caseInsensitive, .dotMatchesLineSeparators]` options, `<title>`/og:title,
-  `<meta name="description">`/og:description, `<link rel="icon">` with `/favicon.ico` fallback, the same
-  HTML-entity table, and the `nonEmpty`/`defaultFavicon` helpers. It uses an ephemeral `URLSession` with
-  a 5s request timeout (matching the backend), sends the same `User-Agent`/`Accept` headers, decodes
-  UTF-8 (`?? ""`), and **never throws** — on any failure it returns all-nil (or just the favicon
-  fallback), so an add is never blocked. Chosen over backend-first-with-fallback specifically to avoid
-  the timeout delay.
-- **✅ Repositories call it directly.** `BookmarkRepository.fetchMetadata` and
-  `ExtensionBookmarkRepository.fetchMetadata` are now one-liners (`await ClientMetadataFetcher.fetch`),
-  needing no `session`/`StashClient`. The `BookmarkCreating.fetchMetadata` protocol requirement dropped
-  `throws`, and `AddBookmarkView.fetchMetadata` lost its now-dead `do/catch` error branch (the shared
-  form, manual "Fetch" on the app and auto-fetch-on-appear in the extension, is otherwise unchanged).
-- **Favicon caching is unaffected.** It still happens server-side, keyed by domain, when the bookmark
-  reaches the backend on create/sync — `FaviconFetcher.enqueue` runs on `POST /bookmarks` regardless of
-  `fetchMetadata`, and independently of where the title/description preview came from. The preview's
-  little favicon (`MetadataFaviconView`) still loads from the backend's `/api/v1/favicons/:domain`
-  cache, so it stays blank while out of radius (pre-existing; not addressed here). `PageMetadata.faviconURL`
-  from the local path is populated for parity but is otherwise cosmetic.
-- **ATS & privacy.** All four Info.plists already carry `NSAllowsArbitraryLoads`, so direct fetches to
-  arbitrary http(s) sites work from both targets — no plist/entitlement change. Trade-off: the device now
-  contacts the target site directly (revealing its current-network IP) rather than proxying through the
-  home lab — acceptable, and the explicit point of the feature.
-- **Scope.** One new `Common/` file plus edits to two repositories, the `BookmarkCreating` protocol,
-  `AddBookmarkView`, and the preview mock; `/api/v1/metadata` and its OpenAPI entry are untouched (still
-  used by the web UI + browser extension). No StashKit/backend/web changes. Both app platforms build;
-  SwiftFormat `--lint` idempotent and SwiftLint clean. PRODUCT.md §10 updated.
+The add-bookmark "Fetch metadata" preview was backend-only on every client:
+both the app and the Share Extension always sent the URL to the backend to
+fetch and parse. Away from the home-lab network, the backend is unreachable
+while the rest of the internet is perfectly reachable, so the preview
+simply couldn't work at all in that situation — and a "try the backend,
+then fall back locally" scheme would still have to wait out a full request
+timeout before it could even discover the backend was unreachable, which
+would have made every single fetch feel sluggish regardless of network
+state. Since the backend's own metadata parser is already a small,
+dependency-free regex-based parser with no server-specific logic in it, I
+ported it verbatim to the client instead — the native clients now always
+fetch and parse metadata locally, never touching the backend for this at
+all, and the fetch never throws — any failure just quietly returns no
+metadata rather than blocking the add. Favicon caching, the one genuinely
+server-side part of this whole flow, is unaffected, since it's triggered
+separately when the bookmark actually reaches the backend on save,
+regardless of where the title and description preview came from.
 
 ## Share Extension picks tags offline (out-of-radius add)
 
-The companion gap to the on-device metadata fix above. The **app's** tag picker
-(`TagPickerSheet`) works offline because `TagRepository` derives the tag list from the local
-SwiftData store, but the **Share Extension** could not: it is a separate process that (by the M9
-decision) never opens that private-container store, so `ExtensionTagRepository.load()` fetched tags
-from `/api/v1/tags`. Away from the home-lab network that request fails, `AddBookmarkView` swallows it
-(`try? await load()`), and the picker shows **no tags** — the exact frustration that made a real save
-fall back to the app while commuting.
+The companion gap to the fix above. The app's own tag picker already works
+offline, since its tag repository reads from the local on-device store —
+but the Share Extension, by design, never opens that store at all, since
+it's a separate, deliberately online-only process. Away from the home-lab
+network, its tag fetch would simply fail, and the picker would show no tags
+whatsoever — precisely the kind of frustration that pushes someone to
+just open the main app instead while out and about.
 
-- **✅ Decision: cache the tag list to the App Group, don't move the store.** The considered
-  alternative — relocating the SwiftData store into the App Group container so the extension derives
-  tags itself — was rejected: it reverses the deliberate "extension is online-only, never opens this
-  store" stance, needs a one-time migration of every existing install's private-container store, and
-  loads the whole bookmark store into a memory-constrained extension. Instead the app writes its
-  already-derived tag list into the **shared `UserDefaults` suite** (the same channel that already
-  shares the server URL; tokens go via the Keychain access group), and the extension seeds from it.
-  This is a **narrow relaxation** of online-only — tags only, still no SwiftData access, still an
-  online-only *save*.
-- **✅ Snapshot at the single chokepoint.** `TagRepository.derive()` is the one place the app
-  recomputes tags (on load, reload, post-write refresh, and post-sync), so it calls
-  `SharedTagCache.write(tags)` there; `reset()` calls `SharedTagCache.clear()` on sign-out, extending
-  the existing "the next user never sees the previous user's tags" contract to the extension.
-  `SharedTagCache` (`Common/Support/`, compiled into both targets) JSON-encodes `[Tag]` — which gained
-  `Codable` — under the new `AppGroup.knownTagsKey`.
-- **✅ Extension seeds first, refreshes best-effort.** `ExtensionTagRepository.init` sets
-  `tags = SharedTagCache.read()` so `tagHierarchy` (`tags.hierarchy()`) is populated immediately and
-  offline; `load()` then attempts the network `/api/v1/tags` for the freshest list and, on failure,
-  keeps the seeded snapshot rather than ending up empty (`hasLoaded` flips only on success, so a failed
-  fetch can retry). No change to `AddBookmarkView`, `TagPickerSheet`, or `TagAutocompleting`.
-- **Freshness & fallback.** The snapshot is bounded by the app's last derive/sync — the same staleness
-  as the app's own offline tags — and `TagPickerSheet`'s search-as-create still adds any missing tag, so
-  a stale list is never a dead end. A fresh install where the extension runs before the app ever derived
-  tags reads an empty snapshot: same as before, no regression.
-- **Scope.** One new `Common/` file, `Tag` gaining `Codable`, one new `AppGroup` key, and small edits to
-  `TagRepository` and `ExtensionTagRepository`. No StashKit/backend/web changes. Both app platforms
-  build (embedded `.appex` validated); SwiftFormat `--lint` idempotent and SwiftLint clean. PRODUCT.md
-  §16 updated.
+I considered relocating the local store into the shared App Group container
+so the extension could read it directly, and rejected that — it would
+reverse the extension's deliberate online-only design, require migrating
+every existing installation's private on-device store, and load an entire
+bookmark library into a memory-constrained extension process just to read
+tag names. Instead, the app now writes its already-computed tag list into
+the same shared storage mechanism that already carries the configured
+server URL, and the extension seeds itself from that snapshot on launch,
+falling back to it whenever a live network fetch fails rather than showing
+an empty picker. This is a narrow, deliberate relaxation of "the extension
+never touches app-only data" — tags only, and still nothing resembling
+direct store access.
 
 ## In-app browser preference (native apps, iOS/iPadOS)
 
-Tapping a bookmark link always handed off to the system default browser. Added a **Browser**
-preference (`SettingsView` picker: **In-App** — default — or **Default Browser**) so links can open
-inside the app.
+Tapping a bookmark link always handed off to the system's default browser,
+with no way to view a page inside the app itself. I added a Browser
+preference — in-app or default browser, defaulting to in-app — built on
+Apple's own recommended component for exactly this situation, which brings
+Reader mode, AutoFill, content blockers, and shared Safari cookies for
+free, rather than building a bare web view and having to reimplement all of
+that browser chrome myself. Every place a bookmark link can be opened — the
+detail page's URL, the "Open in Browser" button, the row's context menu —
+routes through one centralized URL-opening override rather than three
+separate edits, so the shared list and detail views themselves needed no
+changes at all, and macOS keeps its default-browser-only behavior for free
+with zero platform-specific branching. Only actual http/https links are
+intercepted; anything else (mail links, phone numbers, share actions)
+passes straight through to the system unmodified, both for correctness and
+because the in-app browser component only accepts http/https anyway.
 
-- **✅ Decision: `SFSafariViewController`, not `WKWebView`.** For viewing a page we don't own without
-  custom chrome, Apple explicitly recommends `SFSafariViewController` ([Apple developer
-  news](https://developer.apple.com/news/?id=trjs0tcd)) — it brings Reader, AutoFill, content
-  blockers, and shared Safari cookies for free, where `WKWebView` would mean building browser UI and
-  managing navigation ourselves. Wrapped in a `UIViewControllerRepresentable` (`SafariView`, iOS-only)
-  presented as a sheet.
-- **✅ Centralized `openURL` override, not per-site edits.** The three open sites (detail-page URL
-  `Link`, the "Open in Browser" button, the row context menu) all resolve through SwiftUI's `openURL`
-  environment action. Rather than converting the `Link` to a `Button` and duplicating sheet state in
-  two shared views, a single `.inAppBrowser()` modifier installs a custom `OpenURLAction` on the
-  bookmark `NavigationStack`s. It intercepts **both** imperative `openURL(_:)` calls and `Link`s below
-  it — so the shared `BookmarkDetailView`/`BookmarkListView` are **untouched**, which also keeps macOS
-  on default-browser behavior with zero `#if` churn. Only `http`/`https` are captured (returns
-  `.handled`); every other scheme and the `.defaultBrowser` preference return `.systemAction`, so
-  `mailto:`/`tel:`/share actions are never hijacked (also a correctness requirement — Safari VC accepts
-  only http/https). The override is applied per-stack (Bookmarks + Tags tabs on iPhone, the detail
-  stack on iPad), not at the app root, so Settings is not blanketed.
-- **✅ Stored in the App Group `UserDefaults` suite** via the existing `serverURL` write-through
-  pattern on `@Observable AppSettings` (new `BrowserPreference` enum + `AppGroup.browserPreferenceKey`),
-  defaulting to `.inApp`. The extension does not open links, so it ignores the key.
-- **Scope.** iOS/iPadOS only (`SFSafariViewController` doesn't exist on macOS). Two new iOS-only files
-  (`SafariView`, `InAppBrowserModifier`), the `AppSettings`/`AppGroup` additions, one Settings section,
-  and the `.inAppBrowser()` application in `TabContainerView`/`MainView`. No StashKit/backend/web
-  changes. Both app platforms build; SwiftFormat `--lint` idempotent and SwiftLint clean. PRODUCT.md
-  §16 updated.
-- **✅ Follow-up: Reader toggle + renamed to a "Reading" section.** The Settings section became
-  **Reading**, keeping the Browser picker and adding a **Reader** toggle (default off) that sets
-  `SFSafariViewController.Configuration.entersReaderIfAvailable`, so a supported in-app page opens
-  straight into Reader. Reader is only meaningful for the in-app browser — the system default browser
-  can't be told to enter Reader on open — so the toggle is **disabled when Browser = Default Browser**
-  and its footer says it applies to in-app reading. Stored as a `readerMode: Bool` on `AppSettings`
-  (new `AppGroup.readerModeKey`, same write-through pattern) and threaded to `SafariView(entersReader:)`
-  via the existing `.inAppBrowser()` modifier — no new open sites, no new interception surface.
+A follow-up shortly after added a Reader-mode toggle alongside the browser
+choice, since Reader mode is only meaningful when browsing happens inside
+the app in the first place — the toggle is disabled outright when the
+preference is set to the system default browser, since there's no way to
+request Reader mode from an external browser handoff.
 
 ---
 
 ## Accent palette: replaced Terracotta with Indigo
 
-- **✅ Replaced the tenth accent theme `terracotta` (`#d17e4c`) with `indigo`.** Same slot in
-  `AccentTheme.all`, so the palette stays at ten themes and the other nine are untouched.
-- **✅ Light value is the brand icon indigo `#231468`** — the exact color of the app-icon mark
-  (white ribbon on an indigo rounded square), tying the accent option to the product identity.
-- **✅ Dark value lightened to `#818cf8` (indigo-400).** Unlike Terracotta, which used one hex for
-  both modes, `#231468` is too dark to read as an accent on a dark background, so the dark value
-  follows the palette's usual light-in-dark convention.
-- **✅ No other code changes.** `AccentTheme.validIdentifiers`, the admin picker, and the swatch CSS
-  all derive from `all`, so the new theme is selectable, validates, and previews automatically.
-  `PRODUCT.md` §7.6 theme table updated. Any instance previously set to `terracotta` falls back to
-  the default (`ocean`) via `AccentTheme.theme(for:)`.
+I swapped the tenth accent theme, Terracotta, for a new Indigo option in
+the same slot, keeping the palette at ten themes total and every other
+theme untouched. The light value is the exact indigo used in the app's own
+icon mark, deliberately tying this particular accent choice back to the
+product's own visual identity — something none of the other nine themes
+do. Unlike Terracotta, which used one identical hex for both light and dark
+mode, that specific indigo is too dark to read well as an accent color on a
+dark background, so the dark-mode value lightens it considerably, following
+the same light-in-dark convention every other theme already uses. Any
+instance previously set to Terracotta just falls back to the default theme
+automatically, since that identifier no longer resolves to anything.
 
 ## Release images: build natively per-arch instead of via QEMU
 
-- **Problem:** the release workflow's `linux/arm64` image was cross-compiled under QEMU emulation
-  on an `amd64` runner. Emulating the full Swift compiler through the Vapor/NIO release build
-  crashed it outright (signal 5, "failed to suspend thread") — not a transient flake, a
-  hard failure on every arm64 build.
-- **Same-week stopgap:** pinning the `tonistiigi/binfmt` QEMU image masked a related but distinct
-  symptom (an `apt`/`libc-bin` trigger segfault during the emulated `apt-get` step) but did not fix
-  the compiler crash, so it was quickly superseded.
-- **✅ Real fix: build each architecture natively, then merge.** The `build` job is now a matrix —
-  `amd64` on `ubuntu-latest`, `arm64` on `ubuntu-24.04-arm` (a native arm64 GitHub-hosted runner) —
-  each leg pushing its image to the registry by digest (untagged). A separate `publish` step then
-  stitches both digests into one multi-arch manifest via `docker buildx imagetools create`, and
-  applies the `latest` + semver tags to the manifest, not to either individual digest.
-- **✅ No QEMU anywhere in the release path anymore.** Both legs compile Swift on their native
-  architecture; QEMU is no longer a dependency for this workflow at all.
+The release workflow's arm64 image was originally cross-compiled under QEMU
+emulation on an x86 runner — and emulating the full Swift compiler through
+an entire Vapor/NIO release build crashed it outright, not as an occasional
+flake but as a hard failure on every single arm64 build attempt. A
+same-week stopgap (pinning a specific QEMU image version) papered over a
+related but distinct emulation crash without touching the actual compiler
+crash, and was quickly superseded once I found the real fix: build each
+architecture natively on its own matching runner instead of emulating one
+of them, pushing each architecture's image to the registry separately, then
+stitching both into one proper multi-architecture manifest afterward, with
+the version tags applied to that combined manifest rather than to either
+individual architecture's image. QEMU is no longer part of the release
+pipeline at all.
 
 ## Open-sourcing prep: footer GitHub link, scrubbed identifiers, OSS scaffolding
 
-- **✅ Footer gained a GitHub link.** `_footer.leaf` now renders a GitHub link
-  (`https://github.com/otaviocc/Stash`) ahead of the existing Mastodon and Ko-fi links. To keep the
-  now-three-link row compact, the Ko-fi link text was shortened from "Support Stash on Ko-fi" to
-  just "Ko-fi". A same-day follow-up fixed an `AppearanceTests` assertion that still expected the
-  old Ko-fi link text, which had gone stale and broken CI.
-- **✅ Scrubbed the maintainer's real Apple identifiers from the repo.** The real Apple Developer
-  Team ID (`S9X9XY5GF8`) and the legacy bundle prefix (`cc.otavio`) were replaced everywhere they
-  appeared in committed config, docs, and source with placeholders (`ABCDE12345` and
-  `com.example.otavio` / `group.com.example.otavio.stash`) — the same placeholder pattern already
-  used in the gitignored `Stash.local.xcconfig.example` for per-machine overrides. Historical
-  DECISIONS.md prose describing what was *actually built* under the old identifiers was left as-is
-  (it's a record of what happened); only the live default-value references were swapped.
-- **✅ Added standard GitHub OSS scaffolding ahead of going public.** Root `LICENSE` (MIT), plus
-  `.github/CONTRIBUTING.md`, `.github/CODE_OF_CONDUCT.md`, `.github/SECURITY.md`,
-  `.github/PULL_REQUEST_TEMPLATE.md`, and `.github/ISSUE_TEMPLATE/{bug_report,feature_request}.md`.
-  `README.md` gained a "License" section linking to `LICENSE`. The repository itself remains
-  private for now — this scaffolding is prep, not a visibility change.
+A few small things done specifically in preparation for eventually making
+this repository public. The footer gained a GitHub link alongside the
+existing Mastodon and Ko-fi ones. My real Apple Developer Team ID and my
+personal legacy bundle prefix, both of which had been hardcoded throughout
+committed config, docs, and source, were replaced everywhere with
+placeholder values, matching the same placeholder pattern already used for
+the machine-local xcconfig override — deliberately leaving the historical
+prose in this very document describing what was actually built under the
+old identifiers untouched, since it's an accurate record of what happened
+at the time, not something that needs to match today's placeholders. And
+the repository picked up the standard scaffolding an open-source project is
+expected to have — a license, a contributing guide, a code of conduct, a
+security policy, and issue/PR templates — even though the repository itself
+stays private for now. This is preparation, not a visibility change yet.

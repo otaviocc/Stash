@@ -8,18 +8,20 @@
 
 ## 1. Overview
 
-Stash is a self-hosted, fully private bookmark manager. It is multi-user:
-accounts are created by an admin, and each user manages their own private
-collection of bookmarks. It consists of a Swift/Vapor REST API backend backed by
-PostgreSQL, deployable via Docker, with native clients for iOS, macOS, and the
-command line. A shared Swift package (`StashKit`) provides models and networking
-logic across all clients.
+Stash is my self-hosted bookmark manager — fully private, multi-user (I create
+accounts as the admin, and everyone else manages their own private collection).
+Under the hood it's a Swift/Vapor REST API backed by Postgres, deployed via
+Docker, with native clients for iOS, macOS, and the command line, all sharing a
+Swift package (`StashKit`) for models and networking.
 
-The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
+I built it around one non-negotiable: full data ownership. Self-hosted, no
+third-party cloud — nothing about my bookmarks living on someone else's server.
 
 ---
 
 ## 2. Goals
+
+What I wanted out of it:
 
 - Save bookmarks quickly from any Apple platform via Share Extensions or the CLI
 - Retrieve bookmarks reliably via keyword search, tag browsing, or recency
@@ -29,23 +31,24 @@ The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 - Auto-fetch page metadata (title, description, favicon) at save time, with
   manual override
 - Support multiple users, each with a fully isolated bookmark collection
-- Admin can create, suspend, and hard-delete accounts, reset passwords and 2FA —
-  via web dashboard and CLI
-- Users authenticate with username + password + TOTP-based 2FA, with recovery
-  codes
-- Users can enable, disable, and manage their own 2FA
-- Users can change their own password
-- Duplicate URLs per user are blocked at save time
+- Manage accounts myself as admin — create, suspend, and hard-delete, reset
+  passwords and 2FA — via web dashboard and CLI
+- Authenticate with username + password + TOTP-based 2FA, with recovery codes
+- Let users enable, disable, and manage their own 2FA
+- Let users change their own password
+- Block duplicate URLs per user at save time
 - Import bookmarks from Anybox JSON export and Stash JSON
 - Export bookmarks in Stash native JSON format
 - Export and import Smart Views as part of the Stash native JSON format
 - Dark mode support (Light / Dark / Auto)
-- Keep all data on infrastructure the user controls
-- Remain fully private — no public sharing, no public registration
+- Keep all data on infrastructure I control
+- Stay fully private — no public sharing, no public registration
 
 ---
 
 ## 3. Non-Goals (v1)
+
+Things I deliberately left out, at least for now:
 
 - Public or open registration
 - Cross-user bookmark visibility or sharing
@@ -65,12 +68,14 @@ The core philosophy: **full data ownership, self-hosted, no third-party cloud.**
 | **Admin** | The primary user. Can manage all accounts, reset any user's 2FA. Has their own bookmark collection like any other user. |
 | **User** | A regular account created by the admin. Can manage their own bookmarks, change their own password, and manage their own 2FA. Cannot see other users' data. |
 
-There is exactly one admin. The admin account is seeded at first boot via
-environment variables — there is no public sign-up flow.
+There's exactly one admin — me, in practice. The account is seeded at first
+boot from environment variables; there's no public sign-up flow.
 
 ---
 
 ## 5. Platforms
+
+What's actually built, versus what's still on the list:
 
 | Platform | Type | Status |
 |----------|------|--------|
@@ -85,6 +90,8 @@ environment variables — there is no public sign-up flow.
 ---
 
 ## 6. Architecture
+
+Here's how the pieces fit together:
 
 ```
 ┌───────────────────────────────────────────────────────┐
@@ -179,25 +186,25 @@ Eight codes generated at 2FA enrolment. Deleted when 2FA is disabled or reset.
 ### 7.5 Tags
 
 Tags are plain strings stored on each bookmark. Hierarchical tags use slash
-notation: `swift/vapor`. The tag tree is derived dynamically per user — no
-separate tag table.
+notation, like `swift/vapor`. I derive the tag tree dynamically per user rather
+than keeping a separate tags table.
 
-A derived `tagsSearch` column stores tags as `|swift|swift/vapor|` for portable
-prefix-matching via SQL `LIKE`. Consistent across SQLite (tests) and PostgreSQL
-(production).
+A derived `tagsSearch` column stores tags as `|swift|swift/vapor|` so prefix
+matching can happen with a plain SQL `LIKE` — the same behaviour on SQLite
+(tests) and PostgreSQL (production).
 
 Querying `tag=swift` matches bookmarks where `tagsSearch` contains `|swift` —
-prefix match: includes `swift` and `swift/*`, but not `swiftui`.
+a prefix match, so it includes `swift` and `swift/*`, but not `swiftui`.
 
 **Tag normalisation:** trimmed, lowercased, surrounding slashes stripped,
 de-duplicated. Enforced server-side on every write.
 
 ### 7.6 Site Settings
 
-Instance-wide customisation, managed by the admin. A single-row configuration
-table — always exactly one row, created on first boot with default values, never
-deleted. Cached on the application at startup so page renders never hit the
-database.
+Instance-wide customisation, managed by the admin. It's a single-row
+configuration table — always exactly one row, created on first boot with
+default values, never deleted — and cached in the application at startup so
+page renders never hit the database.
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -231,10 +238,11 @@ block overriding `--accent`, from the app-level cache (no per-request query).
 
 ### 7.7 Smart View
 
-A named, saved query owned by a user. Stores rules, not results — each time it is
-opened the query runs live against the user's bookmarks. `matchMode` decides how
-the conditions combine: `all` (every condition must match — AND) or `any` (at
-least one — OR), like macOS Music's "Match all/any of the following rules".
+A named, saved query owned by a user. It stores rules, not results — every time
+it's opened the query runs live against the user's bookmarks. `matchMode`
+decides how the conditions combine: `all` (every condition must match — AND) or
+`any` (at least one — OR), the same idea as macOS Music's "Match all/any of the
+following rules".
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -301,8 +309,8 @@ Favicons are cached **per domain** (not per bookmark or per user) and served fro
 Stash itself instead of relying on the browser fetching from the origin site or
 Google on every render. A new bookmark for any URL on an already-cached domain
 reuses the existing image — the cache grows with unique domains, not bookmark
-count. Fetched once when a domain is first encountered; re-fetched only on an
-explicit manual refresh.
+count. I fetch it once when a domain is first encountered, and only re-fetch on
+an explicit manual refresh.
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -316,13 +324,14 @@ explicit manual refresh.
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
-**Unique index on `domain`** — the insert-then-catch path uses it to dedupe
-concurrent first-time fetches for the same domain. Image bytes are capped at 100KB
-(rejected via the `Content-Length` header before download when present), the
-`Content-Type` must be a non-SVG `image/*` (SVG is refused as active content), and
-the served response carries `X-Content-Type-Options: nosniff`. The bookmark's
-`faviconURL` field is no longer written for new bookmarks (domain-keyed lookup at
-render time supersedes it) but the column is retained.
+There's a unique index on `domain` — the insert-then-catch path uses it to
+dedupe concurrent first-time fetches for the same domain. Image bytes are
+capped at 100KB (rejected via the `Content-Length` header before download when
+present), the `Content-Type` must be a non-SVG `image/*` (SVG is refused as
+active content), and the served response carries
+`X-Content-Type-Options: nosniff`. The bookmark's `faviconURL` field is no
+longer written for new bookmarks (domain-keyed lookup at render time supersedes
+it) but the column is retained.
 
 ---
 
@@ -338,9 +347,9 @@ render time supersedes it) but the column is retained.
 Silent refresh within 60 seconds of expiry. The 2FA temp token uses `scope:
 "2fa"` so it cannot be replayed as an access token.
 
-Note: both tokens are stored in Keychain on iOS/macOS (deviation from the
-original memory-only access token spec) to enable cold-start session restoration
-and Share Extension token reuse.
+One deviation from my original plan: both tokens live in Keychain on
+iOS/macOS, not just the refresh token — that's what makes cold-start session
+restoration and Share Extension token reuse possible.
 
 ### 8.2 Login Flow
 
@@ -375,8 +384,9 @@ POST /api/v1/auth/totp/verify-setup  { totpCode }
 Recovery codes: 8 × `XXXX-XXXX`, bcrypt-hashed, single-use. Shown exactly once
 with mandatory "I've saved these" confirmation.
 
-Web UI shows `otpauthURI` + manual setup key — no QR image (CoreImage
-unavailable on Linux). Native clients display a QR code from `otpauthURI`.
+The web UI shows the `otpauthURI` plus a manual setup key — no QR image, since
+CoreImage isn't available on Linux. The native clients render a QR code from
+`otpauthURI` instead.
 
 ### 8.4 2FA Disable / Reset
 
@@ -563,15 +573,15 @@ keyed by domain, rather than storing a per-bookmark `faviconURL`. See §7.8 and
 the Favicon Caching section of `DECISIONS.md`.
 
 **Native clients fetch metadata on-device.** The iOS/macOS app and Share
-Extension do *not* call `POST /api/v1/metadata` for the add-bookmark preview;
-they run the same regex parser locally (`ClientMetadataFetcher`, a verbatim port
-of the backend's `MetadataFetcher`), fetching the target page directly. This
-lets metadata be retrieved even when the Stash backend is unreachable (e.g. away
-from the home-lab network) with no round-trip and no timeout delay. The
-`/api/v1/metadata` endpoint remains for the web UI and the browser extension.
-Favicon *caching* is unaffected — it still happens server-side, keyed by domain,
-when the bookmark reaches the backend (on create/sync), regardless of where the
-title/description preview came from.
+Extension don't call `POST /api/v1/metadata` for the add-bookmark preview —
+they run the same regex parser locally (`ClientMetadataFetcher`, a verbatim
+port of the backend's `MetadataFetcher`), fetching the target page directly.
+That way metadata still shows up even when the Stash backend is unreachable
+(say, away from the home-lab network), with no round-trip and no timeout
+delay. The `/api/v1/metadata` endpoint remains for the web UI and the browser
+extension. Favicon *caching* is unaffected — it still happens server-side,
+keyed by domain, when the bookmark reaches the backend (on create/sync),
+regardless of where the title/description preview came from.
 
 ---
 
@@ -612,8 +622,8 @@ Bad individual records are counted in `skipped`/`errors`, shown in a collapsible
 
 ### 11.2 Anybox JSON Importer (`identifier: "anybox"`)
 
-Anybox exports a JSON array. **Actual field shapes** (verified against a real
-export):
+Anybox exports a JSON array. I verified the actual field shapes against a real
+export, which turned out to differ slightly from what I first assumed:
 
 - `tags` is `[[String]]` — arrays of `[namespace, value]` pairs (e.g.
   `[["topic","swift"],["status","reading"]]`). Each pair joined with `/` →
@@ -952,11 +962,12 @@ import/export); a richer condition-builder CLI is a possible later step.
 Built on `MicroClient` (`from: "0.0.27"`). Swift tools 6.0, iOS 26.0 / macOS
 26.0.
 
-Three layers: **DTOs** (Codable/Sendable structs matching API wire shapes),
-**request factories** (one `enum` per domain, `public static` methods returning
-typed `NetworkRequest<…>`), **thin `StashClient`** (wraps `NetworkClient`, adds
-`BearerAuthorizationInterceptor` + `ContentTypeInterceptor` +
-`AcceptHeaderInterceptor`, maps errors to `StashAPIError`).
+I split it into three layers: **DTOs** (Codable/Sendable structs matching API
+wire shapes), **request factories** (one `enum` per domain, `public static`
+methods returning typed `NetworkRequest<…>`), and a **thin `StashClient`**
+(wraps `NetworkClient`, adds `BearerAuthorizationInterceptor` +
+`ContentTypeInterceptor` + `AcceptHeaderInterceptor`, maps errors to
+`StashAPIError`).
 
 No storage, no refresh logic, no business logic. `tokenProvider: @escaping
 @Sendable () async -> String?` keeps the package storage-agnostic. Tag cache and
@@ -974,7 +985,7 @@ DTOs and a `SmartViewRequest` body.
 ### Project
 
 - `StashApp/Stash.xcodeproj` is committed and uses synchronized folder groups
-  (XcodeGen was retired — see `DECISIONS.md`)
+  (I retired XcodeGen — see `DECISIONS.md`)
 - Single multiplatform SwiftUI app target `Stash` (iOS 26.0 + macOS 26.0) and
   one multiplatform Share Extension target
 - Bundle ID: `com.example.otavio.stash`
@@ -1152,10 +1163,10 @@ building against the SDK; no explicit modifiers.
   section (one entry per Smart View, shown only when the user has any), and a
   **always-expanded, indented hierarchical tag tree** (a flattened `ForEach`,
   mirroring the web sidebar) driving the shared `BookmarkListView` in the detail column; selecting a
-  bookmark pushes the shared `BookmarkDetailView`. The optional inspector panel
-  was not built (the shared list is reused as-is for maximum code sharing).
-  **Drag a bookmark row onto a tag** in the sidebar to add that tag to the bookmark
-  (shared with iPad).
+  bookmark pushes the shared `BookmarkDetailView`. I didn't build an optional
+  inspector panel — the shared list already gets you there with less code to
+  maintain. **Drag a bookmark row onto a tag** in the sidebar to add that tag to
+  the bookmark (shared with iPad).
 - **Window:** standard `WindowGroup`, 800×500 minimum
   (`windowResizability(.contentMinSize)`).
 - **Bookmarks:** shared list and rows; right-click context menu (Open in
@@ -1324,14 +1335,15 @@ stash.yourdomain.com {
 Two GitHub Actions workflows. `ci.yml` runs on every push to `main` and every
 pull request — builds and tests all components, no image. `release.yml` runs on
 a `v*.*.*` tag: re-runs the backend tests, then builds `linux/amd64` and
-`linux/arm64` natively on separate GitHub-hosted runners (not cross-compiled
-under QEMU — QEMU emulation crashed the Swift compiler during the arm64 build,
-see `DECISIONS.md`), pushing each by digest, then stitches both into one
+`linux/arm64` natively on separate GitHub-hosted runners. I originally
+cross-compiled the arm64 build under QEMU, but the emulation crashed the Swift
+compiler partway through, so both architectures now build natively instead (see
+`DECISIONS.md`). Each arch is pushed by digest, then stitched into one
 multi-arch manifest via `docker buildx imagetools create` → tags
 `ghcr.io/otaviocc/stash` (`latest` + semver) → creates a GitHub Release with
-`docker-compose.yml` attached. `GITHUB_TOKEN` only — no extra secrets. The repo stays private; the image is
-made public via a **one-time manual setting** in the package settings (there is
-no API to do it from CI).
+`docker-compose.yml` attached. `GITHUB_TOKEN` only — no extra secrets. The repo
+stays private; the image is made public via a one-time manual setting in the
+package settings (there's no API to do it from CI).
 
 ---
 
@@ -1510,6 +1522,9 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 
 ## 21. Known Leaf Gotchas
 
+A few quirks that cost me real debugging time and are worth writing down so I
+don't relearn them the hard way:
+
 - `#if(count(x))` does **not** coerce `Int` to `Bool` — `count 0` evaluates
   truthy. Always use `#if(count(x) > 0)`.
 - Inline conditionals require the colon: `#if(cond): … #endif`.
@@ -1521,6 +1536,8 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 ---
 
 ## 22. Out of Scope
+
+Deliberately not building, at least for v1:
 
 - Open/public registration
 - Cross-user bookmark visibility or sharing
