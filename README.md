@@ -52,4 +52,7 @@ A self-hosted bookmark manager with native iOS, macOS, web, and browser-extensio
 
 ## License
 
-Stash is available under the [MIT license](LICENSE).
+Stash uses a split license: the server (`Backend`) is [AGPL-3.0-only](Backend/LICENSE), so anyone
+running a modified Stash server as a network service must share their changes. Everything else —
+`StashKit`, `CLI`, `StashApp`, the browser `Extension`, and `StashSkill` — is available under the
+[MIT license](LICENSE).

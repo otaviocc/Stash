@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Otávio C.
+// SPDX-License-Identifier: MIT
+
 // Stash settings page. Drives sign-in (including the 2FA branch) by talking to
 // the background service worker over chrome.runtime.sendMessage; it never
 // touches token storage directly.

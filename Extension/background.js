@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Otávio C.
+// SPDX-License-Identifier: MIT
+
 // Stash browser extension — service worker.
 //
 // Owns all token storage and every authenticated call to the Stash REST API.

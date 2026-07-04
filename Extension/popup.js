@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Otávio C.
+// SPDX-License-Identifier: MIT
+
 // Stash popup. Reads the current tab, presents the add-bookmark form, and saves
 // via the background service worker. All Stash API calls go through
 // { action: "apiCall" }; the popup never touches token storage.

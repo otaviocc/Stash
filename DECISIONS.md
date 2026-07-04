@@ -2960,3 +2960,34 @@ the repository picked up the standard scaffolding an open-source project is
 expected to have — a license, a contributing guide, a code of conduct, a
 security policy, and issue/PR templates — even though the repository itself
 stays private for now. This is preparation, not a visibility change yet.
+
+## License: split MIT into AGPLv3 (Backend) and MIT (everything else)
+
+The MIT license added just one commit earlier covered the whole monorepo,
+but MIT does nothing to stop someone from taking the server, running it as
+a hosted service with modifications, and never sharing those changes back —
+the same "SaaS loophole" that Immich, Nextcloud, Mastodon, and Grafana all
+close by licensing their server under AGPLv3 instead. I'm the sole
+copyright holder, so relicensing needed no one else's sign-off, and I split
+the license along the same server/client boundary that already exists in
+the repo: `Backend` moved to AGPL-3.0-only, while `StashKit`, `CLI`,
+`StashApp`, `Extension`, and `StashSkill` stayed MIT. `StashApp` staying
+MIT specifically rules out an App Store conflict — Apple's terms are
+incompatible with (A)GPL, and I want the door open to the App Store later.
+`StashKit` staying MIT rather than following `Backend` into AGPL was the
+one non-obvious call: `Backend` links it, and combining permissive code
+into an AGPL work is allowed, so the combined Backend distribution is still
+governed by AGPL while `StashKit`'s own source — and every client that
+links it — stays copyleft-free.
+
+The per-file header changed shape at the same time, from the full MIT text
+pasted into every source file to a two-line SPDX identifier
+(`SPDX-License-Identifier: AGPL-3.0-only` or `MIT`, per component). That
+header lives in one place per component — the `--header` line in each
+`.swiftformat` — so the four config edits regenerated all ~230 file headers
+in one SwiftFormat pass rather than needing a hand edit per file. `Backend`
+also gained its own `LICENSE` file with the full AGPLv3 text alongside the
+root MIT `LICENSE`, and `StashSkill` got a copy of the MIT `LICENSE` too,
+since it's meant to be copied standalone into someone's `.claude/skills`
+directory and shouldn't rely on the rest of the repo being present to stay
+license-compliant.
