@@ -4,6 +4,10 @@ A self-hosted bookmark manager with native iOS, macOS, web, and browser-extensio
 
 ![CI](https://github.com/otaviocc/stash/actions/workflows/ci.yml/badge.svg)
 
+<img width="1348" height="928" alt="Landing" src="https://github.com/user-attachments/assets/dc0e591f-2476-4f86-a3ff-288517eeeba1" />
+
+<img width="1348" height="928" alt="Bookmarks" src="https://github.com/user-attachments/assets/f595a3aa-4a17-4575-a274-34e2a74bcf19" />
+
 ## Features
 
 - Save bookmarks from iOS, macOS, Safari Share Extension, CLI, the web UI, or a
