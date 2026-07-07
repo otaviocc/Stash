@@ -8,8 +8,7 @@
 
 ## 1. Overview
 
-Stash is my self-hosted bookmark manager — fully private, multi-user (I create
-accounts as the admin, and everyone else manages their own private collection).
+Stash is my self-hosted bookmark manager. Fully private, and multi-user.
 Under the hood it's a Swift/Vapor REST API backed by Postgres, deployed via
 Docker, with native clients for iOS, macOS, and the command line, all sharing a
 Swift package (`StashKit`) for models and networking.
@@ -68,7 +67,7 @@ Things I deliberately left out, at least for now:
 | **Admin** | The primary user. Can manage all accounts, reset any user's 2FA. Has their own bookmark collection like any other user. |
 | **User** | A regular account created by the admin. Can manage their own bookmarks, change their own password, and manage their own 2FA. Cannot see other users' data. |
 
-There's exactly one admin — me, in practice. The account is seeded at first
+There's exactly one admin, in practice. The account is seeded at first
 boot from environment variables; there's no public sign-up flow.
 
 ---
