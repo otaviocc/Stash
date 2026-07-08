@@ -1,4 +1,4 @@
-# Stash — Product Requirements Document
+# Stash: Product Requirements Document
 
 **Version:** 1.9
 **Status:** Living Document
@@ -14,7 +14,7 @@ Docker, with native clients for iOS, macOS, and the command line, all sharing a
 Swift package (`StashKit`) for models and networking.
 
 I built it around one non-negotiable: full data ownership. Self-hosted, no
-third-party cloud — nothing about my bookmarks living on someone else's server.
+third-party cloud, nothing about my bookmarks living on someone else's server.
 
 ---
 
@@ -24,14 +24,14 @@ What I wanted out of it:
 
 - Save bookmarks quickly from any Apple platform via Share Extensions or the CLI
 - Retrieve bookmarks reliably via keyword search, tag browsing, or recency
-- Organise bookmarks with both flat and hierarchical tags
+- Organize bookmarks with both flat and hierarchical tags
 - Rename and delete tags across all bookmarks in bulk
 - Save named queries as Smart Views that filter bookmarks by a set of AND conditions
 - Auto-fetch page metadata (title, description, favicon) at save time, with
   manual override
 - Support multiple users, each with a fully isolated bookmark collection
-- Manage accounts myself as admin — create, suspend, and hard-delete, reset
-  passwords and 2FA — via web dashboard and CLI
+- Manage accounts myself as admin: create, suspend, and hard-delete, reset
+  passwords and 2FA, via web dashboard and CLI
 - Authenticate with username + password + TOTP-based 2FA, with recovery codes
 - Let users enable, disable, and manage their own 2FA
 - Let users change their own password
@@ -41,7 +41,7 @@ What I wanted out of it:
 - Export and import Smart Views as part of the Stash native JSON format
 - Dark mode support (Light / Dark / Auto)
 - Keep all data on infrastructure I control
-- Stay fully private — no public sharing, no public registration
+- Stay fully private: no public sharing, no public registration
 
 ---
 
@@ -51,7 +51,7 @@ Things I deliberately left out, at least for now:
 
 - Public or open registration
 - Cross-user bookmark visibility or sharing
-- Page content archiving (saving article text/HTML for offline reading) — distinct
+- Page content archiving (saving article text/HTML for offline reading), distinct
   from the native apps' offline access to their own bookmark data, which is supported
 - Public or shared collections
 - Read-later / queue functionality
@@ -135,7 +135,7 @@ StashKit (Swift Package) — ✅ Complete (M6)
 | `isTOTPEnabled` | Bool | Default false |
 | `role` | Enum | `admin` or `user` |
 | `isActive` | Bool | False = suspended, cannot log in |
-| `bookmarkCount` | Int | Denormalised; updated on bookmark create/delete |
+| `bookmarkCount` | Int | Denormalized; updated on bookmark create/delete |
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
@@ -180,7 +180,7 @@ reset (admin), and 2FA disable/reset.
 | `codeHash` | String | Bcrypt hash of the raw code |
 | `usedAt` | Date? | Null until redeemed; single-use |
 
-Eight codes generated at 2FA enrolment. Deleted when 2FA is disabled or reset.
+Eight codes generated at 2FA enrollment. Deleted when 2FA is disabled or reset.
 
 ### 7.5 Tags
 
@@ -189,20 +189,20 @@ notation, like `swift/vapor`. I derive the tag tree dynamically per user rather
 than keeping a separate tags table.
 
 A derived `tagsSearch` column stores tags as `|swift|swift/vapor|` so prefix
-matching can happen with a plain SQL `LIKE` — the same behaviour on SQLite
+matching can happen with a plain SQL `LIKE`, the same behavior on SQLite
 (tests) and PostgreSQL (production).
 
-Querying `tag=swift` matches bookmarks where `tagsSearch` contains `|swift` —
+Querying `tag=swift` matches bookmarks where `tagsSearch` contains `|swift`,
 a prefix match, so it includes `swift` and `swift/*`, but not `swiftui`.
 
-**Tag normalisation:** trimmed, lowercased, surrounding slashes stripped,
+**Tag normalization:** trimmed, lowercased, surrounding slashes stripped,
 de-duplicated. Enforced server-side on every write.
 
 ### 7.6 Site Settings
 
-Instance-wide customisation, managed by the admin. It's a single-row
-configuration table — always exactly one row, created on first boot with
-default values, never deleted — and cached in the application at startup so
+Instance-wide customization, managed by the admin. It's a single-row
+configuration table (always exactly one row, created on first boot with
+default values, never deleted) and cached in the application at startup so
 page renders never hit the database.
 
 | Field | Type | Notes |
@@ -237,10 +237,10 @@ block overriding `--accent`, from the app-level cache (no per-request query).
 
 ### 7.7 Smart View
 
-A named, saved query owned by a user. It stores rules, not results — every time
+A named, saved query owned by a user. It stores rules, not results; every time
 it's opened the query runs live against the user's bookmarks. `matchMode`
-decides how the conditions combine: `all` (every condition must match — AND) or
-`any` (at least one — OR), the same idea as macOS Music's "Match all/any of the
+decides how the conditions combine: `all` (every condition must match, AND) or
+`any` (at least one, OR), the same idea as macOS Music's "Match all/any of the
 following rules".
 
 | Field | Type | Notes |
@@ -267,20 +267,20 @@ Each condition is a `{ type, value }` object (all values strings; dates ISO-8601
 | `olderThan` | `createdAt` is more than N days/months/years ago (relative to now) |
 | `newerThan` | `createdAt` is within the last N days/months/years (relative to now) |
 | `isArchived` | `isArchived` equals `true`/`false` |
-| `hasTags` | `tagsSearch` is non-empty (`true`) or empty (`false`) — i.e. the bookmark has any tags |
+| `hasTags` | `tagsSearch` is non-empty (`true`) or empty (`false`); i.e. the bookmark has any tags |
 
 Text conditions use the same portable `lower(column) LIKE lower('%value%')` helper
 as full-text search. Multiple conditions of the same type are allowed (with
 `matchMode: all`, two `tag` conditions = the bookmark must have both tags; with
 `any`, either tag matches). The non-archived default is applied as an outer AND in
-both modes — results are limited to non-archived bookmarks unless an `isArchived`
+both modes; results are limited to non-archived bookmarks unless an `isArchived`
 condition is present.
 
 The relative-age conditions `olderThan` / `newerThan` carry a compact **duration
-string** as their value — a positive integer followed by a unit suffix: `d` (days),
+string** as their value: a positive integer followed by a unit suffix: `d` (days),
 `m` (months), or `y` (years), e.g. `"30d"`, `"3m"`, `"1y"`. The cutoff is computed
 from the current time **at query execution, not at Smart View creation** (so "older
-than 6 months" stays current as time passes), using calendar arithmetic — `"1m"` is
+than 6 months" stays current as time passes), using calendar arithmetic: `"1m"` is
 one calendar month, not a fixed 30 days. They join, and do not replace, the absolute
 `createdBefore` / `createdAfter` date conditions.
 
@@ -307,7 +307,7 @@ configurable.
 Favicons are cached **per domain** (not per bookmark or per user) and served from
 Stash itself instead of relying on the browser fetching from the origin site or
 Google on every render. A new bookmark for any URL on an already-cached domain
-reuses the existing image — the cache grows with unique domains, not bookmark
+reuses the existing image; the cache grows with unique domains, not bookmark
 count. I fetch it once when a domain is first encountered, and only re-fetch on
 an explicit manual refresh.
 
@@ -323,7 +323,7 @@ an explicit manual refresh.
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
-There's a unique index on `domain` — the insert-then-catch path uses it to
+There's a unique index on `domain`; the insert-then-catch path uses it to
 dedupe concurrent first-time fetches for the same domain. Image bytes are
 capped at 100KB (rejected via the `Content-Length` header before download when
 present), the `Content-Type` must be a non-SVG `image/*` (SVG is refused as
@@ -347,7 +347,7 @@ Silent refresh within 60 seconds of expiry. The 2FA temp token uses `scope:
 "2fa"` so it cannot be replayed as an access token.
 
 One deviation from my original plan: both tokens live in Keychain on
-iOS/macOS, not just the refresh token — that's what makes cold-start session
+iOS/macOS, not just the refresh token; that's what makes cold-start session
 restoration and Share Extension token reuse possible.
 
 ### 8.2 Login Flow
@@ -370,7 +370,7 @@ POST /api/v1/auth/logout  { refreshToken }
 → 204 No Content
 ```
 
-### 8.3 2FA Enrolment
+### 8.3 2FA Enrollment
 
 ```
 GET  /api/v1/auth/totp/setup
@@ -383,7 +383,7 @@ POST /api/v1/auth/totp/verify-setup  { totpCode }
 Recovery codes: 8 × `XXXX-XXXX`, bcrypt-hashed, single-use. Shown exactly once
 with mandatory "I've saved these" confirmation.
 
-The web UI shows the `otpauthURI` plus a manual setup key — no QR image, since
+The web UI shows the `otpauthURI` plus a manual setup key, no QR image, since
 CoreImage isn't available on Linux. The native clients render a QR code from
 `otpauthURI` instead.
 
@@ -431,8 +431,8 @@ All API routes prefixed `/api/v1/`. Health check at `/health` (unversioned).
 |--------|------|-------------|
 | `GET` | `/api/v1/me` | Current user profile |
 | `PUT` | `/api/v1/me/password` | Change own password |
-| `GET` | `/api/v1/auth/totp/setup` | Begin 2FA enrolment |
-| `POST` | `/api/v1/auth/totp/verify-setup` | Confirm enrolment; returns recovery codes |
+| `GET` | `/api/v1/auth/totp/setup` | Begin 2FA enrollment |
+| `POST` | `/api/v1/auth/totp/verify-setup` | Confirm enrollment; returns recovery codes |
 | `POST` | `/api/v1/auth/totp/disable` | Disable own 2FA (requires current TOTP code) |
 
 ### 9.3 Bookmarks (authenticated, scoped to current user)
@@ -454,21 +454,21 @@ All API routes prefixed `/api/v1/`. Health check at `/health` (unversioned).
 | `q` | Full-text search (URL, title, description, tags). Case-insensitive on both SQLite and PostgreSQL via `lower(column) LIKE lower(term)`. |
 | `tag` | Prefix filter. `swift` matches `swift` and `swift/*` but not `swiftui`. Special values: `__untagged__` returns bookmarks with no tags; `__today__` / `__this_week__` return bookmarks created since the start of the day / the most recent Monday. |
 | `archived` | Default false. Pass `true` for archived bookmarks. |
-| `page` / `per` | Pagination. `per` clamped 1–100. |
+| `page` / `per` | Pagination. `per` clamped 1-100. |
 
 **Offline-sync endpoints** (consumed by the native apps; see `DECISIONS.md` →
 Offline Sync):
 
-- **`GET /api/v1/bookmarks/changes?since=<ISO8601>&page=&per=`** — a
+- **`GET /api/v1/bookmarks/changes?since=<ISO8601>&page=&per=`**: a
   `Page<Bookmark>` of all bookmarks (**archived included**) with `updatedAt >
-  since`, sorted ascending by `updatedAt`. `per` defaults to 100, clamped 1–500.
+  since`, sorted ascending by `updatedAt`. `per` defaults to 100, clamped 1-500.
   Omitting `since` returns every bookmark (initial full sync). A malformed `since`
   is a `validation_failed` 422.
-- **`GET /api/v1/bookmarks/deleted?since=<ISO8601>`** — a flat array of tombstones
+- **`GET /api/v1/bookmarks/deleted?since=<ISO8601>`**: a flat array of tombstones
   `[{ "id": "<deleted bookmark id>", "deletedAt": "<ISO8601>" }]` for bookmarks
   hard-deleted after `since`, sorted ascending by `deletedAt` (no pagination).
-  Omitting `since` returns all tombstones. Every hard delete — via the API or the
-  web frontend, single or bulk — records a tombstone so an offline client learns
+  Omitting `since` returns all tombstones. Every hard delete, via the API or the
+  web frontend, single or bulk, records a tombstone so an offline client learns
   what to remove locally.
 
 ### 9.4 Tags (authenticated, scoped to current user)
@@ -493,7 +493,7 @@ Response: `{ "from": "foo-bar", "to": "foobar", "affectedBookmarks": 12 }`
 "affectedBookmarks": 12 }`
 
 - Removes exact tag and all children from all affected bookmarks
-- Bookmarks are never deleted — only their tags
+- Bookmarks are never deleted, only their tags
 - Unused tag: idempotent 200, `affectedBookmarks: 0`
 
 ### 9.5 Smart Views (authenticated, scoped to current user)
@@ -509,7 +509,7 @@ Response: `{ "from": "foo-bar", "to": "foobar", "affectedBookmarks": 12 }`
 
 Validation (`POST`/`PUT`): non-empty `name` ≤ 100 chars, an optional `matchMode`
 of `all`/`any` (defaults to `all`), at least one condition, each condition a valid
-type with a non-empty (and, for dates, ISO-8601-parseable) value — otherwise
+type with a non-empty (and, for dates, ISO-8601-parseable) value; otherwise
 `422 validation_failed`. A missing/foreign Smart View returns
 `404 smart_view_not_found`. `:id/bookmarks` supports `page`/`per`; the `isArchived`
 condition overrides the default archived filter (otherwise non-archived only).
@@ -542,7 +542,7 @@ condition overrides the default archived filter (otherwise non-archived only).
 - `GET` is **unauthenticated** so `<img>` tags can load it without attaching
   credentials. A `cached` row returns the image bytes with its stored
   `Content-Type` and `Cache-Control: public, max-age=2592000, immutable` (30
-  days). A `failed`, `pending`, or missing row returns `404 not_found` — the web
+  days). A `failed`, `pending`, or missing row returns `404 not_found`; the web
   UI degrades gracefully to no icon.
 - `POST .../refresh` requires being logged in (favicons are shared, not
   privileged, but auth prevents anonymous abuse). It deletes the existing row and
@@ -560,7 +560,7 @@ On `POST /api/v1/bookmarks` with `fetchMetadata: true` (default):
    name="description">`, favicon
 3. Client-supplied values take precedence
 4. Title falls back to URL if blank
-5. On any failure: save proceeds with client-supplied values — never blocks
+5. On any failure: save proceeds with client-supplied values, never blocks
 
 Timeout: 5 seconds. No retry.
 
@@ -572,13 +572,13 @@ keyed by domain, rather than storing a per-bookmark `faviconURL`. See §7.8 and
 the Favicon Caching section of `DECISIONS.md`.
 
 **Native clients fetch metadata on-device.** The iOS/macOS app and Share
-Extension don't call `POST /api/v1/metadata` for the add-bookmark preview —
+Extension don't call `POST /api/v1/metadata` for the add-bookmark preview;
 they run the same regex parser locally (`ClientMetadataFetcher`, a verbatim
 port of the backend's `MetadataFetcher`), fetching the target page directly.
 That way metadata still shows up even when the Stash backend is unreachable
 (say, away from the home-lab network), with no round-trip and no timeout
 delay. The `/api/v1/metadata` endpoint remains for the web UI and the browser
-extension. Favicon *caching* is unaffected — it still happens server-side,
+extension. Favicon *caching* is unaffected; it still happens server-side,
 keyed by domain, when the bookmark reaches the backend (on create/sync),
 regardless of where the title/description preview came from.
 
@@ -589,7 +589,7 @@ regardless of where the title/description preview came from.
 ### 11.1 Architecture
 
 Pluggable `ImportExportRegistry`. New formats: conform to protocol, register in
-`init` — no controller, route, or template changes needed.
+`init`, no controller, route, or template changes needed.
 
 ```swift
 protocol BookmarkImporter {
@@ -624,10 +624,10 @@ Bad individual records are counted in `skipped`/`errors`, shown in a collapsible
 Anybox exports a JSON array. I verified the actual field shapes against a real
 export, which turned out to differ slightly from what I first assumed:
 
-- `tags` is `[[String]]` — arrays of `[namespace, value]` pairs (e.g.
+- `tags` is `[[String]]`: arrays of `[namespace, value]` pairs (e.g.
   `[["topic","swift"],["status","reading"]]`). Each pair joined with `/` →
   hierarchical Stash tag (`topic/swift`). Plain `[String]` accepted as fallback.
-- `dateAdded` — camelCase, ISO-8601 string. Numeric `date_added`/`dateAdded`
+- `dateAdded`: camelCase, ISO-8601 string. Numeric `date_added`/`dateAdded`
   accepted as fallback. Missing → current time.
 
 | Anybox field | Stash field | Notes |
@@ -635,7 +635,7 @@ export, which turned out to differ slightly from what I first assumed:
 | `url` | `url` | Required; skip if missing or invalid |
 | `title` | `title` | Empty string if missing |
 | `description` | `description` | |
-| `tags` | `tags` | Normalised |
+| `tags` | `tags` | Normalized |
 | `dateAdded` | `createdAt` | ISO-8601; Unix int fallback |
 | `folder` | — | Ignored (flat import) |
 | others | — | Ignored |
@@ -652,7 +652,7 @@ instances.
 | `bookmarks[].url` | Required; skip if missing or invalid |
 | `bookmarks[].title` | |
 | `bookmarks[].description` | |
-| `bookmarks[].tags` | Normalised |
+| `bookmarks[].tags` | Normalized |
 | `bookmarks[].isArchived` | |
 | `bookmarks[].faviconURL` | |
 | `bookmarks[].createdAt` | ISO-8601; current time if missing |
@@ -663,7 +663,7 @@ instances.
 
 Duplicate URL: update in place. `createdAt` preserved. The `smartViews` node is optional, so
 older exports without it still import. A Smart View whose `name` already exists for the user is
-updated in place; otherwise it is created — so re-importing is idempotent. A Smart View with an
+updated in place; otherwise it is created, so re-importing is idempotent. A Smart View with an
 empty name or no valid conditions is skipped and reported, like a bad bookmark record.
 
 ### 11.4 Stash JSON Exporter (`identifier: "stash-json"`)
@@ -734,13 +734,13 @@ container restart.
 - 2FA reset: clears secret + recovery codes + invalidates refresh tokens
 - Post/Redirect/Get with `?ok=` confirmation banners
 - HTML forms use POST sub-routes for destructive actions (suspend, delete, etc.)
-- Nav includes an "App" link to `/app` (always shown — every admin also has a
+- Nav includes an "App" link to `/app` (always shown; every admin also has a
   regular bookmark collection, so it is never a dead end)
 - The Appearance page (`GET`/`POST /admin/appearance`) edits the instance
   `SiteSettings` (§7.6): accent theme (ten circles, pure-HTML radios), the
   about message (max 280 chars), and the custom footer link (URL must be
-  `https://`). Each theme circle previews the colour for the active mode — its
-  light value in light mode, its dark value in dark mode — matching what the app
+  `https://`). Each theme circle previews the color for the active mode: its
+  light value in light mode, its dark value in dark mode, matching what the app
   actually renders. Invalid input → 422 with the form re-rendered; on success the
   app-level cache is refreshed and PRG redirects with `?ok=saved`.
 
@@ -752,7 +752,7 @@ Session-based auth (`stash_session` cookie, path `/app`, in-memory,
 SameSite=Lax). Any active user role can log in. Sessions don't survive a
 container restart.
 
-Every web page (`/app`, `/admin`, landing, and login) carries the Stash favicon —
+Every web page (`/app`, `/admin`, landing, and login) carries the Stash favicon:
 the app-icon mark (a white bookmark ribbon on an indigo `#231468` rounded square),
 served from `Backend/Public/` as `favicon.svg` / `favicon.ico` /
 `apple-touch-icon.png` and linked from the shared `layout.leaf` head, so the web
@@ -782,14 +782,14 @@ a dead end for them).
 
 - Search (`?q=`), tag filter (`?tag=`), archived toggle (`?archived=true`)
 - The archived toggle ("View archived" / "← Active bookmarks") preserves the
-  active search and tag filter — toggling archive on a filtered view shows that
+  active search and tag filter; toggling archive on a filtered view shows that
   tag's archived items rather than dropping the filter, matching the native apps
 - Pagination with prev/next links preserving active filters
 - Two-column layout: bookmark list (left/main) + tag sidebar (right, 220px)
 - Mobile (<768px): sidebar hidden, filter pills used instead
 - Each row (and the detail page title) shows the domain's cached favicon via
   `<img src="/api/v1/favicons/{domain}">` (§7.8, §9.8), with an `onerror` handler
-  that hides the image on a `404` — graceful degradation to no icon, never a
+  that hides the image on a `404`, graceful degradation to no icon, never a
   broken-image glyph. The `{domain}` is computed server-side per row.
 
 ### Favicons
@@ -800,12 +800,12 @@ a dead end for them).
   favicon" button that POSTs to `/app/bookmarks/:id/refresh-favicon` (a thin
   session-auth wrapper that triggers the same re-fetch as the API's
   `POST /api/v1/favicons/:domain/refresh`). PRG redirects back with a
-  `?ok=favicon_refreshing` banner ("Favicon refresh started — it may take a
+  `?ok=favicon_refreshing` banner ("Favicon refresh started. It may take a
   moment to update.").
 
 ### Tag Sidebar
 
-- Right column, plain flex — scrolls with the page as one unit (no fixed/sticky
+- Right column, plain flex; scrolls with the page as one unit (no fixed/sticky
   positioning)
 - Two labeled sections: a **Views** heading over the smart filters (All,
   Untagged, Today, This Week), then a **Tags** heading over the hierarchical tag
@@ -821,19 +821,19 @@ a dead end for them).
   included so children always nest
 - Each real tag carries a **count badge** mirroring the native apps: a single
   accent capsule with the visible (non-archived) count when nothing is archived,
-  or a split pill — accent "visible" left half, muted "hidden" (archived) right
-  half — when the tag has archived bookmarks, so a tag whose bookmarks are all
+  or a split pill (accent "visible" left half, muted "hidden" (archived) right
+  half) when the tag has archived bookmarks, so a tag whose bookmarks are all
   archived still appears (e.g. `0|5`). Synthetic parents and tags with no
   bookmarks show no badge.
-- Active tag highlighted with accent colour
+- Active tag highlighted with accent color
 - Aligned with the search bar via `margin-top`
 
 ### Add / Edit Bookmark
 
-- Add form: two-step — "Fetch metadata" previews server-side; "Save" persists
+- Add form is two-step: "Fetch metadata" previews server-side; "Save" persists
 - Add form accepts an optional `?url=` query parameter that pre-populates the
   URL field (e.g. `/app/bookmarks/new?url=https://example.com`). It only
-  pre-fills — the user must still click "Save"; nothing is added automatically.
+  pre-fills; the user must still click "Save"; nothing is added automatically.
   Enables a browser bookmarklet that opens Stash with the current page's URL.
 - Duplicate URL: inline error with link to existing bookmark
 - Edit form does not allow URL changes (avoids duplicate-handling complexity)
@@ -850,7 +850,7 @@ a dead end for them).
 - Inline rename form per tag (vanilla JS toggle, Post/Redirect/Get); Rename is an
   accent link, styled like the Smart Views Edit action
 - Delete uses a native `confirm()` dialog on submit (same pattern as deleting a
-  bookmark) — no inline reveal, so the table never re-renders in place
+  bookmark), no inline reveal, so the table never re-renders in place
 - Rename renames tag and all children; merge if target exists
 - Delete removes tag and all children from all bookmarks
 
@@ -881,7 +881,7 @@ sets `stash_theme` cookie (1 year, path `/`, HTTPOnly=false, SameSite=Lax).
 
 **Account:** change password.
 
-**Two-Factor Authentication:** enrol (QR via `otpauthURI` + manual key), disable
+**Two-Factor Authentication:** enroll (QR via `otpauthURI` + manual key), disable
 (requires current TOTP code; recovery codes shown once with "I've saved these"
 confirmation).
 
@@ -895,7 +895,7 @@ confirmation).
   Smart Views).
 
 **Danger Zone:**
-- "Delete all bookmarks" — requires typing `delete all` (case-insensitive).
+- "Delete all bookmarks": requires typing `delete all` (case-insensitive).
   Verified server-side. Resets `bookmarkCount` to 0. Redirects to `/app` with
   flash banner.
 
@@ -907,13 +907,13 @@ Three-way CSS resolution:
 - `@media (prefers-color-scheme: dark) :root:not([data-theme])` → auto
 
 Inline flash-prevention script at top of `<head>` sets `data-theme` from
-`stash_theme` cookie before first paint — no flash. Applies to both `/app` and
+`stash_theme` cookie before first paint, no flash. Applies to both `/app` and
 `/admin` (shared `layout.leaf`). iOS-style palette: bg `#1c1c1e`, surface
 `#2c2c2e`, accent `#0a84ff`, danger `#ff453a`, success `#30d158`.
 
 ---
 
-## 14. CLI — `stash` ✅ Complete (M7)
+## 14. CLI: `stash` ✅ Complete (M7)
 
 Swift CLI, `ArgumentParser` + `MicroClient` (direct, for 2FA login branch),
 `StashKit`. Config: `~/.config/stash/config.json`.
@@ -944,7 +944,7 @@ stash admin stats [--json]
 ```
 
 `stash export` of a Stash JSON file includes the user's Smart Views, and `stash import` of a
-Stash JSON file restores them (matched by name, via the Smart View REST API) — at parity with the
+Stash JSON file restores them (matched by name, via the Smart View REST API), at parity with the
 web frontend. The CLI cannot preserve a Smart View's `createdAt` (no direct DB access), the same
 limitation already noted for bookmarks.
 
@@ -956,7 +956,7 @@ import/export); a richer condition-builder CLI is a possible later step.
 
 ---
 
-## 15. StashKit — Shared Swift Package ✅ Complete (M6)
+## 15. StashKit: Shared Swift Package ✅ Complete (M6)
 
 Built on `MicroClient` (`from: "0.0.27"`). Swift tools 6.0, iOS 26.0 / macOS
 26.0.
@@ -984,7 +984,7 @@ DTOs and a `SmartViewRequest` body.
 ### Project
 
 - `StashApp/Stash.xcodeproj` is committed and uses synchronized folder groups
-  (I retired XcodeGen — see `DECISIONS.md`)
+  (I retired XcodeGen, see `DECISIONS.md`)
 - Single multiplatform SwiftUI app target `Stash` (iOS 26.0 + macOS 26.0) and
   one multiplatform Share Extension target
 - Bundle ID: `com.example.otavio.stash`
@@ -997,19 +997,19 @@ DTOs and a `SmartViewRequest` body.
 **Layers:** `StashKit` (DTOs + factories) → `Repository` (DTO→domain mapping,
 session state, tag cache) → `ViewModel/View`
 
-**`AppEnvironment`** — `@MainActor @Observable` DI container built once at
+**`AppEnvironment`**: `@MainActor @Observable` DI container built once at
 launch. Exposes `makeBookmarkRepository()` (per-view instances) rather than a
 shared instance; `AuthRepository` and `TagRepository` remain shared singletons.
 
 **Repository pattern:** `AuthRepository`, `BookmarkRepository`, `TagRepository`
-are `@MainActor @Observable`. Silent refresh centralised in
+are `@MainActor @Observable`. Silent refresh centralized in
 `AuthRepository.refreshIfNeeded()` behind a `SessionRefreshing` protocol to
 avoid reference cycles.
 
 **Offline sync (complete):** the apps keep a full SwiftData copy of the user's
 bookmarks (`LocalStore` + `LocalBookmark`, owned by `AppEnvironment`).
-`BookmarkRepository` reads entirely from this store — search, tag, recency, and
-Smart View filters run in memory, mirroring the backend's SQL semantics — so
+`BookmarkRepository` reads entirely from this store: search, tag, recency, and
+Smart View filters run in memory, mirroring the backend's SQL semantics, so
 browsing works without the network. `TagRepository` derives the tag list from the
 store.
 
@@ -1022,8 +1022,8 @@ applies to the local store and returns immediately (`pendingSyncAt`/`isLocalOnly
 background sync pushes the change and reconciles the list with the server's
 authoritative result. A `ConnectivityMonitor` (`NWPathMonitor`) triggers a sync when
 connectivity returns; sync also runs on launch/login, after each write, and on
-returning from the background — which on macOS includes the app being reactivated
-(foregrounded), since macOS `scenePhase` does not track focus changes — and iOS
+returning from the background, which on macOS includes the app being reactivated
+(foregrounded), since macOS `scenePhase` does not track focus changes, and iOS
 schedules a background-refresh sync (`BGAppRefreshTask`).
 
 Sync state is surfaced in the UI: a slim offline banner across the top of the app
@@ -1036,14 +1036,14 @@ hierarchical tag tree even when the backend is unreachable (see `DECISIONS.md` �
 Extension picks tags offline). macOS background-task scheduling is a known follow-up (the
 entitlement is in place, the scheduler is not yet wired). See `DECISIONS.md` → Offline Sync.
 
-**`StashClientProvider`** — rebuilds `StashClient` only when the server URL
+**`StashClientProvider`**: rebuilds `StashClient` only when the server URL
 changes. `tokenProvider` closure reads from `TokenManager` at request time.
 
 ### Keychain
 
 `KeychainStore` vendored from Triton, extended with optional `accessGroup:
 String?` parameter for Share Extension token sharing. Both tokens (access +
-refresh) stored in Keychain — enables cold-start session restoration and Share
+refresh) stored in Keychain, enables cold-start session restoration and Share
 Extension reuse (deviation from original memory-only access token spec).
 
 `TokenManager` decodes JWT `exp` by hand (base64url, no library) for
@@ -1051,14 +1051,14 @@ Extension reuse (deviation from original memory-only access token spec).
 
 ### Navigation
 
-- **iPad:** `NavigationSplitView` — a sidebar with a **Views** section (All,
+- **iPad:** `NavigationSplitView`, a sidebar with a **Views** section (All,
   Untagged, Today, This Week), an optional **Smart Views** section (one entry per
   Smart View, shown only when the user has any), and an **always-expanded, indented
   hierarchical tag tree** (a flattened `ForEach`, mirroring the web sidebar), all
   driving the filtered `BookmarkListView` in the detail column. **Drag a bookmark row onto a tag** in the
-  sidebar to add that tag to the bookmark (iPad and macOS only — where the sidebar
+  sidebar to add that tag to the bookmark (iPad and macOS only, where the sidebar
   and list share the screen; disabled on iPhone)
-- **iPhone:** `TabContainerView` — Bookmarks / Tags / Settings tabs, each in its
+- **iPhone:** `TabContainerView`, Bookmarks / Tags / Settings tabs, each in its
   own `NavigationStack`. The Tags tab shows the same Views, the optional Smart
   Views section, and the always-expanded indented tag tree, drilling into a filtered list. Tab
   bar uses iOS 26 floating Liquid Glass style; collapses on scroll via
@@ -1080,26 +1080,26 @@ The tag tree is built client-side from the flat `GET /api/v1/tags` list by
 every `/`-delimited ancestor becomes a node (synthetic parents carry no count),
 nested and alphabetical at each level.
 
-Liquid Glass design adopted automatically — tab bar floats over content,
+Liquid Glass design adopted automatically: tab bar floats over content,
 toolbars and navigation bars gain glass background. No explicit `.liquidGlass`
 calls needed; compiling against iOS 26 SDK is sufficient.
 
 `FaviconView` (`AsyncImage`, fallback `"link"` SF Symbol, `RoundFaviconModifier`
 a 16×16 icon with 4pt corners on an 18×18 always-light background so icons designed
 for white backdrops stay legible in dark mode) loads favicons from the configured Stash instance's cached
-endpoint (`GET /api/v1/favicons/:domain`, §9.8) keyed by the bookmark's domain —
+endpoint (`GET /api/v1/favicons/:domain`, §9.8) keyed by the bookmark's domain,
 no longer Google directly. A 404 (uncached domain) falls back to the placeholder.
 
-`BookmarkRowView` shows first three tags + `+N` overflow (not a scrolling row —
+`BookmarkRowView` shows first three tags + `+N` overflow (not a scrolling row,
 avoids gesture conflict in lists). Tags render as `TagPill`s that display a
-hierarchical tag as `swift › server` (middot `›`, U+2023), mirroring the web —
+hierarchical tag as `swift › server` (middot `›`, U+2023), mirroring the web,
 presentation only; the stored tag and `tag=` filter keep the raw `swift/server`
 slug.
 
-`AddBookmarkSheet` — paste button (`PasteButton`, no `UIKit`), metadata fetch,
+`AddBookmarkSheet`: paste button (`PasteButton`, no `UIKit`), metadata fetch,
 and tag editing via `TagPickerSheet`. The form shows a read-only tag summary
 (capsule `TagPill`s, or a muted "No tags") plus an "Add Tags" button that
-presents `TagPickerSheet` — a sheet over the always-expanded, indented
+presents `TagPickerSheet`, a sheet over the always-expanded, indented
 hierarchical tag tree with single-tap toggle and search-as-create (the search
 field doubles as new-tag input: when the normalized query matches no existing
 tag a `+ Create "…"` row adds it without closing the sheet). `TagSuggestionView`
@@ -1115,13 +1115,13 @@ tag-specific, archived-specific, first-run.
 
 ### Account settings (iOS)
 
-`SettingsView` reaches the shared `AccountSettingsView` (change password, enrol /
-disable 2FA — the same screen the macOS Settings window uses) via a navigation link
+`SettingsView` reaches the shared `AccountSettingsView` (change password, enroll /
+disable 2FA, the same screen the macOS Settings window uses) via a navigation link
 on iPhone and a sidebar toolbar button on iPad. `AccountSettingsView` and
 `QRCodeView` are cross-platform; only window-chrome sizing is `#if os(macOS)`-guarded.
 
 `SettingsView` also carries a **Reading** section with two controls. **Browser** (a
-picker: **In-App** — the default — or **Default Browser**) decides where a tapped
+picker: **In-App** (the default) or **Default Browser**) decides where a tapped
 bookmark link opens: In-App presents the page inside the app in an
 `SFSafariViewController` (Apple's recommended in-app browser); Default Browser hands
 off to the system browser (the prior behavior). **Reader** (a toggle, default off)
@@ -1131,19 +1131,19 @@ in-app browsing and is disabled when Browser is set to Default Browser. Both
 preferences are stored in the App Group `UserDefaults` suite, and the interception is
 centralized: an `openURL` environment override (`.inAppBrowser()`, applied to the
 bookmark `NavigationStack`s) routes `http`/`https` opens to an in-app Safari sheet, so
-it covers every open site — the detail-page URL `Link`, the "Open in Browser" button,
-and the row context menu — without editing those shared views. **iOS/iPadOS only**;
+it covers every open site: the detail-page URL `Link`, the "Open in Browser" button,
+and the row context menu, without editing those shared views. **iOS/iPadOS only**;
 macOS has no `SFSafariViewController` and always uses the default browser.
 
 ### Smart View management (iOS + macOS)
 
 `SettingsView` also links to a shared `SmartViewManagementView` (a macOS Settings
 tab) that lists the user's Smart Views with create / edit / delete. Creating and
-editing use a shared `SmartViewFormView` sheet — a name, an All / Any match-mode
+editing use a shared `SmartViewFormView` sheet: a name, an All / Any match-mode
 picker, and a list of condition rows whose value editor adapts to the condition
 type (text, a tag field with autocomplete chips, a date picker, or a Yes/No
 picker). Date conditions are serialized as full ISO-8601 (`…T00:00:00Z`), since the
-JSON API — unlike the web form — does no date normalization. Deletes confirm. The
+JSON API (unlike the web form) does no date normalization. Deletes confirm. The
 sidebar Smart Views section stays browse-only; because the shared
 `SmartViewRepository` cache updates on every write, sidebar entries reflect edits
 and deletes live.
@@ -1153,7 +1153,7 @@ and deletes live.
 ## 17. macOS App ✅ Complete (M10)
 
 macOS 26.0 is a destination of the **single multiplatform `Stash` target** (not
-a separate target) — the one `@main App` branches per platform with `#if
+a separate target); the one `@main App` branches per platform with `#if
 os(macOS)`. Adopts the macOS 26 design language (Liquid Glass) automatically by
 building against the SDK; no explicit modifiers.
 
@@ -1163,7 +1163,7 @@ building against the SDK; no explicit modifiers.
   **always-expanded, indented hierarchical tag tree** (a flattened `ForEach`,
   mirroring the web sidebar) driving the shared `BookmarkListView` in the detail column; selecting a
   bookmark pushes the shared `BookmarkDetailView`. I didn't build an optional
-  inspector panel — the shared list already gets you there with less code to
+  inspector panel; the shared list already gets you there with less code to
   maintain. **Drag a bookmark row onto a tag** in the sidebar to add that tag to
   the bookmark (shared with iPad).
 - **Window:** standard `WindowGroup`, 800×500 minimum
@@ -1179,16 +1179,16 @@ building against the SDK; no explicit modifiers.
   "Add Tags" button → the always-expanded tag tree with single-tap toggle and
   search-as-create).
 - **Settings scene (⌘,):** General (server URL, sign out), Account (change
-  password, 2FA enrol / disable), Smart Views (create / edit / delete — the shared
+  password, 2FA enroll / disable), Smart Views (create / edit / delete, the shared
   `SmartViewManagementView`), Appearance (Light / Dark / Auto, stored in
-  `UserDefaults` — no theme cookie on native).
+  `UserDefaults`, no theme cookie on native).
 - **Keyboard shortcuts:** ⌘N new, ⌘E edit, ⌘R sync (triggers an offline-sync
   cycle), ⌘⌫ delete (with confirmation), and **Esc** to leave the bookmark
   detail and return to the list (the same binding ships on iOS/iPadOS, where it
-  fires only when a hardware keyboard is attached — there is no on-screen Esc).
+  fires only when a hardware keyboard is attached, there is no on-screen Esc).
 - **Share Extension:** the single multiplatform `StashShareExtension` target
   serves both platforms (same three states and confirmation-with-undo); only the
-  principal controller differs — `MacShareViewController` (`NSViewController`)
+  principal controller differs: `MacShareViewController` (`NSViewController`)
   on macOS vs `ShareViewController` (`UIViewController`) on iOS, both
   `#if`-guarded.
 
@@ -1198,7 +1198,7 @@ building against the SDK; no explicit modifiers.
 
 A WebExtension that saves the current page to a Stash instance from Firefox or
 Chrome (including Zen), living in the top-level `Extension/` folder. It talks
-directly to the REST API (`/api/v1/`) — no backend, StashKit, or native-app
+directly to the REST API (`/api/v1/`), no backend, StashKit, or native-app
 changes. Plain HTML + CSS + vanilla JS, no build step (the same philosophy as
 the web frontend).
 
@@ -1219,7 +1219,7 @@ Documented in [`Docs/browser-extension.md`](Docs/browser-extension.md).
 The extension shares the Stash bookmark-ribbon identity: the 16/32 toolbar-action
 icons stay a deep-indigo ribbon on a transparent background (legible on light and
 dark toolbars), while the 48/128 add-ons-manager / store icons wear the full
-app-icon look — a white ribbon on an indigo `#231468` rounded square — matching the
+app-icon look, a white ribbon on an indigo `#231468` rounded square, matching the
 native apps and the web favicon.
 
 ### Supported browsers
@@ -1230,7 +1230,7 @@ developer mode
 (`about:debugging` on Firefox, `chrome://extensions` → Load unpacked on Chrome);
 distributable to the Firefox Add-ons store or Chrome Web Store.
 
-### Behaviour
+### Behavior
 
 Clicking the toolbar button opens a popup with the full add-bookmark form,
 pre-filled with the active tab's URL (read-only) and title. A "Fetch metadata"
@@ -1240,7 +1240,7 @@ using the web UI's per-segment prefix rule; "Save" creates the bookmark
 (`fetchMetadata: false`). A duplicate URL surfaces inline as "Already saved" with
 a link to the existing bookmark; a save confirmation offers a View bookmark link
 and auto-closes. No undo (the popup lifecycle is too short), and no "save
-another" — the extension saves the page you are on, so there is nothing more to
+another", the extension saves the page you are on, so there is nothing more to
 add for the same tab.
 
 ### Authentication
@@ -1261,7 +1261,7 @@ time.
 
 ### Distribution
 
-Docker image at `ghcr.io/otaviocc/stash`. Single `docker-compose.yml` — no build
+Docker image at `ghcr.io/otaviocc/stash`. Single `docker-compose.yml`, no build
 step required.
 
 ### Image
@@ -1332,7 +1332,7 @@ stash.yourdomain.com {
 ### CI/CD ✅ Complete (M4.1)
 
 Two GitHub Actions workflows. `ci.yml` runs on every push to `main` and every
-pull request — builds and tests all components, no image. `release.yml` runs on
+pull request, builds and tests all components, no image. `release.yml` runs on
 a `v*.*.*` tag: re-runs the backend tests, then builds `linux/amd64` and
 `linux/arm64` natively on separate GitHub-hosted runners. I originally
 cross-compiled the arm64 build under QEMU, but the emulation crashed the Swift
@@ -1340,7 +1340,7 @@ compiler partway through, so both architectures now build natively instead (see
 `DECISIONS.md`). Each arch is pushed by digest, then stitched into one
 multi-arch manifest via `docker buildx imagetools create` → tags
 `ghcr.io/otaviocc/stash` (`latest` + semver) → creates a GitHub Release with
-`docker-compose.yml` attached. `GITHUB_TOKEN` only — no extra secrets. The repo
+`docker-compose.yml` attached. `GITHUB_TOKEN` only, no extra secrets. The repo
 stays private; the image is made public via a one-time manual setting in the
 package settings (there's no API to do it from CI).
 
@@ -1442,7 +1442,7 @@ API: `/api/v1/`. Admin dashboard: `/admin`. Frontend: `/app`. Health: `/health`.
 | `invalid_credentials` | 401 | Wrong username or password |
 | `account_suspended` | 401 | Account is inactive |
 | `token_expired` | 401 | Access token expired |
-| `token_invalid` | 401 | Malformed or unrecognised token |
+| `token_invalid` | 401 | Malformed or unrecognized token |
 | `totp_required` | 401 | Login requires TOTP |
 | `totp_invalid` | 401 | Wrong TOTP or recovery code |
 | `forbidden` | 403 | Insufficient role |
@@ -1471,7 +1471,7 @@ iOS app: no unit tests. CLI: manual integration only.
 
 | Layer | Coverage |
 |-------|---------|
-| Auth | Login, TOTP, recovery codes, refresh rotation, logout, 2FA enrol/disable |
+| Auth | Login, TOTP, recovery codes, refresh rotation, logout, 2FA enroll/disable |
 | Bookmarks | CRUD, 409, tag filtering, `__untagged__`, full-text search (case-insensitive), pagination, user isolation |
 | Admin | Create, suspend, reset password, reset TOTP, delete, stats, self-delete guard |
 | Tags | Rename (with children, merge), delete (with children), user isolation |
@@ -1483,7 +1483,7 @@ iOS app: no unit tests. CLI: manual integration only.
 SwiftLint + SwiftFormat. `swiftlint lint` 0 violations, `swiftformat --lint`
 idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 
-- Organisation: type mode (`Nested Types → Static Properties → Properties →
+- Organization: type mode (`Nested Types → Static Properties → Properties →
   Computed Properties → Lifecycle → Functions`), public-before-private within
   sections
 - `///` doc comments on types only; no inline comments inside method bodies
@@ -1524,7 +1524,7 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 A few quirks that cost me real debugging time and are worth writing down so I
 don't relearn them the hard way:
 
-- `#if(count(x))` does **not** coerce `Int` to `Bool` — `count 0` evaluates
+- `#if(count(x))` does **not** coerce `Int` to `Bool`; `count 0` evaluates
   truthy. Always use `#if(count(x) > 0)`.
 - Inline conditionals require the colon: `#if(cond): … #endif`.
 - `#if(cond):#else: X #endif` with an empty then-branch misbehaves (else content
@@ -1540,7 +1540,7 @@ Deliberately not building, at least for v1:
 
 - Open/public registration
 - Cross-user bookmark visibility or sharing
-- Page content archiving (article text for offline reading) — the native apps do
+- Page content archiving (article text for offline reading); the native apps do
   sync bookmark data for offline access; saving page contents is out of scope
 - Read-later queue or unread state
 - Annotations or highlights

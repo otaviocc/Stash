@@ -3,9 +3,9 @@
 The native SwiftUI client for Stash. `Stash.xcodeproj` contains two
 multiplatform targets that build for **both iOS and macOS**:
 
-- **`Stash`** — the SwiftUI app (bookmark list, add/edit/detail, tags, Smart
+- **`Stash`**: the SwiftUI app (bookmark list, add/edit/detail, tags, Smart
   Views, search, settings, 2FA).
-- **`StashShareExtension`** — a share extension for saving URLs from Safari and
+- **`StashShareExtension`**: a share extension for saving URLs from Safari and
   other apps.
 
 The app talks to the backend over the REST API (`/api/v1/`) through the shared
@@ -16,7 +16,7 @@ The app talks to the backend over the REST API (`/api/v1/`) through the shared
 - Xcode 26 or later (includes the iOS 26 SDK and the Swift 6.2 toolchain)
 - macOS 26 or later (to build and run the macOS app)
 
-No project-generation step is required — the Xcode project is committed to the
+No project-generation step is required; the Xcode project is committed to the
 repo.
 
 ## Dependencies
@@ -28,8 +28,8 @@ Fetched automatically by Xcode (Swift 6.2, iOS 26 / macOS 26):
 | [StashKit](stashkit.md) (local, `../StashKit`) | DTOs, request factories, thin HTTP client |
 | [`otaviocc/MicroClient`](https://github.com/otaviocc/MicroClient) | Used directly for the 2FA-challenge login branch |
 
-Both are resolved automatically when you open the project — no separate build
-step.
+Both are resolved automatically when you open the project; no separate build
+step is needed.
 
 ## Open and build
 
@@ -39,7 +39,7 @@ open Stash.xcodeproj
 ```
 
 `Stash.xcodeproj` is committed and uses synchronized folder groups, so files
-added, moved, or renamed on disk are picked up automatically — there is no
+added, moved, or renamed on disk are picked up automatically; there is no
 `xcodegen` or `project.yml` step. Just open it directly.
 
 The `Stash` app target is **multiplatform**: the same `Stash` scheme builds both
@@ -64,7 +64,7 @@ xcodebuild -scheme Stash -destination 'platform=macOS' \
 ## Signing & bundle identifier (per machine)
 
 The developer team and the bundle-identifier prefix are **not hardcoded in the
-project** — they come from `StashApp/Config/Stash.xcconfig`, which sets two build
+project**: they come from `StashApp/Config/Stash.xcconfig`, which sets two build
 settings:
 
 ```
@@ -148,8 +148,8 @@ swiftlint lint           # must report 0 violations
 
 ## Related packages
 
-- **StashKit** — the shared package (`../StashKit`); see
+- **StashKit**: the shared package (`../StashKit`); see
   [StashKit](stashkit.md).
-- **CLI** — the `stash` command-line tool (`../CLI`) is a separate Swift
+- **CLI**: the `stash` command-line tool (`../CLI`) is a separate Swift
   package, not part of the Xcode project. Build it as described in [Building and
   using the CLI](cli-build.md).

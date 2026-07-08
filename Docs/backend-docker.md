@@ -48,16 +48,16 @@ docker compose pull && docker compose up -d  # Update to latest image
 ## Running with Podman
 
 [Podman](https://podman.io) is a daemonless, rootless-capable drop-in for Docker
-and runs Stash unchanged — same `docker-compose.yml`, same published image. Pick
+and runs Stash unchanged, using the same `docker-compose.yml` and the same published image. Pick
 either approach:
 
-- **Use `podman compose`** — Podman delegates to an installed Compose provider
+- **Use `podman compose`**: Podman delegates to an installed Compose provider
   (the `docker-compose` plugin or `podman-compose`). Replace `docker` with
   `podman` in the commands above, e.g. `podman compose up -d`.
-- **Keep the `docker` commands** — install the standalone Docker CLI + Compose
+- **Keep the `docker` commands**: install the standalone Docker CLI + Compose
   plugin (no Docker Desktop needed) and point them at Podman's socket with
-  `DOCKER_HOST`. Every `docker compose …` command above — including the
-  [Caddy HTTPS](backend-docker-caddy.md) variants — then works verbatim.
+  `DOCKER_HOST`. Every `docker compose …` command above, including the
+  [Caddy HTTPS](backend-docker-caddy.md) variants, then works verbatim.
 
 On **Linux**, Podman runs containers natively; there is nothing else to set up.
 On **macOS and Windows**, Podman runs them inside a managed VM that you start

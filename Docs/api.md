@@ -25,7 +25,7 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `GET`  | `/health` | — | Unversioned health check |
 | `GET`  | `/me` | access token | Current user profile |
 | `PUT`  | `/me/password` | access token | `{currentPassword, newPassword}` |
-| `GET`  | `/auth/totp/setup` | access token | Begin 2FA enrolment |
+| `GET`  | `/auth/totp/setup` | access token | Begin 2FA enrollment |
 | `POST` | `/auth/totp/verify-setup` | access token | Confirm; returns 8 recovery codes once |
 | `POST` | `/auth/totp/disable` | access token | Disable own 2FA (requires current TOTP code); revokes sessions (204) |
 | `GET`  | `/bookmarks` | access token | List; `?q=&tag=&archived=&page=&per=` |
@@ -33,7 +33,7 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `GET`  | `/bookmarks/:id` | access token | Single bookmark (404 if not yours) |
 | `PUT`  | `/bookmarks/:id` | access token | Update (all fields optional) |
 | `DELETE` | `/bookmarks/:id` | access token | Delete (204) |
-| `GET`  | `/bookmarks/changes` | access token | Offline sync: `Page<Bookmark>` changed since `?since=` (archived included); `?page=&per=` (`per` 1–500, default 100); all if omitted |
+| `GET`  | `/bookmarks/changes` | access token | Offline sync: `Page<Bookmark>` changed since `?since=` (archived included); `?page=&per=` (`per` 1-500, default 100); all if omitted |
 | `GET`  | `/bookmarks/deleted` | access token | Offline sync: `[{id, deletedAt}]` tombstones for deletions since `?since=`; all if omitted |
 | `GET`  | `/tags` | access token | Distinct tags with counts |
 | `POST` | `/tags/rename` | access token | Rename a tag (and its children); 422 if `from`/`to` empty |
@@ -100,7 +100,7 @@ the API and the admin dashboard.
 | `POST` | `/app/smart-views/:id/delete` | Delete a Smart View (PRG → `?ok=deleted` banner) |
 | `GET`  | `/app/settings` | Settings |
 | `POST` | `/app/settings/password` | Change own password |
-| `GET`  | `/app/settings/totp` · `POST /verify` · `POST /disable` | 2FA enrolment / disable (requires a current code) |
+| `GET`  | `/app/settings/totp` · `POST /verify` · `POST /disable` | 2FA enrollment / disable (requires a current code) |
 | `POST` | `/app/import` | Import bookmarks from an uploaded file (multipart; format selector) |
 | `GET`  | `/app/export?format=…` | Download all bookmarks as a file (attachment) |
 | `POST` | `/app/settings/delete-all-bookmarks` | Danger zone: delete all of the user's bookmarks (typed-phrase confirmation) |

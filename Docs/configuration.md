@@ -25,7 +25,7 @@ ADMIN_PASSWORD=choose-a-strong-password
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DB_PASSWORD` | Yes | PostgreSQL password — used both to initialise the `db` container and (interpolated into `DATABASE_URL`) by the `app` container |
+| `DB_PASSWORD` | Yes | PostgreSQL password, used both to initialize the `db` container and (interpolated into `DATABASE_URL`) by the `app` container |
 | `JWT_SECRET` | Yes | JWT signing secret; random, minimum 32 characters (`openssl rand -base64 48`) |
 | `ADMIN_USERNAME` | Yes (first boot) | Admin account username |
 | `ADMIN_PASSWORD` | Yes (first boot) | Admin account password, minimum 12 characters |
@@ -44,7 +44,7 @@ itself rather than `DB_PASSWORD`:
 
 See [Running locally](backend-local.md) for the full local setup.
 
-### First-boot behaviour
+### First-boot behavior
 
 On first boot, if the database has no users, the app creates the admin account
 from `ADMIN_USERNAME` / `ADMIN_PASSWORD`. If those are missing it logs an error
@@ -68,7 +68,7 @@ full command list.
 ## Apps (iOS / macOS)
 
 The apps have no build-time configuration for the server. On first launch the
-app shows a setup screen — enter your Stash server URL (e.g.
+app shows a setup screen: enter your Stash server URL (e.g.
 `http://192.168.1.x:8080`) and sign in with an account created by the admin.
 
 The main app and the Share Extension share the server URL (via the App Group's

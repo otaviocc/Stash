@@ -2,7 +2,7 @@
 
 Save the current page to your Stash instance from Firefox or Chrome (including
 Zen) with one click. It lives in the top-level `Extension/` folder and talks
-directly to the backend over the public REST API ([`/api/v1/`](api.md)) — there
+directly to the backend over the public REST API ([`/api/v1/`](api.md)); there
 are no backend, [StashKit](stashkit.md), or native-app changes behind it.
 
 Clicking the toolbar button opens the full add-bookmark form, pre-filled with the
@@ -12,21 +12,21 @@ page's URL and title, with a "Fetch metadata" button, tag autocomplete, and a
 ## Prerequisites
 
 - Firefox, or a Chromium browser (Chrome, Zen, …)
-- A running Stash instance you can sign in to — see
+- A running Stash instance you can sign in to, see
   [Running with Docker](backend-docker.md)
 - Only for packaging the extension yourself: `zip`, `python3` (Pillow, for icons),
   and optionally `node`
 
 ## How it is built
 
-A Manifest v3 WebExtension built from plain HTML, CSS, and vanilla JavaScript —
+A Manifest v3 WebExtension built from plain HTML, CSS, and vanilla JavaScript:
 **no build step, no npm, no bundler**, the same philosophy as the Stash web UI.
 The browser loads the files directly.
 
 ```
 Extension/
 ├── manifest.json     WebExtension manifest v3
-├── background.js     Background script — token storage, refresh, API calls
+├── background.js     Background script: token storage, refresh, API calls
 ├── popup.html/.js/.css   Toolbar button popup (add-bookmark form)
 ├── options.html/.js/.css Settings page (server URL, sign in, 2FA)
 ├── icons/            Toolbar/store icons + the SVG master and generator
@@ -62,7 +62,7 @@ to pull the server-side title and description, add tags (with autocomplete from
 your existing tags), and click **Save**. A confirmation appears with a link to
 view the bookmark; it closes itself after a few seconds.
 
-The URL field is read-only — the extension always saves the page you are on. If
+The URL field is read-only; the extension always saves the page you are on. If
 the page is already saved, an inline "Already saved" message links to the existing
 bookmark. There is no undo in the popup (its lifecycle is too short for a
 timer-based undo); delete from the web UI or a native app if needed.
@@ -85,7 +85,7 @@ and unknown at build time, so the extension must be allowed to call any host.
 
 ## Packaging
 
-There is **no compile step** — "building" only means zipping the folder into a
+There is **no compile step**; "building" only means zipping the folder into a
 store-ready package. A `Makefile` wraps the common tasks (run from `Extension/`):
 
 ```bash
@@ -97,7 +97,7 @@ make package    # build dist/stash-extension-<version>.zip
 make clean      # remove dist/
 ```
 
-The core targets need only `zip`, `python3`, and (optionally) `node` — no npm or
+The core targets need only `zip`, `python3`, and (optionally) `node`, no npm or
 bundler. `make package` zips just the runtime files (the dev tooling and Makefile
 are excluded).
 
@@ -112,7 +112,7 @@ indigo, `#231468`). The four PNG sizes the manifest references are rendered by
 `generate-icons.py` (Pillow only) in two treatments that match where each size is
 shown: **16 and 32** (the toolbar action, `default_icon`) stay the deep-indigo
 ribbon on a transparent background, legible on light and dark toolbars; **48 and
-128** (the add-ons-manager / store display icons) wear the full app-icon look — a
+128** (the add-ons-manager / store display icons) wear the full app-icon look: a
 white ribbon on an indigo rounded square, matching the native app and the web
 favicon. Regenerate them rather than hand-editing the PNGs:
 

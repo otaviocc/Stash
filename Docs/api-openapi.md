@@ -2,8 +2,8 @@
 
 Stash ships a hand-written [OpenAPI 3.0.3](https://spec.openapis.org/oas/v3.0.3)
 description of its JSON REST API, plus a browsable [Swagger UI](https://swagger.io/tools/swagger-ui/)
-page. This guide says where to find them and how to use them. The spec itself —
-not this page — is the authoritative reference for request and response shapes;
+page. This guide says where to find them and how to use them. The spec itself,
+not this page, is the authoritative reference for request and response shapes;
 see also the human-readable [API and routes reference](api.md).
 
 ## Where to find it
@@ -15,7 +15,7 @@ see also the human-readable [API and routes reference](api.md).
 | Swagger UI (browse + "Try it out") | `GET /docs.html` |
 
 Both files are served as static assets by the backend's existing
-`FileMiddleware` — no extra routes, no build step. Swagger UI loads from a CDN,
+`FileMiddleware`; no extra routes, no build step. Swagger UI loads from a CDN,
 so the docs page needs network access to render; the spec file itself is fully
 self-contained.
 
@@ -24,7 +24,7 @@ self-contained.
 
 ## Scope
 
-The spec covers the **JSON API only** — every `/api/v1/` endpoint plus the
+The spec covers the **JSON API only**: every `/api/v1/` endpoint plus the
 unversioned `/health` check. The server-rendered web UIs (`/app` and `/admin`)
 are session-cookie driven and are deliberately **excluded**: they are not part
 of the public, token-authenticated API surface.
@@ -53,7 +53,7 @@ When trying requests against a live server from Swagger UI, click
 The spec is the source of truth and is kept in lockstep with the API by hand:
 
 - **Update `Backend/Public/openapi.yaml` in the same commit** as any change to
-  an `/api/v1/` endpoint — a new route, a renamed field, a changed status code,
+  an `/api/v1/` endpoint: a new route, a renamed field, a changed status code,
   a new error case. Treat a spec that lags the code as a bug.
 - After editing, **re-validate** before committing:
   ```sh
@@ -61,4 +61,4 @@ The spec is the source of truth and is kept in lockstep with the API by hand:
   ```
   (or paste it into <https://editor.swagger.io>, which validates as you type).
 - The wire shapes mirror the backend's `Content` response structs and StashKit's
-  DTOs — keep all three in agreement.
+  DTOs; keep all three in agreement.
