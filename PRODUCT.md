@@ -1352,39 +1352,60 @@ package settings (there's no API to do it from CI).
 
 ```
 stash/
-├── Backend/
+├── Backend/                      # ✅ Complete — Vapor 4 REST API + Leaf web UIs
 │   ├── Sources/App/
-│   │   ├── Controllers/
-│   │   ├── Models/
-│   │   ├── Migrations/
-│   │   ├── Middleware/
-│   │   ├── ImportExport/
-│   │   ├── Tags/
-│   │   ├── Extensions/          # QueryBuilder+filterFullText, etc.
-│   │   └── configure.swift
+│   │   ├── API/                  # the /api/v1 JSON contract clients depend on
+│   │   │   ├── Controllers/
+│   │   │   └── DTOs/
+│   │   ├── Web/                  # the Leaf /admin + /app + landing UIs
+│   │   │   ├── Controllers/      # one RouteCollection per domain
+│   │   │   ├── DTOs/
+│   │   │   ├── Presenters/       # pure Leaf-context shaping, no request/DB
+│   │   │   └── Support/          # cross-controller glue (FlashMessage, etc.)
+│   │   ├── Core/                 # shared domain, used by both API and Web
+│   │   │   ├── Models/
+│   │   │   ├── Migrations/
+│   │   │   ├── Services/
+│   │   │   ├── Auth/
+│   │   │   ├── ImportExport/
+│   │   │   ├── Extensions/
+│   │   │   ├── Middleware/
+│   │   │   ├── Errors/
+│   │   │   └── Support/          # stateless helpers
+│   │   ├── configure.swift
+│   │   └── routes.swift
 │   ├── Tests/AppTests/
-│   ├── Resources/Views/           # Leaf templates (markup only; CSS/JS live in Public/)
-│   ├── Public/css/                # Static stylesheets served by FileMiddleware
-│   ├── Public/js/                 # Static scripts served by FileMiddleware
+│   ├── Resources/Views/          # Leaf templates (markup only; CSS/JS live in Public/)
+│   ├── Public/                   # served by FileMiddleware; also openapi.yaml
+│   │   ├── css/
+│   │   ├── js/
+│   │   └── openapi.yaml          # machine-readable /api/v1 + /health contract
 │   ├── Package.swift
 │   ├── Dockerfile
 │   └── docker-compose.yml
-├── StashKit/                    # ✅ Complete (M6)
+├── StashKit/                     # ✅ Complete (M6) — shared Swift package
 │   ├── Sources/StashKit/
 │   │   ├── Client/
 │   │   ├── DTOs/
-│   │   └── Factories/
+│   │   ├── Factories/
+│   │   └── Requests/
 │   └── Tests/StashKitTests/
-├── StashApp/                    # ✅ Complete (M8–M10)
-│   ├── Common/                  # compiled into the app + both Share Extensions
-│   ├── Stash/                   # app-only code (iOS + macOS); @main entry
-│   ├── StashShareExtension/     # both Share Extensions (#if-guarded controllers)
-│   ├── Config/                  # non-synced per-platform Info.plist + entitlements
-│   └── Stash.xcodeproj          # committed; synchronized folder groups
-├── CLI/                         # ✅ Complete (M7)
+├── StashApp/                     # ✅ Complete (M8–M10)
+│   ├── Common/                   # compiled into the app + both Share Extensions
+│   ├── Stash/                    # app-only code (iOS + macOS); @main entry
+│   ├── StashShareExtension/      # both Share Extensions (#if-guarded controllers)
+│   ├── Config/                   # non-synced per-platform Info.plist + entitlements
+│   └── Stash.xcodeproj           # committed; synchronized folder groups
+├── CLI/                          # ✅ Complete (M7)
 │   ├── Sources/stash/
 │   └── Package.swift
-├── .github/workflows/           # Planned (M4.1)
+├── Extension/                    # ✅ Complete — Manifest v3 WebExtension, no build step
+│   ├── background.js             # single owner of token storage + silent refresh
+│   ├── popup.js / options.js
+│   └── icons/
+├── StashSkill/                   # committed AI coding assistant skill for the CLI
+├── Docs/                         # user-facing docs, one guide per concern
+├── .github/workflows/            # CI: backend, apple, extension jobs
 ├── PRODUCT.md
 └── DECISIONS.md
 ```
