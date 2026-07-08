@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stash: Self hosted bookmark manager</title>
+<meta name="description" content="Stash is a fully private bookmark manager you host yourself, with native iOS and macOS apps, a full web interface, a command line tool, and a browser extension.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+    :root {
+        color-scheme: light;
+        --bg: #f4f4f5;
+        --text: #1a1a1a;
+        --text-muted: #71717a;
+        --text-2: #3f3f46;
+        --surface: #ffffff;
+        --surface-2: #fafafa;
+        --border: #e4e4e7;
+        --border-input: #d4d4d8;
+        --accent: #231468;
+        --btn-text: #ffffff;
+        --shadow: rgba(0, 0, 0, 0.12);
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            color-scheme: dark;
+            --bg: #1c1c1e;
+            --text: #f2f2f7;
+            --text-muted: #aeaeb2;
+            --text-2: #c7c7cc;
+            --surface: #2c2c2e;
+            --surface-2: #3a3a3c;
+            --border: #3a3a3c;
+            --border-input: #48484a;
+            --accent: #818cf8;
+            --btn-text: #101018;
+            --shadow: rgba(0, 0, 0, 0.5);
+        }
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: -apple-system, system-ui, sans-serif;
+        line-height: 1.5;
+        margin: 0;
+        color: var(--text);
+        background: var(--bg);
+    }
+
+    main {
+        max-width: 68rem;
+        margin: 0 auto;
+        padding: 2.5rem 1.5rem 4rem;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        margin-bottom: 2rem;
+    }
+
+    .brand img {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+    }
+
+    .brand span {
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
+
+    .hero {
+        text-align: center;
+        padding: 3.25rem 1.5rem 2.75rem;
+        margin-bottom: 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background:
+            radial-gradient(120% 140% at 50% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+            var(--surface);
+    }
+
+    .hero h1 {
+        font-size: 2.6rem;
+        line-height: 1.12;
+        letter-spacing: 0.01em;
+        margin: 0 0 0.85rem;
+    }
+
+    .hero .lead {
+        font-size: 1.2rem;
+        color: var(--text-2);
+        max-width: 40rem;
+        margin: 0 auto 1.85rem;
+    }
+
+    .cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: center;
+    }
+
+    .cta a {
+        display: inline-block;
+        padding: 0.62rem 1.5rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .cta a.primary {
+        background: var(--accent);
+        color: var(--btn-text);
+        box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent);
+    }
+
+    .cta a.primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 45%, transparent);
+    }
+
+    .cta a.secondary {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--border-input);
+    }
+
+    .cta a.secondary:hover {
+        background: var(--surface-2);
+    }
+
+    .badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+        list-style: none;
+        margin: 1.85rem 0 0;
+        padding: 0;
+    }
+
+    .badges .badge {
+        padding: 0.22rem 0.7rem;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text-muted);
+        font-size: 0.82rem;
+        font-weight: 500;
+    }
+
+    .screenshots {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
+        margin-top: 2.75rem;
+    }
+
+    .screenshots figure {
+        margin: 0;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        background: var(--surface);
+        box-shadow: 0 1px 3px var(--shadow);
+    }
+
+    .screenshots img {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+
+    .screenshots figcaption {
+        padding: 0.6rem 0.9rem;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        border-top: 1px solid var(--border);
+    }
+
+    .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-top: 2.75rem;
+    }
+
+    .feature {
+        position: relative;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: 2px solid transparent;
+        border-radius: 10px;
+        padding: 1.45rem;
+        box-shadow: 0 1px 3px var(--shadow);
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-top-color 0.15s ease;
+    }
+
+    .feature:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 22px var(--shadow);
+        border-top-color: var(--accent);
+    }
+
+    .feature .icon {
+        font-size: 1.75rem;
+        line-height: 1;
+    }
+
+    .feature h3 {
+        margin: 0.65rem 0 0.4rem;
+        font-size: 1.08rem;
+    }
+
+    .feature p {
+        margin: 0;
+        color: var(--text-2);
+        font-size: 0.95rem;
+    }
+
+    .feature code {
+        font-size: 0.88em;
+        padding: 0.05rem 0.3rem;
+        border-radius: 4px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+    }
+
+    footer {
+        text-align: center;
+        margin-top: 3.5rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border);
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    footer .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.1rem;
+        justify-content: center;
+        margin-bottom: 0.9rem;
+    }
+
+    footer a {
+        color: var(--text-2);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    footer a:hover {
+        color: var(--accent);
+        text-decoration: underline;
+    }
+
+    @media (max-width: 760px) {
+        .features {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .screenshots {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .features {
+            grid-template-columns: 1fr;
+        }
+
+        .hero {
+            padding: 2.25rem 1.1rem 2rem;
+        }
+
+        .hero h1 {
+            font-size: 1.95rem;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .cta a,
+        .feature {
+            transition: none;
+        }
+
+        .cta a.primary:hover,
+        .feature:hover {
+            transform: none;
+        }
+    }
+</style>
+</head>
+<body>
+<main>
+    <div class="brand">
+        <img src="favicon.svg" alt="" width="32" height="32">
+        <span>Stash</span>
+    </div>
+
+    <section class="hero">
+        <h1>Your bookmarks. Your server. Your data.</h1>
+        <p class="lead">Stash is a fully private bookmark manager you host yourself, with native
+            iOS and macOS apps that work offline, a full web interface, a command line tool, and a
+            browser extension.</p>
+        <div class="cta">
+            <a class="primary" href="https://github.com/otaviocc/Stash#quick-start">Get started &rarr;</a>
+            <a class="secondary" href="https://github.com/otaviocc/Stash">View on GitHub &rarr;</a>
+        </div>
+        <ul class="badges" aria-hidden="true">
+            <li class="badge">iOS</li>
+            <li class="badge">macOS</li>
+            <li class="badge">Web</li>
+            <li class="badge">CLI</li>
+            <li class="badge">Browser extension</li>
+        </ul>
+    </section>
+
+    <section class="screenshots">
+        <figure>
+            <img src="https://github.com/user-attachments/assets/dc0e591f-2476-4f86-a3ff-288517eeeba1"
+                 alt="The Stash landing page shown from a running instance" width="1348" height="928" loading="lazy">
+            <figcaption>The built in landing page of a Stash instance</figcaption>
+        </figure>
+        <figure>
+            <img src="https://github.com/user-attachments/assets/f595a3aa-4a17-4575-a274-34e2a74bcf19"
+                 alt="The Stash bookmark list with tag sidebar" width="1348" height="928" loading="lazy">
+            <figcaption>Browsing bookmarks with the tag sidebar</figcaption>
+        </figure>
+    </section>
+
+    <section class="features">
+        <div class="feature">
+            <div class="icon">🔒</div>
+            <h3>Private and yours</h3>
+            <p>Your data lives on infrastructure you control. No third party cloud, no tracking, no
+                ads. Even favicons are cached and served by Stash itself, so your bookmarks never
+                leak to an outside CDN.</p>
+        </div>
+        <div class="feature">
+            <div class="icon">🖥️</div>
+            <h3>Every platform</h3>
+            <p>Native iOS and macOS apps with Share Extensions keep a full local copy of your
+                library, so you can browse and save offline while changes sync automatically once
+                you reconnect. Plus a full web interface, the <code>stash</code> command line tool,
+                and a Firefox and Chrome browser extension.</p>
+        </div>
+        <div class="feature">
+            <div class="icon">🗂️</div>
+            <h3>Organized</h3>
+            <p>Flat and hierarchical tags, full text search, bulk rename and delete, and saved
+                Smart Views built from AND/OR condition queries.</p>
+        </div>
+        <div class="feature">
+            <div class="icon">🔐</div>
+            <h3>Secure by default</h3>
+            <p>Optional two factor authentication (TOTP) with single use recovery codes, per user
+                isolation, and a separate admin role.</p>
+        </div>
+        <div class="feature">
+            <div class="icon">🔁</div>
+            <h3>Portable</h3>
+            <p>Import from Anybox or another Stash instance, and export everything, bookmarks and
+                Smart Views alike, as JSON. No lock in.</p>
+        </div>
+        <div class="feature">
+            <div class="icon">🎨</div>
+            <h3>Yours to theme</h3>
+            <p>Light, Dark, or Auto on every page, plus an accent theme of your choosing for the
+                whole instance.</p>
+        </div>
+    </section>
+
+    <footer>
+        <div class="links">
+            <a href="https://github.com/otaviocc/Stash">GitHub</a>
+            <a href="https://ko-fi.com/otaviocc">Ko fi</a>
+            <a href="https://social.lol/@otaviocc">Mastodon</a>
+        </div>
+        <p>Stash is open source. The server is available under AGPL 3.0; every client is available
+            under the MIT license.</p>
+    </footer>
+</main>
+</body>
+</html>
