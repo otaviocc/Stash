@@ -1,0 +1,21 @@
+#extend("layout"):
+#export("content"):
+    <h1>Audit log</h1>
+    <p>Most recent 50 events.</p>
+    <table>
+        <thead>
+            <tr><th>Time</th><th>Actor</th><th>Action</th><th>Detail</th></tr>
+        </thead>
+        <tbody>
+            #for(entry in entries):
+            <tr>
+                <td>#(entry.time)</td>
+                <td>#(entry.actor)</td>
+                <td>#(entry.action)</td>
+                <td>#(entry.detail)</td>
+            </tr>
+            #endfor
+        </tbody>
+    </table>
+#endexport
+#endextend

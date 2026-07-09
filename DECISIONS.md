@@ -3146,3 +3146,34 @@ back via "Re-scan all favicons," a new bookmark saved for that domain, or that
 bookmark's own per-row "Refresh favicon" button — never by merely browsing.
 The page copy, the confirm-dialog text, and the `favicons_cleared` flash message
 were corrected to say this rather than implying automatic regeneration on view.
+
+---
+
+## Feature #6: Audit log
+
+Added a narrow, best-effort audit trail covering only auth events (login
+success, login failure, logout) and admin user-management actions (create,
+suspend, unsuspend, password reset, TOTP reset, delete, and site-appearance
+changes). Deliberately excluded bookmark, tag, and smart-view CRUD — those
+are high-volume and low audit value for a first version, and including them
+would flood the "last 50 rows" viewer with noise that pushes the
+security-relevant events off the page almost immediately. The three
+genuinely independent auth surfaces (JSON API, admin web dashboard, app web
+frontend) and the two independent admin-action surfaces (JSON admin API,
+admin web dashboard) each needed their own hooks — there's no shared login
+or user-mutation helper in this codebase to hook once, which made this a
+wide, mechanical change rather than a deep one. Writes are best-effort and
+non-throwing from the caller's side by design: a real login or a real
+user-delete must never fail because an audit row failed to save, so
+`AuditLogger.record` swallows and logs its own errors rather than
+propagating them. Client IP is read from `X-Forwarded-For` first, falling
+back to the raw socket address, because Stash's documented deployment runs
+behind a Caddy reverse proxy that sets that header — using the raw socket
+address unconditionally would have recorded Caddy's own container address
+on every row in that topology, making the IP column useless. This does mean
+a Stash instance exposed directly to the internet without a reverse proxy in
+front could have its audit IPs spoofed by a malicious client; that's an
+accepted trade-off given the documented, expected deployment shape. The
+viewer itself is intentionally minimal: no pagination, no filtering, no
+export, just the most recent 50 rows — matching the same "ship the smallest
+useful admin tool" approach used for Feature #7's Active Sessions viewer.

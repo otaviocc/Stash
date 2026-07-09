@@ -283,6 +283,86 @@ struct TwoFactorTests {
         }
     }
 
+    // MARK: - Audit log
+
+    @Test("2FA-enabled login only writes login_success after totp succeeds, not at the initial login call")
+    func jsonLoginWithTOTPAuditedOnlyAfterTOTP() async throws {
+        try await withTestApp { app in
+            // Given
+            try await app.makeUser(username: "otavio", password: "correct-horse-battery")
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            let (secret, _) = try await enrol(app, accessToken: pair.accessToken)
+
+            // When
+            let tempToken = try await app.loginForTempToken(username: "otavio", password: "correct-horse-battery")
+            let rowsAfterLogin = try await AuditLog.query(on: app.db).all()
+            let successesAfterLogin = rowsAfterLogin.filter { $0.action == "login_success" }.count
+
+            let code = TOTP(secret: Base32.decode(secret)!).generate()
+            try await app.testing().test(
+                .POST, "api/v1/auth/totp",
+                beforeRequest: { req in
+                    try req.content.encode(TOTPRequest(tempToken: tempToken, totpCode: code))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .ok, "It should return 200 OK")
+                }
+            )
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).all()
+            let successesAfterTOTP = rows.filter { $0.action == "login_success" }.count
+            #expect(
+                successesAfterTOTP == successesAfterLogin + 1,
+                "It should record login_success only once the TOTP step completes, not at the initial login call"
+            )
+        }
+    }
+
+    @Test("recovery-code login writes a login_success row, and a bad recovery code writes login_failure")
+    func recoveryLoginAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            try await app.makeUser(username: "otavio", password: "correct-horse-battery")
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            let (_, codes) = try await enrol(app, accessToken: pair.accessToken)
+
+            // When
+            let badTempToken = try await app.loginForTempToken(username: "otavio", password: "correct-horse-battery")
+            try await app.testing().test(
+                .POST, "api/v1/auth/recovery",
+                beforeRequest: { req in
+                    try req.content.encode(RecoveryRequest(tempToken: badTempToken, recoveryCode: "0000-0000"))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .unauthorized, "It should reject an invalid recovery code")
+                }
+            )
+
+            let goodTempToken = try await app.loginForTempToken(username: "otavio", password: "correct-horse-battery")
+            try await app.testing().test(
+                .POST, "api/v1/auth/recovery",
+                beforeRequest: { req in
+                    try req.content.encode(RecoveryRequest(tempToken: goodTempToken, recoveryCode: codes[0]))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .ok, "It should accept a valid recovery code")
+                }
+            )
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).all()
+            #expect(
+                rows.contains { $0.action == "login_failure" },
+                "It should record a login_failure row for the bad recovery code"
+            )
+            #expect(
+                rows.contains { $0.action == "login_success" },
+                "It should record a login_success row for the valid recovery code"
+            )
+        }
+    }
+
     private func enrol(_ app: Application, accessToken: String) async throws -> (secret: String, codes: [String]) {
         var secret: String?
         try await app.testing().test(

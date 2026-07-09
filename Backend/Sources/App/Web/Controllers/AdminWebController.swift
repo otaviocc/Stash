@@ -31,6 +31,7 @@ struct AdminWebController: RouteCollection {
         protected.post("users", ":userID", "delete", use: deleteUser)
         protected.get("appearance", use: appearance)
         protected.post("appearance", use: saveAppearance)
+        protected.get("audit", use: auditLog)
         protected.get("health", use: health)
         protected.get("maintenance", use: maintenance)
         protected.post("db", "optimize", use: optimizeDatabase)
@@ -50,7 +51,14 @@ struct AdminWebController: RouteCollection {
         let username = form.username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         func failure() async throws -> Response {
-            try await req.renderHTML(
+            await AuditLogger.record(
+                action: "login_failure",
+                actor: username,
+                detail: "admin dashboard login",
+                ip: AuditLogger.clientIP(from: req),
+                on: req.db
+            )
+            return try await req.renderHTML(
                 "login",
                 LoginPageContext(
                     title: "Sign in",
@@ -82,12 +90,29 @@ struct AdminWebController: RouteCollection {
             }
         }
 
+        await AuditLogger.record(
+            action: "login_success",
+            actor: user.username,
+            detail: "admin dashboard login",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         req.session.data[AdminSessionMiddleware.sessionKey] = try user.requireID().uuidString
         return req.redirect(to: "/admin")
     }
 
     func logout(req: Request) async throws -> Response {
+        let actor = try await resolveUsername(
+            fromSessionKey: AdminSessionMiddleware.sessionKey, req: req
+        )
         req.session.destroy()
+        await AuditLogger.record(
+            action: "logout",
+            actor: actor,
+            detail: "admin dashboard logout",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return req.redirect(to: "/admin/login")
     }
 
@@ -195,6 +220,13 @@ struct AdminWebController: RouteCollection {
             return try await formError("That username is already taken.")
         }
 
+        await AuditLogger.record(
+            action: "user_created",
+            actor: admin.username,
+            detail: "created user \(username)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=created")
     }
 
@@ -223,18 +255,34 @@ struct AdminWebController: RouteCollection {
         user.isActive = false
         try await user.save(on: req.db)
         try await user.$refreshTokens.query(on: req.db).delete()
+        await AuditLogger.record(
+            action: "user_suspended",
+            actor: admin.username,
+            detail: "suspended \(user.username)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=suspended")
     }
 
     func unsuspend(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
 
         user.isActive = true
         try await user.save(on: req.db)
+        await AuditLogger.record(
+            action: "user_unsuspended",
+            actor: admin.username,
+            detail: "unsuspended \(user.username)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=unsuspended")
     }
 
     func resetPassword(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
 
         let form = try req.content.decode(ResetPasswordForm.self)
@@ -249,10 +297,18 @@ struct AdminWebController: RouteCollection {
         user.passwordHash = try await req.password.async.hash(form.password)
         try await user.save(on: req.db)
         try await user.$refreshTokens.query(on: req.db).delete()
+        await AuditLogger.record(
+            action: "password_reset",
+            actor: admin.username,
+            detail: "reset password for \(user.username)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=password-reset")
     }
 
     func resetTOTP(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
 
         try await user.$recoveryCodes.query(on: req.db).delete()
@@ -261,6 +317,13 @@ struct AdminWebController: RouteCollection {
         try await user.save(on: req.db)
         try await user.$refreshTokens.query(on: req.db).delete()
 
+        await AuditLogger.record(
+            action: "totp_reset",
+            actor: admin.username,
+            detail: "reset 2FA for \(user.username)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=totp_reset")
     }
 
@@ -275,11 +338,20 @@ struct AdminWebController: RouteCollection {
             )
         }
 
+        let deletedUsername = user.username
+
         try await user.$bookmarks.query(on: req.db).delete()
         try await user.$refreshTokens.query(on: req.db).delete()
         try await user.$recoveryCodes.query(on: req.db).delete()
         try await user.delete(on: req.db)
 
+        await AuditLogger.record(
+            action: "user_deleted",
+            actor: admin.username,
+            detail: "deleted user \(deletedUsername)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return req.redirect(to: "/admin/users")
     }
 
@@ -343,7 +415,40 @@ struct AdminWebController: RouteCollection {
         try await settings.save(on: req.db)
         SiteSettingsService.refreshCache(with: settings, on: req.application)
 
+        await AuditLogger.record(
+            action: "appearance_updated",
+            actor: admin.username,
+            detail: "accent theme: \(accentTheme)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return req.redirect(to: "/admin/appearance?ok=saved")
+    }
+
+    // MARK: - Audit log
+
+    func auditLog(req: Request) async throws -> View {
+        let admin = try req.auth.require(User.self)
+        let entries = try await AuditLog.query(on: req.db)
+            .sort(\.$createdAt, .descending)
+            .limit(50)
+            .all()
+
+        let rows = entries.map { entry in
+            AuditLogRowContext(
+                time: DateFormatter.webDateTime.string(from: entry.createdAt ?? Date()),
+                actor: entry.actorUsername ?? "(unknown)",
+                action: entry.action,
+                detail: entry.detail ?? "—"
+            )
+        }
+
+        return try await req.view.render("audit", AuditLogContext(
+            title: "Audit log",
+            adminUsername: admin.username,
+            entries: rows,
+            chrome: req.siteChrome()
+        ))
     }
 
     // MARK: - Maintenance
@@ -571,6 +676,14 @@ struct AdminWebController: RouteCollection {
         guard let id = req.parameters.get("userID", as: UUID.self) else { return nil }
 
         return try await User.find(id, on: req.db)
+    }
+
+    private func resolveUsername(fromSessionKey key: String, req: Request) async throws -> String? {
+        guard let idString = req.session.data[key], let id = UUID(uuidString: idString) else {
+            return nil
+        }
+
+        return try await User.find(id, on: req.db)?.username
     }
 
     private func renderDetail(

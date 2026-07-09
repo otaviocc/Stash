@@ -24,7 +24,14 @@ struct AppAuthWebController: RouteCollection {
         let username = form.username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
         func failure() async throws -> Response {
-            try await req.renderHTML(
+            await AuditLogger.record(
+                action: "login_failure",
+                actor: username,
+                detail: "app frontend login",
+                ip: AuditLogger.clientIP(from: req),
+                on: req.db
+            )
+            return try await req.renderHTML(
                 "app-login",
                 LoginPageContext(
                     title: "Sign in",
@@ -55,12 +62,37 @@ struct AppAuthWebController: RouteCollection {
             }
         }
 
+        await AuditLogger.record(
+            action: "login_success",
+            actor: user.username,
+            detail: "app frontend login",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         req.session.data[UserSessionMiddleware.sessionKey] = try user.requireID().uuidString
         return req.redirect(to: "/app")
     }
 
     func logout(req: Request) async throws -> Response {
+        let actor = try await resolveUsername(
+            fromSessionKey: UserSessionMiddleware.sessionKey, req: req
+        )
         req.session.destroy()
+        await AuditLogger.record(
+            action: "logout",
+            actor: actor,
+            detail: "app frontend logout",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return req.redirect(to: "/app/login")
+    }
+
+    private func resolveUsername(fromSessionKey key: String, req: Request) async throws -> String? {
+        guard let idString = req.session.data[key], let id = UUID(uuidString: idString) else {
+            return nil
+        }
+
+        return try await User.find(id, on: req.db)?.username
     }
 }

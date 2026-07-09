@@ -193,4 +193,98 @@ struct AuthLoginTests {
             )
         }
     }
+
+    // MARK: - Audit log
+
+    @Test("successful JSON API login writes a login_success row")
+    func jsonLoginSuccessAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            try await app.makeUser(username: "otavio", password: "correct-horse-battery")
+
+            // When
+            _ = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).all()
+            #expect(rows.count == 1, "It should write exactly one row")
+            #expect(rows.first?.action == "login_success", "It should record a login_success event")
+            #expect(rows.first?.actorUsername == "otavio", "It should record the logged-in username")
+        }
+    }
+
+    @Test("failed JSON API login (wrong password) writes a login_failure row")
+    func jsonLoginFailureAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            try await app.makeUser(username: "otavio", password: "correct-horse-battery")
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/auth/login",
+                beforeRequest: { req in
+                    try req.content.encode(LoginRequest(username: "otavio", password: "wrong-password!"))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .unauthorized, "It should return 401 Unauthorized")
+                }
+            )
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).all()
+            #expect(rows.count == 1, "It should write exactly one row")
+            #expect(rows.first?.action == "login_failure", "It should record a login_failure event")
+            #expect(rows.first?.actorUsername == "otavio", "It should record the attempted username")
+        }
+    }
+
+    @Test("failed JSON API login (unknown username) writes a login_failure row with the attempted username")
+    func jsonLoginUnknownUserAudited() async throws {
+        try await withTestApp { app in
+            // Given — no setup required
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/auth/login",
+                beforeRequest: { req in
+                    try req.content.encode(LoginRequest(username: "ghost", password: "whatever-long-pw"))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .unauthorized, "It should return 401 Unauthorized")
+                }
+            )
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).all()
+            #expect(rows.count == 1, "It should write exactly one row")
+            #expect(rows.first?.action == "login_failure", "It should record a login_failure event")
+            #expect(rows.first?.actorUsername == "ghost", "It should record the attempted username")
+        }
+    }
+
+    @Test("JSON API logout writes a logout row with the correct actor")
+    func jsonLogoutAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            try await app.makeUser(username: "otavio", password: "correct-horse-battery")
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/auth/logout",
+                beforeRequest: { req in
+                    try req.content.encode(LogoutRequest(refreshToken: pair.refreshToken))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .noContent, "It should return 204 No Content")
+                }
+            )
+
+            // Then
+            let allRows = try await AuditLog.query(on: app.db).all()
+            let rows = allRows.filter { $0.action == "logout" }
+            #expect(rows.count == 1, "It should write exactly one logout row")
+            #expect(rows.first?.actorUsername == "otavio", "It should resolve the actor from the refresh token")
+        }
+    }
 }

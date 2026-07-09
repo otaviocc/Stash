@@ -82,6 +82,7 @@ identifier_name:
     - ok        # redirect flash code
     - ts        # unix timestamp
     - me        # /me handler result
+    - ip        # audit log client IP
     - to        # tag-rename API field name ({ from, to })
 
 excluded:

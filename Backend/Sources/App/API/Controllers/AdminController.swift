@@ -28,6 +28,7 @@ struct AdminController: RouteCollection {
     }
 
     func createUser(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
         try CreateUserInput.validate(content: req)
         let input = try req.content.decode(CreateUserInput.self)
         let username = input.username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -55,6 +56,13 @@ struct AdminController: RouteCollection {
             throw error
         }
 
+        await AuditLogger.record(
+            action: "user_created",
+            actor: admin.username,
+            detail: "created user \(username)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         let response = Response(status: .created)
         try response.content.encode(user.asResponse())
         return response
@@ -70,6 +78,7 @@ struct AdminController: RouteCollection {
         let input = try req.content.decode(UpdateUserInput.self)
 
         var invalidateRefreshTokens = false
+        var passwordChanged = false
 
         if let password = input.password {
             guard password.count >= 12 else {
@@ -78,6 +87,7 @@ struct AdminController: RouteCollection {
 
             user.passwordHash = try await req.password.async.hash(password)
             invalidateRefreshTokens = true
+            passwordChanged = true
         }
 
         if let isActive = input.isActive {
@@ -95,6 +105,25 @@ struct AdminController: RouteCollection {
         if invalidateRefreshTokens {
             try await user.$refreshTokens.query(on: req.db).delete()
         }
+
+        if passwordChanged {
+            await AuditLogger.record(
+                action: "password_reset",
+                actor: admin.username,
+                detail: "reset password for \(user.username)",
+                ip: AuditLogger.clientIP(from: req),
+                on: req.db
+            )
+        }
+        if let isActive = input.isActive {
+            await AuditLogger.record(
+                action: isActive ? "user_unsuspended" : "user_suspended",
+                actor: admin.username,
+                detail: "\(isActive ? "unsuspended" : "suspended") \(user.username)",
+                ip: AuditLogger.clientIP(from: req),
+                on: req.db
+            )
+        }
         return try user.asResponse()
     }
 
@@ -106,15 +135,25 @@ struct AdminController: RouteCollection {
             throw APIError.cannotDeleteSelf
         }
 
+        let deletedUsername = user.username
+
         try await user.$bookmarks.query(on: req.db).delete()
         try await user.$refreshTokens.query(on: req.db).delete()
         try await user.$recoveryCodes.query(on: req.db).delete()
         try await user.delete(on: req.db)
 
+        await AuditLogger.record(
+            action: "user_deleted",
+            actor: admin.username,
+            detail: "deleted user \(deletedUsername)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return Response(status: .noContent)
     }
 
     func resetTOTP(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
         let user = try await requireUser(req)
 
         guard user.isTOTPEnabled || user.totpSecret != nil else {
@@ -123,6 +162,13 @@ struct AdminController: RouteCollection {
 
         try await user.disableTOTP(on: req.db)
 
+        await AuditLogger.record(
+            action: "totp_reset",
+            actor: admin.username,
+            detail: "reset 2FA for \(user.username)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return Response(status: .noContent)
     }
 

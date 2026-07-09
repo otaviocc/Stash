@@ -660,6 +660,234 @@ struct AdminTests {
         }
     }
 
+    // MARK: - Audit log
+
+    @Test("JSON API createUser writes a user_created row")
+    func apiCreateUserAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+
+            // When
+            try await app.testing().test(
+                .POST, "api/v1/admin/users",
+                headers: headers,
+                beforeRequest: { req in
+                    try req.content.encode(CreateUserInput(username: "alice", password: "alice-password-123"))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .created, "It should return 201 Created")
+                }
+            )
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).filter(\.$action == "user_created").all()
+            #expect(rows.count == 1, "It should write exactly one user_created row")
+            #expect(rows.first?.actorUsername == "root", "It should record the admin as the actor")
+            #expect(rows.first?.detail?.contains("alice") == true, "It should name the created user in the detail")
+        }
+    }
+
+    @Test("JSON API updateUser with isActive=false writes a user_suspended row")
+    func apiSuspendAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+            let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
+
+            // When
+            try await app.testing().test(
+                .PUT, "api/v1/admin/users/\(alice.requireID())",
+                headers: headers,
+                beforeRequest: { req in
+                    try req.content.encode(UpdateUserInput(isActive: false, password: nil))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .ok, "It should return 200 OK")
+                }
+            )
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).filter(\.$action == "user_suspended").all()
+            #expect(rows.count == 1, "It should write exactly one user_suspended row")
+            #expect(rows.first?.actorUsername == "root", "It should record the admin as the actor")
+        }
+    }
+
+    @Test("JSON API updateUser with isActive=true writes a user_unsuspended row")
+    func apiUnsuspendAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+            let alice = try await app.makeUser(username: "alice", password: "alice-password-123", isActive: false)
+
+            // When
+            try await app.testing().test(
+                .PUT, "api/v1/admin/users/\(alice.requireID())",
+                headers: headers,
+                beforeRequest: { req in
+                    try req.content.encode(UpdateUserInput(isActive: true, password: nil))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .ok, "It should return 200 OK")
+                }
+            )
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).filter(\.$action == "user_unsuspended").all()
+            #expect(rows.count == 1, "It should write exactly one user_unsuspended row")
+        }
+    }
+
+    @Test("JSON API updateUser with password writes a password_reset row")
+    func apiPasswordResetAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+            let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
+
+            // When
+            try await app.testing().test(
+                .PUT, "api/v1/admin/users/\(alice.requireID())",
+                headers: headers,
+                beforeRequest: { req in
+                    try req.content.encode(UpdateUserInput(isActive: nil, password: "brand-new-password-456"))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .ok, "It should return 200 OK")
+                }
+            )
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).filter(\.$action == "password_reset").all()
+            #expect(rows.count == 1, "It should write exactly one password_reset row")
+        }
+    }
+
+    @Test("JSON API updateUser with both password and isActive writes two rows")
+    func apiCombinedUpdateAuditedTwice() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+            let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
+
+            // When
+            try await app.testing().test(
+                .PUT, "api/v1/admin/users/\(alice.requireID())",
+                headers: headers,
+                beforeRequest: { req in
+                    try req.content.encode(UpdateUserInput(isActive: false, password: "brand-new-password-456"))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .ok, "It should return 200 OK")
+                }
+            )
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).all()
+            #expect(
+                rows.contains { $0.action == "password_reset" },
+                "It should record a password_reset row"
+            )
+            #expect(
+                rows.contains { $0.action == "user_suspended" },
+                "It should also record a user_suspended row"
+            )
+        }
+    }
+
+    @Test("JSON API deleteUser writes a user_deleted row with the deleted username")
+    func apiDeleteUserAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+            let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
+
+            // When
+            try await app.testing().test(
+                .DELETE, "api/v1/admin/users/\(alice.requireID())", headers: headers
+            ) { res async throws in
+                #expect(res.status == .noContent, "It should return 204 No Content")
+            }
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).filter(\.$action == "user_deleted").all()
+            #expect(rows.count == 1, "It should write exactly one user_deleted row")
+            #expect(rows.first?.detail?.contains("alice") == true, "It should name the deleted user in the detail")
+        }
+    }
+
+    @Test("JSON API resetTOTP writes a totp_reset row only when a reset actually occurred")
+    func apiResetTOTPAuditedOnlyWhenApplicable() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+            let alice = try await app.makeUser(
+                username: "alice", password: "alice-password-123",
+                isTOTPEnabled: true, totpSecret: "JBSWY3DPEHPK3PXP"
+            )
+
+            // When — no 2FA to reset
+            let bob = try await app.makeUser(username: "bob", password: "bob-password-1234")
+            try await app.testing().test(
+                .POST, "api/v1/admin/users/\(bob.requireID())/reset-totp", headers: headers
+            ) { res async throws in
+                #expect(res.status == .noContent, "It should return 204 No Content")
+            }
+
+            // Then
+            let rowsAfterNoOp = try await AuditLog.query(on: app.db).filter(\.$action == "totp_reset").all()
+            #expect(rowsAfterNoOp.isEmpty, "It should not record a totp_reset row when nothing was reset")
+
+            // When — a real reset
+            try await app.testing().test(
+                .POST, "api/v1/admin/users/\(alice.requireID())/reset-totp", headers: headers
+            ) { res async throws in
+                #expect(res.status == .noContent, "It should return 204 No Content")
+            }
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).filter(\.$action == "totp_reset").all()
+            #expect(rows.count == 1, "It should record exactly one totp_reset row")
+        }
+    }
+
+    @Test("self-suspend and self-delete guard rejections do NOT write an audit row")
+    func selfActionGuardsNotAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            let admin = try await app.makeUser(username: "root", password: "admin-password-123", role: .admin)
+            let pair = try await app.login(username: "root", password: "admin-password-123")
+            let adminID = try admin.requireID()
+
+            // When
+            try await app.testing().test(
+                .PUT, "api/v1/admin/users/\(adminID)",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(UpdateUserInput(isActive: false, password: nil))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .badRequest, "It should return 400 Bad Request")
+                }
+            )
+
+            try await app.testing().test(
+                .DELETE, "api/v1/admin/users/\(adminID)", headers: bearer(pair.accessToken)
+            ) { res async throws in
+                #expect(res.status == .badRequest, "It should return 400 Bad Request")
+            }
+
+            // Then
+            let allRows = try await AuditLog.query(on: app.db).all()
+            let mutationRows = allRows.filter { $0.action == "user_suspended" || $0.action == "user_deleted" }
+            #expect(
+                mutationRows.isEmpty,
+                "It should not write a user_suspended/user_deleted row for a self-suspend/self-delete rejection"
+            )
+        }
+    }
+
     private func adminHeaders(_ app: Application) async throws -> HTTPHeaders {
         try await app.makeUser(username: "root", password: "admin-password-123", role: .admin)
         let pair = try await app.login(username: "root", password: "admin-password-123")

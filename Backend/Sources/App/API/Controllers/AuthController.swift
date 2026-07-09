@@ -49,12 +49,33 @@ struct AuthController: RouteCollection {
             .first()
         else {
             _ = try? await req.password.async.verify(input.password, created: User.dummyPasswordHash)
+            await AuditLogger.record(
+                action: "login_failure",
+                actor: input.username.lowercased(),
+                detail: "unknown username",
+                ip: AuditLogger.clientIP(from: req),
+                on: req.db
+            )
             throw APIError.invalidCredentials
         }
         guard try await req.password.async.verify(input.password, created: user.passwordHash) else {
+            await AuditLogger.record(
+                action: "login_failure",
+                actor: user.username,
+                detail: "wrong password",
+                ip: AuditLogger.clientIP(from: req),
+                on: req.db
+            )
             throw APIError.invalidCredentials
         }
         guard user.isActive else {
+            await AuditLogger.record(
+                action: "login_failure",
+                actor: user.username,
+                detail: "account suspended",
+                ip: AuditLogger.clientIP(from: req),
+                on: req.db
+            )
             throw APIError.accountSuspended
         }
 
@@ -63,6 +84,12 @@ struct AuthController: RouteCollection {
             return try await TwoFactorRequired(tempToken: tempToken).encodeResponse(for: req)
         }
 
+        await AuditLogger.record(
+            action: "login_success",
+            actor: user.username,
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         let pair = try await TokenService.issuePair(for: user, on: req)
         return try await pair.encodeResponse(for: req)
     }
@@ -75,9 +102,22 @@ struct AuthController: RouteCollection {
               let secretData = Base32.decode(secret),
               TOTP(secret: secretData).validate(input.totpCode)
         else {
+            await AuditLogger.record(
+                action: "login_failure",
+                actor: user.username,
+                detail: "invalid TOTP code",
+                ip: AuditLogger.clientIP(from: req),
+                on: req.db
+            )
             throw APIError.totpInvalid
         }
 
+        await AuditLogger.record(
+            action: "login_success",
+            actor: user.username,
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return try await TokenService.issuePair(for: user, on: req)
     }
 
@@ -95,9 +135,23 @@ struct AuthController: RouteCollection {
             if try await req.password.async.verify(normalized, created: code.codeHash) {
                 code.usedAt = Date()
                 try await code.save(on: req.db)
+                await AuditLogger.record(
+                    action: "login_success",
+                    actor: user.username,
+                    detail: "via recovery code",
+                    ip: AuditLogger.clientIP(from: req),
+                    on: req.db
+                )
                 return try await TokenService.issuePair(for: user, on: req)
             }
         }
+        await AuditLogger.record(
+            action: "login_failure",
+            actor: user.username,
+            detail: "invalid recovery code",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         throw APIError.totpInvalid
     }
 
@@ -127,9 +181,25 @@ struct AuthController: RouteCollection {
     func logout(req: Request) async throws -> Response {
         let input = try req.content.decode(LogoutRequest.self)
         let tokenHash = TokenService.hash(input.refreshToken)
+
+        let stored = try await RefreshToken.query(on: req.db)
+            .filter(\.$tokenHash == tokenHash)
+            .first()
+        var actor: String?
+        if let stored {
+            actor = try await User.find(stored.$user.id, on: req.db)?.username
+        }
+
         try await RefreshToken.query(on: req.db)
             .filter(\.$tokenHash == tokenHash)
             .delete()
+
+        await AuditLogger.record(
+            action: "logout",
+            actor: actor,
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         return Response(status: .noContent)
     }
 }

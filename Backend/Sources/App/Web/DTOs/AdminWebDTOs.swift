@@ -137,6 +137,28 @@ struct UserDetailContext: Content {
     let chrome: SiteChrome
 }
 
+// MARK: - AuditLogRowContext
+
+/// A single audit-log row shown in the admin audit viewer.
+struct AuditLogRowContext: Content {
+
+    let time: String
+    let actor: String
+    let action: String
+    let detail: String
+}
+
+// MARK: - AuditLogContext
+
+/// View context for the admin audit-log page.
+struct AuditLogContext: Content {
+
+    let title: String
+    let adminUsername: String
+    let entries: [AuditLogRowContext]
+    let chrome: SiteChrome
+}
+
 // MARK: - FaviconAdminContext
 
 /// View context for the admin favicon cache management page.
