@@ -87,6 +87,18 @@ struct HealthContext: Content {
     let chrome: SiteChrome
 }
 
+// MARK: - MaintenanceContext
+
+/// View context for the admin maintenance page (database optimize / VACUUM).
+struct MaintenanceContext: Content {
+
+    let title: String
+    let adminUsername: String
+    let message: String?
+    let error: String?
+    let chrome: SiteChrome
+}
+
 // MARK: - UsersContext
 
 /// View context for the admin users list page.

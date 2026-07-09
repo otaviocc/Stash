@@ -72,6 +72,8 @@ separate from the API.
 | `GET`/`POST` | `/admin/users/new` | Create user (always `user` role) |
 | `GET`  | `/admin/users/:id` | User detail |
 | `POST` | `/admin/users/:id/suspend` · `/unsuspend` · `/reset-password` · `/reset-totp` · `/delete` | Actions |
+| `GET`  | `/admin/maintenance` | Database maintenance: run VACUUM to reclaim space from hard deletes |
+| `POST` | `/admin/db/optimize` | Run `VACUUM` against the database (PRG → `?ok=db_optimized&ms=<elapsed>`) |
 
 ## Web frontend (`/app`)
 

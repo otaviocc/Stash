@@ -282,6 +282,54 @@ struct AppearanceTests {
         }
     }
 
+    // MARK: - GET /admin/maintenance & POST /admin/db/optimize
+
+    @Test("the maintenance page renders with the optimize button")
+    func maintenancePageRenders() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminWebSession(app)
+
+            // When
+            try await app.testing().test(.GET, "admin/maintenance", headers: headers) { res async throws in
+                // Then
+                #expect(res.status == .ok, "It should render the maintenance page")
+                #expect(
+                    res.body.string.contains("Run database optimize"),
+                    "It should show the optimize button"
+                )
+            }
+        }
+    }
+
+    @Test("running database optimize runs VACUUM and redirects with a success banner")
+    func optimizeDatabaseSucceeds() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminWebSession(app)
+            var location: String?
+
+            // When
+            try await app.testing().test(.POST, "admin/db/optimize", headers: headers) { res async throws in
+                // Then
+                #expect(res.status == .seeOther, "It should redirect after running VACUUM")
+                location = res.headers.first(name: .location)
+                #expect(
+                    location?.hasPrefix("/admin/maintenance?ok=db_optimized&ms=") == true,
+                    "It should PRG to the maintenance page with the elapsed time"
+                )
+            }
+
+            let redirectTarget = try #require(location)
+            try await app.testing().test(.GET, redirectTarget, headers: headers) { res async throws in
+                #expect(
+                    res.body.string.contains("Database optimize complete"),
+                    "It should show the success banner"
+                )
+            }
+        }
+    }
+
     // MARK: - Version file
 
     @Test("the version string is read from the VERSION file and falls back to dev")

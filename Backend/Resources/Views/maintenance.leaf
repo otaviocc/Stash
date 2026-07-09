@@ -1,0 +1,26 @@
+#extend("layout"):
+#export("content"):
+    <h1>Maintenance</h1>
+
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
+    <div class="card">
+        <p>
+            Deleting bookmarks (single delete, the "delete all bookmarks"
+            danger-zone action, or deleting a whole user account) leaves
+            behind reclaimable space in the database. Running a database
+            optimize reclaims that space. This is safe to run at any time,
+            does not lock any tables, and can be run as often as you like.
+        </p>
+
+        <form method="post" action="/admin/db/optimize">
+            <button type="submit">Run database optimize</button>
+        </form>
+    </div>
+#endexport
+#endextend

@@ -32,6 +32,8 @@ struct AdminWebController: RouteCollection {
         protected.get("appearance", use: appearance)
         protected.post("appearance", use: saveAppearance)
         protected.get("health", use: health)
+        protected.get("maintenance", use: maintenance)
+        protected.post("db", "optimize", use: optimizeDatabase)
     }
 
     // MARK: - Login / logout
@@ -339,6 +341,61 @@ struct AdminWebController: RouteCollection {
         SiteSettingsService.refreshCache(with: settings, on: req.application)
 
         return req.redirect(to: "/admin/appearance?ok=saved")
+    }
+
+    // MARK: - Maintenance
+
+    func maintenance(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+        let ok = req.query[String.self, at: "ok"]
+        let elapsedMS = req.query[Int.self, at: "ms"]
+
+        var message = FlashMessage.admin(for: ok)
+        if ok == "db_optimized", let elapsedMS {
+            let seconds = Double(elapsedMS) / 1000.0
+            message = "Database optimize complete (\(String(format: "%.1f", seconds))s)."
+        }
+
+        let context = MaintenanceContext(
+            title: "Maintenance",
+            adminUsername: admin.username,
+            message: message,
+            error: nil,
+            chrome: req.siteChrome()
+        )
+        return try await req.renderHTML("maintenance", context, status: .ok)
+    }
+
+    func optimizeDatabase(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+
+        guard let sql = req.db as? SQLDatabase else {
+            let context = MaintenanceContext(
+                title: "Maintenance",
+                adminUsername: admin.username,
+                message: nil,
+                error: "Could not access the database for maintenance (unsupported driver).",
+                chrome: req.siteChrome()
+            )
+            return try await req.renderHTML("maintenance", context, status: .badRequest)
+        }
+
+        let start = Date()
+        do {
+            try await sql.raw("VACUUM").run()
+        } catch {
+            let context = MaintenanceContext(
+                title: "Maintenance",
+                adminUsername: admin.username,
+                message: nil,
+                error: "Database optimize failed: \(error.localizedDescription)",
+                chrome: req.siteChrome()
+            )
+            return try await req.renderHTML("maintenance", context, status: .badRequest)
+        }
+        let elapsedMS = Int(Date().timeIntervalSince(start) * 1000)
+
+        return req.redirect(to: "/admin/maintenance?ok=db_optimized&ms=\(elapsedMS)")
     }
 
     // MARK: - Health helpers

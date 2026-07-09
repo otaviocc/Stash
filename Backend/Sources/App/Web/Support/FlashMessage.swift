@@ -39,6 +39,7 @@ enum FlashMessage {
         case "unsuspended": "User reactivated."
         case "password-reset": "Password reset; the user's sessions were revoked."
         case "totp_reset": "Two-factor authentication reset; the user must set it up again and was signed out."
+        case "db_optimized": "Database optimize complete."
         default: nil
         }
     }

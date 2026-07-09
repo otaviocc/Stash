@@ -3037,3 +3037,41 @@ pattern for testing session-cookie `/admin` web pages (the `adminWebSession`
 login helper) already lived in `AppearanceTests.swift` alongside the
 dashboard/appearance page tests. Matching the existing test's actual
 location mattered more than matching its name.
+
+## Admin database maintenance: a manual VACUUM button
+
+Stash's hard-delete paths (single bookmark delete, the "delete all
+bookmarks" danger zone, and the admin's cascade delete-user) leave dead
+tuples behind that Postgres's autovacuum eventually reclaims on its own, but
+on a small self-hosted instance autovacuum can be slow to trigger or
+effectively idle if write volume never crosses its threshold. I added a
+single manual "Run database optimize" button on a new `/admin/maintenance`
+page rather than a scheduled job, since Stash has no background job
+scheduler infrastructure at all, and adding one just for this would be a
+disproportionate amount of new complexity for what's fundamentally an
+occasional, low-frequency maintenance action. An admin clicking a button
+once in a while is an acceptable v1 answer; a scheduled background VACUUM is
+a reasonable follow-up if an instance ever needs it.
+
+Postgres refuses to run `VACUUM` inside a transaction block, so the handler
+calls `sql.raw("VACUUM").run()` directly against `req.db` cast to
+`SQLDatabase`, never wrapped in `req.db.transaction { ... }`. This is the
+one thing in this feature I was most careful about, since SQLite (what the
+test suite runs against) is more permissive here: a transaction-wrapped
+VACUUM would pass every test and only fail at runtime in production against
+Postgres, exactly the kind of asymmetry that slips past CI. I also only ever
+run plain `VACUUM`, never `VACUUM FULL`: FULL rewrites the whole table and
+takes an exclusive lock for the duration, which would let a routine
+admin-panel button take down the app for every user while it runs; plain
+VACUUM reclaims dead-tuple space without blocking reads or writes, the right
+trade-off for a click-any-time action. There's no UI option for FULL.
+
+Nothing about past runs is persisted — no "last optimized at" timestamp, no
+history list. The page shows the elapsed time of the *most recent* run in a
+one-off flash banner, passed through the redirect's `?ms=` query parameter
+rather than baked into `FlashMessage.admin(for:)` itself, since that
+function takes only the `ok` slug and giving it a way to carry dynamic data
+would ripple into every other call site. Persisting a real "last run"
+history would need a new column or table for a feature whose entire value
+is "reclaim space now," not "track maintenance history"; deferred until an
+admin actually asks for it.

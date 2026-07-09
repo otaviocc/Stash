@@ -725,6 +725,7 @@ container restart.
 | User Detail | `/admin/users/:id` |
 | Appearance | `/admin/appearance` |
 | Health | `/admin/health` |
+| Maintenance | `/admin/maintenance` |
 
 ### Business Rules
 
@@ -751,6 +752,15 @@ container restart.
   separate from the public, unauthenticated `GET /health` liveness probe
   (§9), which stays a minimal `{ "status": "ok" }` for monitors and
   orchestrators; this page is the human-facing admin-only equivalent.
+- The Maintenance page (`GET /admin/maintenance`) has a single "Run database
+  optimize" button (`POST /admin/db/optimize`) that runs a plain `VACUUM`
+  against the configured database, reclaiming dead-tuple space left behind by
+  hard deletes (single bookmark delete, the "delete all bookmarks" danger
+  zone, and admin user-deletion cascades). It does not lock tables and is
+  safe to run at any time; no confirmation dialog is needed, unlike the
+  destructive user actions elsewhere on the dashboard. PRG redirects with
+  `?ok=db_optimized&ms=<elapsed>`, and the elapsed time is shown in the
+  success banner. Nothing about past runs is persisted.
 
 ---
 
