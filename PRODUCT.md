@@ -724,6 +724,7 @@ container restart.
 | Create User | `/admin/users/new` |
 | User Detail | `/admin/users/:id` |
 | Appearance | `/admin/appearance` |
+| Health | `/admin/health` |
 
 ### Business Rules
 
@@ -743,6 +744,13 @@ container restart.
   light value in light mode, its dark value in dark mode, matching what the app
   actually renders. Invalid input → 422 with the form re-rendered; on success the
   app-level cache is refreshed and PRG redirects with `?ok=saved`.
+- The Health page (`GET /admin/health`) is a read-only operational view: the
+  running version string, a live database connectivity probe with the active
+  driver name (Postgres/SQLite), process uptime since boot, disk usage for the
+  working directory, and total user/bookmark counts. It is deliberately
+  separate from the public, unauthenticated `GET /health` liveness probe
+  (§9), which stays a minimal `{ "status": "ok" }` for monitors and
+  orchestrators; this page is the human-facing admin-only equivalent.
 
 ---
 

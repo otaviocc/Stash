@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import Fluent
+import SQLKit
 import Vapor
 
 // MARK: - AdminWebController
@@ -30,6 +31,7 @@ struct AdminWebController: RouteCollection {
         protected.post("users", ":userID", "delete", use: deleteUser)
         protected.get("appearance", use: appearance)
         protected.post("appearance", use: saveAppearance)
+        protected.get("health", use: health)
     }
 
     // MARK: - Login / logout
@@ -98,6 +100,35 @@ struct AdminWebController: RouteCollection {
             totalUsers: users.count,
             totalBookmarks: totalBookmarks,
             users: rows,
+            chrome: req.siteChrome()
+        ))
+    }
+
+    // MARK: - Health
+
+    func health(req: Request) async throws -> View {
+        let admin = try req.auth.require(User.self)
+
+        let version = req.application.storage[AppVersionKey.self] ?? "dev"
+        let (dbStatusText, dbOK, driverName) = await checkDatabase(req)
+        let uptime = formattedUptime(req: req)
+        let disk = diskUsageSummary(req: req)
+
+        let users = try await User.query(on: req.db).sort(\.$username).all()
+        let rows = try users.map { try $0.asRow() }
+        let totalBookmarks = rows.reduce(0) { $0 + $1.bookmarkCount }
+
+        return try await req.view.render("health", HealthContext(
+            title: "Health",
+            adminUsername: admin.username,
+            version: version,
+            dbStatusText: dbStatusText,
+            dbIsOK: dbOK,
+            dbDriver: driverName,
+            uptime: uptime,
+            diskUsageText: disk,
+            totalUsers: users.count,
+            totalBookmarks: totalBookmarks,
             chrome: req.siteChrome()
         ))
     }
@@ -308,6 +339,80 @@ struct AdminWebController: RouteCollection {
         SiteSettingsService.refreshCache(with: settings, on: req.application)
 
         return req.redirect(to: "/admin/appearance?ok=saved")
+    }
+
+    // MARK: - Health helpers
+
+    /// Pings the database with a trivial `SELECT 1` to confirm connectivity, and reports which
+    /// driver is active. Never throws — a failed connection is reported as an `"error"` status
+    /// string rather than surfacing an exception to the page.
+    private func checkDatabase(_ req: Request) async -> (statusText: String, isOK: Bool, driver: String) {
+        let driver = req.application.environment == .testing ? "SQLite" : "Postgres"
+
+        guard let sqlDB = req.db as? SQLDatabase else {
+            return ("unknown", false, driver)
+        }
+
+        do {
+            try await sqlDB.raw("SELECT 1").run()
+            return ("ok", true, driver)
+        } catch {
+            req.logger.error("Health check DB probe failed: \(error)")
+            return ("error", false, driver)
+        }
+    }
+
+    /// Formats the elapsed time since process boot as `"Nd Nh Nm"`, omitting leading zero units
+    /// (e.g. an app up for less than an hour shows just `"12m"`, not `"0d 0h 12m"`).
+    private func formattedUptime(req: Request) -> String {
+        guard let bootDate = req.application.storage[BootDateKey.self] else {
+            return "unknown"
+        }
+
+        let seconds = max(0, Int(Date().timeIntervalSince(bootDate)))
+        let days = seconds / 86400
+        let hours = (seconds % 86400) / 3600
+        let minutes = (seconds % 3600) / 60
+
+        var parts: [String] = []
+        if days > 0 {
+            parts.append("\(days)d")
+        }
+        if days > 0 || hours > 0 {
+            parts.append("\(hours)h")
+        }
+        parts.append("\(minutes)m")
+
+        return parts.joined(separator: " ")
+    }
+
+    /// Reads filesystem free/total space for the working directory. Returns `"unavailable"` on any
+    /// failure rather than crashing the page — disk introspection is a nice-to-have, not essential.
+    private func diskUsageSummary(req: Request) -> String {
+        let path = req.application.directory.workingDirectory
+
+        guard let attributes = try? FileManager.default.attributesOfFileSystem(forPath: path),
+              let totalSize = attributes[.systemSize] as? NSNumber,
+              let freeSize = attributes[.systemFreeSize] as? NSNumber
+        else {
+            return "unavailable"
+        }
+
+        let total = totalSize.doubleValue
+        let free = freeSize.doubleValue
+        let used = total - free
+
+        return "\(formattedBytes(used)) / \(formattedBytes(total))"
+    }
+
+    /// Formats a byte count as a human-readable `GB`/`MB` string with one decimal place.
+    private func formattedBytes(_ bytes: Double) -> String {
+        let gigabytes = bytes / 1_073_741_824
+        if gigabytes >= 1 {
+            return String(format: "%.1f GB", gigabytes)
+        }
+        let megabytes = bytes / 1_048_576
+        return String(format: "%.1f MB", megabytes)
     }
 
     // MARK: - Helpers

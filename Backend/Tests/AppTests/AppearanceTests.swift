@@ -245,6 +245,43 @@ struct AppearanceTests {
         }
     }
 
+    // MARK: - GET /admin/health
+
+    @Test("the health page renders with version, DB status, uptime, disk usage, and counts")
+    func healthPageRenders() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminWebSession(app)
+            try await app.makeUser(username: "alice", password: "alice-password-123", role: .user)
+
+            // When
+            try await app.testing().test(.GET, "admin/health", headers: headers) { res async throws in
+                // Then
+                #expect(res.status == .ok, "It should render the health page")
+                let body = res.body.string
+                #expect(body.contains("dev"), "It should show the fallback version string in tests")
+                #expect(body.contains("SQLite"), "It should report SQLite as the driver in the test environment")
+                #expect(body.contains("class=\"pill active\""), "It should show an ok status pill for the DB probe")
+                #expect(body.contains(">2<"), "It should show the total user count (root + alice)")
+            }
+        }
+    }
+
+    @Test("the health page requires an admin session — unauthenticated requests redirect to login")
+    func healthPageRequiresAuth() async throws {
+        try await withTestApp { app in
+            // When
+            try await app.testing().test(.GET, "admin/health") { res async throws in
+                // Then
+                #expect(res.status == .seeOther, "It should redirect rather than render the page")
+                #expect(
+                    res.headers.first(name: .location) == "/admin/login",
+                    "It should redirect to the admin login page"
+                )
+            }
+        }
+    }
+
     // MARK: - Version file
 
     @Test("the version string is read from the VERSION file and falls back to dev")

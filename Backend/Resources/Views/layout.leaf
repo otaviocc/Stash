@@ -39,6 +39,7 @@
             <a href="/admin/users">Users</a>
             <a href="/admin/users/new">New user</a>
             <a href="/admin/appearance">Appearance</a>
+            <a href="/admin/health">Health</a>
             <a href="/app">App</a>
         </nav>
         <span class="spacer"></span>

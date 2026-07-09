@@ -2991,3 +2991,49 @@ root MIT `LICENSE`, and `StashSkill` got a copy of the MIT `LICENSE` too,
 since it's meant to be copied standalone into someone's `.claude/skills`
 directory and shouldn't rely on the rest of the repo being present to stay
 license-compliant.
+
+## Admin health page, kept separate from the public `/health` probe
+
+I added a new `GET /admin/health` page to the admin web dashboard showing
+version, database connectivity, process uptime, disk usage, and total
+users/bookmarks — all useful operational context for an admin, none of it
+appropriate to expose on the existing public, unauthenticated `GET /health`
+liveness probe. I deliberately left that endpoint and its `HealthResponse`
+DTO completely untouched: it's documented in the OpenAPI spec with a fixed
+`{ "status": "ok" }` contract, used by monitors and container orchestrators
+that only care about "is the process alive," and adding fields to it (or
+requiring auth) would both be a breaking change to that contract and an
+unnecessary information disclosure to anyone who can reach the endpoint
+without logging in. The two surfaces now serve two different audiences by
+design: `/health` for machines that only need a liveness bit, `/admin/health`
+for a signed-in human who wants to see what's actually going on.
+
+The database check runs a bare `SELECT 1` through `SQLDatabase.raw(...)`
+rather than anything Fluent-model-specific, so it stays truthful even if a
+particular table migration is broken — it only asserts "can we talk to the
+database at all," which is the right question for a health page. Driver name
+(Postgres vs. SQLite) is derived from `app.environment == .testing`, the same
+condition `configure.swift` already uses to choose the driver, rather than
+re-deriving it from `DATABASE_URL` a second time and risking the two checks
+drifting apart later. `SQLDatabase` needed an explicit `import SQLKit` in
+`AdminWebController.swift`; it isn't visible transitively from `Fluent`
+alone in this controller, the same reason `CreateDeletedBookmarks.swift`
+already imports it directly for its own raw-SQL index creation.
+
+Uptime required one small addition: there was no existing "process start
+time" recorded anywhere, so I added a `BootDateKey: StorageKey` (mirroring
+the existing `AppVersionKey` pattern in the same file/directory) and set it
+once in `configure(_:)` at boot. Disk usage uses
+`FileManager.attributesOfFileSystem(forPath:)`, which works fine on the
+Linux deployment target already documented for the Docker image; a failed
+read (e.g. an unusual filesystem) degrades to an "unavailable" label rather
+than crashing the page, since disk stats are a nice-to-have, not essential
+to the page's usefulness.
+
+The web-UI tests for this page went into `AppearanceTests.swift`, not
+`AdminTests.swift`: that name looks like the obvious home, but it turned out
+to hold only the JSON `/api/v1/admin/*` controller tests, while the existing
+pattern for testing session-cookie `/admin` web pages (the `adminWebSession`
+login helper) already lived in `AppearanceTests.swift` alongside the
+dashboard/appearance page tests. Matching the existing test's actual
+location mattered more than matching its name.

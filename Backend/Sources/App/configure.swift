@@ -58,6 +58,10 @@ public func configure(_ app: Application) async throws {
 
     app.storage[AppVersionKey.self] = AppVersion.read(directory: app.directory.workingDirectory)
 
+    // MARK: Boot time
+
+    app.storage[BootDateKey.self] = Date()
+
     // MARK: Outbound HTTP
 
     app.http.client.configuration.timeout = .init(connect: .seconds(5), read: .seconds(5))

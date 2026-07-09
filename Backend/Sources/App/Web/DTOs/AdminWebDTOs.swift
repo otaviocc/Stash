@@ -67,6 +67,26 @@ struct DashboardContext: Content {
     let chrome: SiteChrome
 }
 
+// MARK: - HealthContext
+
+/// View context for the admin health page. Every field here is safe to show only to a signed-in
+/// admin — this is deliberately a *different* surface than the public, unversioned `GET /health`
+/// JSON endpoint, which must keep returning only `{ "status": "ok" }` and nothing more.
+struct HealthContext: Content {
+
+    let title: String
+    let adminUsername: String
+    let version: String
+    let dbStatusText: String
+    let dbIsOK: Bool
+    let dbDriver: String
+    let uptime: String
+    let diskUsageText: String
+    let totalUsers: Int
+    let totalBookmarks: Int
+    let chrome: SiteChrome
+}
+
 // MARK: - UsersContext
 
 /// View context for the admin users list page.

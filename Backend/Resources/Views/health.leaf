@@ -1,0 +1,42 @@
+#extend("layout"):
+#export("content"):
+    <h1>Health</h1>
+
+    <div class="card">
+        <div class="stats">
+            <div class="stat">
+                <div class="num">#(version)</div>
+                <div class="label">Version</div>
+            </div>
+            <div class="stat">
+                <div class="num">
+                    #if(dbIsOK):<span class="pill active">#(dbStatusText)</span>
+                    #else:<span class="pill suspended">#(dbStatusText)</span>#endif
+                </div>
+                <div class="label">Database (#(dbDriver))</div>
+            </div>
+            <div class="stat">
+                <div class="num">#(uptime)</div>
+                <div class="label">Uptime</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="stats">
+            <div class="stat">
+                <div class="num">#(diskUsageText)</div>
+                <div class="label">Disk Usage</div>
+            </div>
+            <div class="stat">
+                <div class="num">#(totalUsers)</div>
+                <div class="label">Users</div>
+            </div>
+            <div class="stat">
+                <div class="num">#(totalBookmarks)</div>
+                <div class="label">Bookmarks</div>
+            </div>
+        </div>
+    </div>
+#endexport
+#endextend
