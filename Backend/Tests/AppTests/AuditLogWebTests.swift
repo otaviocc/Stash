@@ -130,7 +130,10 @@ struct AuditLogWebTests {
         try await withTestApp { app in
             // Given
             let cookie = try await adminWebSession(app)
-            let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
+            let alice = try await app.makeUser(
+                username: "alice", password: "alice-password-123",
+                isTOTPEnabled: true, totpSecret: "AAAAAAAAAAAAAAAA"
+            )
             let aliceID = try alice.requireID()
 
             func expectRedirect(_ res: TestingHTTPResponse) async throws {
@@ -154,7 +157,7 @@ struct AuditLogWebTests {
                 },
                 afterResponse: expectRedirect
             )
-            // When — reset TOTP (no-op, 2FA not enabled)
+            // When — reset TOTP (2FA is enabled, so this is a genuine reset)
             try await app.testing().test(
                 .POST, "admin/users/\(aliceID)/reset-totp", headers: cookie, afterResponse: expectRedirect
             )
@@ -171,6 +174,48 @@ struct AuditLogWebTests {
             #expect(actions.contains("password_reset"), "It should record the password reset")
             #expect(actions.contains("totp_reset"), "It should record the TOTP reset")
             #expect(actions.contains("user_deleted"), "It should record the delete action")
+        }
+    }
+
+    @Test("admin web resetTOTP on a user without 2FA does not write a totp_reset row")
+    func webResetTOTPNoOpNotAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            let cookie = try await adminWebSession(app)
+            let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
+            let aliceID = try alice.requireID()
+
+            // When
+            try await app.testing().test(
+                .POST, "admin/users/\(aliceID)/reset-totp", headers: cookie
+            ) { res async throws in
+                #expect(res.status == .seeOther)
+            }
+
+            // Then
+            let actions = try await AuditLog.query(on: app.db).all().map(\.action)
+            #expect(!actions.contains("totp_reset"), "It should not record a reset that never happened")
+        }
+    }
+
+    @Test("admin web suspend/unsuspend on an already-matching state does not write a duplicate row")
+    func webSuspendUnsuspendNoOpNotAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            let cookie = try await adminWebSession(app)
+            let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
+            let aliceID = try alice.requireID()
+
+            // When — unsuspend a user who is already active
+            try await app.testing().test(
+                .POST, "admin/users/\(aliceID)/unsuspend", headers: cookie
+            ) { res async throws in
+                #expect(res.status == .seeOther)
+            }
+
+            // Then
+            let actions = try await AuditLog.query(on: app.db).all().map(\.action)
+            #expect(!actions.contains("user_unsuspended"), "It should not record a state change that never happened")
         }
     }
 

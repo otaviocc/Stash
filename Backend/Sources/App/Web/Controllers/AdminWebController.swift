@@ -107,7 +107,7 @@ struct AdminWebController: RouteCollection {
     }
 
     func logout(req: Request) async throws -> Response {
-        let actor = try await resolveUsername(
+        let actor = try await SessionUsernameResolver.resolve(
             fromSessionKey: AdminSessionMiddleware.sessionKey, req: req
         )
         req.session.destroy()
@@ -118,6 +118,7 @@ struct AdminWebController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return req.redirect(to: "/admin/login")
     }
 
@@ -232,6 +233,7 @@ struct AdminWebController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=created")
     }
 
@@ -257,16 +259,19 @@ struct AdminWebController: RouteCollection {
             )
         }
 
+        let wasActive = user.isActive
         user.isActive = false
         try await user.save(on: req.db)
         try await user.$refreshTokens.query(on: req.db).delete()
         await AuditLogger.record(
+            if: wasActive,
             action: "user_suspended",
             actor: admin.username,
             detail: "suspended \(user.username)",
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=suspended")
     }
 
@@ -274,15 +279,18 @@ struct AdminWebController: RouteCollection {
         let admin = try req.auth.require(User.self)
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
 
+        let wasActive = user.isActive
         user.isActive = true
         try await user.save(on: req.db)
         await AuditLogger.record(
+            if: !wasActive,
             action: "user_unsuspended",
             actor: admin.username,
             detail: "unsuspended \(user.username)",
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=unsuspended")
     }
 
@@ -309,18 +317,18 @@ struct AdminWebController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=password-reset")
     }
 
     func resetTOTP(req: Request) async throws -> Response {
         let admin = try req.auth.require(User.self)
         guard let user = try await loadUser(req) else { return req.redirect(to: "/admin/users") }
+        guard user.hasTOTPConfigured else {
+            return try req.redirect(to: "/admin/users/\(user.requireID())?ok=totp_reset")
+        }
 
-        try await user.$recoveryCodes.query(on: req.db).delete()
-        user.totpSecret = nil
-        user.isTOTPEnabled = false
-        try await user.save(on: req.db)
-        try await user.$refreshTokens.query(on: req.db).delete()
+        try await user.disableTOTP(on: req.db)
 
         await AuditLogger.record(
             action: "totp_reset",
@@ -329,6 +337,7 @@ struct AdminWebController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return try req.redirect(to: "/admin/users/\(user.requireID())?ok=totp_reset")
     }
 
@@ -357,6 +366,7 @@ struct AdminWebController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return req.redirect(to: "/admin/users")
     }
 
@@ -427,6 +437,7 @@ struct AdminWebController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return req.redirect(to: "/admin/appearance?ok=saved")
     }
 
@@ -531,42 +542,29 @@ struct AdminWebController: RouteCollection {
             message = "Database optimize complete (\(String(format: "%.1f", seconds))s)."
         }
 
+        let error = FlashMessage.adminError(for: req.query[String.self, at: "error"])
+
         let context = MaintenanceContext(
             title: "Maintenance",
             adminUsername: admin.username,
             message: message,
-            error: nil,
+            error: error,
             chrome: req.siteChrome()
         )
-        return try await req.renderHTML("maintenance", context, status: .ok)
+        return try await req.renderHTML("maintenance", context, status: error == nil ? .ok : .badRequest)
     }
 
     func optimizeDatabase(req: Request) async throws -> Response {
-        let admin = try req.auth.require(User.self)
-
         guard let sql = req.db as? SQLDatabase else {
-            let context = MaintenanceContext(
-                title: "Maintenance",
-                adminUsername: admin.username,
-                message: nil,
-                error: "Could not access the database for maintenance (unsupported driver).",
-                chrome: req.siteChrome()
-            )
-            return try await req.renderHTML("maintenance", context, status: .badRequest)
+            return req.redirect(to: "/admin/maintenance?error=unsupported_driver")
         }
 
         let start = Date()
         do {
             try await sql.raw("VACUUM").run()
         } catch {
-            let context = MaintenanceContext(
-                title: "Maintenance",
-                adminUsername: admin.username,
-                message: nil,
-                error: "Database optimize failed: \(error.localizedDescription)",
-                chrome: req.siteChrome()
-            )
-            return try await req.renderHTML("maintenance", context, status: .badRequest)
+            req.logger.error("Database optimize failed: \(String(reflecting: error))")
+            return req.redirect(to: "/admin/maintenance?error=vacuum_failed")
         }
         let elapsedMS = Int(Date().timeIntervalSince(start) * 1000)
 
@@ -596,8 +594,15 @@ struct AdminWebController: RouteCollection {
     func logsPage(req: Request) async throws -> View {
         let admin = try req.auth.require(User.self)
 
+        // The dropdown in logs.leaf only offers these three; anything else (a hand-crafted
+        // ?level=critical, say) is treated as no filter, so the rendered selection never
+        // silently diverges from what's actually being filtered.
+        let selectableLevels: Set<Logger.Level> = [.info, .warning, .error]
         let rawLevel = req.query[String.self, at: "level"]?.nonEmpty
-        let selectedLevel = rawLevel.flatMap { Logger.Level(rawValue: $0) }
+        let selectedLevel = rawLevel
+            .flatMap { Logger.Level(rawValue: $0) }
+            .flatMap { selectableLevels.contains($0) ? $0 : nil }
+        let selectedLevelString = selectedLevel?.rawValue
 
         let entries = sharedLogBuffer.snapshot(level: selectedLevel).map { entry in
             LogEntryRow(
@@ -612,7 +617,7 @@ struct AdminWebController: RouteCollection {
             title: "Logs",
             adminUsername: admin.username,
             entries: entries,
-            selectedLevel: rawLevel,
+            selectedLevel: selectedLevelString,
             chrome: req.siteChrome()
         ))
     }
@@ -651,9 +656,11 @@ struct AdminWebController: RouteCollection {
         let minutes = (seconds % 3600) / 60
 
         var parts: [String] = []
+
         if days > 0 {
             parts.append("\(days)d")
         }
+
         if days > 0 || hours > 0 {
             parts.append("\(hours)h")
         }
@@ -685,17 +692,23 @@ struct AdminWebController: RouteCollection {
     /// the byte scale, picking the largest unit that reads as at least `1`.
     private func formattedBytes(_ bytes: Double) -> String {
         let gigabytes = bytes / 1_073_741_824
+
         if gigabytes >= 1 {
             return String(format: "%.1f GB", gigabytes)
         }
+
         let megabytes = bytes / 1_048_576
+
         if megabytes >= 1 {
             return String(format: "%.1f MB", megabytes)
         }
+
         let kilobytes = bytes / 1024
+
         if kilobytes >= 1 {
             return String(format: "%.1f KB", kilobytes)
         }
+
         return "\(Int(bytes)) B"
     }
 
@@ -799,14 +812,6 @@ struct AdminWebController: RouteCollection {
         guard let id = req.parameters.get("userID", as: UUID.self) else { return nil }
 
         return try await User.find(id, on: req.db)
-    }
-
-    private func resolveUsername(fromSessionKey key: String, req: Request) async throws -> String? {
-        guard let idString = req.session.data[key], let id = UUID(uuidString: idString) else {
-            return nil
-        }
-
-        return try await User.find(id, on: req.db)?.username
     }
 
     private func renderDetail(

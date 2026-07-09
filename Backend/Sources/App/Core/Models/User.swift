@@ -59,6 +59,15 @@ final class User: Model, Content, @unchecked Sendable {
     @Children(for: \.$user)
     var bookmarks: [Bookmark]
 
+    // MARK: Computed Properties
+
+    /// Whether this account has 2FA set up in any form worth tearing down: fully enrolled, or
+    /// mid-enrollment with a secret already generated. Shared by the self-service and admin-reset
+    /// TOTP-disable paths so both treat "nothing to reset" identically.
+    var hasTOTPConfigured: Bool {
+        isTOTPEnabled || totpSecret != nil
+    }
+
     // MARK: Lifecycle
 
     init() {}

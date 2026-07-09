@@ -74,7 +74,7 @@ struct AppAuthWebController: RouteCollection {
     }
 
     func logout(req: Request) async throws -> Response {
-        let actor = try await resolveUsername(
+        let actor = try await SessionUsernameResolver.resolve(
             fromSessionKey: UserSessionMiddleware.sessionKey, req: req
         )
         req.session.destroy()
@@ -85,14 +85,7 @@ struct AppAuthWebController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return req.redirect(to: "/app/login")
-    }
-
-    private func resolveUsername(fromSessionKey key: String, req: Request) async throws -> String? {
-        guard let idString = req.session.data[key], let id = UUID(uuidString: idString) else {
-            return nil
-        }
-
-        return try await User.find(id, on: req.db)?.username
     }
 }

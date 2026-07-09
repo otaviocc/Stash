@@ -739,6 +739,31 @@ struct AdminTests {
         }
     }
 
+    @Test("JSON API updateUser with isActive=true on an already-active user writes no row")
+    func apiUnsuspendNoOpNotAudited() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminHeaders(app)
+            let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
+
+            // When
+            try await app.testing().test(
+                .PUT, "api/v1/admin/users/\(alice.requireID())",
+                headers: headers,
+                beforeRequest: { req in
+                    try req.content.encode(UpdateUserInput(isActive: true, password: nil))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .ok, "It should return 200 OK")
+                }
+            )
+
+            // Then
+            let rows = try await AuditLog.query(on: app.db).filter(\.$action == "user_unsuspended").all()
+            #expect(rows.isEmpty, "It should not record a state change that never happened")
+        }
+    }
+
     @Test("JSON API updateUser with password writes a password_reset row")
     func apiPasswordResetAudited() async throws {
         try await withTestApp { app in

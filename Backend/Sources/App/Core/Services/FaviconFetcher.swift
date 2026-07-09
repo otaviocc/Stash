@@ -73,10 +73,10 @@ enum FaviconFetcher {
     /// Re-fetches every domain currently present in `favicon_cache` **plus** every domain used by
     /// any bookmark in the system, so this also rebuilds the cache from scratch after a "Clear
     /// cache" (which leaves `favicon_cache` empty, but bookmarks still reference those domains).
-    /// Each domain's row is deleted (a no-op if it has none) and a fresh background fetch is
-    /// kicked off via `refresh(domain:on:)`. Domains are processed sequentially (not concurrently)
-    /// to avoid firing a burst of simultaneous requests at external favicon providers (including
-    /// Google's favicon service). Returns the number of domains that were queued for re-fetch.
+    /// Every matching row is deleted up front, then a single detached background task re-fetches
+    /// each domain **sequentially** (not concurrently) to avoid firing a burst of simultaneous
+    /// requests at external favicon providers (including Google's favicon service). Returns the
+    /// number of domains that were queued for re-fetch.
     @discardableResult
     static func refreshAll(on app: Application) async throws -> Int {
         let cachedDomains = try await FaviconCache.query(on: app.db).all(\.$domain)
@@ -84,19 +84,19 @@ enum FaviconFetcher {
         let bookmarkDomains = bookmarkURLs.compactMap { DomainExtractor.domain(from: $0) }
         let domains = Set(cachedDomains).union(bookmarkDomains)
 
-        for domain in domains {
-            try await refresh(domain: domain, on: app)
+        if !domains.isEmpty {
+            try await FaviconCache.query(on: app.db)
+                .filter(\.$domain ~~ Array(domains))
+                .delete()
         }
+
+        spawnSequentialRefetch(domains: domains, on: app)
 
         return domains.count
     }
 
     static func enqueueBackfill(forUser userID: UUID, on app: Application) {
-        guard app.environment != .testing else { return }
-
-        let db = app.db
-        let client = app.client
-        Task.detached {
+        runDetached(on: app) { db, client in
             await backfill(forUser: userID, on: db, client: client)
         }
     }
@@ -115,11 +115,7 @@ enum FaviconFetcher {
     // MARK: - Fetching
 
     private static func spawn(domain: String, originURL: String?, declaredIconURL: String?, on app: Application) {
-        guard app.environment != .testing else { return }
-
-        let db = app.db
-        let client = app.client
-        Task.detached {
+        runDetached(on: app) { db, client in
             await fetchAndCache(
                 domain: domain,
                 originURL: originURL,
@@ -127,6 +123,30 @@ enum FaviconFetcher {
                 on: db,
                 client: client
             )
+        }
+    }
+
+    private static func spawnSequentialRefetch(domains: Set<String>, on app: Application) {
+        runDetached(on: app) { db, client in
+            for domain in domains {
+                await fetchAndCache(domain: domain, originURL: nil, declaredIconURL: nil, on: db, client: client)
+            }
+        }
+    }
+
+    /// Runs `work` detached from the current request/task, skipped entirely under `.testing` so
+    /// tests never race a real background fetch. The single place that captures `db`/`client` off
+    /// `app` and dispatches via `Task.detached`, shared by every fire-and-forget favicon fetch path.
+    private static func runDetached(
+        on app: Application,
+        _ work: @escaping @Sendable (Database, Client) async -> Void
+    ) {
+        guard app.environment != .testing else { return }
+
+        let db = app.db
+        let client = app.client
+        Task.detached {
+            await work(db, client)
         }
     }
 

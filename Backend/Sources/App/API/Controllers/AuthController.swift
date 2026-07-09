@@ -118,6 +118,7 @@ struct AuthController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return try await TokenService.issuePair(for: user, on: req)
     }
 
@@ -142,6 +143,7 @@ struct AuthController: RouteCollection {
                     ip: AuditLogger.clientIP(from: req),
                     on: req.db
                 )
+
                 return try await TokenService.issuePair(for: user, on: req)
             }
         }
@@ -200,6 +202,7 @@ struct AuthController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return Response(status: .noContent)
     }
 }

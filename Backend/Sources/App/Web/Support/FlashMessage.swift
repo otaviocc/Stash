@@ -47,4 +47,13 @@ enum FlashMessage {
         default: nil
         }
     }
+
+    /// Error banners for the admin dashboard (`/admin/...?error=`).
+    static func adminError(for error: String?) -> String? {
+        switch error {
+        case "unsupported_driver": "Could not access the database for maintenance (unsupported driver)."
+        case "vacuum_failed": "Database optimize failed. Check the server logs for details."
+        default: nil
+        }
+    }
 }

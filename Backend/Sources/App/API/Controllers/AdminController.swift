@@ -95,11 +95,14 @@ struct AdminController: RouteCollection {
             passwordChanged = true
         }
 
+        var activeStateChanged = false
+
         if let isActive = input.isActive {
             if !isActive, try user.requireID() == admin.requireID() {
                 throw APIError.cannotSuspendSelf
             }
 
+            activeStateChanged = user.isActive != isActive
             user.isActive = isActive
             if !isActive {
                 invalidateRefreshTokens = true
@@ -111,17 +114,17 @@ struct AdminController: RouteCollection {
             try await user.$refreshTokens.query(on: req.db).delete()
         }
 
-        if passwordChanged {
-            await AuditLogger.record(
-                action: "password_reset",
-                actor: admin.username,
-                detail: "reset password for \(user.username)",
-                ip: AuditLogger.clientIP(from: req),
-                on: req.db
-            )
-        }
+        await AuditLogger.record(
+            if: passwordChanged,
+            action: "password_reset",
+            actor: admin.username,
+            detail: "reset password for \(user.username)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
         if let isActive = input.isActive {
             await AuditLogger.record(
+                if: activeStateChanged,
                 action: isActive ? "user_unsuspended" : "user_suspended",
                 actor: admin.username,
                 detail: "\(isActive ? "unsuspended" : "suspended") \(user.username)",
@@ -154,6 +157,7 @@ struct AdminController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return Response(status: .noContent)
     }
 
@@ -161,7 +165,7 @@ struct AdminController: RouteCollection {
         let admin = try req.auth.require(User.self)
         let user = try await requireUser(req)
 
-        guard user.isTOTPEnabled || user.totpSecret != nil else {
+        guard user.hasTOTPConfigured else {
             return Response(status: .noContent)
         }
 
@@ -174,6 +178,7 @@ struct AdminController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return Response(status: .noContent)
     }
 
@@ -227,6 +232,7 @@ struct AdminController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return Response(status: .noContent)
     }
 
@@ -253,6 +259,7 @@ struct AdminController: RouteCollection {
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
+
         return Response(status: .noContent)
     }
 

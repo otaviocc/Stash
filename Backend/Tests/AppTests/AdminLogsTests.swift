@@ -46,6 +46,29 @@ struct AdminLogsTests {
         }
     }
 
+    @Test("GET /admin/logs?level=critical (not offered by the dropdown) is treated as no filter")
+    func unofferedLevelIsNotFiltered() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminWebSession(app)
+            sharedLogBuffer.append(.init(timestamp: Date(), level: .info, label: "App", message: "info-marker"))
+            sharedLogBuffer.append(.init(timestamp: Date(), level: .critical, label: "App", message: "critical-marker"))
+
+            // When
+            try await app.testing().test(.GET, "admin/logs?level=critical", headers: headers) { res async throws in
+                let body = res.body.string
+
+                // Then
+                #expect(body.contains("info-marker"), "It should not filter by a level the dropdown doesn't offer")
+                #expect(body.contains("critical-marker"), "It should still show the unfiltered entries")
+                #expect(
+                    body.contains(#"<option value="" selected>All levels</option>"#),
+                    "It should render 'All levels' as selected, matching the actual (unfiltered) result"
+                )
+            }
+        }
+    }
+
     @Test("GET /admin/logs is rejected for unauthenticated requests")
     func requiresAdminSession() async throws {
         try await withTestApp { app in

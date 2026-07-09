@@ -30,26 +30,30 @@ final class LogRingBuffer: @unchecked Sendable {
     // MARK: Properties
 
     private let lock = NSLock()
-    private var entries: [Entry] = []
     private let capacity: Int
+    private var storage: [Entry?]
+    private var writeIndex = 0
+    private var count = 0
 
     // MARK: Lifecycle
 
     init(capacity: Int = 1000) {
         self.capacity = capacity
+        storage = Array(repeating: nil, count: capacity)
     }
 
     // MARK: Functions
 
-    /// Appends a new entry, dropping the oldest entries first if `capacity` would be exceeded.
+    /// Appends a new entry, overwriting the oldest slot once `capacity` is reached. A true
+    /// circular buffer (fixed storage plus a write index), not an array trimmed with
+    /// `removeFirst`, since this sits in the hot path of every log call across the whole app and
+    /// `removeFirst` would mean an O(capacity) shift on every call once full.
     func append(_ entry: Entry) {
         lock.lock()
         defer { lock.unlock() }
-        entries.append(entry)
-
-        if entries.count > capacity {
-            entries.removeFirst(entries.count - capacity)
-        }
+        storage[writeIndex] = entry
+        writeIndex = (writeIndex + 1) % capacity
+        count = min(count + 1, capacity)
     }
 
     /// Returns a snapshot of buffered entries, newest first, optionally filtered to `level` and
@@ -57,8 +61,11 @@ final class LogRingBuffer: @unchecked Sendable {
     /// `.info`).
     func snapshot(level: Logger.Level? = nil) -> [Entry] {
         lock.lock()
-        defer { lock.unlock() }
-        let filtered = level.map { minLevel in entries.filter { $0.level >= minLevel } } ?? entries
+        let oldestIndex = count < capacity ? 0 : writeIndex
+        let chronological = (0..<count).compactMap { storage[(oldestIndex + $0) % capacity] }
+        lock.unlock()
+
+        let filtered = level.map { minLevel in chronological.filter { $0.level >= minLevel } } ?? chronological
 
         return Array(filtered.reversed())
     }

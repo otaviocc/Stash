@@ -27,6 +27,22 @@ enum AuditLogger {
             db.logger.error("Audit log write failed for action \(action): \(String(reflecting: error))")
         }
     }
+
+    /// Records only when `condition` is true. For admin actions like suspend/unsuspend that always
+    /// run but should only be audited when they actually change state, so callers don't each
+    /// hand-roll a "did this really happen?" guard around `record`.
+    static func record(
+        if condition: Bool,
+        action: String,
+        actor: String?,
+        detail: String? = nil,
+        ip: String? = nil,
+        on db: any Database
+    ) async {
+        guard condition else { return }
+
+        await record(action: action, actor: actor, detail: detail, ip: ip, on: db)
+    }
 }
 
 extension AuditLogger {
