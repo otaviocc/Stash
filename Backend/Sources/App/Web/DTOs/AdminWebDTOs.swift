@@ -208,3 +208,26 @@ struct FaviconAdminContext: Content {
     let message: String?
     let chrome: SiteChrome
 }
+
+// MARK: - LogEntryRow
+
+/// A single log line rendered on the `/admin/logs` page.
+struct LogEntryRow: Content {
+
+    let timestamp: String
+    let level: String
+    let label: String
+    let message: String
+}
+
+// MARK: - LogsContext
+
+/// View context for the admin logs page.
+struct LogsContext: Content {
+
+    let title: String
+    let adminUsername: String
+    let entries: [LogEntryRow]
+    let selectedLevel: String?
+    let chrome: SiteChrome
+}

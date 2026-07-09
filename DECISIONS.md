@@ -3225,3 +3225,54 @@ request's cached session to invalid so the middleware deletes it instead of
 rewriting it. The JSON API endpoints don't need this: admin API requests
 authenticate over the bearer token, not a session cookie, so there's no
 request-local session to resurrect.
+
+---
+
+## Feature #8: System Logs
+
+### Ephemeral, capped, in-memory by design
+
+The `/admin/logs` page reads from a fixed-capacity (1000-entry) in-memory
+ring buffer that is never written to disk or the database. It is emptied
+on every restart. This mirrors a trade-off this project has already made
+and documented once before: the M5 web admin dashboard entry (above, in
+this file) explicitly accepts that the admin session store is in-memory
+and "does not survive a restart," calling that "fine for a single
+self-hosted instance." System logs get the identical treatment for the
+identical reason — Stash targets self-hosted, typically single-instance
+deployments where losing a rolling window of recent log lines on restart
+is an acceptable cost, and where the alternative (a DB table with a
+retention/cleanup job, or a log file with rotation) is meaningfully more
+machinery for a feature whose whole purpose is "quick triage without
+opening a shell." If a durable, searchable, larger-scale log history is
+ever needed, that's a distinct follow-up feature (a persisted
+`SystemLogEntry` table with a pruning job), not a v1 requirement here.
+
+### Why a `MultiplexLogHandler` instead of replacing console logging
+
+Rather than swap out Vapor's console logging for something new, this
+feature adds a second `LogHandler` (`RingBufferLogHandler`) alongside the
+existing one via `MultiplexLogHandler`, wired up in `entrypoint.swift` by
+calling the `LoggingSystem.bootstrap(from:_:)` overload with a custom
+factory instead of touching `--log`/`LOG_LEVEL` parsing at all. `docker
+logs`/`podman logs` output (stdout, via the same `ConsoleLogger` +
+`Terminal()` construction Vapor's default `bootstrap(from:)` already used)
+remains byte-for-byte the primary and durable log surface; the in-app
+`/admin/logs` viewer is strictly a convenience for quick triage without
+reaching for a shell, not a replacement for real log aggregation. I
+deliberately did not use `Logging.StreamLogHandler` (a tempting shortcut
+since it's the best-known "simple" handler) because it is not what this
+app's console output actually uses today — it would have silently changed
+the format/coloring of stdout logs, which the console-preservation
+requirement explicitly ruled out.
+
+### Why `sharedLogBuffer` is a module-level constant, not `Application.storage`
+
+`LoggingSystem.bootstrap` runs before `Application.make(env)` is called in
+`entrypoint.swift`, so there is no `Application`/`app.storage` to put
+anything into at the point the ring buffer needs to exist and be captured
+by the log-handler factory closure. A plain top-level `let sharedLogBuffer
+= LogRingBuffer()` constant, declared alongside the bootstrap code, is
+reachable both there and later from `AdminWebController.logsPage` (same
+module, no plumbing needed) without inventing a workaround for storage not
+existing yet.

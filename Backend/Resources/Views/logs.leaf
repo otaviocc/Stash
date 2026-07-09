@@ -1,0 +1,32 @@
+#extend("layout"):
+#export("content"):
+    <h1>Logs</h1>
+    <p>Showing #(count(entries)) most recent entries (buffer holds up to 1000, cleared on restart).</p>
+
+    <form method="get" action="/admin/logs">
+        <select name="level" onchange="this.form.submit()">
+            <option value="" #if(!selectedLevel):selected#endif>All levels</option>
+            <option value="info" #if(selectedLevel == "info"):selected#endif>Info and above</option>
+            <option value="warning" #if(selectedLevel == "warning"):selected#endif>Warning and above</option>
+            <option value="error" #if(selectedLevel == "error"):selected#endif>Error and above</option>
+        </select>
+        <noscript><button type="submit">Apply</button></noscript>
+    </form>
+
+    <table>
+        <thead>
+            <tr><th>Time</th><th>Level</th><th>Label</th><th>Message</th></tr>
+        </thead>
+        <tbody>
+            #for(entry in entries):
+            <tr>
+                <td>#(entry.timestamp)</td>
+                <td><span class="pill log-#(entry.level)">#(entry.level)</span></td>
+                <td>#(entry.label)</td>
+                <td>#(entry.message)</td>
+            </tr>
+            #endfor
+        </tbody>
+    </table>
+#endexport
+#endextend

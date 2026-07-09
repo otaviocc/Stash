@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import Fluent
+import Logging
 import SQLKit
 import Vapor
 
@@ -41,6 +42,7 @@ struct AdminWebController: RouteCollection {
         protected.get("favicons", use: favicons)
         protected.post("favicons", "clear", use: clearFavicons)
         protected.post("favicons", "rescan", use: rescanFavicons)
+        protected.get("logs", use: logsPage)
     }
 
     // MARK: - Login / logout
@@ -587,6 +589,32 @@ struct AdminWebController: RouteCollection {
     func rescanFavicons(req: Request) async throws -> Response {
         _ = try await FaviconFetcher.refreshAll(on: req.application)
         return req.redirect(to: "/admin/favicons?ok=favicons_rescanning")
+    }
+
+    // MARK: - Logs
+
+    func logsPage(req: Request) async throws -> View {
+        let admin = try req.auth.require(User.self)
+
+        let rawLevel = req.query[String.self, at: "level"]?.nonEmpty
+        let selectedLevel = rawLevel.flatMap { Logger.Level(rawValue: $0) }
+
+        let entries = sharedLogBuffer.snapshot(level: selectedLevel).map { entry in
+            LogEntryRow(
+                timestamp: DateFormatter.webDateTime.string(from: entry.timestamp),
+                level: entry.level.rawValue,
+                label: entry.label,
+                message: entry.message
+            )
+        }
+
+        return try await req.view.render("logs", LogsContext(
+            title: "Logs",
+            adminUsername: admin.username,
+            entries: entries,
+            selectedLevel: rawLevel,
+            chrome: req.siteChrome()
+        ))
     }
 
     // MARK: - Health helpers

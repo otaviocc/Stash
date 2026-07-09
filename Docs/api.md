@@ -83,6 +83,7 @@ separate from the API.
 | `GET`  | `/admin/sessions` | Active sessions viewer (admin dashboard + app frontend) |
 | `POST` | `/admin/sessions/revoke-all` | Revoke every live session (PRG → `?ok=sessions-revoked-all`) |
 | `POST` | `/admin/sessions/revoke-user` | `userName=alice` — revoke that user's sessions (PRG → `?ok=sessions-revoked-user`) |
+| `GET`  | `/admin/logs` | Server-rendered recent log viewer (in-memory ring buffer, up to 1000 entries, `?level=` filter) |
 
 ## Web frontend (`/app`)
 

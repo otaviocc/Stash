@@ -22,6 +22,8 @@
     --ok-text: #166534;
     --err-bg: #fee2e2;
     --err-text: #991b1b;
+    --warn-bg: #fef3c7;
+    --warn-text: #92400e;
     --dz-bg: #fff5f5;
     --dz-border: #fecaca;
     --dz-heading: #b91c1c;
@@ -52,6 +54,8 @@
     --ok-text: #30d158;
     --err-bg: #3a1f1f;
     --err-text: #ff6961;
+    --warn-bg: #3a2f1c;
+    --warn-text: #ffd60a;
     --dz-bg: #2a1d1f;
     --dz-border: #5c2b2b;
     --dz-heading: #ff6961;
@@ -87,6 +91,8 @@
         --ok-text: #30d158;
         --err-bg: #3a1f1f;
         --err-text: #ff6961;
+        --warn-bg: #3a2f1c;
+        --warn-text: #ffd60a;
         --dz-bg: #2a1d1f;
         --dz-border: #5c2b2b;
         --dz-heading: #ff6961;
@@ -304,6 +310,29 @@ form.inline {
 }
 
 .pill.suspended {
+    background: var(--err-bg);
+    color: var(--err-text);
+}
+
+.pill.log-trace,
+.pill.log-debug {
+    background: var(--surface-2);
+    color: var(--text-muted);
+}
+
+.pill.log-info,
+.pill.log-notice {
+    background: var(--ok-bg);
+    color: var(--ok-text);
+}
+
+.pill.log-warning {
+    background: var(--warn-bg);
+    color: var(--warn-text);
+}
+
+.pill.log-error,
+.pill.log-critical {
     background: var(--err-bg);
     color: var(--err-text);
 }
