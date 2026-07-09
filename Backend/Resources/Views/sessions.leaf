@@ -1,0 +1,62 @@
+#extend("layout"):
+#export("content"):
+    <h1>Active Sessions</h1>
+    <p class="muted">
+        Reads live sessions directly from the in-memory session store. Sessions don't
+        survive a server restart, and this store doesn't track IP address, user-agent, or
+        creation time — only who's signed in and where.
+    </p>
+
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
+    <div class="card">
+        <h2>Revoke all sessions</h2>
+        <p class="muted">Signs out every admin and app session on this instance immediately.</p>
+        <form method="post" action="/admin/sessions/revoke-all"
+              onsubmit="return confirm('Revoke every active session? Everyone will be signed out immediately.');">
+            <button class="secondary" type="submit">Revoke all sessions</button>
+        </form>
+    </div>
+
+    <p>#(total) active session(s)</p>
+
+    <table>
+        <thead>
+            <tr><th>Session ID</th><th>User</th><th>Type</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+            #for(session in sessions):
+            <tr>
+                <td><code>#(session.id)</code></td>
+                <td>
+                    #if(session.username):
+                    <a href="/admin/users/#(session.userID)">#(session.username)</a>
+                    #else:
+                    (unknown)
+                    #endif
+                </td>
+                <td><span class="pill">#(session.sessionType)</span></td>
+                <td>
+                    #if(session.userIsActive):<span class="pill active">Active</span>
+                    #else:<span class="pill suspended">Suspended</span>#endif
+                </td>
+                <td>
+                    #if(session.username):
+                    <form method="post" action="/admin/sessions/revoke-user"
+                          onsubmit="return confirm('Revoke all sessions for #(session.username)?');">
+                        <input type="hidden" name="userName" value="#(session.username)">
+                        <button class="secondary" type="submit">Revoke</button>
+                    </form>
+                    #endif
+                </td>
+            </tr>
+            #endfor
+        </tbody>
+    </table>
+#endexport
+#endextend

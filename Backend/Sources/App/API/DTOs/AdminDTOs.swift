@@ -52,3 +52,41 @@ struct AdminStatsResponse: Content {
     let totalBookmarks: Int
     let users: [UserStat]
 }
+
+// MARK: - SessionRowResponse
+
+/// One row of `GET /admin/sessions` — a live session resolved from Vapor's in-memory
+/// session store (see `ActiveSessionLoader`).
+struct SessionRowResponse: Content {
+
+    let id: String
+    let userID: UUID
+    let username: String?
+    let sessionType: String
+    let userIsActive: Bool
+}
+
+// MARK: - SessionsListResponse
+
+/// `GET /admin/sessions` response.
+struct SessionsListResponse: Content {
+
+    let sessions: [SessionRowResponse]
+    let total: Int
+}
+
+// MARK: - RevokeUserSessionsInput
+
+/// `POST /admin/sessions/revoke-user` body.
+struct RevokeUserSessionsInput: Content, Validatable {
+
+    // MARK: Properties
+
+    let userName: String
+
+    // MARK: Static Functions
+
+    static func validations(_ validations: inout Validations) {
+        validations.add("userName", as: String.self, is: !.empty)
+    }
+}

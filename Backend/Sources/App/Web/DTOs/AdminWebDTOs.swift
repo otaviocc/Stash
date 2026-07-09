@@ -159,6 +159,40 @@ struct AuditLogContext: Content {
     let chrome: SiteChrome
 }
 
+// MARK: - SessionRowWebContext
+
+/// A live session row shown in the admin sessions viewer.
+struct SessionRowWebContext: Content {
+
+    let id: String
+    let userID: String
+    let username: String?
+    let sessionType: String
+    let userIsActive: Bool
+}
+
+// MARK: - RevokeUserSessionsForm
+
+/// `POST /admin/sessions/revoke-user` form.
+struct RevokeUserSessionsForm: Content {
+
+    let userName: String
+}
+
+// MARK: - SessionsContext
+
+/// View context for the admin active-sessions page.
+struct SessionsContext: Content {
+
+    let title: String
+    let adminUsername: String
+    let sessions: [SessionRowWebContext]
+    let total: Int
+    let message: String?
+    let error: String?
+    let chrome: SiteChrome
+}
+
 // MARK: - FaviconAdminContext
 
 /// View context for the admin favicon cache management page.

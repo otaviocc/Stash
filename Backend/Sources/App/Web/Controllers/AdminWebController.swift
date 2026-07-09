@@ -32,6 +32,9 @@ struct AdminWebController: RouteCollection {
         protected.get("appearance", use: appearance)
         protected.post("appearance", use: saveAppearance)
         protected.get("audit", use: auditLog)
+        protected.get("sessions", use: sessionsPage)
+        protected.post("sessions", "revoke-all", use: revokeAllSessionsPage)
+        protected.post("sessions", "revoke-user", use: revokeUserSessionsPage)
         protected.get("health", use: health)
         protected.get("maintenance", use: maintenance)
         protected.post("db", "optimize", use: optimizeDatabase)
@@ -451,6 +454,68 @@ struct AdminWebController: RouteCollection {
         ))
     }
 
+    // MARK: - Sessions
+
+    func sessionsPage(req: Request) async throws -> Response {
+        let message = FlashMessage.admin(for: req.query[String.self, at: "ok"])
+        return try await renderSessions(req, message: message, error: nil)
+    }
+
+    func revokeAllSessionsPage(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+
+        _ = ActiveSessionLoader.revokeAll(on: req.application)
+        try await RefreshToken.query(on: req.db).delete()
+
+        await AuditLogger.record(
+            action: "sessions_revoked_all",
+            actor: admin.username,
+            detail: "revoked all active sessions",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
+
+        // The current request's own session was cached before the store was cleared above,
+        // and SessionsMiddleware writes that cached copy back to the store when the response
+        // is sent — destroying it here (rather than leaving it to naturally expire) makes
+        // "revoke all" actually include the admin's own session, matching the flash copy.
+        req.session.destroy()
+        return req.redirect(to: "/admin/sessions?ok=sessions-revoked-all")
+    }
+
+    func revokeUserSessionsPage(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+        let form = try req.content.decode(RevokeUserSessionsForm.self)
+        let username = form.userName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        guard let user = try await User.query(on: req.db).filter(\.$username == username).first() else {
+            return try await renderSessions(
+                req, message: nil, error: "No user named \"\(username)\" was found.",
+                status: .badRequest
+            )
+        }
+
+        let targetID = try user.requireID()
+        ActiveSessionLoader.revokeForUser(userID: targetID, on: req.application)
+        try await user.$refreshTokens.query(on: req.db).delete()
+
+        await AuditLogger.record(
+            action: "sessions_revoked_user",
+            actor: admin.username,
+            detail: "revoked sessions for \(user.username)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
+
+        // Same self-revocation subtlety as revokeAllSessionsPage: if the admin targeted their
+        // own account, destroy the current request's cached session too, or SessionsMiddleware
+        // will write it straight back into the store when the response is sent.
+        if targetID == (try? admin.requireID()) {
+            req.session.destroy()
+        }
+        return req.redirect(to: "/admin/sessions?ok=sessions-revoked-user")
+    }
+
     // MARK: - Maintenance
 
     func maintenance(req: Request) async throws -> Response {
@@ -607,6 +672,36 @@ struct AdminWebController: RouteCollection {
     }
 
     // MARK: - Helpers
+
+    private func renderSessions(
+        _ req: Request,
+        message: String?,
+        error: String?,
+        status: HTTPResponseStatus = .ok
+    ) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+        let rows = try await ActiveSessionLoader.loadActiveSessions(on: req)
+        let webRows = rows.map {
+            SessionRowWebContext(
+                id: $0.id,
+                userID: $0.userID.uuidString,
+                username: $0.username,
+                sessionType: $0.sessionType == .admin ? "Admin Dashboard" : "Web UI",
+                userIsActive: $0.userIsActive
+            )
+        }
+
+        let context = SessionsContext(
+            title: "Sessions",
+            adminUsername: admin.username,
+            sessions: webRows,
+            total: webRows.count,
+            message: message,
+            error: error,
+            chrome: req.siteChrome()
+        )
+        return try await req.renderHTML("sessions", context, status: status)
+    }
 
     private func renderFavicons(
         _ req: Request,

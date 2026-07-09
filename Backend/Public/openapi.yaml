@@ -1072,6 +1072,81 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /api/v1/admin/sessions:
+    get:
+      operationId: adminListSessions
+      summary: List active sessions
+      description: |
+        Reads live sessions directly from Vapor's in-memory session store, covering
+        both the admin dashboard (`/admin`) and app frontend (`/app`), resolved to
+        their owning user. Cannot show IP address, user-agent, or session creation
+        time — the in-memory driver doesn't capture them.
+      tags: [Admin]
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive username prefix filter.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Active sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionsListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/sessions/revoke-all:
+    post:
+      operationId: adminRevokeAllSessions
+      summary: Revoke all active sessions
+      description: |
+        Clears every live admin dashboard and app frontend session and deletes all
+        refresh tokens, forcing every user on the instance to sign in again.
+      tags: [Admin]
+      responses:
+        "204":
+          description: All sessions revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/sessions/revoke-user:
+    post:
+      operationId: adminRevokeUserSessions
+      summary: Revoke a single user's sessions
+      description: |
+        Clears every live session (admin or app) belonging to the named user and
+        deletes their refresh tokens. Idempotent if the user has no active sessions.
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevokeUserSessionsInput"
+      responses:
+        "204":
+          description: The user's sessions were revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: Validation failed (`userName` empty)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1610,6 +1685,44 @@ components:
           type: integer
         isActive:
           type: boolean
+
+    SessionRowResponse:
+      type: object
+      required: [id, userID, sessionType, userIsActive]
+      properties:
+        id:
+          type: string
+          description: Masked session identifier (first 8 + last 4 characters).
+        userID:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+          description: Null if the owning account was deleted.
+        sessionType:
+          type: string
+          enum: [admin, app]
+        userIsActive:
+          type: boolean
+
+    SessionsListResponse:
+      type: object
+      required: [sessions, total]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionRowResponse"
+        total:
+          type: integer
+
+    RevokeUserSessionsInput:
+      type: object
+      required: [userName]
+      properties:
+        userName:
+          type: string
 
     # ---- Shared ----
     HealthResponse:

@@ -3177,3 +3177,51 @@ accepted trade-off given the documented, expected deployment shape. The
 viewer itself is intentionally minimal: no pagination, no filtering, no
 export, just the most recent 50 rows — matching the same "ship the smallest
 useful admin tool" approach used for Feature #7's Active Sessions viewer.
+
+---
+
+## Feature #7: Active Sessions
+
+Added a read-only-turned-actionable admin tool at `/admin/sessions` (plus a matching
+JSON API under `/api/v1/admin/sessions`) that lists every live web session — both
+the admin dashboard and the app frontend — and lets an admin revoke all of them or
+just one user's. The whole feature is a thin `ActiveSessionLoader` enum that reads
+and writes `app.sessions.memory.storage.sessions` directly: Vapor's `MemorySessions.Storage`
+exposes that as a public, mutable `[SessionID: SessionData]`, and — since both
+`/admin` and `/app` are configured off `app.sessions.driver` (`configure.swift`,
+`routes.swift`) — it's the *same* dictionary for both surfaces, distinguished only
+by whether a session's data carries `AdminSessionMiddleware.sessionKey` or
+`UserSessionMiddleware.sessionKey`. This meant no new table, no migration, no
+login/logout tracking hooks, and no custom `SessionStore`. An earlier draft of this
+plan assumed Vapor's in-memory driver had no public iteration/deletion API and
+proposed exactly that machinery (a login-hooked `ActiveSessionTracker` singleton
+mirroring the refresh-token pattern); that assumption turned out to be wrong once
+checked against the vendored Vapor source, and reading it directly before
+implementing avoided building the unnecessary tracker.
+
+The trade-off inherited from `SessionData` being a thin `[String: String]` wrapper:
+no IP address, user-agent, or creation timestamp are available, so the table can't
+show them. This is acceptable because (a) revoking a compromised session works
+correctly regardless of whether IP/UA is displayed, and (b) adding that data would
+mean persisting sessions to a DB table on every request — a much bigger change
+better suited to a follow-up milestone. Revocation is immediate and correct without
+any of that: `revokeAll` and `revokeForUser` mutate the shared dictionary directly
+(not `req.session.destroy()`, which only ever affects the *current* request's own
+session), and both also delete the affected refresh tokens so JSON API access dies
+alongside the web session. The viewer itself, like Feature #6's audit log, stays
+intentionally minimal: no pagination beyond a username filter, no polling/live
+refresh — an admin reloads the page to see current state.
+
+One subtlety the web handlers do need to account for: `SessionsMiddleware` reads
+the request's own session into a request-local cache *before* the route handler
+runs, and writes that cached copy straight back into the store when the response
+is sent — regardless of what the handler did to the store in between. So an admin
+revoking all sessions (or revoking their own account by name) from the sessions
+page would otherwise see their own dashboard session silently resurrected right
+after the wipe, since the response phase re-inserts it. Both web handlers call
+`req.session.destroy()` on that self-referential path (all-revoke always; the
+by-user revoke only when the target is the acting admin), which flips the
+request's cached session to invalid so the middleware deletes it instead of
+rewriting it. The JSON API endpoints don't need this: admin API requests
+authenticate over the bearer token, not a session cookie, so there's no
+request-local session to resurrect.

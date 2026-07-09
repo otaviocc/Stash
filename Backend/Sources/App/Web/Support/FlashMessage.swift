@@ -42,6 +42,8 @@ enum FlashMessage {
         case "db_optimized": "Database optimize complete."
         case "favicons_cleared": "Favicon cache cleared. Use Re-scan to rebuild it, or save a new bookmark for a domain."
         case "favicons_rescanning": "Re-scan started; this runs in the background and may take a while."
+        case "sessions-revoked-all": "All sessions revoked. Everyone will need to sign in again."
+        case "sessions-revoked-user": "Sessions revoked; the user will need to sign in again."
         default: nil
         }
     }

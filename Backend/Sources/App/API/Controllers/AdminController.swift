@@ -20,6 +20,11 @@ struct AdminController: RouteCollection {
         }
 
         routes.get("stats", use: stats)
+
+        let sessions = routes.grouped("sessions")
+        sessions.get(use: listSessions)
+        sessions.post("revoke-all", use: revokeAllSessions)
+        sessions.post("revoke-user", use: revokeUserSessions)
     }
 
     func listUsers(req: Request) async throws -> [UserResponse] {
@@ -188,6 +193,67 @@ struct AdminController: RouteCollection {
             totalBookmarks: totalBookmarks,
             users: userStats
         )
+    }
+
+    // MARK: - Sessions
+
+    func listSessions(req: Request) async throws -> SessionsListResponse {
+        let rows = try await ActiveSessionLoader.loadActiveSessions(
+            on: req,
+            usernameQuery: req.query[String.self, at: "q"]
+        )
+        let responses = rows.map {
+            SessionRowResponse(
+                id: $0.id,
+                userID: $0.userID,
+                username: $0.username,
+                sessionType: $0.sessionType.rawValue,
+                userIsActive: $0.userIsActive
+            )
+        }
+        return SessionsListResponse(sessions: responses, total: responses.count)
+    }
+
+    func revokeAllSessions(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+
+        _ = ActiveSessionLoader.revokeAll(on: req.application)
+        try await RefreshToken.query(on: req.db).delete()
+
+        await AuditLogger.record(
+            action: "sessions_revoked_all",
+            actor: admin.username,
+            detail: "revoked all active sessions",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
+        return Response(status: .noContent)
+    }
+
+    func revokeUserSessions(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+        try RevokeUserSessionsInput.validate(content: req)
+        let input = try req.content.decode(RevokeUserSessionsInput.self)
+
+        guard let user = try await User.query(on: req.db)
+            .filter(\.$username == input.userName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+            .first()
+        else {
+            throw APIError.notFound
+        }
+
+        let userID = try user.requireID()
+        ActiveSessionLoader.revokeForUser(userID: userID, on: req.application)
+        try await user.$refreshTokens.query(on: req.db).delete()
+
+        await AuditLogger.record(
+            action: "sessions_revoked_user",
+            actor: admin.username,
+            detail: "revoked sessions for \(user.username)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
+        return Response(status: .noContent)
     }
 
     // MARK: - Helpers

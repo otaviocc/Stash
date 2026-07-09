@@ -54,6 +54,9 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `DELETE` | `/admin/users/:id` | admin | Hard delete + cascade all owned data (204) |
 | `POST` | `/admin/users/:id/reset-totp` | admin | Reset a user's 2FA (no code required); revokes their sessions (204); no-op if they had no 2FA |
 | `GET`  | `/admin/stats` | admin | Totals + per-user bookmark counts |
+| `GET`  | `/admin/sessions` | admin | List live sessions (admin dashboard + app frontend); `?q=` filters by username prefix |
+| `POST` | `/admin/sessions/revoke-all` | admin | Revoke every live session and refresh token (204) |
+| `POST` | `/admin/sessions/revoke-user` | admin | `{ "userName": "alice" }` — revoke a user's sessions (204); 404 if unknown |
 
 Errors use a standard `{ error, code, message, existingID? }` envelope across
 every route, including routing 404s and validation failures.
@@ -77,6 +80,9 @@ separate from the API.
 | `GET`  | `/admin/favicons` | Favicon cache stats (total/cached/pending/failed, total bytes) + clear/re-scan actions |
 | `POST` | `/admin/favicons/clear` | Delete every cached favicon; regenerates automatically on demand |
 | `POST` | `/admin/favicons/rescan` | Re-fetch every known domain's favicon in the background |
+| `GET`  | `/admin/sessions` | Active sessions viewer (admin dashboard + app frontend) |
+| `POST` | `/admin/sessions/revoke-all` | Revoke every live session (PRG → `?ok=sessions-revoked-all`) |
+| `POST` | `/admin/sessions/revoke-user` | `userName=alice` — revoke that user's sessions (PRG → `?ok=sessions-revoked-user`) |
 
 ## Web frontend (`/app`)
 
