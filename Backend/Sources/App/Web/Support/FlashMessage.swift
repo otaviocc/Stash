@@ -40,6 +40,8 @@ enum FlashMessage {
         case "password-reset": "Password reset; the user's sessions were revoked."
         case "totp_reset": "Two-factor authentication reset; the user must set it up again and was signed out."
         case "db_optimized": "Database optimize complete."
+        case "favicons_cleared": "Favicon cache cleared. Use Re-scan to rebuild it, or save a new bookmark for a domain."
+        case "favicons_rescanning": "Re-scan started; this runs in the background and may take a while."
         default: nil
         }
     }

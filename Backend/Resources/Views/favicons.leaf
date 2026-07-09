@@ -1,0 +1,63 @@
+#extend("layout"):
+#export("content"):
+    <h1>Favicon Cache</h1>
+
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+
+    <div class="stats">
+        <div class="stat">
+            <div class="num">#(totalCount)</div>
+            <div class="label">Total</div>
+        </div>
+        <div class="stat">
+            <div class="num">#(cachedCount)</div>
+            <div class="label">Cached</div>
+        </div>
+        <div class="stat">
+            <div class="num">#(failedCount)</div>
+            <div class="label">Failed</div>
+        </div>
+        <div class="stat">
+            <div class="num">#(pendingCount)</div>
+            <div class="label">Pending</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <p><strong>Total bytes cached:</strong> #(totalBytesText)</p>
+    </div>
+
+    <div class="card-row">
+        <div class="card actions">
+            <h2>Clear cache</h2>
+            <p class="muted">
+                Deletes every cached favicon. They are not automatically
+                re-fetched for existing bookmarks; use "Re-scan all favicons"
+                to rebuild the cache, or a favicon reappears on its own the
+                next time a new bookmark is saved for that domain.
+            </p>
+            <form method="post" action="/admin/favicons/clear"
+                  onsubmit="return confirm('Clear the entire favicon cache? Use Re-scan afterward to rebuild it.');">
+                <button class="secondary" type="submit">Clear favicon cache</button>
+            </form>
+        </div>
+
+        <div class="card actions">
+            <h2>Re-scan all domains</h2>
+            <p class="muted">
+                Re-fetches the favicon for every domain used by any bookmark
+                (plus any domain still in the cache), in the background. This
+                also rebuilds the cache from scratch after a "Clear cache".
+                Can take a while if there are many domains, since re-fetches
+                run one at a time to avoid overloading external favicon
+                providers.
+            </p>
+            <form method="post" action="/admin/favicons/rescan">
+                <button class="secondary" type="submit">Re-scan all favicons</button>
+            </form>
+        </div>
+    </div>
+#endexport
+#endextend

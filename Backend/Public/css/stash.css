@@ -193,6 +193,17 @@ th {
     margin-bottom: 1.25rem;
 }
 
+.card-row {
+    display: flex;
+    gap: 1.25rem;
+    align-items: stretch;
+}
+
+.card-row > .card {
+    flex: 1;
+    min-width: 240px;
+}
+
 .stats {
     display: flex;
     gap: 1rem;
@@ -653,6 +664,10 @@ form.inline {
 @media (max-width: 767px) {
     .tag-sidebar {
         display: none;
+    }
+
+    .card-row {
+        flex-direction: column;
     }
 }
 

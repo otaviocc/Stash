@@ -330,6 +330,111 @@ struct AppearanceTests {
         }
     }
 
+    // MARK: - GET /admin/favicons
+
+    @Test("the favicons page renders stats for an empty cache")
+    func faviconsPageEmpty() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminWebSession(app)
+
+            // When
+            try await app.testing().test(.GET, "admin/favicons", headers: headers) { res async throws in
+                // Then
+                #expect(res.status == .ok, "It should render the favicons page")
+                let body = res.body.string
+                #expect(body.contains(">0<"), "It should show a zero total count")
+            }
+        }
+    }
+
+    @Test("the favicons page shows correct counts per status and total bytes")
+    func faviconsPageCounts() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminWebSession(app)
+            try await FaviconCache(domain: "a.com", imageData: Data([0x1, 0x2]), status: .cached).save(on: app.db)
+            try await FaviconCache(domain: "b.com", imageData: Data([0x1, 0x2, 0x3]), status: .cached).save(on: app.db)
+            try await FaviconCache(domain: "c.com", status: .pending).save(on: app.db)
+            try await FaviconCache(domain: "d.com", status: .failed).save(on: app.db)
+
+            // When
+            try await app.testing().test(.GET, "admin/favicons", headers: headers) { res async throws in
+                // Then
+                #expect(res.status == .ok, "It should render the favicons page")
+                let body = res.body.string
+                #expect(body.contains(">4<"), "It should show 4 total")
+                #expect(body.contains(">2<"), "It should show 2 cached")
+                #expect(body.contains(">1<"), "It should show 1 pending and 1 failed")
+                #expect(body.contains("5 B"), "It should show the summed byte total (2 + 3) in human-readable form")
+            }
+        }
+    }
+
+    // MARK: - POST /admin/favicons/clear
+
+    @Test("clearing the favicon cache deletes all rows and redirects with the correct flash")
+    func clearFaviconsRedirects() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminWebSession(app)
+            try await FaviconCache(domain: "a.com", status: .cached).save(on: app.db)
+            try await FaviconCache(domain: "b.com", status: .cached).save(on: app.db)
+
+            // When
+            try await app.testing().test(.POST, "admin/favicons/clear", headers: headers) { res async throws in
+                // Then
+                #expect(res.status == .seeOther, "It should redirect after clearing")
+                #expect(
+                    res.headers.first(name: .location) == "/admin/favicons?ok=favicons_cleared",
+                    "It should PRG to the favicons page with the cleared flash"
+                )
+            }
+
+            let remaining = try await FaviconCache.query(on: app.db).count()
+            #expect(remaining == 0, "It should delete every row")
+        }
+    }
+
+    // MARK: - POST /admin/favicons/rescan
+
+    @Test("rescanning redirects with the rescanning flash message and deletes existing rows")
+    func rescanFaviconsRedirects() async throws {
+        try await withTestApp { app in
+            // Given
+            let headers = try await adminWebSession(app)
+            try await FaviconCache(domain: "a.com", status: .cached).save(on: app.db)
+
+            // When
+            try await app.testing().test(.POST, "admin/favicons/rescan", headers: headers) { res async throws in
+                // Then
+                #expect(res.status == .seeOther, "It should redirect after starting the rescan")
+                #expect(
+                    res.headers.first(name: .location) == "/admin/favicons?ok=favicons_rescanning",
+                    "It should PRG to the favicons page with the rescanning flash"
+                )
+            }
+
+            let remaining = try await FaviconCache.query(on: app.db).count()
+            #expect(remaining == 0, "It should delete every row's delete-half synchronously, even in tests")
+        }
+    }
+
+    @Test("the favicons page requires an admin session — unauthenticated requests redirect to login")
+    func faviconsPageRequiresAuth() async throws {
+        try await withTestApp { app in
+            // When
+            try await app.testing().test(.GET, "admin/favicons") { res async throws in
+                // Then
+                #expect(res.status == .seeOther, "It should redirect rather than render the page")
+                #expect(
+                    res.headers.first(name: .location) == "/admin/login",
+                    "It should redirect to the admin login page"
+                )
+            }
+        }
+    }
+
     // MARK: - Version file
 
     @Test("the version string is read from the VERSION file and falls back to dev")

@@ -3075,3 +3075,74 @@ would ripple into every other call site. Persisting a real "last run"
 history would need a new column or table for a feature whose entire value
 is "reclaim space now," not "track maintenance history"; deferred until an
 admin actually asks for it.
+
+## Feature: Favicon Cache Management (admin tool)
+
+A new `/admin/favicons` page shows `favicon_cache` stats (total/cached/
+pending/failed counts, total bytes) and two bulk actions: clear the whole
+cache, and re-scan every known domain. Both actions compose entirely from
+existing primitives: clearing is a plain `FaviconCache.query(on:).delete()`,
+and re-scanning is a new `FaviconFetcher.refreshAll(on:)` that calls the
+existing `refresh(domain:on:)` (delete row, kick off a detached re-fetch)
+for every distinct domain. No new model, migration, or JSON API surface:
+this lives entirely under `/admin`, the same session-cookie-auth surface as
+`/admin/appearance` and `/admin/maintenance`, so `openapi.yaml` is
+untouched.
+
+`refreshAll`'s domain list is the union of every domain already in
+`favicon_cache` **and** every domain referenced by an existing
+`Bookmark.url`, not the cache table alone. The first version read only from
+`favicon_cache`, which made "Clear cache" followed by "Re-scan" a no-op: the
+clear emptied the very table re-scan read its domain list from, so the
+stats page kept showing 0 total/cached/failed/pending no matter how many
+bookmarks existed. Union-ing in the bookmarks' domains means re-scan can
+always rebuild the cache from scratch after a clear, independent of what's
+currently in `favicon_cache`. I caught this by actually clicking through
+the two buttons in sequence rather than testing them in isolation, which is
+exactly the kind of interaction-order bug that per-action unit tests don't
+surface.
+
+`refreshAll` loops sequentially rather than firing every domain's fetch
+concurrently. Each `refresh` call is cheap (a DB delete plus spawning a
+detached `Task`), so the loop itself completes fast, but doing this
+sequentially still staggers when each domain's real HTTP fetch actually
+starts, rather than firing them all in one unthrottled burst at external
+providers, including Google's `s2/favicons` service, whose rate limits I
+don't control. A bounded-concurrency `TaskGroup` would be the efficient
+middle ground, but this is an infrequent, admin-triggered maintenance
+action, not a hot path, so I kept v1 simple and would only add bounded
+concurrency if a real instance's domain count made the sequential loop
+noticeably slow.
+
+The total-bytes stat is computed with a single `FaviconCache.query(on:).all()`
+plus a Swift-side tally (byte sum and per-status counts in one pass), not a
+raw SQL `SUM(LENGTH(image_data))`. Postgres's `LENGTH`/`octet_length` on
+`bytea` and SQLite's `LENGTH` on `BLOB` aren't guaranteed to agree in every
+configuration, and getting that silently wrong on a diagnostics page is
+worse than the minor inefficiency of pulling every row into memory once, for
+what's expected to be at most a few thousand distinct-domain rows on a
+self-hosted instance. The raw integer is formatted into a human-readable
+`B`/`KB`/`MB`/`GB` string (reusing and extending the health page's existing
+`formattedBytes` disk-usage helper down to the byte/kilobyte range, since a
+favicon total can plausibly sit anywhere from a few bytes to low megabytes,
+unlike disk usage which never drops below the megabyte range) rather than
+showing a raw byte count like `1104690 bytes`, which is accurate but not
+something an admin can parse at a glance.
+
+Clearing the cache uses a plain `confirm()` JS dialog, not the typed
+confirmation-phrase pattern used for "delete all bookmarks." That heavier
+pattern exists because deleting bookmarks destroys real, unrecoverable user
+content; clearing the favicon cache destroys nothing irrecoverable. Re-scanning
+gets no confirmation dialog at all, since it isn't destructive either.
+
+One nuance worth being precise about, since an earlier pass of this feature's
+own UI copy got it wrong: a cleared favicon does **not** silently regenerate
+just by browsing `/app` and looking at a bookmark for that domain.
+`FaviconFetcher.enqueue` — the only thing that populates `favicon_cache` outside
+an explicit refresh — only runs when a *new* bookmark is saved for that domain
+(§10 / `DECISIONS.md`'s Favicon Caching section); viewing or editing an existing
+bookmark never calls it. So after "Clear cache," a domain's favicon only comes
+back via "Re-scan all favicons," a new bookmark saved for that domain, or that
+bookmark's own per-row "Refresh favicon" button — never by merely browsing.
+The page copy, the confirm-dialog text, and the `favicons_cleared` flash message
+were corrected to say this rather than implying automatic regeneration on view.

@@ -351,6 +351,71 @@ struct FaviconFetcherTests {
         }
     }
 
+    @Test("refreshAll deletes every existing domain row and returns the count")
+    func refreshAllDeletesAllRows() async throws {
+        try await withTestApp { app in
+            // Given
+            try await FaviconCache(domain: "a.com", status: .cached).save(on: app.db)
+            try await FaviconCache(domain: "b.com", status: .pending).save(on: app.db)
+            try await FaviconCache(domain: "c.com", status: .failed).save(on: app.db)
+
+            // When
+            let count = try await FaviconFetcher.refreshAll(on: app)
+
+            // Then
+            #expect(count == 3, "It should return the number of domains it processed")
+            let remaining = try await FaviconCache.query(on: app.db).count()
+            #expect(remaining == 0, "It should delete every row, since the test environment suppresses re-fetching")
+        }
+    }
+
+    @Test("refreshAll on an empty table returns 0 and does nothing")
+    func refreshAllEmptyTable() async throws {
+        try await withTestApp { app in
+            // Given — no rows
+
+            // When
+            let count = try await FaviconFetcher.refreshAll(on: app)
+
+            // Then
+            #expect(count == 0, "It should return 0 for an empty table")
+        }
+    }
+
+    @Test("refreshAll also queues domains from existing bookmarks, not just favicon_cache rows")
+    func refreshAllIncludesBookmarkDomains() async throws {
+        try await withTestApp { app in
+            // Given — favicon_cache is empty (e.g. after "Clear cache"), but bookmarks still
+            // reference domains
+            let user = try await app.makeUser()
+            try await app.makeBookmark(for: user, url: "https://github.com/a")
+            try await app.makeBookmark(for: user, url: "https://swift.org/x")
+
+            // When
+            let count = try await FaviconFetcher.refreshAll(on: app)
+
+            // Then
+            #expect(count == 2, "It should queue the two distinct bookmark domains even with no cache rows")
+        }
+    }
+
+    @Test("refreshAll counts a domain once even if it appears in both favicon_cache and a bookmark")
+    func refreshAllDeduplicatesAcrossSources() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            try await app.makeBookmark(for: user, url: "https://github.com/a")
+            try await FaviconCache(domain: "github.com", status: .cached).save(on: app.db)
+            try await FaviconCache(domain: "swift.org", status: .failed).save(on: app.db)
+
+            // When
+            let count = try await FaviconFetcher.refreshAll(on: app)
+
+            // Then
+            #expect(count == 2, "It should count github.com once and swift.org once, not three times")
+        }
+    }
+
     @Test("backfill caches one favicon per distinct domain across a user's bookmarks")
     func backfillDistinctDomains() async throws {
         try await withTestApp { app in

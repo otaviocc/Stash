@@ -136,3 +136,19 @@ struct UserDetailContext: Content {
     let message: String?
     let chrome: SiteChrome
 }
+
+// MARK: - FaviconAdminContext
+
+/// View context for the admin favicon cache management page.
+struct FaviconAdminContext: Content {
+
+    let title: String
+    let adminUsername: String
+    let totalCount: Int
+    let cachedCount: Int
+    let pendingCount: Int
+    let failedCount: Int
+    let totalBytesText: String
+    let message: String?
+    let chrome: SiteChrome
+}

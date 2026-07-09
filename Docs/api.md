@@ -74,6 +74,9 @@ separate from the API.
 | `POST` | `/admin/users/:id/suspend` · `/unsuspend` · `/reset-password` · `/reset-totp` · `/delete` | Actions |
 | `GET`  | `/admin/maintenance` | Database maintenance: run VACUUM to reclaim space from hard deletes |
 | `POST` | `/admin/db/optimize` | Run `VACUUM` against the database (PRG → `?ok=db_optimized&ms=<elapsed>`) |
+| `GET`  | `/admin/favicons` | Favicon cache stats (total/cached/pending/failed, total bytes) + clear/re-scan actions |
+| `POST` | `/admin/favicons/clear` | Delete every cached favicon; regenerates automatically on demand |
+| `POST` | `/admin/favicons/rescan` | Re-fetch every known domain's favicon in the background |
 
 ## Web frontend (`/app`)
 

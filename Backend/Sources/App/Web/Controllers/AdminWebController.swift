@@ -34,6 +34,9 @@ struct AdminWebController: RouteCollection {
         protected.get("health", use: health)
         protected.get("maintenance", use: maintenance)
         protected.post("db", "optimize", use: optimizeDatabase)
+        protected.get("favicons", use: favicons)
+        protected.post("favicons", "clear", use: clearFavicons)
+        protected.post("favicons", "rescan", use: rescanFavicons)
     }
 
     // MARK: - Login / logout
@@ -398,6 +401,24 @@ struct AdminWebController: RouteCollection {
         return req.redirect(to: "/admin/maintenance?ok=db_optimized&ms=\(elapsedMS)")
     }
 
+    // MARK: - Favicons
+
+    func favicons(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+        let message = FlashMessage.admin(for: req.query[String.self, at: "ok"])
+        return try await renderFavicons(req, admin: admin, message: message)
+    }
+
+    func clearFavicons(req: Request) async throws -> Response {
+        try await FaviconCache.query(on: req.db).delete()
+        return req.redirect(to: "/admin/favicons?ok=favicons_cleared")
+    }
+
+    func rescanFavicons(req: Request) async throws -> Response {
+        _ = try await FaviconFetcher.refreshAll(on: req.application)
+        return req.redirect(to: "/admin/favicons?ok=favicons_rescanning")
+    }
+
     // MARK: - Health helpers
 
     /// Pings the database with a trivial `SELECT 1` to confirm connectivity, and reports which
@@ -462,17 +483,61 @@ struct AdminWebController: RouteCollection {
         return "\(formattedBytes(used)) / \(formattedBytes(total))"
     }
 
-    /// Formats a byte count as a human-readable `GB`/`MB` string with one decimal place.
+    /// Formats a byte count as a human-readable `GB`/`MB`/`KB`/`B` string, one decimal place above
+    /// the byte scale, picking the largest unit that reads as at least `1`.
     private func formattedBytes(_ bytes: Double) -> String {
         let gigabytes = bytes / 1_073_741_824
         if gigabytes >= 1 {
             return String(format: "%.1f GB", gigabytes)
         }
         let megabytes = bytes / 1_048_576
-        return String(format: "%.1f MB", megabytes)
+        if megabytes >= 1 {
+            return String(format: "%.1f MB", megabytes)
+        }
+        let kilobytes = bytes / 1024
+        if kilobytes >= 1 {
+            return String(format: "%.1f KB", kilobytes)
+        }
+        return "\(Int(bytes)) B"
     }
 
     // MARK: - Helpers
+
+    private func renderFavicons(
+        _ req: Request,
+        admin: User,
+        message: String?,
+        status: HTTPResponseStatus = .ok
+    ) async throws -> Response {
+        let rows = try await FaviconCache.query(on: req.db).all()
+
+        var cachedCount = 0
+        var pendingCount = 0
+        var failedCount = 0
+        var totalBytes = 0
+
+        for row in rows {
+            switch row.status {
+            case .cached: cachedCount += 1
+            case .pending: pendingCount += 1
+            case .failed: failedCount += 1
+            }
+            totalBytes += row.imageData?.count ?? 0
+        }
+
+        let context = FaviconAdminContext(
+            title: "Favicons",
+            adminUsername: admin.username,
+            totalCount: rows.count,
+            cachedCount: cachedCount,
+            pendingCount: pendingCount,
+            failedCount: failedCount,
+            totalBytesText: formattedBytes(Double(totalBytes)),
+            message: message,
+            chrome: req.siteChrome()
+        )
+        return try await req.renderHTML("favicons", context, status: status)
+    }
 
     private func renderAppearance(
         _ req: Request,

@@ -70,6 +70,27 @@ enum FaviconFetcher {
         spawn(domain: domain, originURL: nil, declaredIconURL: nil, on: app)
     }
 
+    /// Re-fetches every domain currently present in `favicon_cache` **plus** every domain used by
+    /// any bookmark in the system, so this also rebuilds the cache from scratch after a "Clear
+    /// cache" (which leaves `favicon_cache` empty, but bookmarks still reference those domains).
+    /// Each domain's row is deleted (a no-op if it has none) and a fresh background fetch is
+    /// kicked off via `refresh(domain:on:)`. Domains are processed sequentially (not concurrently)
+    /// to avoid firing a burst of simultaneous requests at external favicon providers (including
+    /// Google's favicon service). Returns the number of domains that were queued for re-fetch.
+    @discardableResult
+    static func refreshAll(on app: Application) async throws -> Int {
+        let cachedDomains = try await FaviconCache.query(on: app.db).all(\.$domain)
+        let bookmarkURLs = try await Bookmark.query(on: app.db).all(\.$url)
+        let bookmarkDomains = bookmarkURLs.compactMap { DomainExtractor.domain(from: $0) }
+        let domains = Set(cachedDomains).union(bookmarkDomains)
+
+        for domain in domains {
+            try await refresh(domain: domain, on: app)
+        }
+
+        return domains.count
+    }
+
     static func enqueueBackfill(forUser userID: UUID, on app: Application) {
         guard app.environment != .testing else { return }
 
