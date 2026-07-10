@@ -55,6 +55,11 @@
             <h3>Yours to theme</h3>
             <p>Light, Dark, or Auto on every page, plus an admin-chosen accent theme for the instance.</p>
         </div>
+        <div class="feature">
+            <div class="icon">🛠️</div>
+            <h3>A real admin toolkit</h3>
+            <p>Health checks, a one-click database optimize, a favicon cache manager, an audit log, an active-sessions viewer with instant revoke, and a live log tail — everything to run and troubleshoot your own instance from the dashboard.</p>
+        </div>
     </section>
 #endexport
 #endextend

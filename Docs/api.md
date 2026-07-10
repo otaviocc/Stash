@@ -75,11 +75,13 @@ separate from the API.
 | `GET`/`POST` | `/admin/users/new` | Create user (always `user` role) |
 | `GET`  | `/admin/users/:id` | User detail |
 | `POST` | `/admin/users/:id/suspend` · `/unsuspend` · `/reset-password` · `/reset-totp` · `/delete` | Actions |
+| `GET`  | `/admin/health` | Version, DB connectivity, uptime, disk usage, user/bookmark counts |
 | `GET`  | `/admin/maintenance` | Database maintenance: run VACUUM to reclaim space from hard deletes |
 | `POST` | `/admin/db/optimize` | Run `VACUUM` against the database (PRG → `?ok=db_optimized&ms=<elapsed>`) |
 | `GET`  | `/admin/favicons` | Favicon cache stats (total/cached/pending/failed, total bytes) + clear/re-scan actions |
-| `POST` | `/admin/favicons/clear` | Delete every cached favicon; regenerates automatically on demand |
-| `POST` | `/admin/favicons/rescan` | Re-fetch every known domain's favicon in the background |
+| `POST` | `/admin/favicons/clear` | Delete every cached favicon. Does **not** regenerate automatically — only via re-scan, a new bookmark for that domain, or that bookmark's own "Refresh favicon" button |
+| `POST` | `/admin/favicons/rescan` | Re-fetch every known domain's favicon in the background, one domain at a time |
+| `GET`  | `/admin/audit` | Audit log viewer: most recent 50 auth/admin-action rows |
 | `GET`  | `/admin/sessions` | Active sessions viewer (admin dashboard + app frontend) |
 | `POST` | `/admin/sessions/revoke-all` | Revoke every live session (PRG → `?ok=sessions-revoked-all`) |
 | `POST` | `/admin/sessions/revoke-user` | `userName=alice` — revoke that user's sessions (PRG → `?ok=sessions-revoked-user`) |

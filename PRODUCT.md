@@ -332,6 +332,30 @@ active content), and the served response carries
 longer written for new bookmarks (domain-keyed lookup at render time supersedes
 it) but the column is retained.
 
+### 7.9 Audit Log
+
+A narrow, best-effort admin audit trail: auth events (login success, login failure,
+logout) and admin user-management actions (create, suspend, unsuspend, password
+reset, TOTP reset, delete, site-appearance changes). Deliberately excludes bookmark,
+tag, and Smart View CRUD — too high-volume and low audit value to be worth crowding
+the viewer.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | UUID | Primary key |
+| `actorUsername` | String? | Username performing the action, or the attempted username on a failed login. `nil` only if none was ever supplied. |
+| `action` | String | Slug, e.g. `login_success`, `login_failure`, `logout`, `user_created`, `user_suspended`, `user_unsuspended`, `password_reset`, `totp_reset`, `user_deleted`, `appearance_updated` |
+| `detail` | String? | Free-text context, e.g. the target username plus what changed |
+| `ip` | String? | Best-effort client IP: `X-Forwarded-For` first, falling back to the raw socket address |
+| `createdAt` | Date | Auto-set |
+
+Writes are best-effort and non-throwing from the caller's side: a login or admin
+action must never fail because the audit write did. An action that always runs but
+doesn't actually change anything (e.g. suspending an already-suspended user, or
+resetting TOTP for a user with no 2FA configured) does not write a row — only real
+state transitions are logged. Viewed at `/admin/audit`, most recent 50 rows, no
+pagination or filtering.
+
 ---
 
 ## 8. Authentication & Security
@@ -531,6 +555,16 @@ condition overrides the default archived filter (otherwise non-archived only).
 | `DELETE` | `/api/v1/admin/users/:id` | Hard-delete (cannot delete self) |
 | `POST` | `/api/v1/admin/users/:id/reset-totp` | Reset user's 2FA |
 | `GET` | `/api/v1/admin/stats` | Aggregate stats |
+| `GET` | `/api/v1/admin/sessions` | List every live session (admin + app), optional `q` username filter |
+| `POST` | `/api/v1/admin/sessions/revoke-all` | Revoke every active session and refresh token instance-wide |
+| `POST` | `/api/v1/admin/sessions/revoke-user` | Revoke one user's sessions and refresh tokens (body: `userName`) |
+
+**Active Sessions** reads and mutates Vapor's in-memory session store directly, so it
+covers both the admin dashboard and the `/app` frontend with no new table or
+per-session tracking hooks. It can't show IP address, user-agent, or session
+creation time — the in-memory driver doesn't capture them, only who's signed in and
+where. Revoking deletes the affected refresh tokens too, so JSON API access dies
+alongside the web session.
 
 ### 9.8 Favicons
 
@@ -726,6 +760,10 @@ container restart.
 | Appearance | `/admin/appearance` |
 | Health | `/admin/health` |
 | Maintenance | `/admin/maintenance` |
+| Favicon Cache | `/admin/favicons` |
+| Audit Log | `/admin/audit` |
+| Active Sessions | `/admin/sessions` |
+| System Logs | `/admin/logs` |
 
 ### Business Rules
 
@@ -761,6 +799,37 @@ container restart.
   destructive user actions elsewhere on the dashboard. PRG redirects with
   `?ok=db_optimized&ms=<elapsed>`, and the elapsed time is shown in the
   success banner. Nothing about past runs is persisted.
+- The Favicon Cache page (`GET /admin/favicons`) shows `favicon_cache` stats
+  (total/cached/pending/failed counts, total bytes cached) and two bulk
+  actions: "Clear favicon cache" (`POST /admin/favicons/clear`, deletes every
+  row, `confirm()` dialog since it's a quick-to-recover action, not the typed
+  danger-zone pattern) and "Re-scan all favicons" (`POST /admin/favicons/rescan`,
+  re-fetches every domain used by any bookmark plus any domain still in the
+  cache, so it can rebuild from scratch after a clear; re-fetches run
+  sequentially, one at a time, to avoid bursting external favicon providers).
+  A cleared favicon does **not** silently regenerate just by viewing a
+  bookmark; it comes back via re-scan, a new bookmark saved for that domain,
+  or that bookmark's own "Refresh favicon" button.
+- The Audit Log page (`GET /admin/audit`) shows the most recent 50 rows of
+  the audit trail (§7.9): auth events and admin user-management actions, most
+  recent first. No pagination, filtering, or export in v1.
+- The Active Sessions page (`GET /admin/sessions`) lists every live web
+  session — both the admin dashboard and the `/app` frontend — reading
+  directly from the in-memory session store (§9.7). An admin can revoke every
+  session instance-wide (`POST /admin/sessions/revoke-all`) or just one
+  user's (`POST /admin/sessions/revoke-user`), both of which also delete the
+  affected refresh tokens. Revoking the admin's own current session correctly
+  signs them out immediately rather than leaving their dashboard session
+  silently resurrected. Supports a username filter (`?q=`); no IP,
+  user-agent, or session-creation time is shown, since the in-memory driver
+  doesn't capture them.
+- The System Logs page (`GET /admin/logs`) reads from a fixed-capacity
+  (1000-entry) in-memory ring buffer fed by every log call app-wide, cleared
+  on restart and never written to disk or the database — a quick-triage
+  convenience, not a replacement for `docker logs`/`podman logs`. A `?level=`
+  filter narrows to a minimum severity (`info`, `warning`, or `error`); any
+  other value is treated as no filter, so the rendered dropdown selection
+  never diverges from what's actually shown.
 
 ---
 
