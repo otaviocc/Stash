@@ -199,6 +199,10 @@ th {
     margin-bottom: 1.25rem;
 }
 
+.card > h2:first-child {
+    margin-top: 0;
+}
+
 .card-row {
     display: flex;
     gap: 1.25rem;
@@ -214,6 +218,10 @@ th {
     display: flex;
     gap: 1rem;
     flex-wrap: wrap;
+}
+
+.stats + .card {
+    margin-top: 1.25rem;
 }
 
 .stat {
@@ -302,6 +310,12 @@ form.inline {
     padding: 0.1rem 0.5rem;
     border-radius: 999px;
     font-size: 0.8rem;
+}
+
+.num .pill {
+    padding: 0.15rem 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 700;
 }
 
 .pill.active {

@@ -3,7 +3,7 @@
     <h1>Logs</h1>
     <p>Showing #(count(entries)) most recent entries (buffer holds up to 1000, cleared on restart).</p>
 
-    <form method="get" action="/admin/logs">
+    <form class="toolbar" method="get" action="/admin/logs">
         <select name="level" onchange="this.form.submit()">
             <option value="" #if(!selectedLevel):selected#endif>All levels</option>
             <option value="info" #if(selectedLevel == "info"):selected#endif>Info and above</option>
