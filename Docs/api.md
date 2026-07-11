@@ -71,7 +71,7 @@ separate from the API.
 |--------|------|-------------|
 | `GET`/`POST` | `/admin/login` | Login form (username + password + optional TOTP) |
 | `POST` | `/admin/logout` | Clear the session |
-| `GET`  | `/admin` | Dashboard: total users, total bookmarks, per-user counts |
+| `GET`  | `/admin` | Dashboard: KPI stat strip (users, bookmarks, sessions, archive queue), navigation cards to every other admin page, recent activity feed |
 | `GET`  | `/admin/users` | User list |
 | `GET`/`POST` | `/admin/users/new` | Create user (always `user` role) |
 | `GET`  | `/admin/users/:id` | User detail |
@@ -86,6 +86,7 @@ separate from the API.
 | `POST` | `/admin/internet-archive/toggle` | Enable/disable Internet Archive submissions instance-wide (PRG → `?ok=ia_saved`) |
 | `POST` | `/admin/internet-archive/retry-failed` | Re-queue every `failed` bookmark (PRG → `?ok=ia_retrying`); refused with `?error=internet_archive_disabled` if the switch is off |
 | `POST` | `/admin/internet-archive/queue-all` | Submit every not-yet-submitted or failed bookmark (PRG → `?ok=ia_queued`); refused with `?error=internet_archive_disabled` if the switch is off |
+| `POST` | `/admin/internet-archive/resume` | Nudge the background submission queue awake (PRG → `?ok=ia_resumed`); refused with `?error=internet_archive_disabled` if the switch is off |
 | `GET`  | `/admin/audit` | Audit log viewer: most recent 50 auth/admin-action rows |
 | `GET`  | `/admin/sessions` | Active sessions viewer (admin dashboard + app frontend) |
 | `POST` | `/admin/sessions/revoke-all` | Revoke every live session (PRG → `?ok=sessions-revoked-all`) |
