@@ -107,7 +107,7 @@ struct RingBufferLogHandlerTests {
         let handler = RingBufferLogHandler(label: "test", buffer: buffer)
 
         // When
-        handler.log(
+        handler.log(event: LogEvent(
             level: .info,
             message: "hello",
             metadata: nil,
@@ -115,7 +115,7 @@ struct RingBufferLogHandlerTests {
             file: "x.swift",
             function: "f()",
             line: 1
-        )
+        ))
 
         // Then
         let entries = buffer.snapshot()

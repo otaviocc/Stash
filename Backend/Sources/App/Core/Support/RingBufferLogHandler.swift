@@ -28,17 +28,9 @@ struct RingBufferLogHandler: LogHandler {
         set { metadata[key] = newValue }
     }
 
-    func log(
-        level: Logger.Level,
-        message: Logger.Message,
-        metadata: Logger.Metadata?,
-        source: String,
-        file: String,
-        function: String,
-        line: UInt
-    ) {
+    func log(event: LogEvent) {
         buffer.append(
-            .init(timestamp: Date(), level: level, label: label, message: message.description)
+            .init(timestamp: Date(), level: event.level, label: label, message: event.message.description)
         )
     }
 }
