@@ -158,22 +158,27 @@ struct AdminWebController: RouteCollection {
         async let users = User.query(on: req.db).sort(\.$username).all()
         async let sessionRows = ActiveSessionLoader.loadActiveSessions(on: req)
         async let archiveQueuedCount = Bookmark.query(on: req.db).filter(\.$waybackStatus == .pending).count()
-        async let faviconRows = FaviconCache.query(on: req.db).all()
+        async let cachedFaviconCount = FaviconCache.query(on: req.db).filter(\.$status == .cached).count()
+        async let pendingFaviconCount = FaviconCache.query(on: req.db).filter(\.$status == .pending).count()
         async let recentAuditEntries = AuditLog.query(on: req.db)
             .sort(\.$createdAt, .descending)
             .limit(8)
             .all()
 
         let (
-            userList, sessions, archiveQueued, favicons, auditEntries
-        ) = try await (users, sessionRows, archiveQueuedCount, faviconRows, recentAuditEntries)
+            userList, sessions, archiveQueued, cachedFavicons, pendingFavicons, auditEntries
+        ) = try await (
+            users,
+            sessionRows,
+            archiveQueuedCount,
+            cachedFaviconCount,
+            pendingFaviconCount,
+            recentAuditEntries
+        )
 
         let rows = try userList.map { try $0.asRow() }
         let totalBookmarks = rows.reduce(0) { $0 + $1.bookmarkCount }
         let activeUsers = rows.filter(\.isActive).count
-
-        let cachedFavicons = favicons.filter { $0.status == .cached }.count
-        let pendingFavicons = favicons.filter { $0.status == .pending }.count
 
         let archiveEnabled = WaybackSubmitter.isInstanceEnabled(on: req.application)
         let archiveDetail = archiveEnabled ? "\(archiveQueued) queued" : "Disabled"

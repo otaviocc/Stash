@@ -20,6 +20,26 @@ public enum WaybackStatusDTO: String, Codable, Sendable {
 /// A saved bookmark as returned by the API.
 public struct BookmarkDTO: Codable, Identifiable, Sendable {
 
+    // MARK: Nested Types
+
+    private enum CodingKeys: String, CodingKey {
+
+        case id
+        case url
+        case title
+        case description
+        case faviconURL
+        case tags
+        case isArchived
+        case waybackStatus
+        case waybackURL
+        case waybackArchivedAt
+        case createdAt
+        case updatedAt
+    }
+
+    // MARK: Properties
+
     public let id: UUID
     public let url: URL
     public let title: String
@@ -32,6 +52,24 @@ public struct BookmarkDTO: Codable, Identifiable, Sendable {
     public let waybackArchivedAt: Date?
     public let createdAt: Date
     public let updatedAt: Date
+
+    // MARK: Lifecycle
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        url = try container.decode(URL.self, forKey: .url)
+        title = try container.decode(String.self, forKey: .title)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        faviconURL = try container.decodeIfPresent(URL.self, forKey: .faviconURL)
+        tags = try container.decode([String].self, forKey: .tags)
+        isArchived = try container.decode(Bool.self, forKey: .isArchived)
+        waybackStatus = try container.decodeIfPresent(WaybackStatusDTO.self, forKey: .waybackStatus) ?? .none
+        waybackURL = try container.decodeIfPresent(URL.self, forKey: .waybackURL)
+        waybackArchivedAt = try container.decodeIfPresent(Date.self, forKey: .waybackArchivedAt)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    }
 }
 
 /// A paginated list of bookmarks.

@@ -429,6 +429,15 @@ struct WaybackTests {
 
             let reloaded = try #require(try await Bookmark.find(bookmark.requireID(), on: app.db))
             #expect(reloaded.waybackStatus == .none, "It should leave the bookmark unqueued")
+
+            // When — a nonexistent bookmark, still with the switch off
+            try await app.testing().test(
+                .POST, "api/v1/bookmarks/\(UUID())/wayback",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then — existence/ownership is checked before the instance gate
+                #expect(res.status == .notFound, "It should 404 for an unknown bookmark even while disabled")
+            }
         }
     }
 

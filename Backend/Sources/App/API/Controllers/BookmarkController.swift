@@ -222,8 +222,12 @@ struct BookmarkController: RouteCollection {
 
     /// Submits (or re-submits, with a fresh date) a bookmark to the Wayback Machine, regardless of
     /// the user's `archiveNewBookmarks` auto-submit preference. Refused with `409` when the admin has
-    /// turned the feature off instance-wide (PRD §9.7 admin toggle).
+    /// turned the feature off instance-wide (PRD §9.7 admin toggle). Existence/ownership is checked
+    /// first — a missing or foreign bookmark is always `404`, whether or not the feature is enabled,
+    /// matching the OpenAPI contract and the web handler's ordering.
     func submitToWayback(req: Request) async throws -> Response {
+        let bookmark = try await requireBookmark(req)
+
         guard WaybackSubmitter.isInstanceEnabled(on: req.application) else {
             throw APIError.custom(
                 status: .conflict,
@@ -232,7 +236,6 @@ struct BookmarkController: RouteCollection {
             )
         }
 
-        let bookmark = try await requireBookmark(req)
         await WaybackSubmitter.enqueue(bookmark, on: req.application)
         return Response(status: .accepted)
     }

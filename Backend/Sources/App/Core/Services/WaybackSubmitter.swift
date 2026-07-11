@@ -238,7 +238,7 @@ enum WaybackSubmitter {
     static func bootstrap(on app: Application) async {
         let httpClient = HTTPClient(
             eventLoopGroupProvider: .shared(app.eventLoopGroup),
-            configuration: .init(timeout: httpClientTimeout)
+            configuration: .init(redirectConfiguration: .disallow, timeout: httpClientTimeout)
         )
         await app.storage.setWithAsyncShutdown(WaybackHTTPClientKey.self, to: httpClient) { client in
             try await client.shutdown()
@@ -256,7 +256,14 @@ enum WaybackSubmitter {
     /// there is no separate in-memory queue, just this status flip plus a query-driven drain. The
     /// status flip always happens (so tests can assert on it); only the actual background drain is
     /// suppressed under `.testing`, via `kick(on:)`.
+    ///
+    /// Refuses silently when the instance switch is off. Callers that need to *report* the refusal
+    /// (the API's `409`, the web UI's error banner) still check `isInstanceEnabled` first — this
+    /// guard is defense in depth, so no future call site can queue work while the feature is
+    /// disabled.
     static func enqueue(_ bookmark: Bookmark, on app: Application) async {
+        guard isInstanceEnabled(on: app) else { return }
+
         bookmark.waybackStatus = .pending
         try? await bookmark.save(on: app.db)
         kick(on: app)
@@ -288,57 +295,70 @@ enum WaybackSubmitter {
     /// silent `.failed` gives no way to diagnose *why*.
     @discardableResult
     static func submit(bookmark: Bookmark, on db: Database, client: Client) async -> SubmitOutcome {
+        let response: ClientResponse
         do {
             var headers = HTTPHeaders()
             headers.add(name: .userAgent, value: StashUserAgent.value)
 
             let target = URI(string: "\(savePrefix)\(bookmark.url)")
-            let response = try await client.get(target, headers: headers) { request in
+            response = try await client.get(target, headers: headers) { request in
                 request.timeout = submitTimeout
             }
-
-            if response.status == .tooManyRequests {
-                bookmark.waybackRetryCount += 1
-
-                guard bookmark.waybackRetryCount < maxRateLimitRetries else {
-                    db.logger.notice(
-                        "Wayback submit giving up for \(bookmark.url) after \(bookmark.waybackRetryCount) rate-limited attempts"
-                    )
-                    bookmark.waybackStatus = .failed
-                    bookmark.waybackRetryCount = 0
-                    try await bookmark.save(on: db)
-                    return .failed
-                }
-
-                db.logger.notice(
-                    "Wayback submit rate-limited for \(bookmark.url) (attempt \(bookmark.waybackRetryCount)/\(maxRateLimitRetries)); will retry later"
-                )
-                try await bookmark.save(on: db)
-                return .rateLimited
-            }
-
-            let acceptableStatuses: Set<HTTPResponseStatus> = [.ok, .movedPermanently, .found]
-            guard acceptableStatuses.contains(response.status) else {
-                db.logger.error("Wayback submit failed for \(bookmark.url): HTTP \(response.status.code)")
-                bookmark.waybackStatus = .failed
-                bookmark.waybackRetryCount = 0
-                try await bookmark.save(on: db)
-                return .failed
-            }
-
-            bookmark.waybackStatus = .archived
-            bookmark.waybackURL = snapshotURL(from: response, originalURL: bookmark.url)
-            bookmark.waybackArchivedAt = Date()
-            bookmark.waybackRetryCount = 0
-            try await bookmark.save(on: db)
-            db.logger.info("\(ActivityLog.waybackArchived(url: bookmark.url))")
-            return .archived
         } catch {
             db.logger.error("Wayback submit failed for \(bookmark.url): \(String(reflecting: error))")
             bookmark.waybackStatus = .failed
             bookmark.waybackRetryCount = 0
-            try? await bookmark.save(on: db)
+            await persist(bookmark, on: db)
             return .failed
+        }
+
+        if response.status == .tooManyRequests {
+            bookmark.waybackRetryCount += 1
+
+            guard bookmark.waybackRetryCount < maxRateLimitRetries else {
+                db.logger.notice(
+                    "Wayback submit giving up for \(bookmark.url) after \(bookmark.waybackRetryCount) rate-limited attempts"
+                )
+                bookmark.waybackStatus = .failed
+                bookmark.waybackRetryCount = 0
+                await persist(bookmark, on: db)
+                return .failed
+            }
+
+            db.logger.notice(
+                "Wayback submit rate-limited for \(bookmark.url) (attempt \(bookmark.waybackRetryCount)/\(maxRateLimitRetries)); will retry later"
+            )
+            await persist(bookmark, on: db)
+            return .rateLimited
+        }
+
+        let acceptableStatuses: Set<HTTPResponseStatus> = [.ok, .movedPermanently, .found]
+        guard acceptableStatuses.contains(response.status) else {
+            db.logger.error("Wayback submit failed for \(bookmark.url): HTTP \(response.status.code)")
+            bookmark.waybackStatus = .failed
+            bookmark.waybackRetryCount = 0
+            await persist(bookmark, on: db)
+            return .failed
+        }
+
+        bookmark.waybackStatus = .archived
+        bookmark.waybackURL = snapshotURL(from: response, originalURL: bookmark.url)
+        bookmark.waybackArchivedAt = Date()
+        bookmark.waybackRetryCount = 0
+        await persist(bookmark, on: db)
+        db.logger.info("\(ActivityLog.waybackArchived(url: bookmark.url))")
+        return .archived
+    }
+
+    /// Saves the bookmark's Wayback state, logging (rather than propagating) a persistence failure.
+    /// Kept separate from the network do/catch so a transient DB error can never be misattributed as
+    /// a submission failure — most importantly on the success path, where it would otherwise record
+    /// an actually-captured snapshot as `.failed` and trigger a redundant re-crawl.
+    private static func persist(_ bookmark: Bookmark, on db: Database) async {
+        do {
+            try await bookmark.save(on: db)
+        } catch {
+            db.logger.error("Wayback state save failed for \(bookmark.url): \(String(reflecting: error))")
         }
     }
 

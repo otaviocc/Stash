@@ -52,7 +52,7 @@ struct AppearanceTests {
     func appearancePrefilled() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
             let settings = try await SiteSettingsService.current(on: app.db)
             settings.accentTheme = "forest"
             settings.aboutText = "Maintained by Alice."
@@ -80,7 +80,7 @@ struct AppearanceTests {
     func saveValidTheme() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
 
             // When
             try await app.testing().test(
@@ -117,7 +117,7 @@ struct AppearanceTests {
     func unknownThemeRejected() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
 
             // When
             try await app.testing().test(
@@ -146,7 +146,7 @@ struct AppearanceTests {
     func aboutTooLong() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
             let tooLong = String(repeating: "a", count: 281)
 
             // When
@@ -176,7 +176,7 @@ struct AppearanceTests {
     func nonHTTPSURLRejected() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
 
             // When
             try await app.testing().test(
@@ -212,7 +212,7 @@ struct AppearanceTests {
             settings.footerCustomURL = "https://example.com"
             try await settings.save(on: app.db)
             SiteSettingsService.refreshCache(with: settings, on: app)
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
 
             // When
             try await app.testing().test(.GET, "admin", headers: headers) { res async throws in
@@ -233,7 +233,7 @@ struct AppearanceTests {
             settings.footerCustomURL = nil
             try await settings.save(on: app.db)
             SiteSettingsService.refreshCache(with: settings, on: app)
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
 
             // When
             try await app.testing().test(.GET, "admin", headers: headers) { res async throws in
@@ -251,7 +251,7 @@ struct AppearanceTests {
     func healthPageRenders() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
             try await app.makeUser(username: "alice", password: "alice-password-123", role: .user)
 
             // When
@@ -288,7 +288,7 @@ struct AppearanceTests {
     func maintenancePageRenders() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
 
             // When
             try await app.testing().test(.GET, "admin/maintenance", headers: headers) { res async throws in
@@ -306,7 +306,7 @@ struct AppearanceTests {
     func optimizeDatabaseSucceeds() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
             var location: String?
 
             // When
@@ -336,7 +336,7 @@ struct AppearanceTests {
     func faviconsPageEmpty() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
 
             // When
             try await app.testing().test(.GET, "admin/favicons", headers: headers) { res async throws in
@@ -352,7 +352,7 @@ struct AppearanceTests {
     func faviconsPageCounts() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
             try await FaviconCache(domain: "a.com", imageData: Data([0x1, 0x2]), status: .cached).save(on: app.db)
             try await FaviconCache(domain: "b.com", imageData: Data([0x1, 0x2, 0x3]), status: .cached).save(on: app.db)
             try await FaviconCache(domain: "c.com", status: .pending).save(on: app.db)
@@ -377,7 +377,7 @@ struct AppearanceTests {
     func clearFaviconsRedirects() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
             try await FaviconCache(domain: "a.com", status: .cached).save(on: app.db)
             try await FaviconCache(domain: "b.com", status: .cached).save(on: app.db)
 
@@ -402,7 +402,7 @@ struct AppearanceTests {
     func rescanFaviconsRedirects() async throws {
         try await withTestApp { app in
             // Given
-            let headers = try await adminWebSession(app)
+            let headers = try await app.adminWebSession()
             try await FaviconCache(domain: "a.com", status: .cached).save(on: app.db)
 
             // When
@@ -450,34 +450,5 @@ struct AppearanceTests {
         // When — a file is present
         try "2.3.4\n".write(toFile: directory + "/VERSION", atomically: true, encoding: .utf8)
         #expect(AppVersion.read(directory: directory) == "2.3.4", "It should read and trim the version string")
-    }
-
-    // MARK: - Helpers
-
-    private func adminWebSession(
-        _ app: Application,
-        username: String = "root",
-        password: String = "admin-password-123"
-    ) async throws -> HTTPHeaders {
-        try await app.makeUser(username: username, password: password, role: .admin)
-
-        var cookie: String?
-        try await app.testing().test(
-            .POST, "admin/login",
-            beforeRequest: { req in
-                try req.content.encode(
-                    LoginForm(username: username, password: password, totpCode: nil),
-                    as: .urlEncodedForm
-                )
-            },
-            afterResponse: { res async throws in
-                cookie = res.headers.setCookie?["stash_admin_session"]?.string
-            }
-        )
-        guard let cookie else {
-            throw Abort(.internalServerError, reason: "admin web login did not set a session cookie")
-        }
-
-        return ["Cookie": "stash_admin_session=\(cookie)"]
     }
 }

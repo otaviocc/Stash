@@ -3667,3 +3667,47 @@ more on a page that isn't visited often enough to make a hidden menu
 muscle-memory. Conditional visibility (favicon present, Internet Archive
 enabled, `waybackURL` set, archived vs. not) is unchanged — only the layout
 grouping changed, not which buttons show when.
+
+### Code-review follow-up: Wayback/dashboard hardening (8 findings fixed)
+
+A review pass over the six Wayback-era commits surfaced eight actionable
+findings, all fixed:
+
+- **StashKit version-skew (the two that mattered most):** `BookmarkDTO.waybackStatus`
+  and `UserDTO.archiveNewBookmarks` were non-optional with synthesized
+  Codable, so a newer app talking to a not-yet-upgraded self-hosted backend
+  failed to decode entire bookmark lists / user profiles the moment the key
+  was missing. Both now use a hand-written `init(from:)` with
+  `decodeIfPresent` + the server-side default (`.none` / `true`), following
+  the existing `SmartViewDTO.matchMode` precedent. Covered by new
+  `DTOBackwardCompatibilityTests` decoding old-server JSON fixtures.
+- **Wayback HTTP client followed redirects:** AsyncHTTPClient's default
+  `RedirectConfiguration` is `.follow(max: 5)`, which made `submit()`'s
+  `.movedPermanently`/`.found` handling and `Location`-header snapshot
+  extraction dead code, and risked marking a captured bookmark `.failed` if
+  a followed hop returned non-2xx. The dedicated client is now built with
+  `redirectConfiguration: .disallow` so the 3xx handling actually runs.
+- **DB-save misattribution in `submit()`:** the success-path save lived in
+  the same `do/catch` as the network call, so a transient DB error recorded
+  an actually-captured snapshot as `.failed`. The catch now wraps only the
+  HTTP request; state saves go through a `persist()` helper that logs (never
+  propagates) persistence failures.
+- **404-before-409 ordering:** the API's `submitToWayback` gated on the
+  instance switch before `requireBookmark`, returning 409 for nonexistent or
+  foreign IDs while disabled — contradicting the OpenAPI contract and the
+  web handler's order. Reordered (ownership first) + regression test.
+- **`enqueue()` defense in depth:** it now refuses when the instance switch
+  is off, so the "nothing goes `.pending` while disabled" invariant lives in
+  the chokepoint rather than only at each call site (callers still check
+  first to report the refusal to the user).
+- **Dashboard favicon counts:** replaced the full-table `.all()` load
+  (which pulled every cached favicon BLOB per dashboard view) with two
+  filtered `.count()` queries, matching the Internet Archive count pattern.
+- **Test cleanup:** deleted `AppearanceTests`' private copy of the
+  admin-session login helper in favor of the shared
+  `Application.adminWebSession()`.
+
+Reviewed-and-rejected (not bugs): the `/web/2/` snapshot fallback (verified
+live: it resolves to the *newest* capture), the 3-attempt rate-limit budget
+(matches the approved design), and hiding the user's archive preference
+while the instance switch is off (documented intended behavior).
