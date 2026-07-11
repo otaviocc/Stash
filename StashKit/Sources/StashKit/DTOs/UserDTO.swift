@@ -14,6 +14,7 @@ public struct UserDTO: Codable, Identifiable, Sendable {
     public let isActive: Bool
     public let isTOTPEnabled: Bool
     public let bookmarkCount: Int
+    public let archiveNewBookmarks: Bool
     public let createdAt: Date
 }
 

@@ -3276,3 +3276,317 @@ by the log-handler factory closure. A plain top-level `let sharedLogBuffer
 reachable both there and later from `AdminWebController.logsPage` (same
 module, no plumbing needed) without inventing a workaround for storage not
 existing yet.
+
+---
+
+## Feature: Internet Archive (Wayback Machine) submission
+
+A long-requested feature: when a bookmark is saved, also submit its URL to
+the Internet Archive so there's a durable off-site snapshot, independent
+of Stash's own `isArchived` inbox flag (deliberately named `wayback*`
+everywhere — model fields, routes, buttons — to avoid colliding with that
+unrelated existing flag).
+
+### Anonymous `/save`, no credentials
+
+Submission goes through `https://web.archive.org/save/<url>` (a plain
+`GET`), not the authenticated SPN2 API. That keeps the feature
+dependency-light and config-free (no API keys to provision), at the cost
+of tighter, undocumented rate limits — which is exactly why this needed a
+serial, self-throttling queue rather than firing requests inline.
+
+### A persisted, serial queue — not `FaviconFetcher`'s fire-and-forget shape
+
+`FaviconFetcher` (favicon caching) is a stateless `enum` that dispatches
+`Task.detached` work with no durable queue: if the process dies mid-fetch,
+that fetch is simply lost, and it's fine because a favicon reappears for
+free the next time any bookmark on that domain is saved. Wayback
+submission doesn't have that safety net — a lost submission means a
+bookmark silently never gets archived — so `WaybackSubmitter` persists
+queue state on the bookmark itself (`waybackStatus`: `none` / `pending` /
+`archived` / `failed`) instead of relying purely on in-memory
+`Task.detached` work. Enqueuing is just: flip the status to `pending`,
+save, and wake the drain worker; the worker discovers work by querying for
+`pending` rows rather than tracking an in-memory list, so a crash mid-drain
+self-heals — `WaybackSubmitter.bootstrap(on:)` re-sweeps at every boot by
+just calling `kick()`, which picks up any row still `pending` from before.
+
+The drain itself is an `actor` (`WaybackWorker`), not another stateless
+enum: it must never run two drains concurrently, since the anonymous save
+endpoint's rate limit is tight enough that a second concurrent drain
+starting while one is already in flight would burst it. The actor holds a
+single `isDraining` flag and processes one `pending` bookmark at a time
+with a deliberate delay between submissions (longer than the favicon
+queue's, since `/save` is far more rate-limit-sensitive than favicon
+providers), sleeping via `Task.sleep(for:)` between each. It's seeded once
+at boot into `Application.storage` behind a `StorageKey`
+(`WaybackWorkerKey`), the same seeded-holder pattern `SiteSettingsCache`
+already uses, rather than being constructed per-request.
+
+The anonymous save endpoint is also markedly slower than a favicon fetch
+(it has to actually crawl and archive the live page), so `submit(...)`
+sets a per-request timeout on the outbound `ClientRequest`
+(`request.timeout = 30s`) rather than relying on the app's global 5-second
+outbound-HTTP timeout (`configure.swift`), which is tuned for the favicon
+queue's guess-and-check requests.
+
+### Migration gotcha this surfaced: SQLite rejects multi-column `ALTER TABLE`
+
+Adding `wayback_status` / `wayback_url` / `wayback_archived_at` to
+`bookmarks` in one chained `.field(...).field(...).field(...).update()`
+(the shape `AddSmartViewMatchMode` uses for its single column) produced a
+SQLite syntax error, because — unlike Postgres — SQLite only supports one
+`ADD COLUMN` per `ALTER TABLE` statement; FluentKit happily batches
+multiple `.field()` calls into one comma-separated `ALTER TABLE`
+statement, which is valid SQL for Postgres but not SQLite. `AddBookmarkWayback`
+now issues three separate `.update()` calls, one per column, each its own
+statement — worth remembering for any future migration that adds more than
+one column at once.
+
+### Migration gotcha this surfaced: seeding a row via the live `Model` type at migration time
+
+Adding `internetArchiveEnabled` to `SiteSettings` broke every single test
+in the suite, not just the new ones, with a bewildering "table
+`site_settings` has no column named `internet_archive_enabled`" — from
+`CreateSiteSettings`, the *original* migration, not the new one.
+`CreateSiteSettings.prepare()` had always eagerly seeded the one-row table
+by constructing a live `SiteSettings(accentTheme:)` and calling `.save()`
+on it; once that struct gained the new field (with a default), Fluent's
+model-based save serializes *every* current `@Field`, including
+`internetArchiveEnabled` — straight into a table whose schema, as built by
+that same historical migration, doesn't have that column yet (the `Add*`
+migration that adds it runs later in the list). Constructing a versioned
+app-level `Model` inside an old migration is a trap: the model always
+reflects *today's* shape, not the shape the migration itself built. Fixed
+by deleting the eager seed entirely — `SiteSettingsService.current(on:)`
+already lazily creates the row if missing, and it's called via
+`loadAndCache` right after every migration has run during `configure()`,
+so the row still always exists by the time the app finishes booting, now
+with no schema-version mismatch possible. Any future `SiteSettings` field
+addition is safe by construction.
+
+### Instance switch lives on its own admin page, not Appearance
+
+`internetArchiveEnabled` (default on) could have been one more checkbox on
+`/admin/appearance` alongside the accent theme, but that page has no
+concept of operational state — it's pure presentation config. Internet
+Archive submission has real operational state worth surfacing (how many
+bookmarks are queued, archived, failed, never submitted), so it got its
+own `/admin/internet-archive` page instead, modeled directly on
+`/admin/favicons`: the same stats-grid layout, the same bulk-action card
+row (here, "Retry failed" and "Queue all" instead of "Clear cache" and
+"Re-scan"), and the same `FlashMessage.admin` PRG-banner wiring. The
+enable/disable switch itself lives at the top of that page rather than on
+Appearance, since it's operational control over this feature, not a
+cosmetic site setting.
+
+### Auto-submit gating: instance switch AND per-user preference, evaluated at create time
+
+A bookmark auto-submits on create only when *both* the admin's
+instance-wide switch and the user's own `archiveNewBookmarks` preference
+(default on, a genuinely new per-user settings column — the first one;
+previously the only per-user "preference" was the `stash_theme` cookie,
+which isn't even a database column) are on, checked via
+`WaybackSubmitter.isInstanceEnabled(on:)` at the same call site in both
+`BookmarkController.create` and `BookmarkWebController.createBookmark`,
+right next to the existing `FaviconFetcher.enqueue` call. The manual
+"Save to Wayback Machine" button and its API/`app` route counterparts
+bypass the user's auto-submit preference by design (that's what makes
+"send this one bookmark even though auto-submit is off" and "re-submit
+with a fresh date" both possible), but still respect the instance switch —
+there's no way to submit anything when the admin has turned the feature
+off, whether through auto-submit or the manual button.
+
+### Code review follow-up: the admin bulk actions had slipped past the instance switch
+
+A review pass on the first draft caught that `retryFailedInternetArchive`
+and `queueAllInternetArchive` re-queued bookmarks and kicked the drain
+worker without ever checking `WaybackSubmitter.isInstanceEnabled(on:)` —
+every other submission path (auto-submit on create, both manual-submit
+routes) checked it, but the two bulk actions were added by mirroring the
+favicon admin page's "Clear cache"/"Re-scan" handlers, which have no such
+switch to respect, and the gate was simply never carried over. The
+practical effect: an admin could turn Internet Archive submissions off,
+then still click "Retry failed" or "Queue all" and have bookmarks actually
+submitted to the real `web.archive.org`, directly contradicting the
+disabled state and the doc comment's own claim that "the admin bulk
+actions gate on this first." Fixed by extracting both handlers into one
+`requeueInternetArchive(matching:flashKey:req:)` helper that checks the
+switch first and PRGs with `?error=internet_archive_disabled` when it's
+off — collapsing the near-duplicate handlers and closing the gap in the
+same change, so there's now exactly one place that could regress instead
+of two.
+
+The same pass found the auto-submit gate (`isInstanceEnabled &&
+archiveNewBookmarks`) duplicated verbatim between the API and web create
+handlers; that became `WaybackSubmitter.enqueueIfAllowed(_:for:on:)`, a
+single static method both call sites invoke, for the same reason: one
+place to update if the rule ever changes.
+
+Two smaller things surfaced alongside: the instance-switch toggle was
+logging its audit action as `"appearance_updated"` (copy-pasted from the
+accent-theme form it was modeled on), which would have made "who toggled
+Internet Archive" indistinguishable from "who changed the theme" in the
+audit log — renamed to its own `"internet_archive_toggled"` action. And the
+web "Save to Wayback Machine" button, when clicked while the admin had
+disabled the feature, silently redirected with no flash message at all
+(unlike its API sibling, which returns a proper `409`) — now redirects with
+`?error=internet_archive_disabled`, reusing the same `FlashMessage.appError`
+pattern the tag browser already uses for inline error banners on `/app`
+pages. Both are edge cases in practice (the button and admin bulk-action
+UI are hidden/disabled-in-spirit once the switch is off), but worth being
+correct about since the audit log and the flash-message convention are
+exactly the kind of thing other features build on.
+
+One efficiency-only cleanup from the same pass: `WaybackWorker.drain()` had
+been running a second `COUNT` query after every submission purely to decide
+whether to keep looping, when the very next loop iteration's own fetch
+already answers that (empty result = done). Dropped the extra query. The
+admin Internet Archive page's five separate `COUNT` queries (one per status
+plus an unfiltered total) had the same shape of redundancy — `WaybackStatus`
+has exactly four cases, so the total is always the sum of the other four —
+fixed by summing instead of querying a fifth time.
+
+### Production finding: the anonymous save endpoint rate-limits far more aggressively than planned for
+
+The first real deploy's "Queue all" run failed every single bookmark. Two
+things made this hard to diagnose and worth fixing regardless of the root
+cause: `submit(...)` logged nothing on failure — every non-2xx response and
+every thrown error silently became `waybackStatus = .failed` with zero
+trace of *why* — and there was no distinction between a genuine failure and
+a `429`, which is really "try again later," not "give up." Both are fixed
+now: every non-success path logs the response status or error via
+`db.logger`, and a `429` leaves the bookmark `.pending` (so the next drain
+cycle retries it automatically) instead of marking it `.failed`, with the
+worker backing off 5 minutes before its next attempt instead of the normal
+30-second pace.
+
+Testing the anonymous endpoint directly (`curl` against
+`https://web.archive.org/save/<url>`) confirmed the root cause: it returned
+`429` on the very first request, with no `Retry-After` header, and again on
+a second request roughly a minute later. This is consistent with widely
+reported behavior — Internet Archive's anonymous, unauthenticated `/save`
+capture endpoint throttles automated/non-browser traffic heavily, and
+noticeably harder for datacenter/hosting IPs than residential ones, which
+is exactly the kind of IP a self-hosted Stash instance runs from. The 30s
+pace and 5-minute 429 backoff are a best-effort mitigation, not a guarantee:
+if an instance's egress IP is persistently rate-limited or blocked by IA,
+anonymous submission may just never succeed from that IP, no matter how
+patient the queue is. The `.pending`-not-`.failed` retry-on-429 behavior at
+least means it keeps trying quietly in the background rather than needing
+a human to notice and click "Retry failed" repeatedly. If this turns out to
+be a persistent problem in practice, the documented alternative is
+Internet Archive's authenticated SPN2 API, which has much more generous
+rate limits for legitimate automated capture — a bigger change (needs
+admin-configured credentials) deliberately not built for this v1, since
+the anonymous approach was the explicit, no-config-required starting
+point.
+
+### Native apps: "View on Wayback Machine" (read-only, one field wired through)
+
+The native apps had never picked up the Wayback fields at all:
+`StashKit.BookmarkDTO` already carried `waybackStatus`/`waybackURL`/
+`waybackArchivedAt` (added when the API surface was extended), but the app's
+SwiftData persistence entity (`LocalBookmark`) and domain `Bookmark` struct
+silently dropped all three on every sync — confirmed by reading
+`LocalBookmark.init(from:userID:)`/`apply(_:)`, which read every other DTO
+field but not these. Since there's no `VersionedSchema`/`SchemaMigrationPlan`
+anywhere in the app (the SwiftData store is treated as a disposable cache,
+already wiped and fully re-synced on any container-open failure), adding a
+new optional column needed no formal migration.
+
+Scope deliberately stayed to the one field the UI needs: only `waybackURL`
+was threaded through `Bookmark` → `LocalBookmark` → `Bookmark.init?(local:)`,
+not `waybackStatus`/`waybackArchivedAt`. Nothing on mobile needs those yet
+(no "queued"/"failed" indicator, no manual-submit action was asked for);
+adding them later if a future feature needs them is a small, isolated change
+given the pattern is already established.
+
+The button reuses the exact same `@Environment(\.openURL)` action "Open in
+Browser" already used, rather than a new mechanism — which turned out to
+matter more than expected: iOS/iPadOS has an `openURL` environment override
+(`.inAppBrowser()`) that routes `http`/`https` opens through an in-app Safari
+sheet honoring the user's Reading settings (In-App vs. Default Browser,
+Reader mode). Reusing `openURL` meant "View on Wayback Machine" picked up
+that same in-app-browser routing for free, with no extra plumbing — a
+different mechanism (e.g. a raw `UIApplication.shared.open` or a second
+`Link`) would have silently bypassed it.
+
+Added to both the detail view's actions section and the row's context menu
+(per the existing convention that every action appears in both places),
+positioned right after Share… and before Archive/Unarchive in each, matching
+the equivalent ordering on the web frontend.
+
+### Smart View condition: `isWaybackArchived`
+
+A new boolean condition, `isWaybackArchived`, filters bookmarks by whether
+they've been submitted to the Internet Archive — same `{type, value}`
+discriminated-union pattern as every other Smart View condition, added
+mechanically alongside `isArchived`/`hasTags` in the one place each layer
+defines its condition set (the backend's `SmartViewCondition` enum, its web
+presenter/Leaf form, and the native app's `SmartViewConditionType` enum).
+
+The semantics needed a decision: `true` could mean "a submission was ever
+attempted" (`waybackStatus != .none`, i.e. pending/archived/failed all count)
+or "a real snapshot exists" (`waybackStatus == .archived` only). Chose the
+latter — `false` then covers `none`, `pending`, *and* `failed`, which is the
+more actionable filter in practice ("show me what still needs archiving")
+rather than a fairly useless "was this ever queued" split. This choice also
+kept the native app change smaller: it already threads `waybackURL` (non-nil
+exactly when `waybackStatus == .archived`) into its offline `Bookmark`
+model from the earlier "View on Wayback Machine" work, so
+`bookmark.waybackURL != nil` is already the correct offline-evaluation
+equivalent — no need to additionally thread the four-case `waybackStatus`
+enum through `LocalBookmark`/`Bookmark` just for this one boolean.
+
+### Production finding: a rate-limited bookmark could block the entire queue forever
+
+A real deployment surfaced `www.amazon.com` getting rate-limited (`429`)
+every 5 minutes with no end in sight. Investigating turned up a worse bug
+than "this one URL never succeeds": on a `429`, `submit(...)` never saved
+the bookmark, so Fluent's `on: .update` `updatedAt` timestamp never
+advanced. `WaybackWorker.drain()` always fetches the *oldest* `pending` row
+(`sort(\.$updatedAt).first()`), so a persistently rate-limited bookmark
+stayed the oldest forever and **starved every other bookmark queued behind
+it** — the whole queue stalled, not just the one URL.
+
+Fixed with a new `Bookmark.waybackRetryCount` column (internal bookkeeping,
+not exposed via the API/DTOs — nothing external needs it) and two changes
+to `submit(...)`:
+- Save the bookmark on *every* `429`, not just when it eventually gives up.
+  This alone fixes the starvation: bumping `updatedAt` moves the row behind
+  other pending bookmarks, so the queue naturally round-robins between all
+  of them instead of hammering the same stuck one. No changes needed to
+  `drain()`'s query or pacing — the fix is entirely in what gets persisted.
+- Cap consecutive rate-limited attempts at 3 (~15 minutes at the existing
+  5-minute backoff): past the cap, give up and fall back to the existing
+  `.failed` state rather than retrying forever, exactly like any other
+  submission error — retryable later via the admin "Retry failed"/"Queue
+  all" actions or a manual per-bookmark resubmit, never automatically
+  again. `waybackRetryCount` resets to `0` on every terminal transition
+  (`archived`, or `failed` via either path) so a fresh manual retry always
+  starts the counter clean rather than inheriting a stale count.
+
+### Follow-up: queue-status visibility, and the switch not stopping in-flight work
+
+Adding a queue-status line to `/admin/internet-archive` (idle, paused with
+a pending count, submitting a URL, running, or rate-limited-and-retrying)
+surfaced a related gap: toggling `internetArchiveEnabled` off never stopped
+a drain loop already running. `WaybackWorker.drain()`'s loop had no check
+of its own — it only relied on `enqueueIfAllowed`/the manual-submit routes
+refusing *new* work, so anything already `.pending` when the switch flipped
+kept getting submitted for real. That silently contradicted the documented
+"when off, submission is unavailable everywhere, instance-wide" — the
+status display would otherwise have had to describe an inconsistent state
+("Disabled" while a submission was still in flight).
+
+Fixed by checking `WaybackSubmitter.isInstanceEnabled(on:)` at the top of
+every `drain()` iteration, not just at entry, so disabling mid-run stops
+the loop before its next fetch/submit and leaves any remaining `.pending`
+rows untouched. Also added a `QueueState` enum (`idle`, `submitting(url:)`,
+`waitingNormalPace`, `waitingAfterRateLimit(url:attempt:maxAttempts:)`)
+recorded on the actor at each phase transition, exposed via a
+`currentState()` getter, and a manual "Resume queue now" button
+(`POST /admin/internet-archive/resume`) that just calls the existing
+idempotent `kick()` — safe to press whether or not the worker is already
+running.

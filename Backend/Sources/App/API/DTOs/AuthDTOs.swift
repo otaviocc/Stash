@@ -143,6 +143,7 @@ struct UserResponse: Content {
     let isActive: Bool
     let isTOTPEnabled: Bool
     let bookmarkCount: Int
+    let archiveNewBookmarks: Bool
     let createdAt: Date
 }
 

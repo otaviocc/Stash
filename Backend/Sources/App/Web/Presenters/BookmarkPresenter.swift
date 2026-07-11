@@ -16,6 +16,8 @@ enum BookmarkPresenter {
             faviconDomain: DomainExtractor.domain(from: bookmark.url),
             tags: bookmark.tags.map { TagLink(name: $0, display: TagPresenter.display($0)) },
             isArchived: bookmark.isArchived,
+            waybackURL: bookmark.waybackURL,
+            waybackStatus: bookmark.waybackStatus.rawValue,
             createdAt: DateFormatter.webDateTime.string(from: bookmark.createdAt ?? Date())
         )
     }
@@ -32,10 +34,18 @@ enum BookmarkPresenter {
         var components = URLComponents()
         components.path = "/app"
         var items: [URLQueryItem] = []
-        if let q = query.q?.nonEmpty { items.append(.init(name: "q", value: q)) }
-        if let tag = query.tag?.nonEmpty { items.append(.init(name: "tag", value: tag)) }
-        if archived { items.append(.init(name: "archived", value: "true")) }
-        if page > 1 { items.append(.init(name: "page", value: String(page))) }
+        if let q = query.q?.nonEmpty {
+            items.append(.init(name: "q", value: q))
+        }
+        if let tag = query.tag?.nonEmpty {
+            items.append(.init(name: "tag", value: tag))
+        }
+        if archived {
+            items.append(.init(name: "archived", value: "true"))
+        }
+        if page > 1 {
+            items.append(.init(name: "page", value: String(page)))
+        }
         components.queryItems = items.isEmpty ? nil : items
         return components.string ?? "/app"
     }

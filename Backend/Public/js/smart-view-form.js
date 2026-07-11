@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var text = row.querySelector('.cond-value-text');
         var bool = row.querySelector('.cond-value-bool');
         var duration = row.querySelector('.cond-value-duration');
-        var isBool = (type === 'isArchived' || type === 'hasTags');
+        var isBool = (type === 'isArchived' || type === 'hasTags' || type === 'isWaybackArchived');
         var isDuration = (type === 'olderThan' || type === 'newerThan');
         bool.disabled = !isBool; bool.style.display = isBool ? '' : 'none';
         duration.style.display = isDuration ? '' : 'none';

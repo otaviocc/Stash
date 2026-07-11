@@ -71,6 +71,7 @@ struct BookmarkController: RouteCollection {
             bookmark.get(use: get)
             bookmark.put(use: update)
             bookmark.delete(use: delete)
+            bookmark.post("wayback", use: submitToWayback)
         }
     }
 
@@ -207,6 +208,7 @@ struct BookmarkController: RouteCollection {
         try await user.save(on: req.db)
 
         FaviconFetcher.enqueue(forURL: url, declaredIconURL: declaredIcon, on: req.application)
+        await WaybackSubmitter.enqueueIfAllowed(bookmark, for: user, on: req.application)
 
         let response = Response(status: .created)
         try response.content.encode(bookmark.asResponse())
@@ -215,6 +217,23 @@ struct BookmarkController: RouteCollection {
 
     func get(req: Request) async throws -> BookmarkResponse {
         try await requireBookmark(req).asResponse()
+    }
+
+    /// Submits (or re-submits, with a fresh date) a bookmark to the Wayback Machine, regardless of
+    /// the user's `archiveNewBookmarks` auto-submit preference. Refused with `409` when the admin has
+    /// turned the feature off instance-wide (PRD §9.7 admin toggle).
+    func submitToWayback(req: Request) async throws -> Response {
+        guard WaybackSubmitter.isInstanceEnabled(on: req.application) else {
+            throw APIError.custom(
+                status: .conflict,
+                code: "internet_archive_disabled",
+                message: "Internet Archive submissions are disabled on this instance."
+            )
+        }
+
+        let bookmark = try await requireBookmark(req)
+        await WaybackSubmitter.enqueue(bookmark, on: req.application)
+        return Response(status: .accepted)
     }
 
     func update(req: Request) async throws -> BookmarkResponse {
@@ -233,10 +252,18 @@ struct BookmarkController: RouteCollection {
                 bookmark.url = url
             }
         }
-        if let title = input.title { bookmark.title = title }
-        if let description = input.description { bookmark.description = description }
-        if let tags = input.tags { bookmark.applyTags(Bookmark.normalizeTags(tags)) }
-        if let isArchived = input.isArchived { bookmark.isArchived = isArchived }
+        if let title = input.title {
+            bookmark.title = title
+        }
+        if let description = input.description {
+            bookmark.description = description
+        }
+        if let tags = input.tags {
+            bookmark.applyTags(Bookmark.normalizeTags(tags))
+        }
+        if let isArchived = input.isArchived {
+            bookmark.isArchived = isArchived
+        }
 
         try await bookmark.save(on: req.db)
         return try bookmark.asResponse()

@@ -35,6 +35,7 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `DELETE` | `/bookmarks/:id` | access token | Delete (204) |
 | `GET`  | `/bookmarks/changes` | access token | Offline sync: `Page<Bookmark>` changed since `?since=` (archived included); `?page=&per=` (`per` 1-500, default 100); all if omitted |
 | `GET`  | `/bookmarks/deleted` | access token | Offline sync: `[{id, deletedAt}]` tombstones for deletions since `?since=`; all if omitted |
+| `POST` | `/bookmarks/:id/wayback` | access token | Submit (or re-submit) to the Internet Archive (202); 409 `internet_archive_disabled` if the admin has turned it off |
 | `GET`  | `/tags` | access token | Distinct tags with counts |
 | `POST` | `/tags/rename` | access token | Rename a tag (and its children); 422 if `from`/`to` empty |
 | `DELETE` | `/tags/:tag` | access token | Delete a tag (and its children); 422 if empty; idempotent |
@@ -81,6 +82,10 @@ separate from the API.
 | `GET`  | `/admin/favicons` | Favicon cache stats (total/cached/pending/failed, total bytes) + clear/re-scan actions |
 | `POST` | `/admin/favicons/clear` | Delete every cached favicon. Does **not** regenerate automatically — only via re-scan, a new bookmark for that domain, or that bookmark's own "Refresh favicon" button |
 | `POST` | `/admin/favicons/rescan` | Re-fetch every known domain's favicon in the background, one domain at a time |
+| `GET`  | `/admin/internet-archive` | Internet Archive submission stats (total/archived/pending/failed/not-submitted) + enable toggle + bulk actions |
+| `POST` | `/admin/internet-archive/toggle` | Enable/disable Internet Archive submissions instance-wide (PRG → `?ok=ia_saved`) |
+| `POST` | `/admin/internet-archive/retry-failed` | Re-queue every `failed` bookmark (PRG → `?ok=ia_retrying`); refused with `?error=internet_archive_disabled` if the switch is off |
+| `POST` | `/admin/internet-archive/queue-all` | Submit every not-yet-submitted or failed bookmark (PRG → `?ok=ia_queued`); refused with `?error=internet_archive_disabled` if the switch is off |
 | `GET`  | `/admin/audit` | Audit log viewer: most recent 50 auth/admin-action rows |
 | `GET`  | `/admin/sessions` | Active sessions viewer (admin dashboard + app frontend) |
 | `POST` | `/admin/sessions/revoke-all` | Revoke every live session (PRG → `?ok=sessions-revoked-all`) |
@@ -104,6 +109,7 @@ the API and the admin dashboard.
 | `POST` | `/app/bookmarks/:id` | Update (title, description, tags, archived) |
 | `POST` | `/app/bookmarks/:id/delete` · `/archive` · `/unarchive` | Actions |
 | `POST` | `/app/bookmarks/:id/refresh-favicon` | Re-fetch the domain's cached favicon (PRG → `?ok=favicon_refreshing`) |
+| `POST` | `/app/bookmarks/:id/save-to-wayback` | Submit (or re-submit) to the Internet Archive (PRG → `?ok=wayback_started`); refused with `?error=internet_archive_disabled` if the admin has disabled it instance-wide |
 | `GET`  | `/app/tags` | Tag browser table (counts, links to `/app?tag=…`, inline rename, confirm-dialog delete) |
 | `POST` | `/app/tags/rename` | Rename a tag (PRG → `?ok=renamed` banner) |
 | `POST` | `/app/tags/delete` | Delete a tag and its children (PRG → `?ok=deleted` banner) |
@@ -114,6 +120,7 @@ the API and the admin dashboard.
 | `POST` | `/app/smart-views/:id/delete` | Delete a Smart View (PRG → `?ok=deleted` banner) |
 | `GET`  | `/app/settings` | Settings |
 | `POST` | `/app/settings/password` | Change own password |
+| `POST` | `/app/settings/archive-pref` | Set "send new bookmarks to the Internet Archive" (PRG → `?ok=archive_pref`) |
 | `GET`  | `/app/settings/totp` · `POST /verify` · `POST /disable` | 2FA enrollment / disable (requires a current code) |
 | `POST` | `/app/import` | Import bookmarks from an uploaded file (multipart; format selector) |
 | `GET`  | `/app/export?format=…` | Download all bookmarks as a file (attachment) |

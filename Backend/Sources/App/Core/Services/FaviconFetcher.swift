@@ -36,7 +36,9 @@ enum FaviconFetcher {
         let host = domain.split(separator: ":", maxSplits: 1).first.map(String.init) ?? domain
 
         var candidates: [String] = []
-        if let declaredIconURL, !declaredIconURL.isEmpty { candidates.append(declaredIconURL) }
+        if let declaredIconURL, !declaredIconURL.isEmpty {
+            candidates.append(declaredIconURL)
+        }
         candidates.append("\(originURL ?? "https://\(domain)")/favicon.ico")
         candidates.append("\(googleServicePrefix)\(host)")
 
@@ -165,7 +167,7 @@ enum FaviconFetcher {
     ) async -> (data: Data, contentType: String)? {
         do {
             var headers = HTTPHeaders()
-            headers.add(name: .userAgent, value: "StashBot/1.0 (+https://github.com/otaviocc/stash)")
+            headers.add(name: .userAgent, value: StashUserAgent.value)
 
             let response = try await client.get(URI(string: urlString), headers: headers)
 

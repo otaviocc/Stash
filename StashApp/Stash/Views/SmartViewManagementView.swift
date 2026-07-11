@@ -49,7 +49,11 @@ struct SmartViewManagementView: View {
             "Delete this Smart View?",
             isPresented: Binding(
                 get: { pendingDelete != nil },
-                set: { if !$0 { pendingDelete = nil } }
+                set: {
+                    if !$0 {
+                        pendingDelete = nil
+                    }
+                }
             ),
             titleVisibility: .visible,
             presenting: pendingDelete
@@ -66,7 +70,11 @@ struct SmartViewManagementView: View {
             "Error",
             isPresented: Binding(
                 get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
+                set: {
+                    if !$0 {
+                        errorMessage = nil
+                    }
+                }
             )
         ) {
             Button("OK", role: .cancel) {}

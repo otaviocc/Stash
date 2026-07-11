@@ -82,7 +82,13 @@ final class SmartView: Model, Content, @unchecked Sendable {
     }
 
     func applyConditions(to builder: QueryBuilder<Bookmark>, archivedDefault: Bool = false) {
-        let overridesArchived = conditions.contains { if case .isArchived = $0 { true } else { false } }
+        let overridesArchived = conditions.contains {
+            if case .isArchived = $0 {
+                true
+            } else {
+                false
+            }
+        }
         if !overridesArchived {
             builder.filter(\.$isArchived == archivedDefault)
         }
@@ -128,6 +134,7 @@ enum SmartViewCondition: Codable, Equatable {
     case newerThan(String)
     case isArchived(Bool)
     case hasTags(Bool)
+    case isWaybackArchived(Bool)
 
     // MARK: Nested Types
 
@@ -159,6 +166,7 @@ enum SmartViewCondition: Codable, Equatable {
         case .newerThan: "newerThan"
         case .isArchived: "isArchived"
         case .hasTags: "hasTags"
+        case .isWaybackArchived: "isWaybackArchived"
         }
     }
 
@@ -169,7 +177,7 @@ enum SmartViewCondition: Codable, Equatable {
             value
         case let .createdBefore(date), let .createdAfter(date):
             Self.iso8601.string(from: date)
-        case let .isArchived(value), let .hasTags(value):
+        case let .isArchived(value), let .hasTags(value), let .isWaybackArchived(value):
             value ? "true" : "false"
         }
     }
@@ -242,6 +250,12 @@ enum SmartViewCondition: Codable, Equatable {
             case "false": return .hasTags(false)
             default: throw APIError.validationFailed("The hasTags value must be 'true' or 'false'.")
             }
+        case "isWaybackArchived":
+            switch trimmed.lowercased() {
+            case "true": return .isWaybackArchived(true)
+            case "false": return .isWaybackArchived(false)
+            default: throw APIError.validationFailed("The isWaybackArchived value must be 'true' or 'false'.")
+            }
         default:
             throw APIError.validationFailed("'\(type)' is not a valid condition type.")
         }
@@ -287,6 +301,12 @@ enum SmartViewCondition: Codable, Equatable {
             builder.filter(\.$isArchived == value)
         case let .hasTags(value):
             builder.filter(value ? \.$tagsSearch != "" : \.$tagsSearch == "")
+        case let .isWaybackArchived(value):
+            if value {
+                builder.filter(\.$waybackStatus == .archived)
+            } else {
+                builder.filter(\.$waybackStatus != .archived)
+            }
         }
     }
 }

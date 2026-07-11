@@ -61,28 +61,26 @@ struct SyncStatusRows: View {
     // MARK: Content
 
     var body: some View {
-        Group {
-            LabeledContent("Last synced") {
-                makeLastSyncedValue()
-            }
-            .task {
-                environment.syncEngine.refreshPendingCount()
-            }
-
-            if environment.syncEngine.pendingCount > 0 {
-                LabeledContent("Pending changes", value: pendingChangesText)
-            }
-
-            if environment.syncEngine.failedCount > 0 {
-                makeFailedRow()
-            }
-
-            if environment.syncEngine.lastSyncError != nil {
-                makeErrorNotice()
-            }
-
-            makeSyncButton()
+        LabeledContent("Last synced") {
+            makeLastSyncedValue()
         }
+        .task {
+            environment.syncEngine.refreshPendingCount()
+        }
+
+        if environment.syncEngine.pendingCount > 0 {
+            LabeledContent("Pending changes", value: pendingChangesText)
+        }
+
+        if environment.syncEngine.failedCount > 0 {
+            makeFailedRow()
+        }
+
+        if environment.syncEngine.lastSyncError != nil {
+            makeErrorNotice()
+        }
+
+        makeSyncButton()
     }
 
     // MARK: Content Methods

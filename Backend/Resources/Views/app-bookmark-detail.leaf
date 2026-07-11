@@ -4,6 +4,9 @@
     #if(message):
     <p class="banner ok">#(message)</p>
     #endif
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
 
     <h1 class="detail-title">#if(bookmark.faviconDomain):<img src="/api/v1/favicons/#(bookmark.faviconDomain)" alt="" class="favicon favicon-lg" onerror="this.style.display='none'">#endif#(bookmark.title)</h1>
 
@@ -27,6 +30,14 @@
         #if(bookmark.faviconDomain):
         <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/refresh-favicon">
             <button type="submit" class="secondary">Refresh favicon</button>
+        </form>
+        #endif
+        #if(chrome.internetArchiveEnabled):
+        #if(bookmark.waybackURL):
+        <a href="#(bookmark.waybackURL)" target="_blank" rel="noopener"><button type="button" class="secondary">View on Wayback Machine</button></a>
+        #endif
+        <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/save-to-wayback">
+            <button type="submit" class="secondary">Save to Wayback Machine</button>
         </form>
         #endif
         #if(bookmark.isArchived):

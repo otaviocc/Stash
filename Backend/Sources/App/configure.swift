@@ -54,6 +54,10 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateFaviconCache())
     app.migrations.add(CreateDeletedBookmarks())
     app.migrations.add(CreateAuditLog())
+    app.migrations.add(AddBookmarkWayback())
+    app.migrations.add(AddSiteSettingsInternetArchive())
+    app.migrations.add(AddUserArchiveNewBookmarks())
+    app.migrations.add(AddBookmarkWaybackRetryCount())
 
     // MARK: Version
 
@@ -96,6 +100,10 @@ public func configure(_ app: Application) async throws {
     // MARK: Site settings cache
 
     try await SiteSettingsService.loadAndCache(on: app)
+
+    // MARK: Internet Archive submission queue
+
+    await WaybackSubmitter.bootstrap(on: app)
 
     // MARK: First-boot admin seeding
 

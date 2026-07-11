@@ -19,6 +19,16 @@ enum FlashMessage {
         case "totp_disabled": "Two-factor authentication disabled."
         case "theme": "Appearance updated."
         case "favicon_refreshing": "Favicon refresh started — it may take a moment to update."
+        case "archive_pref": "Preference saved."
+        case "wayback_started": "Sending to the Wayback Machine — it may take a moment to update."
+        default: nil
+        }
+    }
+
+    /// Error banners for the user-facing frontend (`/app?...&error=`).
+    static func appError(for error: String?) -> String? {
+        switch error {
+        case "internet_archive_disabled": "Internet Archive submissions are disabled instance-wide."
         default: nil
         }
     }
@@ -44,6 +54,10 @@ enum FlashMessage {
         case "favicons_rescanning": "Re-scan started; this runs in the background and may take a while."
         case "sessions-revoked-all": "All sessions revoked. Everyone will need to sign in again."
         case "sessions-revoked-user": "Sessions revoked; the user will need to sign in again."
+        case "ia_saved": "Internet Archive setting saved."
+        case "ia_retrying": "Retrying failed submissions; this runs in the background."
+        case "ia_queued": "Queued every bookmark for submission; this runs in the background and may take a while."
+        case "ia_resumed": "Queue nudged — it will pick up any queued bookmarks shortly."
         default: nil
         }
     }
@@ -53,6 +67,7 @@ enum FlashMessage {
         switch error {
         case "unsupported_driver": "Could not access the database for maintenance (unsupported driver)."
         case "vacuum_failed": "Database optimize failed. Check the server logs for details."
+        case "internet_archive_disabled": "Internet Archive submissions are disabled instance-wide. Enable them above first."
         default: nil
         }
     }

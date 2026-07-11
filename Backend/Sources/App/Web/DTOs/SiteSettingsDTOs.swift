@@ -25,6 +25,7 @@ struct SiteChrome: Content {
     let aboutText: String?
     let accentLight: String
     let accentDark: String
+    let internetArchiveEnabled: Bool
 }
 
 // MARK: - ThemeOption

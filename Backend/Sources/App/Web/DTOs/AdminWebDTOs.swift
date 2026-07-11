@@ -209,6 +209,34 @@ struct FaviconAdminContext: Content {
     let chrome: SiteChrome
 }
 
+// MARK: - InternetArchiveAdminContext
+
+/// View context for the admin Internet Archive (Wayback Machine) management page.
+struct InternetArchiveAdminContext: Content {
+
+    let title: String
+    let adminUsername: String
+    let internetArchiveEnabled: Bool
+    let queueStatus: String
+    let totalCount: Int
+    let archivedCount: Int
+    let pendingCount: Int
+    let failedCount: Int
+    let notSubmittedCount: Int
+    let message: String?
+    let error: String?
+    let chrome: SiteChrome
+}
+
+// MARK: - InternetArchiveToggleForm
+
+/// `POST /admin/internet-archive/toggle` form. An unchecked HTML checkbox sends nothing, so this
+/// decodes as an optional and is coalesced to `false`.
+struct InternetArchiveToggleForm: Content {
+
+    let enabled: Bool?
+}
+
 // MARK: - LogEntryRow
 
 /// A single log line rendered on the `/admin/logs` page.

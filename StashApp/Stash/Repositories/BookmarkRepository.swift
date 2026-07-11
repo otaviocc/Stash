@@ -188,7 +188,9 @@ final class BookmarkRepository: BookmarkCreating {
             throw AppError.unexpectedResponse
         }
 
-        if let title { record.title = title }
+        if let title {
+            record.title = title
+        }
 
         record.bookmarkDescription = description
         record.tags = tags

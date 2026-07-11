@@ -21,9 +21,13 @@ enum SmartViewPresenter {
         var components = URLComponents()
         components.path = "/app/smart-views/\(id)"
         var items: [URLQueryItem] = []
-        if archived { items.append(.init(name: "archived", value: "true")) }
+        if archived {
+            items.append(.init(name: "archived", value: "true"))
+        }
 
-        if page > 1 { items.append(.init(name: "page", value: String(page))) }
+        if page > 1 {
+            items.append(.init(name: "page", value: String(page)))
+        }
 
         components.queryItems = items.isEmpty ? nil : items
         return components.string ?? "/app/smart-views/\(id)"
@@ -48,6 +52,7 @@ enum SmartViewPresenter {
         case let .newerThan(value): "Newer than \(durationPhrase(value))"
         case let .isArchived(value): "Archived: \(value ? "Yes" : "No")"
         case let .hasTags(value): "Has tags: \(value ? "Yes" : "No")"
+        case let .isWaybackArchived(value): "Wayback archived: \(value ? "Yes" : "No")"
         }
     }
 
@@ -117,7 +122,7 @@ enum SmartViewPresenter {
     }
 
     static func field(type: String, rawValue: String) -> SmartViewConditionField {
-        let isBool = type == "isArchived" || type == "hasTags"
+        let isBool = type == "isArchived" || type == "hasTags" || type == "isWaybackArchived"
         let isDate = type == "createdBefore" || type == "createdAfter"
         let isDuration = type == "olderThan" || type == "newerThan"
         let boolValue = (isBool && rawValue.lowercased() == "false") ? "false" : "true"

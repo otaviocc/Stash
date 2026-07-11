@@ -91,6 +91,15 @@ struct ThemeForm: Content {
     let theme: String
 }
 
+// MARK: - ArchivePrefForm
+
+/// `POST /app/settings/archive-pref` form. An unchecked HTML checkbox sends nothing, so this
+/// decodes as an optional and is coalesced to `false`.
+struct ArchivePrefForm: Content {
+
+    let enabled: Bool?
+}
+
 // MARK: - TagLink
 
 /// A tag rendered both as it is stored (`swift/vapor`) and for display (`swift › vapor`).
@@ -129,6 +138,8 @@ struct AppBookmarkRow: Content {
     let faviconDomain: String?
     let tags: [TagLink]
     let isArchived: Bool
+    let waybackURL: String?
+    let waybackStatus: String
     let createdAt: String
 }
 
@@ -214,6 +225,7 @@ struct AppBookmarkDetailContext: Content {
     let appIsAdmin: Bool
     let bookmark: AppBookmarkRow
     let message: String?
+    let error: String?
     let chrome: SiteChrome
 }
 
@@ -324,6 +336,7 @@ struct AppSettingsContext: Content {
     let importError: String?
     let importSummary: ImportSummaryContext?
     let theme: String
+    let archiveNewBookmarks: Bool
     let chrome: SiteChrome
 }
 

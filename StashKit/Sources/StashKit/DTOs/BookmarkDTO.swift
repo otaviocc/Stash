@@ -3,6 +3,18 @@
 
 import Foundation
 
+// MARK: - WaybackStatusDTO
+
+/// The lifecycle of a bookmark's Internet Archive (Wayback Machine) submission. Unrelated to
+/// `BookmarkDTO.isArchived`, which is Stash's own archive/inbox flag.
+public enum WaybackStatusDTO: String, Codable, Sendable {
+
+    case none
+    case pending
+    case archived
+    case failed
+}
+
 // MARK: - BookmarkDTO
 
 /// A saved bookmark as returned by the API.
@@ -15,6 +27,9 @@ public struct BookmarkDTO: Codable, Identifiable, Sendable {
     public let faviconURL: URL?
     public let tags: [String]
     public let isArchived: Bool
+    public let waybackStatus: WaybackStatusDTO
+    public let waybackURL: URL?
+    public let waybackArchivedAt: Date?
     public let createdAt: Date
     public let updatedAt: Date
 }

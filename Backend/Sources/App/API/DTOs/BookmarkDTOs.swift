@@ -74,6 +74,9 @@ struct BookmarkResponse: Content {
     let faviconURL: String?
     let tags: [String]
     let isArchived: Bool
+    let waybackStatus: String
+    let waybackURL: String?
+    let waybackArchivedAt: Date?
     let createdAt: Date
     let updatedAt: Date
 }

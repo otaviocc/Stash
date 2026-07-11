@@ -33,7 +33,9 @@ struct TOTP {
             let stepped = counter + Int64(delta)
             guard stepped >= 0 else { continue }
 
-            if code(forCounter: UInt64(stepped)) == trimmed { return true }
+            if code(forCounter: UInt64(stepped)) == trimmed {
+                return true
+            }
         }
         return false
     }

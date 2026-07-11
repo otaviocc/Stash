@@ -55,7 +55,9 @@ enum ClientMetadataFetcher {
         guard let scheme = baseURL.scheme, let host = baseURL.host else { return nil }
 
         var origin = "\(scheme)://\(host)"
-        if let port = baseURL.port { origin += ":\(port)" }
+        if let port = baseURL.port {
+            origin += ":\(port)"
+        }
         return URL(string: origin + "/favicon.ico")
     }
 

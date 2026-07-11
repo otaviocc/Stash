@@ -58,6 +58,17 @@ public enum BookmarkRequestFactory {
         )
     }
 
+    /// Submits (or re-submits, with a fresh date) a bookmark to the Internet Archive. Works
+    /// regardless of the user's `archiveNewBookmarks` auto-submit preference.
+    public static func makeWaybackSubmitRequest(
+        id: UUID
+    ) -> NetworkRequest<VoidRequest, VoidResponse> {
+        .init(
+            path: "/api/v1/bookmarks/\(id.uuidString)/wayback",
+            method: .post
+        )
+    }
+
     /// Requests bookmarks (archived included) updated after `since`, for offline sync, using keyset
     /// pagination. The first page passes `afterUpdatedAt`/`afterId` as `nil`; each subsequent page
     /// echoes the previous response's `nextAfterUpdatedAt`/`nextAfterId`. Omitting `since` returns

@@ -136,6 +136,7 @@ StashKit (Swift Package) — ✅ Complete (M6)
 | `role` | Enum | `admin` or `user` |
 | `isActive` | Bool | False = suspended, cannot log in |
 | `bookmarkCount` | Int | Denormalized; updated on bookmark create/delete |
+| `archiveNewBookmarks` | Bool | Default true. Auto-submit new bookmarks to the Internet Archive; see §7.2. |
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
@@ -151,12 +152,34 @@ StashKit (Swift Package) — ✅ Complete (M6)
 | `faviconURL` | String? | Auto-fetched |
 | `tags` | [String] | Flat or hierarchical (e.g. `swift/vapor`). JSON column. |
 | `tagsSearch` | String | Derived: `\|swift\|swift/vapor\|` for portable LIKE queries |
-| `isArchived` | Bool | Default false |
+| `isArchived` | Bool | Default false. Stash's own archive/inbox flag, unrelated to `waybackStatus` below. |
+| `waybackStatus` | Enum | `none` (default), `pending`, `archived`, or `failed`. Internet Archive (Wayback Machine) submission state. |
+| `waybackURL` | String? | The captured snapshot's URL, set once `waybackStatus` is `archived` |
+| `waybackArchivedAt` | Date? | When the snapshot was last captured |
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
 **Duplicate URL constraint:** unique index on `(userID, url)`. API returns HTTP
 409 Conflict if a duplicate is attempted.
+
+**Internet Archive submission.** A bookmark can be submitted to the Wayback
+Machine (`web.archive.org`), anonymously (no API credentials), through a
+persisted, single-serial background queue: a bookmark is enqueued by flipping
+`waybackStatus` to `pending`, and a queue worker submits one at a time (30s
+pace), setting `archived` + `waybackURL` on success or `failed` on a genuine
+error. A `429` (the anonymous endpoint's rate limit; observed in practice to
+be common from server/datacenter IPs) is treated as transient rather than
+terminal: the bookmark stays `pending` and is retried automatically after a
+longer backoff, rather than requiring a manual "Retry failed" — up to 3
+consecutive rate-limited attempts, after which the bookmark gives up and
+falls back to `failed` like any other error, so one persistently
+rate-limited bookmark can't block every other bookmark queued behind it
+forever. Auto-submission
+on save requires both the admin's instance-wide switch (`/admin/internet-archive`,
+§7.6, default on) and the user's own preference (`archiveNewBookmarks`, §7.1,
+default on) to be enabled; a manual "Save to Wayback Machine" submission (or
+re-submission, capturing a fresh snapshot) bypasses the user preference but
+still requires the instance switch to be on. See §9.3 and §12.
 
 ### 7.3 Refresh Token
 
@@ -212,6 +235,7 @@ page renders never hit the database.
 | `aboutText` | String? | Optional. Short message shown in the footer. Max 280 chars. |
 | `footerCustomLabel` | String? | Display label for the admin's custom footer link. |
 | `footerCustomURL` | String? | URL for the custom footer link. Must be `https://`. |
+| `internetArchiveEnabled` | Bool | Default true. Instance-wide switch for Internet Archive submission; see §7.2 and §12. |
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
@@ -268,6 +292,7 @@ Each condition is a `{ type, value }` object (all values strings; dates ISO-8601
 | `newerThan` | `createdAt` is within the last N days/months/years (relative to now) |
 | `isArchived` | `isArchived` equals `true`/`false` |
 | `hasTags` | `tagsSearch` is non-empty (`true`) or empty (`false`); i.e. the bookmark has any tags |
+| `isWaybackArchived` | `waybackStatus` equals `archived` (`true`), or anything else — `none`/`pending`/`failed` (`false`); i.e. whether the bookmark has a captured Internet Archive snapshot |
 
 Text conditions use the same portable `lower(column) LIKE lower('%value%')` helper
 as full-text search. Multiple conditions of the same type are allowed (with
@@ -470,6 +495,7 @@ All API routes prefixed `/api/v1/`. Health check at `/health` (unversioned).
 | `DELETE` | `/api/v1/bookmarks/:id` | Delete bookmark |
 | `GET` | `/api/v1/bookmarks/changes` | Bookmarks changed since a timestamp (offline sync) |
 | `GET` | `/api/v1/bookmarks/deleted` | Tombstones for deleted bookmarks (offline sync) |
+| `POST` | `/api/v1/bookmarks/:id/wayback` | Submit (or re-submit) to the Internet Archive; `202` on success, `409` if disabled instance-wide |
 
 **`GET /api/v1/bookmarks` query parameters:**
 
@@ -761,6 +787,7 @@ container restart.
 | Health | `/admin/health` |
 | Maintenance | `/admin/maintenance` |
 | Favicon Cache | `/admin/favicons` |
+| Internet Archive | `/admin/internet-archive` |
 | Audit Log | `/admin/audit` |
 | Active Sessions | `/admin/sessions` |
 | System Logs | `/admin/logs` |
@@ -810,6 +837,30 @@ container restart.
   A cleared favicon does **not** silently regenerate just by viewing a
   bookmark; it comes back via re-scan, a new bookmark saved for that domain,
   or that bookmark's own "Refresh favicon" button.
+- The Internet Archive page (`GET /admin/internet-archive`) shows Wayback
+  Machine submission stats across every bookmark on the instance (total,
+  archived, queued/pending, failed, not-yet-submitted counts), an on/off
+  switch for `SiteSettings.internetArchiveEnabled` (default on; `POST
+  .../toggle`), and two bulk actions: "Retry failed" (`POST
+  .../retry-failed`, re-queues every `failed` bookmark) and "Queue all"
+  (`POST .../queue-all`, submits every not-yet-submitted or failed
+  bookmark; `confirm()` dialog since it can touch the whole library).
+  Submissions always run through the same serial background queue, one at
+  a time, to respect the Internet Archive's rate limits. When the switch is
+  off, no bookmark can be submitted anywhere in Stash: auto-submit, the
+  detail-page button, the API, and both bulk actions all refuse (the bulk
+  actions PRG with a `?error=internet_archive_disabled` banner rather than
+  silently re-queueing), and the "View"/"Save to Wayback Machine" buttons
+  don't appear on the bookmark detail page (§13). Toggling the switch is
+  audited as its own distinct action (`internet_archive_toggled`), not
+  folded into the accent-theme/appearance audit action. The page also shows
+  a live queue-status line (idle/nothing queued, paused with a pending
+  count, submitting a specific URL, running at the normal pace, or
+  rate-limited and retrying with an attempt count) plus a "Resume queue
+  now" button that nudges the background worker (a safe no-op if it's
+  already running); toggling the switch off stops the drain loop
+  immediately — mid-flight, not just for future submissions — leaving any
+  still-`pending` bookmarks untouched until re-enabled or manually resumed.
 - The Audit Log page (`GET /admin/audit`) shows the most recent 50 rows of
   the audit trail (§7.9): auth events and admin user-management actions, most
   recent first. No pagination, filtering, or export in v1.
@@ -889,6 +940,25 @@ a dead end for them).
   `POST /api/v1/favicons/:domain/refresh`). PRG redirects back with a
   `?ok=favicon_refreshing` banner ("Favicon refresh started. It may take a
   moment to update.").
+
+### Internet Archive
+
+- Only shown when the admin has Internet Archive submissions enabled
+  instance-wide (§12); hidden everywhere (this button, the settings toggle
+  below) when the admin has turned it off.
+- The bookmark detail page (`/app/bookmarks/:id`) carries a "View on Wayback
+  Machine" link, shown only once `waybackURL` is set (i.e. `waybackStatus ==
+  archived`), pointing directly at the captured snapshot, and a "Save to
+  Wayback Machine" button that always submits (or re-submits, capturing a
+  fresh snapshot with the current date) regardless of the user's own
+  auto-submit preference. The button POSTs to
+  `/app/bookmarks/:id/save-to-wayback` and PRG redirects back with a
+  `?ok=wayback_started` banner, or `?error=internet_archive_disabled` if the
+  admin turned the instance switch off between page load and submit (the
+  button itself is hidden on a fresh page load in that case, so this is a
+  stale-page/direct-request edge case, not something normal navigation hits).
+- New bookmarks auto-submit at save time only when both the instance switch
+  and the user's own preference (Settings, below) are on.
 
 ### Tag Sidebar
 
@@ -971,6 +1041,14 @@ sets `stash_theme` cookie (1 year, path `/`, HTTPOnly=false, SameSite=Lax).
 **Two-Factor Authentication:** enroll (QR via `otpauthURI` + manual key), disable
 (requires current TOTP code; recovery codes shown once with "I've saved these"
 confirmation).
+
+**Internet Archive:** a checkbox, "Send new bookmarks to the Internet Archive"
+(`archiveNewBookmarks`, default on), only shown when the admin has Internet
+Archive submissions enabled instance-wide (§12). `POST
+/app/settings/archive-pref` saves it and PRG redirects with `?ok=archive_pref`.
+Turning this off doesn't affect existing submissions or remove the per-bookmark
+"Save to Wayback Machine" button on the detail page (§13, Internet Archive) —
+it only controls whether *new* bookmarks auto-submit at save time.
 
 **Import & Export:**
 - Import: file upload, format selector (Anybox JSON, Stash JSON), summary banner
@@ -1195,7 +1273,12 @@ condition field.
 
 Each bookmark row carries a context menu (and the detail view an actions
 section) with a native **Share…** (`ShareLink(item: bookmark.url)`, sharing the
-URL) placed after the Copy actions and before Archive.
+URL) placed after the Copy actions and before Archive, and a **View on Wayback
+Machine** action right after Share…, shown only when the bookmark has a
+captured Internet Archive snapshot (`waybackURL` non-nil). It opens via the
+same `openURL` environment action as "Open in Browser" (§7.2, §12), so it
+automatically picks up the in-app-browser/Reader-mode routing described below
+with no extra plumbing.
 
 Context-aware empty states: `ContentUnavailableView.search` for active query,
 tag-specific, archived-specific, first-run.
@@ -1256,10 +1339,18 @@ building against the SDK; no explicit modifiers.
 - **Window:** standard `WindowGroup`, 800×500 minimum
   (`windowResizability(.contentMinSize)`).
 - **Bookmarks:** shared list and rows; right-click context menu (Open in
-  Browser, Copy URL, Copy Markdown URL, Share…, Archive/Unarchive, Delete); add
-  and edit via shared sheets; delete with confirmation. The detail view's actions
-  section carries the same Copy and Share… actions (Share… is a native
-  `ShareLink` sharing the bookmark URL, placed after Copy and before Archive).
+  Browser, Copy URL, Copy Markdown URL, Share…, View on Wayback Machine,
+  Archive/Unarchive, Delete); add and edit via shared sheets; delete with
+  confirmation. The detail view's actions section carries the same Copy and
+  Share… actions (Share… is a native `ShareLink` sharing the bookmark URL,
+  placed after Copy and before Archive). **View on Wayback Machine** (shared
+  with iPad/iPhone) appears in both the detail view and the row context menu,
+  after Share… and before Archive, only when the bookmark has a captured
+  Internet Archive snapshot (`waybackURL` non-nil, synced down from the
+  backend's Wayback submission queue — §7.2); opens the real snapshot URL via
+  the same `openURL` action as "Open in Browser". Read-only: the native apps
+  don't yet expose the instance/user auto-submit toggles or a manual "submit
+  now" action (web-only for now, §13).
   Tags render as `TagPill`s showing `swift › server` (middot `›`, U+2023),
   mirroring the web; the stored tag keeps the raw slash slug. Tag editing on the
   add/edit sheets uses the shared `TagPickerSheet` (read-only `TagPill` summary +

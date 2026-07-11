@@ -17,7 +17,8 @@ struct SiteSettingsSnapshot {
         accentTheme: AccentTheme.default.id,
         aboutText: nil,
         footerCustomLabel: nil,
-        footerCustomURL: nil
+        footerCustomURL: nil,
+        internetArchiveEnabled: true
     )
 
     // MARK: Properties
@@ -26,14 +27,22 @@ struct SiteSettingsSnapshot {
     let aboutText: String?
     let footerCustomLabel: String?
     let footerCustomURL: String?
+    let internetArchiveEnabled: Bool
 
     // MARK: Lifecycle
 
-    init(accentTheme: String, aboutText: String?, footerCustomLabel: String?, footerCustomURL: String?) {
+    init(
+        accentTheme: String,
+        aboutText: String?,
+        footerCustomLabel: String?,
+        footerCustomURL: String?,
+        internetArchiveEnabled: Bool
+    ) {
         self.accentTheme = accentTheme
         self.aboutText = aboutText
         self.footerCustomLabel = footerCustomLabel
         self.footerCustomURL = footerCustomURL
+        self.internetArchiveEnabled = internetArchiveEnabled
     }
 
     init(_ settings: SiteSettings) {
@@ -41,7 +50,8 @@ struct SiteSettingsSnapshot {
             accentTheme: settings.accentTheme,
             aboutText: settings.aboutText,
             footerCustomLabel: settings.footerCustomLabel,
-            footerCustomURL: settings.footerCustomURL
+            footerCustomURL: settings.footerCustomURL,
+            internetArchiveEnabled: settings.internetArchiveEnabled
         )
     }
 }

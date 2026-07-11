@@ -80,11 +80,17 @@ enum BookmarkFilter {
     private static func matchesSearch(_ bookmark: Bookmark, term: String) -> Bool {
         let needle = term.lowercased()
 
-        if bookmark.url.absoluteString.lowercased().contains(needle) { return true }
+        if bookmark.url.absoluteString.lowercased().contains(needle) {
+            return true
+        }
 
-        if bookmark.title.lowercased().contains(needle) { return true }
+        if bookmark.title.lowercased().contains(needle) {
+            return true
+        }
 
-        if let description = bookmark.description?.lowercased(), description.contains(needle) { return true }
+        if let description = bookmark.description?.lowercased(), description.contains(needle) {
+            return true
+        }
 
         return tagsSearch(bookmark.tags).contains(needle)
     }
@@ -150,6 +156,8 @@ enum BookmarkFilter {
             return bookmark.isArchived == (condition.value == "true")
         case .hasTags:
             return condition.value == "true" ? !bookmark.tags.isEmpty : bookmark.tags.isEmpty
+        case .isWaybackArchived:
+            return (bookmark.waybackURL != nil) == (condition.value == "true")
         case nil:
             return false
         }

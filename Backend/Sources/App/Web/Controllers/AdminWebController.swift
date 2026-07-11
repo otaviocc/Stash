@@ -14,6 +14,29 @@ import Vapor
 /// password reset (or suspension) invalidates the target's refresh tokens.
 struct AdminWebController: RouteCollection {
 
+    // MARK: Static Functions
+
+    /// Formats the drain worker's current phase into a short admin-facing sentence. `internal`, not
+    /// `private`, so it's directly unit-testable without needing a live worker/database.
+    static func queueStatusText(enabled: Bool, pendingCount: Int, state: WaybackWorker.QueueState) -> String {
+        guard enabled else { return "Disabled — no submissions will run." }
+
+        switch state {
+        case .idle:
+            return pendingCount > 0
+                ? "Paused — \(pendingCount) bookmark\(pendingCount == 1 ? "" : "s") queued, waiting to start."
+                : "Idle — nothing queued."
+        case let .submitting(url):
+            return "Submitting now: \(url)"
+        case .waitingNormalPace:
+            return "Running — next submission in about 30 seconds."
+        case let .waitingAfterRateLimit(url, attempt, maxAttempts):
+            return "Rate-limited — retrying \(url) in about 5 minutes (attempt \(attempt + 1) of \(maxAttempts))."
+        }
+    }
+
+    // MARK: Functions
+
     func boot(routes: RoutesBuilder) throws {
         routes.get("login", use: loginPage)
         routes.post("login", use: login)
@@ -42,6 +65,11 @@ struct AdminWebController: RouteCollection {
         protected.get("favicons", use: favicons)
         protected.post("favicons", "clear", use: clearFavicons)
         protected.post("favicons", "rescan", use: rescanFavicons)
+        protected.get("internet-archive", use: internetArchive)
+        protected.post("internet-archive", "toggle", use: toggleInternetArchive)
+        protected.post("internet-archive", "retry-failed", use: retryFailedInternetArchive)
+        protected.post("internet-archive", "queue-all", use: queueAllInternetArchive)
+        protected.post("internet-archive", "resume", use: resumeInternetArchive)
         protected.get("logs", use: logsPage)
     }
 
@@ -589,6 +617,54 @@ struct AdminWebController: RouteCollection {
         return req.redirect(to: "/admin/favicons?ok=favicons_rescanning")
     }
 
+    // MARK: - Internet Archive
+
+    func internetArchive(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+        let message = FlashMessage.admin(for: req.query[String.self, at: "ok"])
+        let error = FlashMessage.adminError(for: req.query[String.self, at: "error"])
+        return try await renderInternetArchive(req, admin: admin, message: message, error: error)
+    }
+
+    func toggleInternetArchive(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+        let form = try req.content.decode(InternetArchiveToggleForm.self)
+        let settings = try await SiteSettingsService.current(on: req.db)
+        settings.internetArchiveEnabled = form.enabled ?? false
+        try await settings.save(on: req.db)
+        SiteSettingsService.refreshCache(with: settings, on: req.application)
+
+        await AuditLogger.record(
+            action: "internet_archive_toggled",
+            actor: admin.username,
+            detail: "internet_archive_enabled set to \(settings.internetArchiveEnabled)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
+
+        return req.redirect(to: "/admin/internet-archive?ok=ia_saved")
+    }
+
+    func retryFailedInternetArchive(req: Request) async throws -> Response {
+        try await requeueInternetArchive(matching: [.failed], flashKey: "ia_retrying", req: req)
+    }
+
+    func queueAllInternetArchive(req: Request) async throws -> Response {
+        try await requeueInternetArchive(matching: [.none, .failed], flashKey: "ia_queued", req: req)
+    }
+
+    /// Manually nudges the drain worker — a safe no-op if it's already draining (`kick()` is
+    /// idempotent), useful if the queue ever looks paused/stuck without an obvious trigger to resume
+    /// it (a new bookmark, a bulk action, or a restart).
+    func resumeInternetArchive(req: Request) async throws -> Response {
+        guard WaybackSubmitter.isInstanceEnabled(on: req.application) else {
+            return req.redirect(to: "/admin/internet-archive?error=internet_archive_disabled")
+        }
+
+        WaybackSubmitter.kick(on: req.application)
+        return req.redirect(to: "/admin/internet-archive?ok=ia_resumed")
+    }
+
     // MARK: - Logs
 
     func logsPage(req: Request) async throws -> View {
@@ -620,6 +696,27 @@ struct AdminWebController: RouteCollection {
             selectedLevel: selectedLevelString,
             chrome: req.siteChrome()
         ))
+    }
+
+    /// Shared by both bulk actions: re-queues every bookmark whose `waybackStatus` matches one of
+    /// `statuses` and wakes the drain worker. Refuses (PRG `?error=internet_archive_disabled`) when
+    /// the admin has turned Internet Archive submissions off instance-wide, so a bulk action can
+    /// never bypass the same switch every other submission path already respects.
+    private func requeueInternetArchive(
+        matching statuses: [WaybackStatus],
+        flashKey: String,
+        req: Request
+    ) async throws -> Response {
+        guard WaybackSubmitter.isInstanceEnabled(on: req.application) else {
+            return req.redirect(to: "/admin/internet-archive?error=internet_archive_disabled")
+        }
+
+        try await Bookmark.query(on: req.db)
+            .filter(\.$waybackStatus ~~ statuses)
+            .set(\.$waybackStatus, to: .pending)
+            .update()
+        WaybackSubmitter.kick(on: req.application)
+        return req.redirect(to: "/admin/internet-archive?ok=\(flashKey)")
     }
 
     // MARK: - Health helpers
@@ -778,6 +875,46 @@ struct AdminWebController: RouteCollection {
             chrome: req.siteChrome()
         )
         return try await req.renderHTML("favicons", context, status: status)
+    }
+
+    private func renderInternetArchive(
+        _ req: Request,
+        admin: User,
+        message: String?,
+        error: String? = nil,
+        status: HTTPResponseStatus = .ok
+    ) async throws -> Response {
+        async let archivedCount = Bookmark.query(on: req.db).filter(\.$waybackStatus == .archived).count()
+        async let pendingCount = Bookmark.query(on: req.db).filter(\.$waybackStatus == .pending).count()
+        async let failedCount = Bookmark.query(on: req.db).filter(\.$waybackStatus == .failed).count()
+        async let notSubmittedCount = Bookmark.query(on: req.db).filter(\.$waybackStatus == .none).count()
+
+        let (archived, pending, failed, notSubmitted) = try await (
+            archivedCount,
+            pendingCount,
+            failedCount,
+            notSubmittedCount
+        )
+
+        let enabled = WaybackSubmitter.isInstanceEnabled(on: req.application)
+        let state = await req.application.storage[WaybackWorkerKey.self]?.currentState() ?? .idle
+        let queueStatus = Self.queueStatusText(enabled: enabled, pendingCount: pending, state: state)
+
+        let context = InternetArchiveAdminContext(
+            title: "Internet Archive",
+            adminUsername: admin.username,
+            internetArchiveEnabled: enabled,
+            queueStatus: queueStatus,
+            totalCount: archived + pending + failed + notSubmitted,
+            archivedCount: archived,
+            pendingCount: pending,
+            failedCount: failed,
+            notSubmittedCount: notSubmitted,
+            message: message,
+            error: error,
+            chrome: req.siteChrome()
+        )
+        return try await req.renderHTML("internet-archive", context, status: status)
     }
 
     private func renderAppearance(

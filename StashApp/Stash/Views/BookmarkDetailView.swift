@@ -182,6 +182,15 @@ struct BookmarkDetailView: View {
             }
             .formButtonRowStyle()
 
+            if let waybackURL = bookmark.waybackURL {
+                Button {
+                    openURL(waybackURL)
+                } label: {
+                    Label("View on Wayback Machine", systemImage: "clock.arrow.circlepath")
+                }
+                .formButtonRowStyle()
+            }
+
             Button(action: toggleArchived) {
                 Label(
                     bookmark.isArchived ? "Unarchive" : "Archive",

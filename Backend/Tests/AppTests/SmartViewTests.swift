@@ -410,6 +410,92 @@ struct SmartViewTests {
         }
     }
 
+    @Test("an isWaybackArchived condition filters on whether a bookmark has a captured snapshot")
+    func isWaybackArchivedCondition() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            let archived = try await app.makeBookmark(for: user, url: "https://archived.example.com")
+            archived.waybackStatus = .archived
+            try await archived.save(on: app.db)
+            let failed = try await app.makeBookmark(for: user, url: "https://failed.example.com")
+            failed.waybackStatus = .failed
+            try await failed.save(on: app.db)
+            let pending = try await app.makeBookmark(for: user, url: "https://pending.example.com")
+            pending.waybackStatus = .pending
+            try await pending.save(on: app.db)
+            try await app.makeBookmark(for: user, url: "https://none.example.com")
+
+            let archivedView = try await app.makeSmartView(
+                token: pair.accessToken,
+                name: "Wayback archived",
+                conditions: [SmartViewConditionPayload(type: "isWaybackArchived", value: "true")]
+            )
+            let notArchivedView = try await app.makeSmartView(
+                token: pair.accessToken,
+                name: "Not wayback archived",
+                conditions: [SmartViewConditionPayload(type: "isWaybackArchived", value: "false")]
+            )
+
+            // When / Then
+            try await app.testing().test(
+                .GET, "api/v1/smart-views/\(archivedView.id)/bookmarks",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://archived.example.com"],
+                    "It should return only the bookmark with a captured snapshot when true"
+                )
+            }
+
+            try await app.testing().test(
+                .GET, "api/v1/smart-views/\(notArchivedView.id)/bookmarks",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    Set(page.items.map(\.url)) == [
+                        "https://failed.example.com",
+                        "https://pending.example.com",
+                        "https://none.example.com"
+                    ],
+                    "It should return every bookmark without a captured snapshot (none/pending/failed) when false"
+                )
+            }
+        }
+    }
+
+    @Test("an invalid isWaybackArchived value returns 422")
+    func invalidIsWaybackArchived() async throws {
+        try await withTestApp { app in
+            try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            try await app.testing().test(
+                .POST, "api/v1/smart-views",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(SmartViewRequestBody(
+                        name: "Bad",
+                        conditions: [SmartViewConditionPayload(type: "isWaybackArchived", value: "maybe")]
+                    ))
+                },
+                afterResponse: { res async throws in
+                    #expect(
+                        res.status == .unprocessableEntity,
+                        "It should reject a non-boolean isWaybackArchived value"
+                    )
+                    #expect(
+                        try res.content.decode(TestError.self).code == "validation_failed",
+                        "It should fail validation"
+                    )
+                }
+            )
+        }
+    }
+
     @Test("multiple conditions must all match (AND)")
     func multipleConditionsAreAnded() async throws {
         try await withTestApp { app in

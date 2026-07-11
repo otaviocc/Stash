@@ -28,7 +28,13 @@ struct SmartViewWebController: RouteCollection {
         guard let smartView = try await loadSmartView(req) else { return req.redirect(to: "/app/smart-views") }
 
         let id = try smartView.requireID().uuidString
-        let overridesArchived = smartView.conditions.contains { if case .isArchived = $0 { true } else { false } }
+        let overridesArchived = smartView.conditions.contains {
+            if case .isArchived = $0 {
+                true
+            } else {
+                false
+            }
+        }
         let archived = !overridesArchived && (req.query[Bool.self, at: "archived"] ?? false)
         let page = max(req.query[Int.self, at: "page"] ?? 1, 1)
         let per = WebPagination.perPage

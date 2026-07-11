@@ -6,12 +6,14 @@ import Logging
 import Testing
 @testable import App
 
+// MARK: - LogRingBufferTests
+
 /// Verifies `LogRingBuffer`'s capacity, ordering, and filtering behavior.
 @Suite("LogRingBuffer")
 struct LogRingBufferTests {
 
     @Test("append adds an entry retrievable via snapshot")
-    func appendAndSnapshot() async {
+    func appendAndSnapshot() {
         // Given
         let buffer = LogRingBuffer()
 
@@ -27,7 +29,7 @@ struct LogRingBufferTests {
     }
 
     @Test("snapshot returns newest first")
-    func snapshotOrdering() async {
+    func snapshotOrdering() {
         // Given
         let buffer = LogRingBuffer()
         buffer.append(.init(timestamp: Date(), level: .info, label: "App", message: "first"))
@@ -43,7 +45,7 @@ struct LogRingBufferTests {
     }
 
     @Test("capacity caps the buffer and drops oldest entries")
-    func capacityEviction() async {
+    func capacityEviction() {
         // Given
         let buffer = LogRingBuffer(capacity: 3)
 
@@ -61,7 +63,7 @@ struct LogRingBufferTests {
     }
 
     @Test("snapshot filters by minimum level")
-    func levelFiltering() async {
+    func levelFiltering() {
         // Given
         let buffer = LogRingBuffer()
         buffer.append(.init(timestamp: Date(), level: .debug, label: "App", message: "debug"))
@@ -78,7 +80,7 @@ struct LogRingBufferTests {
     }
 
     @Test("snapshot with nil level returns every buffered entry regardless of level")
-    func noFilterReturnsAll() async {
+    func noFilterReturnsAll() {
         // Given
         let buffer = LogRingBuffer()
         buffer.append(.init(timestamp: Date(), level: .debug, label: "App", message: "debug"))
@@ -92,12 +94,14 @@ struct LogRingBufferTests {
     }
 }
 
+// MARK: - RingBufferLogHandlerTests
+
 /// Verifies `RingBufferLogHandler` forwards log calls into the shared buffer.
 @Suite("RingBufferLogHandler")
 struct RingBufferLogHandlerTests {
 
     @Test("logging through the handler appends to the shared buffer")
-    func handlerAppendsToBuffer() async {
+    func handlerAppendsToBuffer() {
         // Given
         let buffer = LogRingBuffer()
         let handler = RingBufferLogHandler(label: "test", buffer: buffer)

@@ -3,8 +3,10 @@
 
 import Fluent
 
-/// Migration that creates the single-row `site_settings` table and seeds the default row
-/// (accent theme `ocean`, all other fields `nil`).
+/// Migration that creates the single-row `site_settings` table. The default row itself is seeded
+/// lazily by `SiteSettingsService.current(on:)` (called from `configure.swift` right after every
+/// migration has run), not here: saving a live `SiteSettings` model at this migration's historical
+/// schema would insert into columns that later `Add*` migrations haven't created yet.
 struct CreateSiteSettings: AsyncMigration {
 
     func prepare(on database: Database) async throws {
@@ -17,8 +19,6 @@ struct CreateSiteSettings: AsyncMigration {
             .field("created_at", .datetime)
             .field("updated_at", .datetime)
             .create()
-
-        try await SiteSettings(accentTheme: AccentTheme.default.id).save(on: database)
     }
 
     func revert(on database: Database) async throws {

@@ -23,6 +23,10 @@ struct Bookmark: Identifiable, Hashable, Codable {
     let createdAt: Date
     let updatedAt: Date
 
+    /// The captured Internet Archive (Wayback Machine) snapshot URL, when one exists. `nil` until a
+    /// submission has actually succeeded — a pending or failed submission leaves this `nil` too.
+    var waybackURL: URL?
+
     /// True when this bookmark has a local change still waiting to be pushed to the server. Surfaced
     /// from the local store's sync metadata (`pendingSyncAt`); always `false` for a server-sourced
     /// bookmark. Drives the pending indicator in the list and detail views.
@@ -101,5 +105,6 @@ extension Bookmark {
         isArchived = dto.isArchived
         createdAt = dto.createdAt
         updatedAt = dto.updatedAt
+        waybackURL = dto.waybackURL
     }
 }

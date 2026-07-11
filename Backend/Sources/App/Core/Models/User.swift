@@ -44,6 +44,9 @@ final class User: Model, Content, @unchecked Sendable {
     @Field(key: "bookmark_count")
     var bookmarkCount: Int
 
+    @Field(key: "archive_new_bookmarks")
+    var archiveNewBookmarks: Bool
+
     @Timestamp(key: "created_at", on: .create)
     var createdAt: Date?
 
@@ -80,7 +83,8 @@ final class User: Model, Content, @unchecked Sendable {
         isActive: Bool = true,
         isTOTPEnabled: Bool = false,
         totpSecret: String? = nil,
-        bookmarkCount: Int = 0
+        bookmarkCount: Int = 0,
+        archiveNewBookmarks: Bool = true
     ) {
         self.id = id
         self.username = username.lowercased()
@@ -90,6 +94,7 @@ final class User: Model, Content, @unchecked Sendable {
         self.isTOTPEnabled = isTOTPEnabled
         self.totpSecret = totpSecret
         self.bookmarkCount = bookmarkCount
+        self.archiveNewBookmarks = archiveNewBookmarks
     }
 }
 
@@ -107,6 +112,7 @@ extension User {
             isActive: isActive,
             isTOTPEnabled: isTOTPEnabled,
             bookmarkCount: bookmarkCount,
+            archiveNewBookmarks: archiveNewBookmarks,
             createdAt: createdAt ?? Date()
         )
     }

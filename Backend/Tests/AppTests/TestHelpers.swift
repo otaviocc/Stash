@@ -114,6 +114,67 @@ extension Application {
     }
 }
 
+extension Application {
+
+    /// Signs in via the admin dashboard's session-cookie login, creating the account if needed.
+    /// Returns headers carrying the resulting `stash_admin_session` cookie.
+    func adminWebSession(
+        username: String = "root",
+        password: String = "admin-password-123"
+    ) async throws -> HTTPHeaders {
+        try await makeUser(username: username, password: password, role: .admin)
+
+        var cookie: String?
+        try await testing().test(
+            .POST, "admin/login",
+            beforeRequest: { req in
+                try req.content.encode(
+                    LoginForm(username: username, password: password, totpCode: nil),
+                    as: .urlEncodedForm
+                )
+            },
+            afterResponse: { res async throws in
+                cookie = res.headers.setCookie?["stash_admin_session"]?.string
+            }
+        )
+        guard let cookie else {
+            throw Abort(.internalServerError, reason: "admin web login did not set a session cookie")
+        }
+
+        return ["Cookie": "stash_admin_session=\(cookie)"]
+    }
+
+    /// Signs in via the `/app` frontend's session-cookie login, creating the account if needed.
+    /// Returns headers carrying the resulting `stash_session` cookie.
+    func appWebSession(
+        username: String = "otavio",
+        password: String = "correct-horse-battery"
+    ) async throws -> HTTPHeaders {
+        if try await User.query(on: db).filter(\.$username == username).first() == nil {
+            try await makeUser(username: username, password: password)
+        }
+
+        var cookie: String?
+        try await testing().test(
+            .POST, "app/login",
+            beforeRequest: { req in
+                try req.content.encode(
+                    LoginForm(username: username, password: password, totpCode: nil),
+                    as: .urlEncodedForm
+                )
+            },
+            afterResponse: { res async throws in
+                cookie = res.headers.setCookie?["stash_session"]?.string
+            }
+        )
+        guard let cookie else {
+            throw Abort(.internalServerError, reason: "app web login did not set a session cookie")
+        }
+
+        return ["Cookie": "stash_session=\(cookie)"]
+    }
+}
+
 // MARK: - TestError
 
 /// Decode an error envelope from a test response body.

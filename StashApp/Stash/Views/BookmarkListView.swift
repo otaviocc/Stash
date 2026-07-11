@@ -216,7 +216,11 @@ private struct BookmarkListContent: View {
                 "Error",
                 isPresented: Binding(
                     get: { errorMessage != nil },
-                    set: { if !$0 { errorMessage = nil } }
+                    set: {
+                        if !$0 {
+                            errorMessage = nil
+                        }
+                    }
                 )
             ) {
                 Button("OK", role: .cancel) {}
@@ -370,6 +374,14 @@ private struct BookmarkListContent: View {
 
         ShareLink(item: bookmark.url) {
             Label("Share…", systemImage: "square.and.arrow.up")
+        }
+
+        if let waybackURL = bookmark.waybackURL {
+            Button {
+                openURL(waybackURL)
+            } label: {
+                Label("View on Wayback Machine", systemImage: "clock.arrow.circlepath")
+            }
         }
 
         Button {

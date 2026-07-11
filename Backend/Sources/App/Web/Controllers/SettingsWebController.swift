@@ -38,6 +38,7 @@ struct SettingsWebController: RouteCollection {
         routes.post("settings", "totp", "disable", use: totpDisable)
         routes.post("settings", "delete-all-bookmarks", use: deleteAllBookmarks)
         routes.post("settings", "theme", use: setTheme)
+        routes.post("settings", "archive-pref", use: setArchivePref)
 
         routes.on(.POST, "import", body: .collect(maxSize: "16mb"), use: importBookmarks)
         routes.get("export", use: exportBookmarks)
@@ -262,6 +263,18 @@ struct SettingsWebController: RouteCollection {
         return response
     }
 
+    // MARK: - Internet Archive
+
+    func setArchivePref(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
+        let form = try req.content.decode(ArchivePrefForm.self)
+
+        user.archiveNewBookmarks = form.enabled ?? false
+        try await user.save(on: req.db)
+
+        return req.redirect(to: "/app/settings?ok=archive_pref")
+    }
+
     // MARK: - Helpers
 
     private func settingsContext(
@@ -284,6 +297,7 @@ struct SettingsWebController: RouteCollection {
             importError: importError,
             importSummary: importSummary,
             theme: Self.currentTheme(req),
+            archiveNewBookmarks: user.archiveNewBookmarks,
             chrome: req.siteChrome()
         )
     }

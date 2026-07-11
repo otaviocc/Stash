@@ -23,6 +23,7 @@ final class MockClient: Client, @unchecked Sendable {
         let status: HTTPResponseStatus
         let contentType: String?
         let body: ByteBuffer?
+        let headers: [String: String]
     }
 
     // MARK: Properties
@@ -55,9 +56,15 @@ final class MockClient: Client, @unchecked Sendable {
         self
     }
 
-    func stub(contains match: String, status: HTTPResponseStatus, contentType: String?, bytes: [UInt8]?) {
+    func stub(
+        contains match: String,
+        status: HTTPResponseStatus,
+        contentType: String?,
+        bytes: [UInt8]?,
+        headers: [String: String] = [:]
+    ) {
         let body = bytes.map { ByteBuffer(bytes: $0) }
-        stubs.append(Stub(match: match, status: status, contentType: contentType, body: body))
+        stubs.append(Stub(match: match, status: status, contentType: contentType, body: body, headers: headers))
     }
 
     func send(_ request: ClientRequest) -> EventLoopFuture<ClientResponse> {
@@ -74,6 +81,9 @@ final class MockClient: Client, @unchecked Sendable {
         }
         if let body = stub.body {
             headers.replaceOrAdd(name: .contentLength, value: String(body.readableBytes))
+        }
+        for (name, value) in stub.headers {
+            headers.replaceOrAdd(name: name, value: value)
         }
 
         return eventLoop.makeSucceededFuture(

@@ -32,6 +32,9 @@ final class SiteSettings: Model, @unchecked Sendable {
     @OptionalField(key: "footer_custom_url")
     var footerCustomURL: String?
 
+    @Field(key: "internet_archive_enabled")
+    var internetArchiveEnabled: Bool
+
     @Timestamp(key: "created_at", on: .create)
     var createdAt: Date?
 
@@ -47,12 +50,14 @@ final class SiteSettings: Model, @unchecked Sendable {
         accentTheme: String,
         aboutText: String? = nil,
         footerCustomLabel: String? = nil,
-        footerCustomURL: String? = nil
+        footerCustomURL: String? = nil,
+        internetArchiveEnabled: Bool = true
     ) {
         self.id = id
         self.accentTheme = accentTheme
         self.aboutText = aboutText
         self.footerCustomLabel = footerCustomLabel
         self.footerCustomURL = footerCustomURL
+        self.internetArchiveEnabled = internetArchiveEnabled
     }
 }

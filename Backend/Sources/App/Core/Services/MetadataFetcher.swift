@@ -18,7 +18,7 @@ enum MetadataFetcher {
 
         do {
             var headers = HTTPHeaders()
-            headers.add(name: .userAgent, value: "StashBot/1.0 (+https://github.com/otaviocc/stash)")
+            headers.add(name: .userAgent, value: StashUserAgent.value)
             headers.add(name: .accept, value: "text/html,application/xhtml+xml")
 
             let response = try await req.client.get(URI(string: url), headers: headers)
@@ -45,7 +45,9 @@ enum MetadataFetcher {
         guard let scheme = baseURL.scheme, let host = baseURL.host else { return nil }
 
         var origin = "\(scheme)://\(host)"
-        if let port = baseURL.port { origin += ":\(port)" }
+        if let port = baseURL.port {
+            origin += ":\(port)"
+        }
         return origin + "/favicon.ico"
     }
 

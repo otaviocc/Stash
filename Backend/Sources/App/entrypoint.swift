@@ -10,6 +10,8 @@ import Vapor
 /// `LoggingSystem.bootstrap` runs. See DECISIONS.md, "Feature #8: System Logs".
 let sharedLogBuffer = LogRingBuffer()
 
+// MARK: - Entrypoint
+
 /// Process entry point: bootstraps the environment, builds the application, and runs it.
 @main
 enum Entrypoint {

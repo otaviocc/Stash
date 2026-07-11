@@ -162,7 +162,9 @@ struct TagDeleteTests {
             headers: bearer(token)
         ) { res async throws in
             #expect(res.status == status, "It should return the expected status")
-            if status == .ok { decoded = try res.content.decode(TagDeleteResponse.self) }
+            if status == .ok {
+                decoded = try res.content.decode(TagDeleteResponse.self)
+            }
         }
         return decoded
     }

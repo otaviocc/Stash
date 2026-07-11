@@ -1,0 +1,87 @@
+#extend("layout"):
+#export("content"):
+    <h1>Internet Archive</h1>
+
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
+    <div class="stats">
+        <div class="stat">
+            <div class="num">#(totalCount)</div>
+            <div class="label">Total</div>
+        </div>
+        <div class="stat">
+            <div class="num">#(archivedCount)</div>
+            <div class="label">Archived</div>
+        </div>
+        <div class="stat">
+            <div class="num">#(pendingCount)</div>
+            <div class="label">Queued</div>
+        </div>
+        <div class="stat">
+            <div class="num">#(failedCount)</div>
+            <div class="label">Failed</div>
+        </div>
+        <div class="stat">
+            <div class="num">#(notSubmittedCount)</div>
+            <div class="label">Not submitted</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Queue status</h2>
+        <p>#(queueStatus)</p>
+        #if(internetArchiveEnabled):
+        <form method="post" action="/admin/internet-archive/resume">
+            <button class="secondary" type="submit">Resume queue now</button>
+        </form>
+        #endif
+    </div>
+
+    <div class="card">
+        <h2>Enable Internet Archive submissions</h2>
+        <p class="muted">
+            When on (the default), users can opt in to sending new bookmarks to the
+            Wayback Machine, and can submit an individual bookmark from its detail
+            page. When off, submission is unavailable everywhere, instance-wide.
+        </p>
+        <form method="post" action="/admin/internet-archive/toggle">
+            <label style="font-weight:400;">
+                <input type="checkbox" name="enabled" value="true" style="display:inline; width:auto;"#if(internetArchiveEnabled): checked#endif>
+                Internet Archive submissions enabled
+            </label>
+            <button type="submit">Save</button>
+        </form>
+    </div>
+
+    <div class="card-row">
+        <div class="card actions">
+            <h2>Retry failed submissions</h2>
+            <p class="muted">
+                Re-queues every bookmark whose last submission failed. Runs in the
+                background, one submission at a time, to respect the Internet
+                Archive's rate limits.
+            </p>
+            <form method="post" action="/admin/internet-archive/retry-failed">
+                <button class="secondary" type="submit">Retry failed</button>
+            </form>
+        </div>
+
+        <div class="card actions">
+            <h2>Queue every bookmark</h2>
+            <p class="muted">
+                Submits every not-yet-submitted or failed bookmark in the system. Can
+                take a while if there are many, since submissions run one at a time.
+            </p>
+            <form method="post" action="/admin/internet-archive/queue-all"
+                  onsubmit="return confirm('Queue every bookmark for Internet Archive submission?');">
+                <button class="secondary" type="submit">Queue all</button>
+            </form>
+        </div>
+    </div>
+#endexport
+#endextend

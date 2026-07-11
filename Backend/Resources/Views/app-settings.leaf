@@ -63,6 +63,22 @@
         #endif
     </div>
 
+    #if(chrome.internetArchiveEnabled):
+    <div class="card">
+        <h2>Internet Archive</h2>
+        <p class="muted">Automatically send new bookmarks to the Wayback Machine
+            (web.archive.org) when you save them. You can always send an individual
+            bookmark from its detail page, whether or not this is on.</p>
+        <form method="post" action="/app/settings/archive-pref">
+            <label style="font-weight:400;">
+                <input type="checkbox" name="enabled" value="true" style="display:inline; width:auto;"#if(archiveNewBookmarks): checked#endif>
+                Send new bookmarks to the Internet Archive
+            </label>
+            <button type="submit">Save preference</button>
+        </form>
+    </div>
+    #endif
+
     <div class="card">
         <h2>Import &amp; export</h2>
 

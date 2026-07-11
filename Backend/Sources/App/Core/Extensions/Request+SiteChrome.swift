@@ -21,7 +21,8 @@ extension Request {
             ),
             aboutText: snapshot.aboutText.flatMap(\.nonEmpty),
             accentLight: theme.light,
-            accentDark: theme.dark
+            accentDark: theme.dark,
+            internetArchiveEnabled: snapshot.internetArchiveEnabled
         )
     }
 }

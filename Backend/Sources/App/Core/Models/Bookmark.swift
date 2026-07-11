@@ -5,6 +5,20 @@ import Fluent
 import Foundation
 import Vapor
 
+// MARK: - WaybackStatus
+
+/// The lifecycle state of a bookmark's Wayback Machine submission. `none` until a submission is
+/// requested, `pending` while queued or in flight, `archived` once a snapshot exists, `failed` when
+/// the last attempt didn't succeed (retryable). Distinct from `Bookmark.isArchived`, which is
+/// Stash's own unrelated archive/inbox flag.
+enum WaybackStatus: String, Codable {
+
+    case none
+    case pending
+    case archived
+    case failed
+}
+
 // MARK: - Bookmark
 
 /// A saved bookmark, scoped to a single user. See PRD §7.2.
@@ -46,6 +60,21 @@ final class Bookmark: Model, Content, @unchecked Sendable {
     @Field(key: "is_archived")
     var isArchived: Bool
 
+    @Field(key: "wayback_status")
+    var waybackStatus: WaybackStatus
+
+    @OptionalField(key: "wayback_url")
+    var waybackURL: String?
+
+    @OptionalField(key: "wayback_archived_at")
+    var waybackArchivedAt: Date?
+
+    /// Consecutive `429` (rate-limited) attempts since the last successful submission or give-up.
+    /// Internal bookkeeping for `WaybackSubmitter`, not exposed via the API — reset to `0` whenever
+    /// the bookmark leaves the retry loop (archived, or gives up and becomes failed).
+    @Field(key: "wayback_retry_count")
+    var waybackRetryCount: Int
+
     @Timestamp(key: "created_at", on: .create)
     var createdAt: Date?
 
@@ -64,7 +93,11 @@ final class Bookmark: Model, Content, @unchecked Sendable {
         description: String? = nil,
         faviconURL: String? = nil,
         tags: [String] = [],
-        isArchived: Bool = false
+        isArchived: Bool = false,
+        waybackStatus: WaybackStatus = .none,
+        waybackURL: String? = nil,
+        waybackArchivedAt: Date? = nil,
+        waybackRetryCount: Int = 0
     ) {
         self.id = id
         $user.id = userID
@@ -75,6 +108,10 @@ final class Bookmark: Model, Content, @unchecked Sendable {
         self.tags = tags
         tagsSearch = Bookmark.searchString(for: tags)
         self.isArchived = isArchived
+        self.waybackStatus = waybackStatus
+        self.waybackURL = waybackURL
+        self.waybackArchivedAt = waybackArchivedAt
+        self.waybackRetryCount = waybackRetryCount
     }
 
     // MARK: Static Functions
@@ -99,6 +136,9 @@ final class Bookmark: Model, Content, @unchecked Sendable {
             faviconURL: faviconURL,
             tags: tags,
             isArchived: isArchived,
+            waybackStatus: waybackStatus.rawValue,
+            waybackURL: waybackURL,
+            waybackArchivedAt: waybackArchivedAt,
             createdAt: createdAt ?? Date(),
             updatedAt: updatedAt ?? Date()
         )
@@ -134,7 +174,9 @@ extension Bookmark {
                 .replacingOccurrences(of: "|", with: "")
             guard !tag.isEmpty else { continue }
 
-            if seen.insert(tag).inserted { result.append(tag) }
+            if seen.insert(tag).inserted {
+                result.append(tag)
+            }
         }
         return result
     }
@@ -170,7 +212,9 @@ extension Bookmark {
         for bookmark in bookmarks {
             for tag in bookmark.tags {
                 total[tag, default: 0] += 1
-                if !bookmark.isArchived { visible[tag, default: 0] += 1 }
+                if !bookmark.isArchived {
+                    visible[tag, default: 0] += 1
+                }
             }
         }
         return (visible, total)

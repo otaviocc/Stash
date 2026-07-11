@@ -18,7 +18,11 @@ let package = Package(
         // JWT signing + verification
         .package(url: "https://github.com/vapor/jwt.git", from: "4.0.0"),
         // Server-rendered HTML (admin dashboard — used from M5 onward)
-        .package(url: "https://github.com/vapor/leaf.git", from: "4.0.0")
+        .package(url: "https://github.com/vapor/leaf.git", from: "4.0.0"),
+        // Vapor's own outbound HTTP client, needed directly so Internet Archive submission can use
+        // a dedicated HTTPClient with a longer read timeout than the app-wide one (favicon/metadata
+        // fetching stays fast-failing; see WaybackSubmitter.swift)
+        .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.0.0")
     ],
     targets: [
         .executableTarget(
@@ -29,7 +33,8 @@ let package = Package(
                 .product(name: "FluentPostgresDriver", package: "fluent-postgres-driver"),
                 .product(name: "FluentSQLiteDriver", package: "fluent-sqlite-driver"),
                 .product(name: "JWT", package: "jwt"),
-                .product(name: "Leaf", package: "leaf")
+                .product(name: "Leaf", package: "leaf"),
+                .product(name: "AsyncHTTPClient", package: "async-http-client")
             ],
             path: "Sources/App",
             swiftSettings: swiftSettings

@@ -37,6 +37,10 @@ final class LocalBookmark {
     var serverCreatedAt: Date
     var serverUpdatedAt: Date
 
+    /// The captured Internet Archive snapshot URL, mirrored from `BookmarkDTO.waybackURL`. Stored as
+    /// a `String?`, matching how `url` itself is stored, rather than `URL?`.
+    var waybackURL: String?
+
     /// Set when the bookmark was modified offline. Cleared after a successful push.
     var pendingSyncAt: Date?
 
@@ -69,6 +73,7 @@ final class LocalBookmark {
         faviconDomain = Bookmark.faviconDomain(for: dto.url)
         serverCreatedAt = dto.createdAt
         serverUpdatedAt = dto.updatedAt
+        waybackURL = dto.waybackURL?.absoluteString
         pendingSyncAt = nil
         locallyDeletedAt = nil
         isLocalOnly = false
@@ -91,6 +96,7 @@ final class LocalBookmark {
         faviconDomain = Bookmark.faviconDomain(for: input.url)
         serverCreatedAt = now
         serverUpdatedAt = now
+        waybackURL = nil
         pendingSyncAt = now
         locallyDeletedAt = nil
         isLocalOnly = true
@@ -111,6 +117,7 @@ final class LocalBookmark {
             faviconDomain = Bookmark.faviconDomain(for: bookmark.url)
             serverCreatedAt = bookmark.createdAt
             serverUpdatedAt = bookmark.updatedAt
+            waybackURL = bookmark.waybackURL?.absoluteString
             pendingSyncAt = nil
             locallyDeletedAt = nil
             isLocalOnly = false
@@ -131,6 +138,7 @@ final class LocalBookmark {
         faviconDomain = Bookmark.faviconDomain(for: dto.url)
         serverCreatedAt = dto.createdAt
         serverUpdatedAt = dto.updatedAt
+        waybackURL = dto.waybackURL?.absoluteString
         pendingSyncAt = nil
         locallyDeletedAt = nil
         isLocalOnly = false
@@ -157,6 +165,7 @@ extension Bookmark {
         isArchived = local.isArchived
         createdAt = local.serverCreatedAt
         updatedAt = local.serverUpdatedAt
+        waybackURL = local.waybackURL.flatMap { URL(string: $0) }
         isPendingSync = local.pendingSyncAt != nil
         hasSyncError = local.syncError != nil
     }

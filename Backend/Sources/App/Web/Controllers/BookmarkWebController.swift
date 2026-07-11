@@ -23,6 +23,7 @@ struct BookmarkWebController: RouteCollection {
         bookmarks.post(":bookmarkID", "archive", use: archiveBookmark)
         bookmarks.post(":bookmarkID", "unarchive", use: unarchiveBookmark)
         bookmarks.post(":bookmarkID", "refresh-favicon", use: refreshFavicon)
+        bookmarks.post(":bookmarkID", "save-to-wayback", use: saveToWayback)
     }
 
     // MARK: - List
@@ -208,6 +209,7 @@ struct BookmarkWebController: RouteCollection {
         user.bookmarkCount += 1
         try await user.save(on: req.db)
         FaviconFetcher.enqueue(forURL: url, declaredIconURL: declaredIcon, on: req.application)
+        await WaybackSubmitter.enqueueIfAllowed(bookmark, for: user, on: req.application)
 
         return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=created")
     }
@@ -218,12 +220,14 @@ struct BookmarkWebController: RouteCollection {
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
 
         let message = FlashMessage.app(for: req.query[String.self, at: "ok"])
+        let error = FlashMessage.appError(for: req.query[String.self, at: "error"])
         return try await req.renderHTML("app-bookmark-detail", AppBookmarkDetailContext(
             title: bookmark.title,
             appUsername: req.auth.require(User.self).username,
             appIsAdmin: req.auth.require(User.self).role == .admin,
             bookmark: BookmarkPresenter.row(from: bookmark),
             message: message,
+            error: error,
             chrome: req.siteChrome()
         ))
     }
@@ -280,6 +284,17 @@ struct BookmarkWebController: RouteCollection {
         }
 
         return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=favicon_refreshing")
+    }
+
+    func saveToWayback(req: Request) async throws -> Response {
+        guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
+        guard WaybackSubmitter.isInstanceEnabled(on: req.application) else {
+            return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?error=internet_archive_disabled")
+        }
+
+        await WaybackSubmitter.enqueue(bookmark, on: req.application)
+
+        return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=wayback_started")
     }
 
     // MARK: - Helpers

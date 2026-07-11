@@ -163,7 +163,9 @@ struct TagRenameTests {
             beforeRequest: { req in try req.content.encode(TagRenameRequest(from: from, to: to)) },
             afterResponse: { res async throws in
                 #expect(res.status == status, "It should return the expected status")
-                if status == .ok { decoded = try res.content.decode(TagRenameResponse.self) }
+                if status == .ok {
+                    decoded = try res.content.decode(TagRenameResponse.self)
+                }
             }
         )
         return decoded

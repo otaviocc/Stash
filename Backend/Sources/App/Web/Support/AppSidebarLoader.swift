@@ -42,12 +42,18 @@ enum AppSidebarLoader {
         var todayCount = 0
         var thisWeekCount = 0
         for bookmark in bookmarks {
-            if bookmark.tags.isEmpty { untaggedCount += 1 }
+            if bookmark.tags.isEmpty {
+                untaggedCount += 1
+            }
 
             if let created = bookmark.createdAt {
-                if created >= today { todayCount += 1 }
+                if created >= today {
+                    todayCount += 1
+                }
 
-                if created >= week { thisWeekCount += 1 }
+                if created >= week {
+                    thisWeekCount += 1
+                }
             }
         }
 

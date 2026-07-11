@@ -577,6 +577,40 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/bookmarks/{id}/wayback:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Bookmark UUID.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: submitBookmarkToWayback
+      summary: Submit (or re-submit) a bookmark to the Internet Archive
+      description: |
+        Sets the bookmark's `waybackStatus` to `pending` and wakes the background
+        submission queue; returns immediately without waiting for the submission to
+        complete. Works regardless of the user's `archiveNewBookmarks` auto-submit
+        preference — this is also how a re-submit ("save with the current date")
+        happens. Refused with `409` when the admin has disabled Internet Archive
+        submissions instance-wide.
+      tags: [Bookmarks]
+      responses:
+        "202":
+          description: Submission queued
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Internet Archive submissions are disabled on this instance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/v1/tags:
     get:
       operationId: listTags
@@ -1303,7 +1337,7 @@ components:
     # ---- User ----
     UserProfile:
       type: object
-      required: [id, username, role, isActive, isTOTPEnabled, bookmarkCount, createdAt]
+      required: [id, username, role, isActive, isTOTPEnabled, bookmarkCount, archiveNewBookmarks, createdAt]
       properties:
         id:
           type: string
@@ -1319,6 +1353,11 @@ components:
           type: boolean
         bookmarkCount:
           type: integer
+        archiveNewBookmarks:
+          type: boolean
+          description: >-
+            Whether new bookmarks are automatically submitted to the Internet Archive.
+            Has no effect when the admin has disabled Internet Archive submissions instance-wide.
         createdAt:
           type: string
           format: date-time
@@ -1338,7 +1377,7 @@ components:
     # ---- Bookmarks ----
     Bookmark:
       type: object
-      required: [id, url, title, tags, isArchived, createdAt, updatedAt]
+      required: [id, url, title, tags, isArchived, waybackStatus, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -1363,6 +1402,21 @@ components:
           description: Flat or hierarchical (e.g. `swift/vapor`).
         isArchived:
           type: boolean
+        waybackStatus:
+          type: string
+          enum: [none, pending, archived, failed]
+          description: >-
+            Lifecycle of this bookmark's Internet Archive (Wayback Machine) submission.
+            Unrelated to `isArchived`, which is Stash's own archive/inbox flag.
+        waybackURL:
+          type: string
+          format: uri
+          nullable: true
+          description: The captured snapshot's URL, set once `waybackStatus` is `archived`.
+        waybackArchivedAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -1377,6 +1431,9 @@ components:
         faviconURL: http://localhost:8080/api/v1/favicons/vapor.codes
         tags: ["swift", "swift/vapor"]
         isArchived: false
+        waybackStatus: archived
+        waybackURL: https://web.archive.org/web/20260601093000/https://vapor.codes
+        waybackArchivedAt: "2026-06-01T09:30:05Z"
         createdAt: "2026-06-01T09:30:00Z"
         updatedAt: "2026-06-01T09:30:00Z"
 
@@ -1525,6 +1582,7 @@ components:
         - `newerThan` — duration string, same format
         - `isArchived` — `"true"` or `"false"`
         - `hasTags` — `"true"` (has any tags) or `"false"` (untagged)
+        - `isWaybackArchived` — `"true"` (has a captured Internet Archive snapshot) or `"false"` (does not)
       properties:
         type:
           type: string
@@ -1539,6 +1597,7 @@ components:
             - newerThan
             - isArchived
             - hasTags
+            - isWaybackArchived
         value:
           type: string
       example:
@@ -1617,7 +1676,7 @@ components:
       description: |
         Admin-facing user projection (`passwordHash` and `totpSecret` are never
         exposed). Same shape as `UserProfile`.
-      required: [id, username, role, isActive, isTOTPEnabled, bookmarkCount, createdAt]
+      required: [id, username, role, isActive, isTOTPEnabled, bookmarkCount, archiveNewBookmarks, createdAt]
       properties:
         id:
           type: string
@@ -1633,6 +1692,8 @@ components:
           type: boolean
         bookmarkCount:
           type: integer
+        archiveNewBookmarks:
+          type: boolean
         createdAt:
           type: string
           format: date-time
