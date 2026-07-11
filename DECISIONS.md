@@ -3644,3 +3644,26 @@ frequent to be useful signal) and login/logout/startup — auth and admin
 actions are already captured in the DB-backed Audit Log
 (`AuditLogger`/`/admin/audit`), and duplicating them to the ops log would be
 redundant rather than additive.
+
+### Regroup the web bookmark detail page's actions
+
+The detail page (`app-bookmark-detail.leaf`) had accumulated up to 8 buttons
+in one flat `.row-actions` flexbox (Open URL, Edit, Refresh favicon, View on
+Wayback Machine, Save to Wayback Machine, Archive/Unarchive, Delete), each a
+different width and wrapping unpredictably — noticeably more cluttered than
+the native apps' grouped `Section`-based action list (§14).
+
+Regrouped rather than reaching for a dropdown/"more actions" menu: the top
+row keeps only the two most common actions (Open URL, Edit); a new "Actions"
+card lists the rest as stacked full-width rows (new `.action-list`/
+`.action-row` CSS — block-level, bordered dividers between rows, a
+`--surface-2` hover); and Delete moved into its own "Danger zone" card,
+reusing the `.danger-zone` styling already used on the Settings and admin
+User Detail pages rather than introducing a new visual pattern. Chose this
+over a kebab/dropdown menu because it needs no new JS interaction pattern
+(the web UI's stated philosophy is plain HTML/vanilla JS, no build step) and
+keeps every action visible rather than hidden behind a click, which matters
+more on a page that isn't visited often enough to make a hidden menu
+muscle-memory. Conditional visibility (favicon present, Internet Archive
+enabled, `waybackURL` set, archived vs. not) is unchanged — only the layout
+grouping changed, not which buttons show when.

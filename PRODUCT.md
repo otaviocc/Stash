@@ -948,6 +948,18 @@ a dead end for them).
   that hides the image on a `404`, graceful degradation to no icon, never a
   broken-image glyph. The `{domain}` is computed server-side per row.
 
+### Bookmark Detail
+
+- Actions are grouped rather than shown as one flat row of buttons, mirroring
+  the native apps' sectioned list (§14): a top row with only the two most
+  common actions (Open URL, Edit), an "Actions" card below listing the rest
+  (Refresh favicon, View/Save to Wayback Machine, Archive/Unarchive) as
+  stacked full-width rows — each conditionally shown per the same rules as
+  before (favicon present, Internet Archive enabled, etc.) — and a separate
+  "Danger zone" card (reusing the `.danger-zone` styling from Settings/admin
+  User Detail) containing only Delete, so the destructive action is visually
+  set apart rather than sitting in the same row as everything else.
+
 ### Favicons
 
 - Served from Stash's domain-keyed cache (§7.8), not fetched from the origin site

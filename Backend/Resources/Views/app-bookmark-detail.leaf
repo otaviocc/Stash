@@ -27,29 +27,39 @@
     <div class="row-actions">
         <a href="#(bookmark.url)" target="_blank" rel="noopener"><button type="button">Open URL</button></a>
         <a href="/app/bookmarks/#(bookmark.id)/edit"><button type="button" class="secondary">Edit</button></a>
-        #if(bookmark.faviconDomain):
-        <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/refresh-favicon">
-            <button type="submit" class="secondary">Refresh favicon</button>
-        </form>
-        #endif
-        #if(chrome.internetArchiveEnabled):
-        #if(bookmark.waybackURL):
-        <a href="#(bookmark.waybackURL)" target="_blank" rel="noopener"><button type="button" class="secondary">View on Wayback Machine</button></a>
-        #endif
-        <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/save-to-wayback">
-            <button type="submit" class="secondary">Save to Wayback Machine</button>
-        </form>
-        #endif
-        #if(bookmark.isArchived):
-        <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/unarchive">
-            <button type="submit" class="secondary">Unarchive</button>
-        </form>
-        #else:
-        <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/archive">
-            <button type="submit" class="secondary">Archive</button>
-        </form>
-        #endif
-        <form class="inline" method="post" action="/app/bookmarks/#(bookmark.id)/delete"
+    </div>
+
+    <div class="card">
+        <h2>Actions</h2>
+        <div class="action-list">
+            #if(bookmark.faviconDomain):
+            <form method="post" action="/app/bookmarks/#(bookmark.id)/refresh-favicon">
+                <button type="submit" class="action-row">Refresh favicon</button>
+            </form>
+            #endif
+            #if(chrome.internetArchiveEnabled):
+            #if(bookmark.waybackURL):
+            <a class="action-row" href="#(bookmark.waybackURL)" target="_blank" rel="noopener">View on Wayback Machine</a>
+            #endif
+            <form method="post" action="/app/bookmarks/#(bookmark.id)/save-to-wayback">
+                <button type="submit" class="action-row">Save to Wayback Machine</button>
+            </form>
+            #endif
+            #if(bookmark.isArchived):
+            <form method="post" action="/app/bookmarks/#(bookmark.id)/unarchive">
+                <button type="submit" class="action-row">Unarchive</button>
+            </form>
+            #else:
+            <form method="post" action="/app/bookmarks/#(bookmark.id)/archive">
+                <button type="submit" class="action-row">Archive</button>
+            </form>
+            #endif
+        </div>
+    </div>
+
+    <div class="card danger-zone">
+        <h2>Danger zone</h2>
+        <form method="post" action="/app/bookmarks/#(bookmark.id)/delete"
               onsubmit="return confirm('Delete this bookmark? This cannot be undone.');">
             <button type="submit" class="danger">Delete</button>
         </form>
