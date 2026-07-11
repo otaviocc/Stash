@@ -801,8 +801,20 @@ container restart.
 - 2FA reset: clears secret + recovery codes + invalidates refresh tokens
 - Post/Redirect/Get with `?ok=` confirmation banners
 - HTML forms use POST sub-routes for destructive actions (suspend, delete, etc.)
-- Nav includes an "App" link to `/app` (always shown; every admin also has a
-  regular bookmark collection, so it is never a dead end)
+- Nav is trimmed to Dashboard, Users, and App (always shown; every admin also
+  has a regular bookmark collection, so App is never a dead end). Every other
+  admin page (New user, Appearance, Audit log, Sessions, Health, Maintenance,
+  Favicons, Internet Archive, Logs) is reached via a Dashboard card, not the
+  top nav — see the Dashboard bullet below.
+- The Dashboard (`GET /admin`) is the admin hub: a KPI stat strip (total users
+  with an active/suspended split, total bookmarks, live web sessions, and the
+  Internet Archive queue depth), a grid of navigation cards — one per other
+  admin page, each with a one-line description and a cheap live detail where
+  one exists (e.g. Favicons shows cached/pending counts, Internet Archive
+  shows queued count or "Disabled") — and a recent-activity feed (the last 8
+  audit-log rows, most recent first, reusing the same row shape as the Audit
+  Log page). The old per-user table was dropped from the dashboard; it lives
+  only on the dedicated Users page.
 - The Appearance page (`GET`/`POST /admin/appearance`) edits the instance
   `SiteSettings` (§7.6): accent theme (ten circles, pure-HTML radios), the
   about message (max 280 chars), and the custom footer link (URL must be

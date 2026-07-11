@@ -154,16 +154,113 @@ struct AdminWebController: RouteCollection {
 
     func dashboard(req: Request) async throws -> View {
         let admin = try req.auth.require(User.self)
-        let users = try await User.query(on: req.db).sort(\.$username).all()
-        let rows = try users.map { try $0.asRow() }
+
+        async let users = User.query(on: req.db).sort(\.$username).all()
+        async let sessionRows = ActiveSessionLoader.loadActiveSessions(on: req)
+        async let archiveQueuedCount = Bookmark.query(on: req.db).filter(\.$waybackStatus == .pending).count()
+        async let faviconRows = FaviconCache.query(on: req.db).all()
+        async let recentAuditEntries = AuditLog.query(on: req.db)
+            .sort(\.$createdAt, .descending)
+            .limit(8)
+            .all()
+
+        let (
+            userList, sessions, archiveQueued, favicons, auditEntries
+        ) = try await (users, sessionRows, archiveQueuedCount, faviconRows, recentAuditEntries)
+
+        let rows = try userList.map { try $0.asRow() }
         let totalBookmarks = rows.reduce(0) { $0 + $1.bookmarkCount }
+        let activeUsers = rows.filter(\.isActive).count
+
+        let cachedFavicons = favicons.filter { $0.status == .cached }.count
+        let pendingFavicons = favicons.filter { $0.status == .pending }.count
+
+        let archiveEnabled = WaybackSubmitter.isInstanceEnabled(on: req.application)
+        let archiveDetail = archiveEnabled ? "\(archiveQueued) queued" : "Disabled"
+
+        let recentActivity = auditEntries.map { entry in
+            AuditLogRowContext(
+                time: DateFormatter.webDateTime.string(from: entry.createdAt ?? Date()),
+                actor: entry.actorUsername ?? "(unknown)",
+                action: entry.action,
+                detail: entry.detail ?? "—"
+            )
+        }
+
+        let cards = [
+            DashboardCardContext(
+                title: "Users",
+                href: "/admin/users",
+                description: "Manage accounts, suspend, reset passwords or 2FA.",
+                detail: "\(rows.count) users · \(rows.count - activeUsers) suspended"
+            ),
+            DashboardCardContext(
+                title: "New user",
+                href: "/admin/users/new",
+                description: "Create a new account.",
+                detail: nil
+            ),
+            DashboardCardContext(
+                title: "Appearance",
+                href: "/admin/appearance",
+                description: "Accent theme, about message, footer link.",
+                detail: nil
+            ),
+            DashboardCardContext(
+                title: "Audit log",
+                href: "/admin/audit",
+                description: "Auth events and admin actions, most recent first.",
+                detail: nil
+            ),
+            DashboardCardContext(
+                title: "Sessions",
+                href: "/admin/sessions",
+                description: "Every live web session, admin and app.",
+                detail: "\(sessions.count) live"
+            ),
+            DashboardCardContext(
+                title: "Health",
+                href: "/admin/health",
+                description: "Version, database, uptime, disk usage.",
+                detail: nil
+            ),
+            DashboardCardContext(
+                title: "Maintenance",
+                href: "/admin/maintenance",
+                description: "Run a database optimize (VACUUM).",
+                detail: nil
+            ),
+            DashboardCardContext(
+                title: "Favicons",
+                href: "/admin/favicons",
+                description: "Cached site icons; clear or re-scan.",
+                detail: "\(cachedFavicons) cached · \(pendingFavicons) pending"
+            ),
+            DashboardCardContext(
+                title: "Internet Archive",
+                href: "/admin/internet-archive",
+                description: "Wayback Machine submission queue and settings.",
+                detail: archiveDetail
+            ),
+            DashboardCardContext(
+                title: "Logs",
+                href: "/admin/logs",
+                description: "Recent server log lines.",
+                detail: nil
+            )
+        ]
 
         return try await req.view.render("dashboard", DashboardContext(
             title: "Dashboard",
             adminUsername: admin.username,
-            totalUsers: users.count,
+            totalUsers: rows.count,
+            activeUsers: activeUsers,
+            suspendedUsers: rows.count - activeUsers,
             totalBookmarks: totalBookmarks,
-            users: rows,
+            liveSessions: sessions.count,
+            archiveQueued: archiveQueued,
+            cards: cards,
+            recentActivity: recentActivity,
             chrome: req.siteChrome()
         ))
     }

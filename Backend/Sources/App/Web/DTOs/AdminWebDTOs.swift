@@ -54,16 +54,34 @@ struct LoginPageContext: Content {
     let chrome: SiteChrome
 }
 
+// MARK: - DashboardCardContext
+
+/// A single navigation card on the admin dashboard, linking to one of the other admin pages.
+struct DashboardCardContext: Content {
+
+    let title: String
+    let href: String
+    let description: String
+    let detail: String?
+}
+
 // MARK: - DashboardContext
 
-/// View context for the admin dashboard page.
+/// View context for the admin dashboard page: a KPI stat strip, a grid of navigation cards to
+/// every other admin page, and a recent-activity feed. This is deliberately the "hub" — the
+/// per-user table lives only on the dedicated Users page (`UsersContext`).
 struct DashboardContext: Content {
 
     let title: String
     let adminUsername: String
     let totalUsers: Int
+    let activeUsers: Int
+    let suspendedUsers: Int
     let totalBookmarks: Int
-    let users: [UserRowContext]
+    let liveSessions: Int
+    let archiveQueued: Int
+    let cards: [DashboardCardContext]
+    let recentActivity: [AuditLogRowContext]
     let chrome: SiteChrome
 }
 

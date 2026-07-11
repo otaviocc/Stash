@@ -3590,3 +3590,26 @@ recorded on the actor at each phase transition, exposed via a
 (`POST /admin/internet-archive/resume`) that just calls the existing
 idempotent `kick()` — safe to press whether or not the worker is already
 running.
+
+### Dashboard redesign: turn `/admin` into a hub, and trim the nav bar
+
+The admin nav bar had grown to 11 flat links (Dashboard, Users, New user,
+Appearance, Audit log, Sessions, Health, Maintenance, Favicons, Internet
+Archive, Logs) plus App and Log out, while the Dashboard itself did almost
+nothing — two stat tiles and a per-user table that just duplicated the Users
+page.
+
+Rebuilt the Dashboard as the admin hub: a KPI strip (users with an
+active/suspended split, bookmarks, live sessions, Internet Archive queue
+depth — all gathered concurrently via `async let`, same pattern as
+`renderInternetArchive`), a grid of navigation cards to every other admin
+page (each with a description and a cheap live detail where one exists), and
+a recent-activity feed reusing `AuditLogRowContext` from the Audit Log page
+at a smaller limit (8 vs. 50). The old per-user table was dropped — it now
+lives only on `/admin/users`.
+
+With the Dashboard now a real launcher, trimmed the shared nav in
+`layout.leaf` down to Dashboard / Users / App, since every other page is one
+click away via its card. Nothing is orphaned: the trim was verified with a
+dedicated test asserting the `<nav>` no longer lists the removed items while
+the dashboard's card grid still links to all of them.

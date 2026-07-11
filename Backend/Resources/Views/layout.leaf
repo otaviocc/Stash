@@ -37,15 +37,6 @@
         <nav>
             <a href="/admin">Dashboard</a>
             <a href="/admin/users">Users</a>
-            <a href="/admin/users/new">New user</a>
-            <a href="/admin/appearance">Appearance</a>
-            <a href="/admin/audit">Audit log</a>
-            <a href="/admin/sessions">Sessions</a>
-            <a href="/admin/health">Health</a>
-            <a href="/admin/maintenance">Maintenance</a>
-            <a href="/admin/favicons">Favicons</a>
-            <a href="/admin/internet-archive">Internet Archive</a>
-            <a href="/admin/logs">Logs</a>
             <a href="/app">App</a>
         </nav>
         <span class="spacer"></span>

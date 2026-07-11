@@ -1,35 +1,60 @@
 #extend("layout"):
 #export("content"):
     <h1>Dashboard</h1>
+
     <div class="stats">
         <div class="stat">
             <div class="num">#(totalUsers)</div>
-            <div class="label">Users</div>
+            <div class="label">Users (#(activeUsers) active, #(suspendedUsers) suspended)</div>
         </div>
         <div class="stat">
             <div class="num">#(totalBookmarks)</div>
             <div class="label">Bookmarks</div>
         </div>
+        <div class="stat">
+            <div class="num">#(liveSessions)</div>
+            <div class="label">Live sessions</div>
+        </div>
+        <div class="stat">
+            <div class="num">#(archiveQueued)</div>
+            <div class="label">Archive queued</div>
+        </div>
     </div>
 
-    <h2>Per-user counts</h2>
-    <table>
-        <thead>
-            <tr><th>Username</th><th>Role</th><th>Status</th><th>Bookmarks</th></tr>
-        </thead>
-        <tbody>
-            #for(user in users):
-            <tr>
-                <td><a href="/admin/users/#(user.id)">#(user.username)</a></td>
-                <td>#(user.role)</td>
-                <td>
-                    #if(user.isActive):<span class="pill active">Active</span>
-                    #else:<span class="pill suspended">Suspended</span>#endif
-                </td>
-                <td>#(user.bookmarkCount)</td>
-            </tr>
-            #endfor
-        </tbody>
-    </table>
+    <h2>Manage</h2>
+    <div class="card-grid">
+        #for(card in cards):
+        <a class="dash-card" href="#(card.href)">
+            <h3>#(card.title)</h3>
+            <p>#(card.description)</p>
+            #if(card.detail):
+            <span class="detail">#(card.detail)</span>
+            #endif
+        </a>
+        #endfor
+    </div>
+
+    <h2>Recent activity</h2>
+    <div class="card">
+        #if(recentActivity):
+        <table>
+            <thead>
+                <tr><th>Time</th><th>Actor</th><th>Action</th><th>Detail</th></tr>
+            </thead>
+            <tbody>
+                #for(entry in recentActivity):
+                <tr>
+                    <td>#(entry.time)</td>
+                    <td>#(entry.actor)</td>
+                    <td>#(entry.action)</td>
+                    <td>#(entry.detail)</td>
+                </tr>
+                #endfor
+            </tbody>
+        </table>
+        #else:
+        <p class="muted">No activity yet.</p>
+        #endif
+    </div>
 #endexport
 #endextend
