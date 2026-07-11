@@ -87,6 +87,7 @@ struct AuthController: RouteCollection {
         await AuditLogger.record(
             action: "login_success",
             actor: user.username,
+            detail: "api login",
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
@@ -115,6 +116,7 @@ struct AuthController: RouteCollection {
         await AuditLogger.record(
             action: "login_success",
             actor: user.username,
+            detail: "api totp",
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
