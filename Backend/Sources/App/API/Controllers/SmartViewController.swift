@@ -79,6 +79,7 @@ struct SmartViewController: RouteCollection {
             matchMode: matchMode
         )
         try await smartView.save(on: req.db)
+        req.logger.info("\(ActivityLog.smartViewCreated(name: name, user: user.username))")
 
         let response = Response(status: .created)
         try response.content.encode(smartView.asResponse())
@@ -90,6 +91,7 @@ struct SmartViewController: RouteCollection {
     }
 
     func update(req: Request) async throws -> SmartViewResponse {
+        let user = try req.auth.require(User.self)
         let smartView = try await requireSmartView(req)
         let body = try req.content.decode(SmartViewRequestBody.self)
 
@@ -100,12 +102,16 @@ struct SmartViewController: RouteCollection {
         }
 
         try await smartView.save(on: req.db)
+        req.logger.info("\(ActivityLog.smartViewUpdated(name: smartView.name, user: user.username))")
         return try smartView.asResponse()
     }
 
     func delete(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
         let smartView = try await requireSmartView(req)
+        let name = smartView.name
         try await smartView.delete(on: req.db)
+        req.logger.info("\(ActivityLog.smartViewDeleted(name: name, user: user.username))")
         return Response(status: .noContent)
     }
 

@@ -892,7 +892,13 @@ container restart.
   convenience, not a replacement for `docker logs`/`podman logs`. A `?level=`
   filter narrows to a minimum severity (`info`, `warning`, or `error`); any
   other value is treated as no filter, so the rendered dropdown selection
-  never diverges from what's actually shown.
+  never diverges from what's actually shown. Notable activity is emitted at
+  `info` (visible under the default/`info` filter): bookmarks saved, deleted,
+  and bulk-deleted (delete all); Smart View and tag created/renamed/deleted;
+  favicons cached or failed to cache; and bookmarks successfully archived to
+  the Wayback Machine. Auth (login/logout) and admin user-management actions
+  are deliberately *not* duplicated here — they already live in the DB-backed
+  Audit Log (`/admin/audit`, §7.9).
 
 ---
 

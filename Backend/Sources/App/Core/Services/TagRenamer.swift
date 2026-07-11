@@ -54,6 +54,7 @@ enum TagRenamer {
             }
         }
 
+        db.logger.info("\(ActivityLog.tagRenamed(from: from, to: to, affected: affected))")
         return Result(from: from, to: to, affectedBookmarks: affected)
     }
 

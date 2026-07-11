@@ -235,6 +235,7 @@ struct SettingsWebController: RouteCollection {
         }
         user.bookmarkCount = 0
         try await user.save(on: req.db)
+        req.logger.info("\(ActivityLog.allBookmarksDeleted(count: bookmarkIDs.count, user: user.username))")
 
         return req.redirect(to: "/app?notice=all_bookmarks_deleted")
     }

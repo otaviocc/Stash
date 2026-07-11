@@ -206,6 +206,7 @@ struct BookmarkController: RouteCollection {
 
         user.bookmarkCount += 1
         try await user.save(on: req.db)
+        req.logger.info("\(ActivityLog.bookmarkSaved(url: url, user: user.username))")
 
         FaviconFetcher.enqueue(forURL: url, declaredIconURL: declaredIcon, on: req.application)
         await WaybackSubmitter.enqueueIfAllowed(bookmark, for: user, on: req.application)
@@ -274,6 +275,7 @@ struct BookmarkController: RouteCollection {
         let bookmark = try await requireBookmark(req)
         let bookmarkID = try bookmark.requireID()
         let userID = try user.requireID()
+        let url = bookmark.url
 
         try await req.db.transaction { db in
             try await bookmark.delete(on: db)
@@ -282,6 +284,7 @@ struct BookmarkController: RouteCollection {
 
         user.bookmarkCount = max(user.bookmarkCount - 1, 0)
         try await user.save(on: req.db)
+        req.logger.info("\(ActivityLog.bookmarkDeleted(url: url, user: user.username))")
         return Response(status: .noContent)
     }
 

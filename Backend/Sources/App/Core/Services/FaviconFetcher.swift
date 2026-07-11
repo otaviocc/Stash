@@ -51,12 +51,14 @@ enum FaviconFetcher {
             cache.status = .cached
             cache.fetchedAt = Date()
             await persist(cache, on: db)
+            db.logger.info("\(ActivityLog.faviconCached(domain: domain))")
             return
         }
 
         cache.status = .failed
         cache.fetchedAt = Date()
         await persist(cache, on: db)
+        db.logger.info("\(ActivityLog.faviconFailed(domain: domain))")
     }
 
     static func enqueue(forURL url: String, declaredIconURL: String?, on app: Application) {

@@ -153,6 +153,7 @@ struct SmartViewWebController: RouteCollection {
                 matchMode: matchMode
             )
             try await smartView.save(on: req.db)
+            req.logger.info("\(ActivityLog.smartViewCreated(name: name, user: user.username))")
 
             return req.redirect(to: "/app/smart-views?ok=saved")
         } catch let error as APIError {
@@ -199,6 +200,7 @@ struct SmartViewWebController: RouteCollection {
             smartView.matchMode = try SmartViewController.validatedMatchMode(form.matchMode)
             smartView.conditions = try SmartViewPresenter.conditions(from: form)
             try await smartView.save(on: req.db)
+            req.logger.info("\(ActivityLog.smartViewUpdated(name: smartView.name, user: user.username))")
 
             return req.redirect(to: "/app/smart-views?ok=saved")
         } catch let error as APIError {
@@ -217,9 +219,12 @@ struct SmartViewWebController: RouteCollection {
     }
 
     func deleteSmartView(req: Request) async throws -> Response {
+        let user = try req.auth.require(User.self)
         guard let smartView = try await loadSmartView(req) else { return req.redirect(to: "/app/smart-views") }
 
+        let name = smartView.name
         try await smartView.delete(on: req.db)
+        req.logger.info("\(ActivityLog.smartViewDeleted(name: name, user: user.username))")
         return req.redirect(to: "/app/smart-views?ok=deleted")
     }
 

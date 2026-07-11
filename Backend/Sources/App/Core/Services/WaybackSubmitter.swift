@@ -331,6 +331,7 @@ enum WaybackSubmitter {
             bookmark.waybackArchivedAt = Date()
             bookmark.waybackRetryCount = 0
             try await bookmark.save(on: db)
+            db.logger.info("\(ActivityLog.waybackArchived(url: bookmark.url))")
             return .archived
         } catch {
             db.logger.error("Wayback submit failed for \(bookmark.url): \(String(reflecting: error))")

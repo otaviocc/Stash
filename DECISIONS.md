@@ -3613,3 +3613,34 @@ With the Dashboard now a real launcher, trimmed the shared nav in
 click away via its card. Nothing is orphaned: the trim was verified with a
 dedicated test asserting the `<nav>` no longer lists the removed items while
 the dashboard's card grid still links to all of them.
+
+### Add `info`-level activity logs so `/admin/logs` is actually useful
+
+Auditing the codebase found that **nothing logged at `info`** — the only
+lines ever reaching `/admin/logs` were a couple of Wayback `notice` lines, the
+first-boot admin `notice`, and `error`s. In normal operation the page was
+near-empty.
+
+Added concise `info` lines for notable user/system events: bookmark saved,
+deleted, and delete-all; Smart View created/updated/deleted; tag
+renamed/deleted; favicon cached/failed; Wayback snapshot saved. `info` was
+chosen over `notice` deliberately — the logs-page `?level=` dropdown only
+offers `info`/`warning`/`error` (`AdminWebController.logsPage`,
+`selectableLevels`), so a `notice` line is only visible in the unfiltered
+view, which would make it easy to miss.
+
+Centralized the message text in a new `ActivityLog` enum
+(`Core/Support/ActivityLog.swift`, alongside the existing `StashUserAgent`)
+rather than inlining strings at each call site, for two reasons: the API and
+web surfaces each save bookmarks/Smart Views independently with no shared
+controller, so a helper is the only way to guarantee identical wording across
+both; and the ring buffer is wired up only in `entrypoint.main`, not the test
+harness, so the helper's pure strings are the actual testable seam (see
+`ActivityLogTests.swift`) — there's no way to assert on captured log lines
+from an integration test.
+
+Deliberately left out of this pass: bookmark edit/archive-toggle (too
+frequent to be useful signal) and login/logout/startup — auth and admin
+actions are already captured in the DB-backed Audit Log
+(`AuditLogger`/`/admin/audit`), and duplicating them to the ops log would be
+redundant rather than additive.

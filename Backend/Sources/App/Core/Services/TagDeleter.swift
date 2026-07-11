@@ -48,6 +48,7 @@ enum TagDeleter {
             }
         }
 
+        db.logger.info("\(ActivityLog.tagDeleted(tag: tag, affected: affected))")
         return Result(tag: tag, affectedBookmarks: affected)
     }
 
