@@ -285,6 +285,7 @@ struct AuthLoginTests {
             let rows = allRows.filter { $0.action == "logout" }
             #expect(rows.count == 1, "It should write exactly one logout row")
             #expect(rows.first?.actorUsername == "otavio", "It should resolve the actor from the refresh token")
+            #expect(rows.first?.detail == "api logout", "It should record which surface the logout came from")
         }
     }
 }

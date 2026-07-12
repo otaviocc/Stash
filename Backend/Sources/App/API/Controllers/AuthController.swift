@@ -201,6 +201,7 @@ struct AuthController: RouteCollection {
         await AuditLogger.record(
             action: "logout",
             actor: actor,
+            detail: "api logout",
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
