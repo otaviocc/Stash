@@ -18,10 +18,10 @@ info:
     server-rendered web UIs (`/app`, `/admin`) are session-cookie driven and
     are not part of the public API surface.
   contact:
-    name: Otávio
+    name: Otávio C.
     url: https://otavio.cc
   license:
-    name: MIT
+    name: AGPLv3 (Backend) and MIT (everything else)
 
 servers:
   - url: http://localhost:8080
