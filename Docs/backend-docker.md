@@ -107,6 +107,8 @@ docker compose pull && docker compose up -d
 
 Update checking is on by default and can be turned off from the Health page
 (useful for an air-gapped or fully offline instance) — see PRODUCT.md §12.
+Only a proper `vX.Y.Z` release is ever surfaced as an update; a pre-release
+tag (`v1.0.0-beta`, see `Docs/releasing.md`) is never flagged.
 
 ## Data persistence
 

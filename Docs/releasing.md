@@ -50,6 +50,14 @@ login, the push, and the release.
 - **Tag format matters.** `v1.0.0` ✅. `v1.2` ❌ (doesn't match `v*.*.*`, won't
   trigger). `1.0.0` ❌ (no `v`). Pre-release suffixes like `v1.0.0-beta` do
   trigger and yield the version `1.0.0-beta`.
+- **A pre-release tag never shows up as an available update.** The admin
+  dashboard's update checker (`/admin/health`, see `Docs/backend-docker.md`)
+  requires a clean `major.minor.patch` on both sides of the comparison and
+  treats anything else, including a `-beta`/`-rc` qualified tag, as
+  unparseable — deliberately, so a qualified tag can't be silently truncated
+  and misread as equal to a real release. This is intentional: a pre-release
+  is meant for the people who already know to go looking for it, not to be
+  pushed as a notification to every self-hosted instance.
 - **`latest` follows the newest tag**: every release re-tags `latest` at the
   new version.
 - **The first release is slow.** The `linux/arm64` leg builds under QEMU
