@@ -594,16 +594,26 @@ struct AdminWebController: RouteCollection {
         }
 
         let settings = try await SiteSettingsService.current(on: req.db)
+
+        let oldTheme = settings.accentTheme
+        let oldAbout = settings.aboutText ?? ""
+        let oldLinks = settings.footerLinks
+
         settings.accentTheme = accentTheme
         settings.aboutText = aboutText.isEmpty ? nil : aboutText
         settings.footerLinks = links
         try await settings.save(on: req.db)
         SiteSettingsService.refreshCache(with: settings, on: req.application)
 
+        var changed: [String] = []
+        if accentTheme != oldTheme { changed.append("accent theme: \(accentTheme)") }
+        if aboutText != oldAbout { changed.append("about text") }
+        if links != oldLinks { changed.append("footer links") }
+
         await AuditLogger.record(
             action: "appearance_updated",
             actor: admin.username,
-            detail: "accent theme: \(accentTheme)",
+            detail: changed.isEmpty ? "no changes" : changed.joined(separator: ", "),
             ip: AuditLogger.clientIP(from: req),
             on: req.db
         )
