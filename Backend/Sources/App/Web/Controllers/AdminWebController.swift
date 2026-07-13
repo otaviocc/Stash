@@ -543,8 +543,7 @@ struct AdminWebController: RouteCollection {
             admin: admin,
             accentTheme: settings.accentTheme,
             aboutText: settings.aboutText ?? "",
-            footerCustomLabel: settings.footerCustomLabel ?? "",
-            footerCustomURL: settings.footerCustomURL ?? "",
+            footerLinks: settings.footerLinks,
             error: nil,
             message: message
         )
@@ -556,8 +555,17 @@ struct AdminWebController: RouteCollection {
 
         let accentTheme = form.accentTheme.trimmingCharacters(in: .whitespacesAndNewlines)
         let aboutText = form.aboutText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let label = form.footerCustomLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let url = form.footerCustomURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        func trim(_ s: String?) -> String {
+            s?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
+
+        let links: [FooterLink] = [
+            .init(label: trim(form.footerLink0Label), url: trim(form.footerLink0URL)),
+            .init(label: trim(form.footerLink1Label), url: trim(form.footerLink1URL)),
+            .init(label: trim(form.footerLink2Label), url: trim(form.footerLink2URL)),
+            .init(label: trim(form.footerLink3Label), url: trim(form.footerLink3URL))
+        ]
 
         func formError(_ message: String) async throws -> Response {
             try await renderAppearance(
@@ -565,8 +573,7 @@ struct AdminWebController: RouteCollection {
                 admin: admin,
                 accentTheme: accentTheme,
                 aboutText: aboutText,
-                footerCustomLabel: label,
-                footerCustomURL: url,
+                footerLinks: links,
                 error: message,
                 message: nil,
                 status: .unprocessableEntity
@@ -579,15 +586,17 @@ struct AdminWebController: RouteCollection {
         guard aboutText.count <= 280 else {
             return try await formError("The about message must be 280 characters or fewer.")
         }
-        guard url.isEmpty || url.lowercased().hasPrefix("https://") else {
-            return try await formError("The footer link URL must start with https://.")
+
+        for link in links where !link.url.isEmpty {
+            guard link.url.lowercased().hasPrefix("https://") else {
+                return try await formError("All footer link URLs must start with https://.")
+            }
         }
 
         let settings = try await SiteSettingsService.current(on: req.db)
         settings.accentTheme = accentTheme
         settings.aboutText = aboutText.isEmpty ? nil : aboutText
-        settings.footerCustomLabel = label.isEmpty ? nil : label
-        settings.footerCustomURL = url.isEmpty ? nil : url
+        settings.footerLinks = links
         try await settings.save(on: req.db)
         SiteSettingsService.refreshCache(with: settings, on: req.application)
 
@@ -1185,8 +1194,7 @@ struct AdminWebController: RouteCollection {
         admin: User,
         accentTheme: String,
         aboutText: String,
-        footerCustomLabel: String,
-        footerCustomURL: String,
+        footerLinks: [FooterLink],
         error: String?,
         message: String?,
         status: HTTPResponseStatus = .ok
@@ -1194,13 +1202,23 @@ struct AdminWebController: RouteCollection {
         let themes = AccentTheme.all.map {
             ThemeOption(id: $0.id, name: $0.name, light: $0.light, dark: $0.dark, isSelected: $0.id == accentTheme)
         }
+        var padded = footerLinks
+        while padded.count < 4 {
+            padded.append(FooterLink(label: "", url: ""))
+        }
         let context = AppearanceContext(
             title: "Appearance",
             adminUsername: admin.username,
             themes: themes,
             aboutText: aboutText,
-            footerCustomLabel: footerCustomLabel,
-            footerCustomURL: footerCustomURL,
+            footerLink0Label: padded[0].label,
+            footerLink0URL: padded[0].url,
+            footerLink1Label: padded[1].label,
+            footerLink1URL: padded[1].url,
+            footerLink2Label: padded[2].label,
+            footerLink2URL: padded[2].url,
+            footerLink3Label: padded[3].label,
+            footerLink3URL: padded[3].url,
             error: error,
             message: message,
             chrome: req.siteChrome()

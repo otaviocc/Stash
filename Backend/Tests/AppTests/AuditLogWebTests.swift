@@ -259,8 +259,10 @@ struct AuditLogWebTests {
                         AppearanceForm(
                             accentTheme: "forest",
                             aboutText: nil,
-                            footerCustomLabel: nil,
-                            footerCustomURL: nil
+                            footerLink0Label: nil, footerLink0URL: nil,
+                            footerLink1Label: nil, footerLink1URL: nil,
+                            footerLink2Label: nil, footerLink2URL: nil,
+                            footerLink3Label: nil, footerLink3URL: nil
                         ),
                         as: .urlEncodedForm
                     )

@@ -56,8 +56,12 @@ struct AppearanceTests {
             let settings = try await SiteSettingsService.current(on: app.db)
             settings.accentTheme = "forest"
             settings.aboutText = "Maintained by Alice."
-            settings.footerCustomLabel = "Our intranet"
-            settings.footerCustomURL = "https://intranet.example.com"
+            settings.footerLinks = [
+                .init(label: "GitHub", url: "https://github.com/otaviocc/Stash"),
+                .init(label: "Mastodon", url: "https://social.lol/@otaviocc"),
+                .init(label: "Ko-fi", url: "https://ko-fi.com/otaviocc"),
+                .init(label: "Our intranet", url: "https://intranet.example.com")
+            ]
             try await settings.save(on: app.db)
             SiteSettingsService.refreshCache(with: settings, on: app)
 
@@ -90,8 +94,14 @@ struct AppearanceTests {
                     try req.content.encode(AppearanceForm(
                         accentTheme: "aurora",
                         aboutText: "Hello team.",
-                        footerCustomLabel: "Docs",
-                        footerCustomURL: "https://docs.example.com"
+                        footerLink0Label: "GitHub",
+                        footerLink0URL: "https://github.com/otaviocc/Stash",
+                        footerLink1Label: "Mastodon",
+                        footerLink1URL: "https://social.lol/@otaviocc",
+                        footerLink2Label: "Ko-fi",
+                        footerLink2URL: "https://ko-fi.com/otaviocc",
+                        footerLink3Label: "Docs",
+                        footerLink3URL: "https://docs.example.com"
                     ), as: .urlEncodedForm)
                 },
                 afterResponse: { res async throws in
@@ -107,6 +117,11 @@ struct AppearanceTests {
             let settings = try await SiteSettingsService.current(on: app.db)
             #expect(settings.accentTheme == "aurora", "It should persist the chosen theme")
             #expect(settings.aboutText == "Hello team.", "It should persist the about text")
+            #expect(settings.footerLinks[3].label == "Docs", "It should persist the custom footer label")
+            #expect(
+                settings.footerLinks[3].url == "https://docs.example.com",
+                "It should persist the custom footer URL"
+            )
 
             let cached = app.storage[SiteSettingsCacheKey.self]?.current
             #expect(cached?.accentTheme == "aurora", "It should refresh the app-level cache")
@@ -127,8 +142,10 @@ struct AppearanceTests {
                     try req.content.encode(AppearanceForm(
                         accentTheme: "neon",
                         aboutText: nil,
-                        footerCustomLabel: nil,
-                        footerCustomURL: nil
+                        footerLink0Label: nil, footerLink0URL: nil,
+                        footerLink1Label: nil, footerLink1URL: nil,
+                        footerLink2Label: nil, footerLink2URL: nil,
+                        footerLink3Label: nil, footerLink3URL: nil
                     ), as: .urlEncodedForm)
                 },
                 afterResponse: { res async throws in
@@ -157,8 +174,10 @@ struct AppearanceTests {
                     try req.content.encode(AppearanceForm(
                         accentTheme: "ocean",
                         aboutText: tooLong,
-                        footerCustomLabel: nil,
-                        footerCustomURL: nil
+                        footerLink0Label: nil, footerLink0URL: nil,
+                        footerLink1Label: nil, footerLink1URL: nil,
+                        footerLink2Label: nil, footerLink2URL: nil,
+                        footerLink3Label: nil, footerLink3URL: nil
                     ), as: .urlEncodedForm)
                 },
                 afterResponse: { res async throws in
@@ -172,7 +191,7 @@ struct AppearanceTests {
         }
     }
 
-    @Test("a custom footer URL that is not https is rejected")
+    @Test("a footer URL that is not https is rejected")
     func nonHTTPSURLRejected() async throws {
         try await withTestApp { app in
             // Given
@@ -186,8 +205,11 @@ struct AppearanceTests {
                     try req.content.encode(AppearanceForm(
                         accentTheme: "ocean",
                         aboutText: nil,
-                        footerCustomLabel: "Site",
-                        footerCustomURL: "http://insecure.example.com"
+                        footerLink0Label: "Site",
+                        footerLink0URL: "http://insecure.example.com",
+                        footerLink1Label: nil, footerLink1URL: nil,
+                        footerLink2Label: nil, footerLink2URL: nil,
+                        footerLink3Label: nil, footerLink3URL: nil
                     ), as: .urlEncodedForm)
                 },
                 afterResponse: { res async throws in
@@ -197,7 +219,10 @@ struct AppearanceTests {
             )
 
             let settings = try await SiteSettingsService.current(on: app.db)
-            #expect(settings.footerCustomURL == nil, "It should not save the insecure URL")
+            #expect(
+                settings.footerLinks[0].url == "https://github.com/otaviocc/Stash",
+                "It should not save the insecure URL"
+            )
         }
     }
 
@@ -208,8 +233,12 @@ struct AppearanceTests {
         try await withTestApp { app in
             // Given
             let settings = try await SiteSettingsService.current(on: app.db)
-            settings.footerCustomLabel = "Our website"
-            settings.footerCustomURL = "https://example.com"
+            settings.footerLinks = [
+                .init(label: "GitHub", url: "https://github.com/otaviocc/Stash"),
+                .init(label: "Mastodon", url: "https://social.lol/@otaviocc"),
+                .init(label: "Ko-fi", url: "https://ko-fi.com/otaviocc"),
+                .init(label: "Our website", url: "https://example.com")
+            ]
             try await settings.save(on: app.db)
             SiteSettingsService.refreshCache(with: settings, on: app)
             let headers = try await app.adminWebSession()
@@ -224,13 +253,17 @@ struct AppearanceTests {
         }
     }
 
-    @Test("the footer custom link is hidden when either field is empty")
+    @Test("the footer custom link is hidden when its label is empty")
     func footerLinkHidden() async throws {
         try await withTestApp { app in
-            // Given — only the label is set, no URL
+            // Given — the 4th slot has an empty label
             let settings = try await SiteSettingsService.current(on: app.db)
-            settings.footerCustomLabel = "Our website"
-            settings.footerCustomURL = nil
+            settings.footerLinks = [
+                .init(label: "GitHub", url: "https://github.com/otaviocc/Stash"),
+                .init(label: "Mastodon", url: "https://social.lol/@otaviocc"),
+                .init(label: "Ko-fi", url: "https://ko-fi.com/otaviocc"),
+                .init(label: "", url: "")
+            ]
             try await settings.save(on: app.db)
             SiteSettingsService.refreshCache(with: settings, on: app)
             let headers = try await app.adminWebSession()
@@ -239,7 +272,6 @@ struct AppearanceTests {
             try await app.testing().test(.GET, "admin", headers: headers) { res async throws in
                 // Then
                 let body = res.body.string
-                #expect(!body.contains("Our website"), "It should not render the custom link without a URL")
                 #expect(body.contains("Ko-fi"), "It should still render the fixed footer links")
             }
         }

@@ -836,6 +836,14 @@ footer.site-footer .version {
     margin: 0.5rem 0 0.25rem;
 }
 
+/* Footer links editor (admin appearance page) */
+.footer-link-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
 .theme-option {
     position: relative;
 }

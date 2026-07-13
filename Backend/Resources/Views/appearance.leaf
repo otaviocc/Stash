@@ -39,14 +39,40 @@
         </div>
 
         <div class="card">
-            <h2>Custom footer link</h2>
-            <p class="muted">An optional extra link shown in the footer. Both fields are required for it to appear.</p>
-            <label>Label
-                <input name="footerCustomLabel" value="#(footerCustomLabel)" placeholder="Our website">
-            </label>
-            <label>URL <span class="muted">(must start with https://)</span>
-                <input name="footerCustomURL" type="url" value="#(footerCustomURL)" placeholder="https://example.com">
-            </label>
+            <h2>Footer links</h2>
+            <p class="muted">Links shown in the footer. Leave both fields empty to hide a link. All URLs must start with https://.</p>
+            <div class="footer-link-row">
+                <label>Label
+                    <input name="footerLink0Label" value="#(footerLink0Label)" placeholder="GitHub">
+                </label>
+                <label>URL
+                    <input name="footerLink0URL" type="url" value="#(footerLink0URL)" placeholder="https://github.com/...">
+                </label>
+            </div>
+            <div class="footer-link-row">
+                <label>Label
+                    <input name="footerLink1Label" value="#(footerLink1Label)" placeholder="Mastodon">
+                </label>
+                <label>URL
+                    <input name="footerLink1URL" type="url" value="#(footerLink1URL)" placeholder="https://social.lol/@...">
+                </label>
+            </div>
+            <div class="footer-link-row">
+                <label>Label
+                    <input name="footerLink2Label" value="#(footerLink2Label)" placeholder="Ko-fi">
+                </label>
+                <label>URL
+                    <input name="footerLink2URL" type="url" value="#(footerLink2URL)" placeholder="https://ko-fi.com/...">
+                </label>
+            </div>
+            <div class="footer-link-row">
+                <label>Label
+                    <input name="footerLink3Label" value="#(footerLink3Label)" placeholder="Custom link">
+                </label>
+                <label>URL
+                    <input name="footerLink3URL" type="url" value="#(footerLink3URL)" placeholder="https://example.com">
+                </label>
+            </div>
         </div>
 
         <button type="submit">Save appearance</button>

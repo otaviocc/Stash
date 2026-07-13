@@ -77,6 +77,7 @@ struct InstanceBackupTests {
                     aboutText: nil,
                     footerCustomLabel: nil,
                     footerCustomURL: nil,
+                    footerLinks: nil,
                     internetArchiveEnabled: true,
                     updateCheckEnabled: true
                 ),
@@ -163,6 +164,7 @@ struct InstanceBackupTests {
                 exportedAt: "2026-01-01T00:00:00Z",
                 siteSettings: BackupSiteSettings(
                     accentTheme: "ocean", aboutText: nil, footerCustomLabel: nil, footerCustomURL: nil,
+                    footerLinks: nil,
                     internetArchiveEnabled: true, updateCheckEnabled: true
                 ),
                 users: [
@@ -206,6 +208,7 @@ struct InstanceBackupTests {
                 exportedAt: "2026-01-01T00:00:00Z",
                 siteSettings: BackupSiteSettings(
                     accentTheme: "ocean", aboutText: nil, footerCustomLabel: nil, footerCustomURL: nil,
+                    footerLinks: nil,
                     internetArchiveEnabled: true, updateCheckEnabled: true
                 ),
                 users: [
@@ -264,6 +267,7 @@ struct InstanceBackupTests {
                 exportedAt: "2026-01-01T00:00:00Z",
                 siteSettings: BackupSiteSettings(
                     accentTheme: "ocean", aboutText: nil, footerCustomLabel: nil, footerCustomURL: nil,
+                    footerLinks: nil,
                     internetArchiveEnabled: true, updateCheckEnabled: true
                 ),
                 users: [
@@ -317,6 +321,7 @@ struct InstanceBackupTests {
                 exportedAt: "2026-01-01T00:00:00Z",
                 siteSettings: BackupSiteSettings(
                     accentTheme: "ocean", aboutText: nil, footerCustomLabel: nil, footerCustomURL: nil,
+                    footerLinks: nil,
                     internetArchiveEnabled: true, updateCheckEnabled: true
                 ),
                 users: [

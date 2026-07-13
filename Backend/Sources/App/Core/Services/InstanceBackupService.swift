@@ -30,6 +30,7 @@ struct BackupSiteSettings: Codable, Sendable {
     let aboutText: String?
     let footerCustomLabel: String?
     let footerCustomURL: String?
+    let footerLinks: [FooterLink]?
     let internetArchiveEnabled: Bool
     let updateCheckEnabled: Bool
 }
@@ -218,8 +219,9 @@ enum InstanceBackupService {
             siteSettings: BackupSiteSettings(
                 accentTheme: settings.accentTheme,
                 aboutText: settings.aboutText,
-                footerCustomLabel: settings.footerCustomLabel,
-                footerCustomURL: settings.footerCustomURL,
+                footerCustomLabel: nil,
+                footerCustomURL: nil,
+                footerLinks: settings.footerLinks,
                 internetArchiveEnabled: settings.internetArchiveEnabled,
                 updateCheckEnabled: settings.updateCheckEnabled
             ),
@@ -261,8 +263,17 @@ enum InstanceBackupService {
         let result = try await app.db.transaction { db -> RestoreResult in
             settings.accentTheme = backup.siteSettings.accentTheme
             settings.aboutText = backup.siteSettings.aboutText
-            settings.footerCustomLabel = backup.siteSettings.footerCustomLabel
-            settings.footerCustomURL = backup.siteSettings.footerCustomURL
+            if let links = backup.siteSettings.footerLinks {
+                settings.footerLinks = links
+            } else if let label = backup.siteSettings.footerCustomLabel,
+                      let url = backup.siteSettings.footerCustomURL
+            {
+                var links = SiteSettings.defaultLinks
+                if !label.isEmpty, !url.isEmpty {
+                    links[3] = FooterLink(label: label, url: url)
+                }
+                settings.footerLinks = links
+            }
             settings.internetArchiveEnabled = backup.siteSettings.internetArchiveEnabled
             settings.updateCheckEnabled = backup.siteSettings.updateCheckEnabled
             try await settings.save(on: db)

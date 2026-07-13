@@ -15,8 +15,7 @@ extension Request {
 
         return SiteChrome(
             footer: FooterContext(
-                customLabel: snapshot.footerCustomLabel.flatMap(\.nonEmpty),
-                customURL: snapshot.footerCustomURL.flatMap(\.nonEmpty),
+                links: snapshot.footerLinks.filter { !$0.isEmpty },
                 version: version
             ),
             aboutText: snapshot.aboutText.flatMap(\.nonEmpty),

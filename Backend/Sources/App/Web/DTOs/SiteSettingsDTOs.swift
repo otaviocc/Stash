@@ -3,22 +3,37 @@
 
 import Vapor
 
+// MARK: - FooterLink
+
+/// A single label + URL pair displayed in the site footer.
+struct FooterLink: Codable, Content, Equatable {
+
+    // MARK: Properties
+
+    let label: String
+    let url: String
+
+    // MARK: Computed Properties
+
+    var isEmpty: Bool {
+        label.isEmpty && url.isEmpty
+    }
+}
+
 // MARK: - FooterContext
 
-/// Context passed to every page template for footer rendering. The GitHub, Mastodon, and Ko-fi
-/// links are hardcoded directly in `_footer.leaf`, not passed here, so they cannot
-/// be accidentally omitted.
+/// Context passed to every page template for footer rendering. The `links` array contains up to
+/// four editable footer links (GitHub, Mastodon, Ko-fi, and one custom slot by default).
 struct FooterContext: Content {
 
-    let customLabel: String?
-    let customURL: String?
+    let links: [FooterLink]
     let version: String
 }
 
 // MARK: - SiteChrome
 
 /// The instance-wide chrome injected into every page render under the `chrome` key: the resolved
-/// accent colours (light/dark), the optional "About this instance" message, and the footer.
+/// accent colors (light/dark), the optional "About this instance" message, and the footer.
 struct SiteChrome: Content {
 
     let footer: FooterContext
@@ -49,8 +64,14 @@ struct AppearanceContext: Content {
     let adminUsername: String
     let themes: [ThemeOption]
     let aboutText: String
-    let footerCustomLabel: String
-    let footerCustomURL: String
+    let footerLink0Label: String
+    let footerLink0URL: String
+    let footerLink1Label: String
+    let footerLink1URL: String
+    let footerLink2Label: String
+    let footerLink2URL: String
+    let footerLink3Label: String
+    let footerLink3URL: String
     let error: String?
     let message: String?
     let chrome: SiteChrome
@@ -59,11 +80,17 @@ struct AppearanceContext: Content {
 // MARK: - AppearanceForm
 
 /// `POST /admin/appearance` form — the chosen accent theme, the optional about message, and the
-/// optional custom footer link.
+/// four editable footer link slots.
 struct AppearanceForm: Content {
 
     let accentTheme: String
     let aboutText: String?
-    let footerCustomLabel: String?
-    let footerCustomURL: String?
+    let footerLink0Label: String?
+    let footerLink0URL: String?
+    let footerLink1Label: String?
+    let footerLink1URL: String?
+    let footerLink2Label: String?
+    let footerLink2URL: String?
+    let footerLink3Label: String?
+    let footerLink3URL: String?
 }

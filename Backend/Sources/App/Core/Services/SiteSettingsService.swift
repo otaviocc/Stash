@@ -16,8 +16,7 @@ struct SiteSettingsSnapshot {
     static let `default` = SiteSettingsSnapshot(
         accentTheme: AccentTheme.default.id,
         aboutText: nil,
-        footerCustomLabel: nil,
-        footerCustomURL: nil,
+        footerLinks: SiteSettings.defaultLinks,
         internetArchiveEnabled: true,
         updateCheckEnabled: true
     )
@@ -26,8 +25,7 @@ struct SiteSettingsSnapshot {
 
     let accentTheme: String
     let aboutText: String?
-    let footerCustomLabel: String?
-    let footerCustomURL: String?
+    let footerLinks: [FooterLink]
     let internetArchiveEnabled: Bool
     let updateCheckEnabled: Bool
 
@@ -36,15 +34,13 @@ struct SiteSettingsSnapshot {
     init(
         accentTheme: String,
         aboutText: String?,
-        footerCustomLabel: String?,
-        footerCustomURL: String?,
+        footerLinks: [FooterLink],
         internetArchiveEnabled: Bool,
         updateCheckEnabled: Bool
     ) {
         self.accentTheme = accentTheme
         self.aboutText = aboutText
-        self.footerCustomLabel = footerCustomLabel
-        self.footerCustomURL = footerCustomURL
+        self.footerLinks = footerLinks
         self.internetArchiveEnabled = internetArchiveEnabled
         self.updateCheckEnabled = updateCheckEnabled
     }
@@ -53,8 +49,7 @@ struct SiteSettingsSnapshot {
         self.init(
             accentTheme: settings.accentTheme,
             aboutText: settings.aboutText,
-            footerCustomLabel: settings.footerCustomLabel,
-            footerCustomURL: settings.footerCustomURL,
+            footerLinks: settings.footerLinks,
             internetArchiveEnabled: settings.internetArchiveEnabled,
             updateCheckEnabled: settings.updateCheckEnabled
         )
