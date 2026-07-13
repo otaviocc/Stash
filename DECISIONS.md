@@ -1206,9 +1206,11 @@ falls back to defaults so a page render is never blocked by a
 misconfiguration.
 
 The Stash identity itself (the name, the Ko-fi link, the Mastodon link)
-is hardcoded directly in the footer template rather than passed through
+was hardcoded directly in the footer template rather than passed through
 context, specifically so it can't be accidentally omitted, overridden, or
-removed by an admin. The version string is read from a `VERSION` file at
+removed by an admin. *Superseded:* all footer links are now editable by
+the admin through four label+URL slots stored in `footerLinks`; only the
+name and logo remain hardcoded. See the Editable footer links entry below. The version string is read from a `VERSION` file at
 startup and falls back to `"dev"` if that file is missing or empty. The
 theme picker itself needs no JavaScript at all: just visually-hidden radio
 inputs with CSS drawing the active ring around whichever swatch is checked.
@@ -3901,3 +3903,46 @@ It deliberately does **not** touch `CFBundleVersion` (the build number) —
 that increments independently of the short version, so bumping it is a
 separate, manual step. It also doesn't tag or commit anything; see
 `Docs/releasing.md` for the tagging step that follows.
+
+---
+
+## Editable footer links
+
+The footer previously showed three hardcoded links (GitHub, Mastodon, Ko-fi)
+plus one optional custom link (`footerCustomLabel` + `footerCustomURL`). The
+hardcoded approach was originally chosen so the Stash identity couldn't be
+accidentally omitted or overridden by an admin (see the "Site Settings &
+Admin Customization" entry above), but in practice every instance that isn't
+the original developer's wants its own links — a different GitHub repo, a
+different support link, no Ko-fi at all — and the only way to change them was
+editing the Leaf template directly.
+
+All footer links are now fully editable by the admin through four label+URL
+slots, stored as a JSON array in a new `footerLinks` column on `SiteSettings`.
+The migration (`AddSiteSettingsFooterLinks`) provides backward-compatible
+defaults: GitHub, Mastodon, Ko-fi, and one empty custom slot. The
+`FooterLink` struct (`label: String`, `url: String`) is a simple Codable
+value type, not a new model — it lives entirely inside `SiteSettings` as a
+JSON column, same pattern as Smart View conditions. URLs are validated for
+`https://` on save; empty slots (both label and URL empty) are hidden from the
+rendered footer.
+
+The admin appearance page now shows four editable rows in a grid layout
+matching the about-text and theme sections, each with label and URL fields.
+Backup restore handles old backup files that still carry the legacy
+`footerCustomLabel`/`footerCustomURL` fields: those values are migrated into
+the fourth footer link slot on restore, so restoring from a pre-editable-links
+backup doesn't silently lose the custom link.
+
+## Appearance audit log: record actual changes
+
+The audit log entry for appearance updates previously always logged
+`"accent theme: {theme}"` regardless of what the admin actually changed. An
+admin who only edited the about text or footer links still appeared to have
+changed the accent theme. The detail now records what actually changed:
+`"accent theme: {theme}"` when the theme changed, `"{n} footer links updated"`
+when footer links changed, and `"about text updated"` when the about text
+changed, with `"no changes"` logged when nothing actually differed. This
+follows the same principle as other audit entries: the detail should let an
+operator understand what happened without needing to inspect the
+before/after state.

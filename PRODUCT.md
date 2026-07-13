@@ -233,8 +233,7 @@ page renders never hit the database.
 | `id` | UUID | Primary key |
 | `accentTheme` | String | Default `"ocean"`. One of the ten theme identifiers. |
 | `aboutText` | String? | Optional. Short message shown in the footer. Max 280 chars. |
-| `footerCustomLabel` | String? | Display label for the admin's custom footer link. |
-| `footerCustomURL` | String? | URL for the custom footer link. Must be `https://`. |
+| `footerLinks` | String | JSON array of up to four `FooterLink` objects (`{ "label", "url" }`). Defaults to GitHub, Mastodon, Ko-fi, and one empty custom slot. All URLs must be `https://`. Empty slots are hidden from the rendered footer. |
 | `internetArchiveEnabled` | Bool | Default true. Instance-wide switch for Internet Archive submission; see §7.2 and §12. |
 | `updateCheckEnabled` | Bool | Default true. Instance-wide switch for the GitHub Releases update check; see §12. |
 | `createdAt` | Date | Auto-set |
@@ -317,16 +316,16 @@ Smart Views screen. The **CLI is consumption-only**: it lists Smart Views and op
 their live results (`stash smart-views`); authoring on the CLI is done on the web
 or round-tripped through Stash JSON import/export.
 
-**Footer.** Shown on every `/app` and `/admin` page via `layout.leaf`. Fixed,
-non-configurable content: a GitHub link (`https://github.com/otaviocc/Stash`), a
-Mastodon link (`https://social.lol/@otaviocc`), a Ko-fi link
-(`https://ko-fi.com/otaviocc`), and the version string (read from a `VERSION`
-file at startup, `"dev"` if missing). Configurable content: the optional
-`aboutText` (shown above the links) and one optional custom link
-(`footerCustomLabel` + `footerCustomURL`, shown only when both are non-empty).
-All external links open in a new tab with `rel="noopener noreferrer"`. The Stash
-identity (name, logo, GitHub, Ko-fi, and Mastodon links) is hardcoded and not
-configurable.
+**Footer.** Shown on every `/app` and `/admin` page via `layout.leaf`. Up to
+four editable label+URL links, stored as a JSON array in `footerLinks` (§7.6).
+Defaults to GitHub (`https://github.com/otaviocc/Stash`), Mastodon
+(`https://social.lol/@otaviocc`), Ko-fi (`https://ko-fi.com/otaviocc`), and one
+empty custom slot. Empty slots (both label and URL empty) are hidden from the
+rendered footer. All URLs must be `https://`. Also shown: the optional `aboutText`
+(above the links) and the version string (read from a `VERSION` file at startup,
+`"dev"` if missing). All external links open in a new tab with
+`rel="noopener noreferrer"`. The Stash identity (name, logo) is hardcoded and
+not configurable; the default links are configurable by the admin.
 
 ### 7.8 Favicon Cache
 
@@ -819,11 +818,13 @@ container restart.
   only on the dedicated Users page.
 - The Appearance page (`GET`/`POST /admin/appearance`) edits the instance
   `SiteSettings` (§7.6): accent theme (ten circles, pure-HTML radios), the
-  about message (max 280 chars), and the custom footer link (URL must be
-  `https://`). Each theme circle previews the color for the active mode: its
-  light value in light mode, its dark value in dark mode, matching what the app
-  actually renders. Invalid input → 422 with the form re-rendered; on success the
-  app-level cache is refreshed and PRG redirects with `?ok=saved`.
+  about message (max 280 chars), and up to four editable footer links (label +
+  URL pairs, all URLs validated for `https://`). Each theme circle previews the
+  color for the active mode: its light value in light mode, its dark value in
+  dark mode, matching what the app actually renders. Empty link slots (both
+  label and URL empty) are hidden from the footer. Invalid input → 422 with the
+  form re-rendered; on success the app-level cache is refreshed and PRG
+  redirects with `?ok=saved`.
 - The Health page (`GET /admin/health`) is mostly a read-only operational
   view: the running version string, a live database connectivity probe with
   the active driver name (Postgres/SQLite), process uptime since boot, disk
@@ -920,17 +921,20 @@ container restart.
   (username, password hash, TOTP secret, recovery-code hashes, role, active
   state, and the archive-new-bookmarks preference — so restoring keeps
   everyone's logins and 2FA working), their bookmarks and Smart Views, and
-  the site's appearance settings; it deliberately excludes refresh tokens
-  (everyone simply signs back in), the favicon cache (regenerable), and the
-  audit log (operational history, not user data). "Restore backup" (`POST
+  the site's appearance settings (including footer links); it deliberately
+  excludes refresh tokens (everyone simply signs back in), the favicon cache
+  (regenerable), and the audit log (operational history, not user data). "Restore backup" (`POST
   /admin/backup/restore`, gated behind typing "restore" to confirm, the same
   typed-confirmation pattern as the danger-zone bulk delete) merges the file
   into the running instance keyed by username: an existing account's
   bookmarks/Smart Views are merged in (never deleted) while its own
   password/2FA/role/active state is left untouched, and a username not
   already present is created with its backed-up auth material written
-  verbatim. The currently signed-in admin's own account is therefore never
-  modified by a restore, since it always already exists. Because the file
+  verbatim. Old backup files with the legacy `footerCustomLabel`/`footerCustomURL`
+  fields are handled gracefully: the legacy values are migrated into the
+  fourth footer link slot on restore. The currently signed-in admin's own
+  account is therefore never modified by a restore, since it always already
+  exists. Because the file
   carries password hashes and TOTP secrets, it's treated as sensitive
   throughout the UI, the same way a database dump would be.
 
