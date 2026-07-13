@@ -30,15 +30,15 @@ git checkout main
 git pull
 
 Script/bump-version.sh --backend 1.1.0 --app 1.1
-git add Backend/VERSION Extension/manifest.json StashApp/Stash.xcodeproj/project.pbxproj
+git add Backend/VERSION Extension/manifest.json StashApp/Config/*-Info.plist
 git commit -m "Bump version to 1.1.0"
 git push
 ```
 
-This also bumps the iOS/macOS `MARKETING_VERSION` (all four build configs)
-and the browser extension's `manifest.json`, so the three components stay in
-lockstep. It does **not** touch the Xcode build number
-(`CURRENT_PROJECT_VERSION`) — bump that separately if needed.
+This also bumps `CFBundleShortVersionString` in the four iOS/macOS
+`Info.plist` files and the browser extension's `manifest.json`, so the three
+components stay in lockstep. It does **not** touch the build number
+(`CFBundleVersion`) — bump that separately if needed.
 
 Then tag and push:
 

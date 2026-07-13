@@ -3876,16 +3876,28 @@ backend actually serves.
 
 Three version strings need to move together on every release and don't share
 a format: `Backend/VERSION` (`major.minor.patch`, read at runtime by
-`AppVersion.read` and baked into the Docker image), the Xcode
-`MARKETING_VERSION` build setting (`major.minor`, four build configs across
-the `Stash` and `StashShareExtension` targets in `project.pbxproj`), and
+`AppVersion.read` and baked into the Docker image), `CFBundleShortVersionString`
+in the four `StashApp/Config/*-Info.plist` files (`major.minor`), and
 `Extension/manifest.json`'s `version` field (Manifest v3 wants a
 dotted-integer string; kept `major.minor.0` to mirror the app version rather
 than tracking the backend). Hand-editing three files with three different
 shapes on every bump is exactly the kind of thing that drifts, so
 `Script/bump-version.sh --backend X.Y.Z --app X.Y` does all three in one run.
 
-It deliberately does **not** touch `CURRENT_PROJECT_VERSION` (the Xcode build
-number) — that increments independently of the marketing version, so bumping
-it is a separate, manual step. It also doesn't tag or commit anything; see
+The app version is bumped in the committed Info.plist files, **not** the
+`MARKETING_VERSION` build setting in `project.pbxproj`. `StashApp/Stash.xcodeproj`
+sets `GENERATE_INFOPLIST_FILE = NO` for every target, so Xcode never
+synthesizes `CFBundleShortVersionString` / `CFBundleVersion` from
+`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` — it just uses the checked-in
+Info.plist verbatim, which makes that build setting dead weight and the
+plist the actual source of truth. This also keeps the script consistent with
+the existing rule against scripting `.pbxproj` rewrites (see the XcodeGen
+removal entry above): it never touches the project file at all. The script
+edits the version line with a targeted `sed`, not `PlistBuddy -c Set` —
+PlistBuddy rewrites and alphabetizes the *entire* plist on save, turning a
+one-line version bump into a large, unreviewable diff.
+
+It deliberately does **not** touch `CFBundleVersion` (the build number) —
+that increments independently of the short version, so bumping it is a
+separate, manual step. It also doesn't tag or commit anything; see
 `Docs/releasing.md` for the tagging step that follows.
