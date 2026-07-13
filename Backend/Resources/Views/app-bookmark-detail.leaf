@@ -24,9 +24,11 @@
         </p>
     </div>
 
-    <div class="row-actions">
-        <a href="#(bookmark.url)" target="_blank" rel="noopener"><button type="button">Open URL</button></a>
-        <a href="/app/bookmarks/#(bookmark.id)/edit"><button type="button" class="secondary">Edit</button></a>
+    <div class="card">
+        <div class="row-actions" style="margin: 0;">
+            <a href="#(bookmark.url)" target="_blank" rel="noopener"><button type="button">Open URL</button></a>
+            <a href="/app/bookmarks/#(bookmark.id)/edit"><button type="button" class="secondary">Edit</button></a>
+        </div>
     </div>
 
     <div class="card">
