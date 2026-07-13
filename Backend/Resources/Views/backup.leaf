@@ -1,0 +1,59 @@
+#extend("layout"):
+#export("content"):
+    <h1>Backup &amp; Restore</h1>
+
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
+    <div class="stats">
+        <div class="stat">
+            <div class="num">#(userCount)</div>
+            <div class="label">Accounts</div>
+        </div>
+        <div class="stat">
+            <div class="num">#(totalBookmarks)</div>
+            <div class="label">Bookmarks</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Download a backup</h2>
+        <p class="muted">
+            A single JSON file with every account, their bookmarks and Smart
+            Views, and the site's appearance settings. Unlike a per-user
+            export, this includes password hashes, TOTP secrets, and
+            recovery-code hashes so a restore keeps everyone's logins and 2FA
+            working — treat the downloaded file like a database dump, not a
+            personal export, and store it somewhere private.
+        </p>
+        <form method="get" action="/admin/backup/download">
+            <button type="submit">Download instance backup</button>
+        </form>
+    </div>
+
+    <div class="card danger-zone">
+        <h2>Restore from a backup</h2>
+        <p class="muted">
+            Merges the backup into this instance by username: an existing
+            account's bookmarks and Smart Views are merged in (nothing is
+            deleted), while a username not already on this instance is
+            created with its backed-up password and 2FA intact. Your own
+            account's password, 2FA, and role are never changed by a
+            restore.
+        </p>
+        <form method="post" action="/admin/backup/restore" enctype="multipart/form-data">
+            <label>Backup file
+                <input type="file" name="file" accept="application/json" required>
+            </label>
+            <label>Type "restore" to confirm
+                <input type="text" name="confirm" autocomplete="off" required>
+            </label>
+            <button type="submit">Restore backup</button>
+        </form>
+    </div>
+#endexport
+#endextend

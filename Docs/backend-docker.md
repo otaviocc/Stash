@@ -93,6 +93,21 @@ wraps this: `make build-up` rebuilds and restarts the stack, and `make up`,
 `make down`, `make logs`, and `make migrate` cover day-to-day use. This works the
 same under Podman.
 
+## Checking for updates
+
+The admin dashboard (`/admin`) and its Health page (`/admin/health`) check
+GitHub Releases once a day for a newer Stash version than the one currently
+running, and show a banner plus an "Updates" card with the release notes link
+when one is available. Stash can't update itself from inside the container —
+upgrading is still the same command as above:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Update checking is on by default and can be turned off from the Health page
+(useful for an air-gapped or fully offline instance) — see PRODUCT.md §12.
+
 ## Data persistence
 
 All data is stored in a named Docker volume (`stash_db`). It persists across
@@ -101,6 +116,17 @@ container restarts and updates. To back it up:
 ```bash
 docker compose exec db pg_dump -U stash stash > backup.sql
 ```
+
+Stash also has its own **application-level** instance backup, independent of
+`pg_dump`: `/admin/backup` downloads a single JSON file with every account
+(including password hashes and 2FA secrets, so restoring keeps everyone's
+logins working), their bookmarks and Smart Views, and the site's appearance
+settings. Restoring merges by username into the running instance — an
+existing account's bookmarks/Smart Views are merged in, a new username is
+created with its backed-up password and 2FA intact, and nothing is ever
+deleted. This is the easiest way to migrate an instance to a new server
+without touching Postgres directly. Because the file carries password hashes
+and TOTP secrets, treat it like a database dump — store it somewhere private.
 
 ## Environment variables reference
 

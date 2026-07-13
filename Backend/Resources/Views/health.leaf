@@ -2,6 +2,13 @@
 #export("content"):
     <h1>Health</h1>
 
+    #if(message):
+    <p class="banner ok">#(message)</p>
+    #endif
+    #if(error):
+    <p class="banner error">#(error)</p>
+    #endif
+
     <div class="card">
         <div class="stats">
             <div class="stat">
@@ -37,6 +44,55 @@
                 <div class="label">Bookmarks</div>
             </div>
         </div>
+    </div>
+
+    <div class="card">
+        <h2>Updates</h2>
+        <div class="stats">
+            <div class="stat">
+                <div class="num">#(version)</div>
+                <div class="label">Running</div>
+            </div>
+            <div class="stat">
+                <div class="num">
+                    #if(updateAvailable):<span class="pill suspended">#(latestVersion)</span>
+                    #elseif(updateCheckFailed):<span class="pill suspended">check failed</span>
+                    #elseif(updateCheckEnabled):<span class="pill active">up to date</span>
+                    #else:<span class="pill">disabled</span>#endif
+                </div>
+                <div class="label">
+                    Latest release
+                    #if(lastCheckedText): (checked #(lastCheckedText))#endif
+                </div>
+            </div>
+        </div>
+
+        #if(updateAvailable):
+        <p>
+            A newer version, #(latestVersion), is available (this instance is running #(version)).
+            #if(updateReleaseURL):
+            <a href="#(updateReleaseURL)" target="_blank" rel="noopener noreferrer">Release notes</a>.
+            #endif
+        </p>
+        <p class="muted">
+            To upgrade: <code>docker compose pull &amp;&amp; docker compose up -d</code>
+            (Podman: substitute <code>podman</code> for <code>docker</code>).
+        </p>
+        #endif
+
+        #if(updateCheckEnabled):
+        <form method="post" action="/admin/health/check-updates">
+            <button class="secondary" type="submit">Check now</button>
+        </form>
+        #endif
+
+        <form method="post" action="/admin/health/toggle-updates">
+            <label style="font-weight:400;">
+                <input type="checkbox" name="enabled" value="true" style="display:inline; width:auto;"#if(updateCheckEnabled): checked#endif>
+                Check for updates automatically
+            </label>
+            <button type="submit">Save</button>
+        </form>
     </div>
 #endexport
 #endextend

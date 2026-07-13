@@ -236,6 +236,7 @@ page renders never hit the database.
 | `footerCustomLabel` | String? | Display label for the admin's custom footer link. |
 | `footerCustomURL` | String? | URL for the custom footer link. Must be `https://`. |
 | `internetArchiveEnabled` | Bool | Default true. Instance-wide switch for Internet Archive submission; see §7.2 and §12. |
+| `updateCheckEnabled` | Bool | Default true. Instance-wide switch for the GitHub Releases update check; see §12. |
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
@@ -791,6 +792,7 @@ container restart.
 | Audit Log | `/admin/audit` |
 | Active Sessions | `/admin/sessions` |
 | System Logs | `/admin/logs` |
+| Backup & Restore | `/admin/backup` |
 
 ### Business Rules
 
@@ -822,13 +824,25 @@ container restart.
   light value in light mode, its dark value in dark mode, matching what the app
   actually renders. Invalid input → 422 with the form re-rendered; on success the
   app-level cache is refreshed and PRG redirects with `?ok=saved`.
-- The Health page (`GET /admin/health`) is a read-only operational view: the
-  running version string, a live database connectivity probe with the active
-  driver name (Postgres/SQLite), process uptime since boot, disk usage for the
-  working directory, and total user/bookmark counts. It is deliberately
-  separate from the public, unauthenticated `GET /health` liveness probe
-  (§9), which stays a minimal `{ "status": "ok" }` for monitors and
-  orchestrators; this page is the human-facing admin-only equivalent.
+- The Health page (`GET /admin/health`) is mostly a read-only operational
+  view: the running version string, a live database connectivity probe with
+  the active driver name (Postgres/SQLite), process uptime since boot, disk
+  usage for the working directory, and total user/bookmark counts. It is
+  deliberately separate from the public, unauthenticated `GET /health`
+  liveness probe (§9), which stays a minimal `{ "status": "ok" }` for
+  monitors and orchestrators; this page is the human-facing admin-only
+  equivalent. It also carries an **Updates** card: once a day (and whenever
+  the dashboard or this page is loaded, if the cached result has gone stale)
+  Stash checks GitHub Releases for a newer version than the one running,
+  showing an "update available" state with the latest version and a release
+  notes link, an up-to-date state, or a check-failed state, plus a
+  "Check now" button (`POST /admin/health/check-updates`) and an
+  enable/disable toggle (`POST /admin/health/toggle-updates`,
+  `SiteSettings.updateCheckEnabled`, default on) for fully offline/air-gapped
+  instances. A container can't update itself, so an available update just
+  shows the same `docker/podman compose pull && up -d` upgrade command
+  documented in `Docs/backend-docker.md`. The dashboard also shows a
+  same-banner summary when an update is available.
 - The Maintenance page (`GET /admin/maintenance`) has a single "Run database
   optimize" button (`POST /admin/db/optimize`) that runs a plain `VACUUM`
   against the configured database, reclaiming dead-tuple space left behind by
@@ -899,6 +913,26 @@ container restart.
   the Wayback Machine. Auth (login/logout) and admin user-management actions
   are deliberately *not* duplicated here — they already live in the DB-backed
   Audit Log (`/admin/audit`, §7.9).
+- The Backup & Restore page (`GET /admin/backup`) covers full-instance
+  disaster recovery/migration, distinct from the per-user Stash JSON
+  export/import under `/app/settings` (§11). "Download instance backup"
+  (`GET /admin/backup/download`) streams one JSON file with every account
+  (username, password hash, TOTP secret, recovery-code hashes, role, active
+  state, and the archive-new-bookmarks preference — so restoring keeps
+  everyone's logins and 2FA working), their bookmarks and Smart Views, and
+  the site's appearance settings; it deliberately excludes refresh tokens
+  (everyone simply signs back in), the favicon cache (regenerable), and the
+  audit log (operational history, not user data). "Restore backup" (`POST
+  /admin/backup/restore`, gated behind typing "restore" to confirm, the same
+  typed-confirmation pattern as the danger-zone bulk delete) merges the file
+  into the running instance keyed by username: an existing account's
+  bookmarks/Smart Views are merged in (never deleted) while its own
+  password/2FA/role/active state is left untouched, and a username not
+  already present is created with its backed-up auth material written
+  verbatim. The currently signed-in admin's own account is therefore never
+  modified by a restore, since it always already exists. Because the file
+  carries password hashes and TOTP secrets, it's treated as sensitive
+  throughout the UI, the same way a database dump would be.
 
 ---
 

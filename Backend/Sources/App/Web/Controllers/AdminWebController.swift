@@ -60,6 +60,11 @@ struct AdminWebController: RouteCollection {
         protected.post("sessions", "revoke-all", use: revokeAllSessionsPage)
         protected.post("sessions", "revoke-user", use: revokeUserSessionsPage)
         protected.get("health", use: health)
+        protected.post("health", "check-updates", use: checkUpdates)
+        protected.post("health", "toggle-updates", use: toggleUpdateCheck)
+        protected.get("backup", use: backup)
+        protected.get("backup", "download", use: downloadBackup)
+        protected.on(.POST, "backup", "restore", body: .collect(maxSize: "16mb"), use: restoreBackup)
         protected.get("maintenance", use: maintenance)
         protected.post("db", "optimize", use: optimizeDatabase)
         protected.get("favicons", use: favicons)
@@ -154,6 +159,8 @@ struct AdminWebController: RouteCollection {
 
     func dashboard(req: Request) async throws -> View {
         let admin = try req.auth.require(User.self)
+
+        UpdateChecker.refreshIfStale(on: req.application)
 
         async let users = User.query(on: req.db).sort(\.$username).all()
         async let sessionRows = ActiveSessionLoader.loadActiveSessions(on: req)
@@ -252,8 +259,19 @@ struct AdminWebController: RouteCollection {
                 href: "/admin/logs",
                 description: "Recent server log lines.",
                 detail: nil
+            ),
+            DashboardCardContext(
+                title: "Backup & Restore",
+                href: "/admin/backup",
+                description: "Download or restore a full instance backup.",
+                detail: nil
             )
         ]
+
+        let updateStatus = req.application.storage[UpdateStatusCacheKey.self]?.current
+        let updateBanner = updateStatus?.updateAvailable == true
+            ? "An update is available: \(updateStatus?.latestVersion ?? "?") (currently running \(updateStatus?.currentVersion ?? "?"))."
+            : nil
 
         return try await req.view.render("dashboard", DashboardContext(
             title: "Dashboard",
@@ -264,6 +282,8 @@ struct AdminWebController: RouteCollection {
             totalBookmarks: totalBookmarks,
             liveSessions: sessions.count,
             archiveQueued: archiveQueued,
+            updateBanner: updateBanner,
+            updateReleaseURL: updateStatus?.releaseURL,
             cards: cards,
             recentActivity: recentActivity,
             chrome: req.siteChrome()
@@ -272,31 +292,42 @@ struct AdminWebController: RouteCollection {
 
     // MARK: - Health
 
-    func health(req: Request) async throws -> View {
+    func health(req: Request) async throws -> Response {
+        UpdateChecker.refreshIfStale(on: req.application)
+
+        let message = FlashMessage.admin(for: req.query[String.self, at: "ok"])
+        let error = FlashMessage.adminError(for: req.query[String.self, at: "error"])
+        return try await renderHealth(req, message: message, error: error)
+    }
+
+    /// Forces an immediate update check (the "Check now" button), ignoring the normal 24h
+    /// staleness window — still a no-op if the admin has disabled update checking or a check is
+    /// already in flight, in which case the flash reflects that nothing actually ran rather than
+    /// always claiming success.
+    func checkUpdates(req: Request) async throws -> Response {
+        let didRun = await UpdateChecker.forceCheck(on: req.application)
+        let flash = didRun ? "update_checked" : "update_check_skipped"
+        return req.redirect(to: "/admin/health?ok=\(flash)")
+    }
+
+    func toggleUpdateCheck(req: Request) async throws -> Response {
         let admin = try req.auth.require(User.self)
+        let form = try req.content.decode(UpdateCheckToggleForm.self)
+        let settings = try await SiteSettingsService.current(on: req.db)
+        settings.updateCheckEnabled = form.enabled ?? false
+        try await settings.save(on: req.db)
+        SiteSettingsService.refreshCache(with: settings, on: req.application)
 
-        let version = req.application.storage[AppVersionKey.self] ?? "dev"
-        let (dbStatusText, dbOK, driverName) = await checkDatabase(req)
-        let uptime = formattedUptime(req: req)
-        let disk = diskUsageSummary(req: req)
+        await AuditLogger.record(
+            action: "update_check_toggled",
+            actor: admin.username,
+            detail: "update_check_enabled set to \(settings.updateCheckEnabled)",
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
 
-        let users = try await User.query(on: req.db).sort(\.$username).all()
-        let rows = try users.map { try $0.asRow() }
-        let totalBookmarks = rows.reduce(0) { $0 + $1.bookmarkCount }
-
-        return try await req.view.render("health", HealthContext(
-            title: "Health",
-            adminUsername: admin.username,
-            version: version,
-            dbStatusText: dbStatusText,
-            dbIsOK: dbOK,
-            dbDriver: driverName,
-            uptime: uptime,
-            diskUsageText: disk,
-            totalUsers: users.count,
-            totalBookmarks: totalBookmarks,
-            chrome: req.siteChrome()
-        ))
+        return req
+            .redirect(to: "/admin/health?ok=\(settings.updateCheckEnabled ? "updates_enabled" : "updates_disabled")")
     }
 
     // MARK: - User list & create
@@ -800,6 +831,68 @@ struct AdminWebController: RouteCollection {
         ))
     }
 
+    // MARK: - Backup & Restore
+
+    func backup(req: Request) async throws -> Response {
+        let message = FlashMessage.admin(for: req.query[String.self, at: "ok"])
+        let error = FlashMessage.adminError(for: req.query[String.self, at: "error"])
+        return try await renderBackup(req, message: message, error: error)
+    }
+
+    /// Streams a full instance backup (every account's auth material, bookmarks, and Smart Views,
+    /// plus site settings) as a downloadable JSON file. See `InstanceBackupService` for exactly
+    /// what's included and why the file is sensitive.
+    func downloadBackup(req: Request) async throws -> Response {
+        let data = try await InstanceBackupService.export(on: req.db)
+        let filename = "stash-instance-backup-\(DateFormatter.webFileDate.string(from: Date())).json"
+
+        let response = Response(status: .ok)
+        response.headers.replaceOrAdd(name: .contentType, value: "application/json")
+        response.headers.replaceOrAdd(name: .contentDisposition, value: "attachment; filename=\"\(filename)\"")
+        response.body = .init(data: data)
+        return response
+    }
+
+    func restoreBackup(req: Request) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+        let form = try req.content.decode(RestoreBackupForm.self)
+
+        guard form.confirm.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "restore" else {
+            return try await renderBackup(
+                req, message: nil, error: FlashMessage.adminError(for: "restore_confirm"), status: .badRequest
+            )
+        }
+
+        let data = Data(buffer: form.file.data)
+        guard !data.isEmpty else {
+            return try await renderBackup(
+                req, message: nil, error: FlashMessage.adminError(for: "restore_file_missing"), status: .badRequest
+            )
+        }
+
+        let result: RestoreResult
+        do {
+            result = try await InstanceBackupService.restore(from: data, on: req.application)
+        } catch is InstanceBackupError {
+            return try await renderBackup(
+                req, message: nil, error: FlashMessage.adminError(for: "restore_invalid"), status: .badRequest
+            )
+        }
+
+        await AuditLogger.record(
+            action: "backup_restored",
+            actor: admin.username,
+            detail: "\(result.usersCreated) created, \(result.usersMerged) merged, "
+                + "\(result.bookmarksImported) bookmarks imported, \(result.bookmarksUpdated) updated, "
+                + "\(result.smartViewsImported) Smart Views imported, \(result.smartViewsUpdated) updated"
+                + (result.skipped.isEmpty ? "" : ", \(result.skipped.count) records skipped"),
+            ip: AuditLogger.clientIP(from: req),
+            on: req.db
+        )
+
+        return req.redirect(to: "/admin/backup?ok=backup_restored")
+    }
+
     /// Shared by both bulk actions: re-queues every bookmark whose `waybackStatus` matches one of
     /// `statuses` and wakes the drain worker. Refuses (PRG `?error=internet_archive_disabled`) when
     /// the admin has turned Internet Archive submissions off instance-wide, so a bulk action can
@@ -1017,6 +1110,74 @@ struct AdminWebController: RouteCollection {
             chrome: req.siteChrome()
         )
         return try await req.renderHTML("internet-archive", context, status: status)
+    }
+
+    private func renderHealth(
+        _ req: Request,
+        message: String?,
+        error: String?,
+        status: HTTPResponseStatus = .ok
+    ) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+
+        let version = req.application.storage[AppVersionKey.self] ?? "dev"
+        let (dbStatusText, dbOK, driverName) = await checkDatabase(req)
+        let uptime = formattedUptime(req: req)
+        let disk = diskUsageSummary(req: req)
+
+        let users = try await User.query(on: req.db).sort(\.$username).all()
+        let rows = try users.map { try $0.asRow() }
+        let totalBookmarks = rows.reduce(0) { $0 + $1.bookmarkCount }
+
+        let updateStatus = req.application.storage[UpdateStatusCacheKey.self]?.current
+        let lastCheckedText = updateStatus?.lastCheckedAt.map { DateFormatter.webDateTime.string(from: $0) }
+
+        let context = HealthContext(
+            title: "Health",
+            adminUsername: admin.username,
+            version: version,
+            dbStatusText: dbStatusText,
+            dbIsOK: dbOK,
+            dbDriver: driverName,
+            uptime: uptime,
+            diskUsageText: disk,
+            totalUsers: users.count,
+            totalBookmarks: totalBookmarks,
+            updateCheckEnabled: req.application.storage[SiteSettingsCacheKey.self]?.current.updateCheckEnabled ?? true,
+            updateAvailable: updateStatus?.updateAvailable ?? false,
+            updateCheckFailed: updateStatus?.checkFailed ?? false,
+            latestVersion: updateStatus?.latestVersion,
+            updateReleaseURL: updateStatus?.releaseURL,
+            lastCheckedText: lastCheckedText,
+            message: message,
+            error: error,
+            chrome: req.siteChrome()
+        )
+        return try await req.renderHTML("health", context, status: status)
+    }
+
+    private func renderBackup(
+        _ req: Request,
+        message: String?,
+        error: String?,
+        status: HTTPResponseStatus = .ok
+    ) async throws -> Response {
+        let admin = try req.auth.require(User.self)
+
+        let users = try await User.query(on: req.db).all()
+        let rows = try users.map { try $0.asRow() }
+        let totalBookmarks = rows.reduce(0) { $0 + $1.bookmarkCount }
+
+        let context = BackupContext(
+            title: "Backup & Restore",
+            adminUsername: admin.username,
+            userCount: users.count,
+            totalBookmarks: totalBookmarks,
+            message: message,
+            error: error,
+            chrome: req.siteChrome()
+        )
+        return try await req.renderHTML("backup", context, status: status)
     }
 
     private func renderAppearance(

@@ -3711,3 +3711,147 @@ Reviewed-and-rejected (not bugs): the `/web/2/` snapshot fallback (verified
 live: it resolves to the *newest* capture), the 3-attempt rate-limit budget
 (matches the approved design), and hiding the user's archive preference
 while the instance switch is off (documented intended behavior).
+
+---
+
+## Feature: Instance management — update checker + full instance backup/restore
+
+Requested as the Jellyfin/Navidrome-style instance-operator conveniences
+Stash was missing: a "new version available" nudge, and a real disaster-
+recovery/migration path beyond the per-user Stash JSON export. Both live
+entirely under the existing session-cookie `/admin` surface, so
+`openapi.yaml` needed no changes at all.
+
+### Update checker
+
+`UpdateChecker` mirrors `SiteSettingsService`'s app-level-cache pattern
+(a lock-guarded `UpdateStatusCache` behind a `StorageKey`, seeded at boot)
+and `WaybackSubmitter`'s detached-refresh pattern, rather than introducing a
+third shape for "background thing with a cached result." It checks GitHub's
+`releases/latest` API through the shared `app.client` (a GitHub API call
+comfortably fits the app-wide 5s timeout; no dedicated `HTTPClient` needed,
+unlike Wayback's `/save` endpoint), decoding just `tag_name` and `html_url`.
+A container can't self-update, so the feature only ever surfaces "an update
+exists" — the actual upgrade is still the same `docker/podman compose pull
+&& up -d` documented in `Docs/backend-docker.md`; the Health page just
+repeats that command inline once an update is detected.
+
+`compareSemver` is a small pure function (parses `v1.2.3`/`1.2.3` into a
+`(major, minor, patch)` tuple and compares) deliberately kept dependency-free
+rather than pulling in a semver package for three integers. A `current`
+version of `"dev"` (no `VERSION` file — a from-source build) never reports
+an update, since there's no real released version to compare against, and an
+unparseable tag on either side fails closed to "no update" rather than
+risking a false positive.
+
+Checking is on by default (`SiteSettings.updateCheckEnabled`, a new column
+via `AddSiteSettingsUpdateCheck`, the same one-migration-per-column pattern
+`AddSiteSettingsInternetArchive` already established) with an admin toggle on
+the Health page, for the fully offline/air-gapped deployment case the
+`192.168.1.x` local-network use case (§18) already anticipates elsewhere.
+Both the dashboard and the Health page call `refreshIfStale` on render
+(cheap: it's a no-op once a check is fresh, in flight, disabled, or under
+`.testing`), so there's no need for a scheduled job — the same "only refreshes
+when an admin is actually looking" trade-off the favicon cache already
+accepted. `forceCheck` (the "Check now" button) is suppressed under
+`.testing` for the same reason every other outbound call in this codebase is:
+the test suite must never make a real network request.
+
+### Full instance backup / restore
+
+Deliberately a separate service (`InstanceBackupService`) from the existing
+per-user `ImportExportRegistry`, since the two solve genuinely different
+problems: `StashJSONExporter`/`Importer` are `userID`-scoped and reachable
+from `/app` by any user, while this is instance-wide and admin-only. It does
+reuse the per-user dedup rules verbatim (bookmark upsert by URL preserving
+`createdAt`, Smart View upsert by name, `SmartViewController`'s existing
+validators) so a restored library behaves identically to one built up
+through normal use, and a bad individual record is counted in `skipped`
+rather than aborting the whole restore — the same two-tier split
+`StashJSONImporter` already established.
+
+The backup file is deliberately more than a "personal export": it carries
+password hashes, TOTP secrets, and recovery-code hashes verbatim (never
+re-hashed on restore, since they're already hashed), because a backup that
+didn't preserve logins wouldn't actually be useful for migrating to a new
+server. That makes the file sensitive in a way the per-user export isn't;
+the UI says so explicitly, and it's gated behind an authenticated admin
+session, never exposed unauthenticated the way favicons are. Refresh tokens,
+the favicon cache, and the audit log are deliberately excluded: the first is
+session state (everyone just signs back in), the other two are regenerable
+or purely operational.
+
+Restore is a merge keyed by `username`, never a destructive replace — nothing
+absent from the backup is ever deleted. The one property I was most careful
+to get right: an **existing** user's account fields (password hash, TOTP,
+role, active state) are never touched by a restore, only their
+bookmarks/Smart Views are merged in. That single rule is what makes the
+currently signed-in admin's own account self-lockout-proof by construction,
+with no special-cased "is this the acting admin?" branch anywhere in the
+restore loop — their account always already exists, so it can never fall
+into the "new user, write auth fields verbatim" branch. A **new** username,
+by contrast, is created with its backed-up role/active-state/password/2FA
+written as-is, which does mean a restore can introduce a second admin
+account or reactivate a suspended one — an accepted trade-off, since that's
+exactly what a cross-instance migration needs to actually work.
+
+The restore confirmation reuses the exact `DeleteAllBookmarksForm`-style
+"type a word to confirm" pattern (`confirm == "restore"`, checked
+server-side, never just a disabled button), and the upload route reuses the
+same `body: .collect(maxSize: "16mb")` override the `/app` import route
+already needed to raise past Vapor's default 16KB body cap.
+
+### Code-review follow-up: transaction safety, batched queries, and misleading feedback
+
+A review pass over the update-checker and instance-backup commits surfaced
+several real issues, all fixed.
+
+The most serious: `InstanceBackupService.restore` ran as a plain sequence of
+individual saves with no transaction, and the web handler only caught its own
+`InstanceBackupError`. Any other failure partway through (a dropped DB
+connection, a constraint violation) left a half-restored instance committed,
+surfaced as a raw 500 instead of a friendly banner, and left no audit-log
+entry recording what had happened. The whole merge now runs inside one
+`app.db.transaction { db in ... }`, so a failure anywhere rolls back every
+write the call made; `SiteSettingsService.refreshCache` still runs after the
+transaction commits, since it's an app-level cache update, not a DB write.
+
+Restore also had its own version of the N+1 pattern this project has
+deliberately avoided elsewhere: one dedup-lookup query per bookmark and per
+Smart View, fully synchronous inside a single HTTP request — fine for one
+user's import via `/app`, but this runs across every user in the backup at
+once, and a real migration could plausibly carry thousands of records. Both
+`export` and `restore` now preload each user's existing rows into an
+in-memory dictionary once (keyed by URL / by name) instead of querying per
+item; `restore`'s dictionary is kept up to date as new records are created
+within the same call, so two records sharing a URL in one backup file still
+merge correctly rather than hitting the unique constraint on the second
+insert. `export` batches its three per-user queries (bookmarks, Smart Views,
+recovery codes) into three total queries across every user, grouped in
+memory, the same shape the transaction-scoped restore lookups now use.
+
+Two smaller correctness fixes: the "Check now" button on `/admin/health`
+always flashed "Update check complete," even when `UpdateChecker.forceCheck`
+silently no-opped because checking was disabled or a check was already in
+flight — `forceCheck` now returns whether it actually ran, the button hides
+itself once checking is disabled, and a genuine skip gets its own distinct
+flash rather than claiming success. And `UpdateChecker`'s semver `parse`
+took only the leading numeric prefix of the patch component
+(`Int("3rc".prefix { $0.isNumber })` → `3`), which could make a
+qualified/pre-release tag silently compare as equal to a real release
+instead of failing safe to "unparseable"; it now requires the whole
+component to be a clean integer.
+
+Two reuse cleanups: the GitHub repository path had been hardcoded twice with
+inconsistent casing (`otaviocc/Stash` in `UpdateChecker`, `otaviocc/stash` in
+`StashUserAgent`'s backlink); both now derive from one `StashRepo.path`
+constant. And `InstanceBackupService` had its own private copy of the
+ISO-8601-with-fractional-seconds parsing fallback, a third copy of a pattern
+already duplicated between `StashJSONImporter` and `BookmarkController`; the
+new copy was extracted into a shared `FlexibleISO8601.date(from:)` used by
+`InstanceBackupService`. The other two pre-existing copies were left as-is —
+both predate this feature and have no test coverage of their own, so
+consolidating them was out of scope for this pass; `InstanceBackupService`'s
+doc comment instead explicitly cross-references `StashJSONImporter` as the
+sibling implementation its upsert rules deliberately mirror, so a future
+reader knows to check both sides.

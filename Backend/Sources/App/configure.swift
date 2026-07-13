@@ -58,6 +58,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(AddSiteSettingsInternetArchive())
     app.migrations.add(AddUserArchiveNewBookmarks())
     app.migrations.add(AddBookmarkWaybackRetryCount())
+    app.migrations.add(AddSiteSettingsUpdateCheck())
 
     // MARK: Version
 
@@ -104,6 +105,10 @@ public func configure(_ app: Application) async throws {
     // MARK: Internet Archive submission queue
 
     await WaybackSubmitter.bootstrap(on: app)
+
+    // MARK: Update checker
+
+    UpdateChecker.bootstrap(on: app)
 
     // MARK: First-boot admin seeding
 

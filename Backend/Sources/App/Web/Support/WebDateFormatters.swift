@@ -13,4 +13,12 @@ extension DateFormatter {
         formatter.timeStyle = .short
         return formatter
     }()
+
+    /// Plain `yyyy-MM-dd`, used to stamp downloadable export/backup filenames.
+    static let webFileDate: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
 }

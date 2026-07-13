@@ -18,7 +18,8 @@ struct SiteSettingsSnapshot {
         aboutText: nil,
         footerCustomLabel: nil,
         footerCustomURL: nil,
-        internetArchiveEnabled: true
+        internetArchiveEnabled: true,
+        updateCheckEnabled: true
     )
 
     // MARK: Properties
@@ -28,6 +29,7 @@ struct SiteSettingsSnapshot {
     let footerCustomLabel: String?
     let footerCustomURL: String?
     let internetArchiveEnabled: Bool
+    let updateCheckEnabled: Bool
 
     // MARK: Lifecycle
 
@@ -36,13 +38,15 @@ struct SiteSettingsSnapshot {
         aboutText: String?,
         footerCustomLabel: String?,
         footerCustomURL: String?,
-        internetArchiveEnabled: Bool
+        internetArchiveEnabled: Bool,
+        updateCheckEnabled: Bool
     ) {
         self.accentTheme = accentTheme
         self.aboutText = aboutText
         self.footerCustomLabel = footerCustomLabel
         self.footerCustomURL = footerCustomURL
         self.internetArchiveEnabled = internetArchiveEnabled
+        self.updateCheckEnabled = updateCheckEnabled
     }
 
     init(_ settings: SiteSettings) {
@@ -51,7 +55,8 @@ struct SiteSettingsSnapshot {
             aboutText: settings.aboutText,
             footerCustomLabel: settings.footerCustomLabel,
             footerCustomURL: settings.footerCustomURL,
-            internetArchiveEnabled: settings.internetArchiveEnabled
+            internetArchiveEnabled: settings.internetArchiveEnabled,
+            updateCheckEnabled: settings.updateCheckEnabled
         )
     }
 }

@@ -2,6 +2,16 @@
 #export("content"):
     <h1>Dashboard</h1>
 
+    #if(updateBanner):
+    <p class="banner ok">
+        #(updateBanner)
+        #if(updateReleaseURL):
+        <a href="#(updateReleaseURL)" target="_blank" rel="noopener noreferrer">Release notes</a>
+        #endif
+        — see <a href="/admin/health">Health</a> for upgrade instructions.
+    </p>
+    #endif
+
     <div class="stats">
         <div class="stat">
             <div class="num">#(totalUsers)</div>

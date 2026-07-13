@@ -80,6 +80,9 @@ struct DashboardContext: Content {
     let totalBookmarks: Int
     let liveSessions: Int
     let archiveQueued: Int
+    /// Set only when `UpdateChecker`'s cached status reports a newer release than the one running.
+    let updateBanner: String?
+    let updateReleaseURL: String?
     let cards: [DashboardCardContext]
     let recentActivity: [AuditLogRowContext]
     let chrome: SiteChrome
@@ -102,7 +105,26 @@ struct HealthContext: Content {
     let diskUsageText: String
     let totalUsers: Int
     let totalBookmarks: Int
+    /// Update-check fields, sourced from `UpdateChecker`'s cache — see the "Updates" card on
+    /// `health.leaf`.
+    let updateCheckEnabled: Bool
+    let updateAvailable: Bool
+    let updateCheckFailed: Bool
+    let latestVersion: String?
+    let updateReleaseURL: String?
+    let lastCheckedText: String?
+    let message: String?
+    let error: String?
     let chrome: SiteChrome
+}
+
+// MARK: - UpdateCheckToggleForm
+
+/// `POST /admin/health/toggle-updates` form. An unchecked HTML checkbox sends nothing, so this
+/// decodes as an optional and is coalesced to `false`.
+struct UpdateCheckToggleForm: Content {
+
+    let enabled: Bool?
 }
 
 // MARK: - MaintenanceContext
@@ -253,6 +275,30 @@ struct InternetArchiveAdminContext: Content {
 struct InternetArchiveToggleForm: Content {
 
     let enabled: Bool?
+}
+
+// MARK: - BackupContext
+
+/// View context for the admin "Backup & Restore" page.
+struct BackupContext: Content {
+
+    let title: String
+    let adminUsername: String
+    let userCount: Int
+    let totalBookmarks: Int
+    let message: String?
+    let error: String?
+    let chrome: SiteChrome
+}
+
+// MARK: - RestoreBackupForm
+
+/// `POST /admin/backup/restore` form: the uploaded backup file plus a typed confirmation phrase,
+/// the same "type a word to confirm" pattern `DeleteAllBookmarksForm` uses on `/app`.
+struct RestoreBackupForm: Content {
+
+    let file: File
+    let confirm: String
 }
 
 // MARK: - LogEntryRow

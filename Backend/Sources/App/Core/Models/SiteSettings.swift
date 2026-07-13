@@ -35,6 +35,9 @@ final class SiteSettings: Model, @unchecked Sendable {
     @Field(key: "internet_archive_enabled")
     var internetArchiveEnabled: Bool
 
+    @Field(key: "update_check_enabled")
+    var updateCheckEnabled: Bool
+
     @Timestamp(key: "created_at", on: .create)
     var createdAt: Date?
 
@@ -51,7 +54,8 @@ final class SiteSettings: Model, @unchecked Sendable {
         aboutText: String? = nil,
         footerCustomLabel: String? = nil,
         footerCustomURL: String? = nil,
-        internetArchiveEnabled: Bool = true
+        internetArchiveEnabled: Bool = true,
+        updateCheckEnabled: Bool = true
     ) {
         self.id = id
         self.accentTheme = accentTheme
@@ -59,5 +63,6 @@ final class SiteSettings: Model, @unchecked Sendable {
         self.footerCustomLabel = footerCustomLabel
         self.footerCustomURL = footerCustomURL
         self.internetArchiveEnabled = internetArchiveEnabled
+        self.updateCheckEnabled = updateCheckEnabled
     }
 }
