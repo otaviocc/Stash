@@ -3871,3 +3871,21 @@ hosting since it can't run Vapor) — the two aren't automatically kept in
 sync, so a shipped feature-grid change always needs a matching edit on
 `gh-pages` or the public landing page silently drifts from the one the
 backend actually serves.
+
+## `Script/bump-version.sh`: one script, three version numbers
+
+Three version strings need to move together on every release and don't share
+a format: `Backend/VERSION` (`major.minor.patch`, read at runtime by
+`AppVersion.read` and baked into the Docker image), the Xcode
+`MARKETING_VERSION` build setting (`major.minor`, four build configs across
+the `Stash` and `StashShareExtension` targets in `project.pbxproj`), and
+`Extension/manifest.json`'s `version` field (Manifest v3 wants a
+dotted-integer string; kept `major.minor.0` to mirror the app version rather
+than tracking the backend). Hand-editing three files with three different
+shapes on every bump is exactly the kind of thing that drifts, so
+`Script/bump-version.sh --backend X.Y.Z --app X.Y` does all three in one run.
+
+It deliberately does **not** touch `CURRENT_PROJECT_VERSION` (the Xcode build
+number) — that increments independently of the marketing version, so bumping
+it is a separate, manual step. It also doesn't tag or commit anything; see
+`Docs/releasing.md` for the tagging step that follows.

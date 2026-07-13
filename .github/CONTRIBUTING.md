@@ -39,7 +39,8 @@ there, one guide per concern, rather than a per-component `README.md`. A new com
 gets a `Docs/<topic>.md` linked from the root `README.md` table. `StashSkill/` is a separate case:
 it's a committed AI coding assistant skill (`stash-cli`) that documents how to drive the `stash`
 CLI, derived from the CLI source rather than the spec. See `StashSkill/README.md` for how it's
-meant to be installed and used.
+meant to be installed and used. `Script/` holds repo-wide maintenance scripts, e.g.
+`bump-version.sh` (see `Docs/releasing.md`).
 
 ## Building and testing
 

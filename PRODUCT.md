@@ -1646,6 +1646,7 @@ stash/
 │   ├── popup.js / options.js
 │   └── icons/
 ├── StashSkill/                   # committed AI coding assistant skill for the CLI
+├── Script/                       # repo-wide maintenance scripts (e.g. bump-version.sh)
 ├── Docs/                         # user-facing docs, one guide per concern
 ├── .github/workflows/            # CI: backend, apple, extension jobs
 ├── PRODUCT.md
