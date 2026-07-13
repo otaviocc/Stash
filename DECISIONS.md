@@ -3855,3 +3855,19 @@ consolidating them was out of scope for this pass; `InstanceBackupService`'s
 doc comment instead explicitly cross-references `StashJSONImporter` as the
 sibling implementation its upsert rules deliberately mirror, so a future
 reader knows to check both sides.
+
+## Instance management: landing page copy
+
+The same "the feature grid fell behind the shipped product" gap the
+offline-sync entry above describes repeated itself here: the "A real admin
+toolkit" feature card still only listed the pre-existing admin pages (health
+checks, database optimize, favicon cache, audit log, sessions, logs) with no
+mention of the update checker or instance backup/restore. Folded both into
+that existing card rather than adding an eighth, for the same
+balanced-grid reason as the offline-sync entry. Updated in two places: the
+live `Backend/Resources/Views/landing.leaf` template and the static mirror
+committed to the `gh-pages` branch (`index.html`, used for GitHub Pages
+hosting since it can't run Vapor) — the two aren't automatically kept in
+sync, so a shipped feature-grid change always needs a matching edit on
+`gh-pages` or the public landing page silently drifts from the one the
+backend actually serves.
