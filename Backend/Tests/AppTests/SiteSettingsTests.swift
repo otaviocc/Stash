@@ -9,9 +9,9 @@ import VaporTesting
 @testable import App
 
 /// Verifies the site settings model, the admin appearance page, footer rendering, and the
-/// version file (Site Settings & Admin Customisation).
-@Suite("Appearance — site settings & admin customisation")
-struct AppearanceTests {
+/// version file (Site Settings & Admin Customization).
+@Suite("SiteSettings — site settings & admin customization")
+struct SiteSettingsTests {
 
     // MARK: - Site settings row
 

@@ -6,8 +6,6 @@ import Logging
 import Testing
 @testable import App
 
-// MARK: - LogRingBufferTests
-
 /// Verifies `LogRingBuffer`'s capacity, ordering, and filtering behavior.
 @Suite("LogRingBuffer")
 struct LogRingBufferTests {
@@ -93,8 +91,6 @@ struct LogRingBufferTests {
         #expect(entries.count == 2, "It should return every buffered entry when no level filter is given")
     }
 }
-
-// MARK: - RingBufferLogHandlerTests
 
 /// Verifies `RingBufferLogHandler` forwards log calls into the shared buffer.
 @Suite("RingBufferLogHandler")

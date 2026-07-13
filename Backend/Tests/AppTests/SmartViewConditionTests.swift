@@ -8,8 +8,6 @@ import Vapor
 import VaporTesting
 @testable import App
 
-// MARK: - SmartViewConditionTests
-
 /// Verifies the relative-age Smart View conditions — `olderThan` / `newerThan` — covering duration
 /// parsing, validation, calendar (not fixed-second) arithmetic, and live query execution.
 @Suite("Smart Views — relative date conditions (olderThan / newerThan)")
