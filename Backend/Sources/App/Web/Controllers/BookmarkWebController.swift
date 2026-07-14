@@ -247,8 +247,6 @@ struct BookmarkWebController: RouteCollection {
         bookmark.title = form.title?.nonEmpty ?? bookmark.url
         bookmark.description = form.description?.nonEmpty
         bookmark.applyTags(Bookmark.normalizeTags(fromFreeText: form.tags ?? ""))
-        bookmark.isArchived = form.archived != nil
-
         try await bookmark.save(on: req.db)
         return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=saved")
     }
@@ -339,7 +337,6 @@ struct BookmarkWebController: RouteCollection {
             bookmarkTitle: bookmark.title,
             description: bookmark.description ?? "",
             tags: bookmark.tags.joined(separator: ", "),
-            isArchived: bookmark.isArchived,
             knownTagsJSON: KnownTags.json(for: user, on: req.db),
             chrome: req.siteChrome()
         ))

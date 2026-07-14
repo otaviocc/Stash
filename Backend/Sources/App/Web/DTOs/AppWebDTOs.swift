@@ -30,14 +30,12 @@ struct CreateBookmarkForm: Content {
 
 // MARK: - EditBookmarkForm
 
-/// `POST /app/bookmarks/:id` (edit). URL is not editable here. `archived` is an HTML checkbox
-/// (present only when ticked).
+/// `POST /app/bookmarks/:id` (edit). URL is not editable here.
 struct EditBookmarkForm: Content {
 
     let title: String?
     let description: String?
     let tags: String?
-    let archived: String?
 }
 
 // MARK: - AppChangePasswordForm
@@ -210,7 +208,6 @@ struct AppEditBookmarkContext: Content {
     let bookmarkTitle: String
     let description: String
     let tags: String
-    let isArchived: Bool
     let knownTagsJSON: String
     let chrome: SiteChrome
 }
