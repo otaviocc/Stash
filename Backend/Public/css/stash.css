@@ -433,7 +433,7 @@ form.inline {
     gap: 0.4rem;
     font-size: 0.8rem;
     color: var(--text-muted);
-    margin-bottom: 0.15rem;
+    margin-bottom: 0.2rem;
 }
 
 .list-item .domain .favicon {
