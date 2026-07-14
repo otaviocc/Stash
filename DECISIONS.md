@@ -3934,6 +3934,17 @@ Backup restore handles old backup files that still carry the legacy
 the fourth footer link slot on restore, so restoring from a pre-editable-links
 backup doesn't silently lose the custom link.
 
+## WebUI favicon placeholder
+
+When a favicon isn't cached for a domain, the API returns 404 and the
+bookmark list row showed nothing — just the domain text with no icon. The
+`onerror` handler now swaps the `<img>` src to a static ribbon placeholder
+SVG (`/favicon-placeholder.svg`) instead of hiding the element. This keeps
+every bookmark row visually consistent regardless of favicon status. The
+backend intentionally stays unchanged: returning a placeholder from the API
+would risk clients caching a temporary icon, so the fallback lives purely
+in the WebUI layer.
+
 ## Appearance audit log: record actual changes
 
 The audit log entry for appearance updates previously always logged

@@ -8,7 +8,7 @@
     <p class="banner error">#(error)</p>
     #endif
 
-    <h1 class="detail-title">#if(bookmark.faviconDomain):<img src="/api/v1/favicons/#(bookmark.faviconDomain)" alt="" class="favicon favicon-lg" onerror="this.style.display='none'">#endif#(bookmark.title)</h1>
+    <h1 class="detail-title">#if(bookmark.faviconDomain):<img src="/api/v1/favicons/#(bookmark.faviconDomain)" alt="" class="favicon favicon-lg" onerror="this.onerror=null;this.src='/favicon-placeholder.svg';this.style.display='';">#endif#(bookmark.title)</h1>
 
     <div class="card">
         <p class="url"><a href="#(bookmark.url)" target="_blank" rel="noopener">#(bookmark.url)</a></p>

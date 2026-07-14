@@ -983,8 +983,9 @@ a dead end for them).
 - Mobile (<768px): sidebar hidden, filter pills used instead
 - Each row (and the detail page title) shows the domain's cached favicon via
   `<img src="/api/v1/favicons/{domain}">` (§7.8, §9.8), with an `onerror` handler
-  that hides the image on a `404`, graceful degradation to no icon, never a
-  broken-image glyph. The `{domain}` is computed server-side per row.
+  that swaps to a static ribbon placeholder (`/favicon-placeholder.svg`) on a
+  `404`, never a broken-image glyph. The `{domain}` is computed server-side
+  per row.
 
 ### Bookmark Detail
 
