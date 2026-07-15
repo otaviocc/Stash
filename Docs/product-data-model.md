@@ -113,7 +113,7 @@ page renders never hit the database.
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | UUID | Primary key |
-| `accentTheme` | String | Default `"ocean"`. One of the seventeen theme identifiers. |
+| `accentTheme` | String | Default `"ocean"`. One of the twenty-three theme identifiers. |
 | `aboutText` | String? | Optional. Short message shown in the footer. Max 280 chars. |
 | `footerLinks` | String | JSON array of up to four `FooterLink` objects (`{ "label", "url" }`). Defaults to GitHub, Mastodon, Ko-fi, and one empty custom slot. All URLs must be `https://`. Empty slots are hidden from the rendered footer. |
 | `internetArchiveEnabled` | Bool | Default true. Instance-wide switch for Internet Archive submission; see §7.2 and §12. |

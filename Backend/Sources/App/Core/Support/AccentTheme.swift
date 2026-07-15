@@ -28,7 +28,13 @@ struct AccentTheme: Equatable {
         AccentTheme(id: "apple-music", name: "Music", light: "#FC3C44", dark: "#FC3C44"),
         AccentTheme(id: "spotify", name: "Spotify", light: "#1DB954", dark: "#1DB954"),
         AccentTheme(id: "obsidian", name: "Obsidian", light: "#6C31E3", dark: "#6C31E3"),
-        AccentTheme(id: "discord", name: "Discord", light: "#5865F2", dark: "#5865F2")
+        AccentTheme(id: "discord", name: "Discord", light: "#5865F2", dark: "#5865F2"),
+        AccentTheme(id: "starbucks", name: "Starbucks", light: "#00704a", dark: "#00704a"),
+        AccentTheme(id: "t-mobile", name: "T-Mobile", light: "#e20074", dark: "#e20074"),
+        AccentTheme(id: "tumblr", name: "Tumblr", light: "#35465c", dark: "#35465c"),
+        AccentTheme(id: "whatsapp", name: "WhatsApp", light: "#075e54", dark: "#075e54"),
+        AccentTheme(id: "android", name: "Android", light: "#a4c639", dark: "#a4c639"),
+        AccentTheme(id: "boeing", name: "Boeing", light: "#0033a1", dark: "#0033a1")
     ]
 
     static let `default` = all[0]

@@ -53,7 +53,7 @@ container restart.
   Log page). The old per-user table was dropped from the dashboard; it lives
   only on the dedicated Users page.
 - The Appearance page (`GET`/`POST /admin/appearance`) edits the instance
-  `SiteSettings` (§7.6): accent theme (ten circles, pure-HTML radios), the
+  `SiteSettings` (§7.6): accent theme (twenty-three circles, pure-HTML radios), the
   about message (max 280 chars), and up to four editable footer links (label +
   URL pairs, all URLs validated for `https://`). Each theme circle previews the
   color for the active mode: its light value in light mode, its dark value in
