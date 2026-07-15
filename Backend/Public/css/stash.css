@@ -328,10 +328,12 @@ button {
 
 button.secondary {
     background: var(--btn-secondary);
+    color: #ffffff;
 }
 
 button.danger {
     background: var(--danger);
+    color: #ffffff;
 }
 
 button:disabled {
