@@ -79,6 +79,7 @@ Server-rendered web frontend (`/app`) and admin dashboard (`/admin`).
 - Landing page copy updates (offline sync, instance management)
 - Visual polish: bookmark list mirrors the native row (web frontend)
 - WebUI favicon placeholder
+- Accent-aware button text contrast
 
 ### [`Docs/decisions-native-apps.md`](Docs/decisions-native-apps.md)
 iOS/macOS SwiftUI apps and the Share Extension (excluding offline sync).

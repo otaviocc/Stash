@@ -396,3 +396,32 @@ every bookmark row visually consistent regardless of favicon status. The
 backend intentionally stays unchanged: returning a placeholder from the API
 would risk clients caching a temporary icon, so the fallback lives purely
 in the WebUI layer.
+
+## Accent-aware button text contrast
+
+`--btn-text` was hardcoded to `#ffffff` everywhere, which broke light
+accent themes (sunny, gold, coral): white text on a pale yellow or orange
+background has far too little contrast.
+
+The first attempt used `oklch()` relative color syntax to derive
+`--btn-text` from `--accent` in pure CSS:
+```css
+--btn-text: oklch(from var(--accent) calc(l > 0.6 ? 0.15 : 0.95) c h);
+```
+This was silently discarded by browsers that don't support the spec yet —
+the declaration vanished without error, leaving `--btn-text` at its
+inherited `#ffffff` and producing no visible change.
+
+Replaced with a small synchronous inline script in `layout.leaf` that
+reads the computed `--accent` (which already reflects the admin-configured
+theme and the active light/dark mode), computes WCAG relative luminance,
+and sets `--btn-text` to `#1a1a1a` or `#ffffff`. The script runs after
+the accent-override `<style>` block and before paint, so there is no
+flash of wrong text color.
+
+A secondary fix was needed for `.secondary` and `.danger` buttons: the
+base `button` rule sets `color: var(--btn-text)`, and those variants only
+overrode `background`. The contrast calculation for the accent produced a
+dark text color that was wrong for their dark-gray and red backgrounds.
+Added explicit `color: #ffffff` to both variants, since their backgrounds
+are always dark regardless of the accent theme.
