@@ -9,7 +9,6 @@ import Foundation
 /// carries a light-mode and a dark-mode hex value; the active value is selected client-side via
 /// the `data-theme` attribute. `ocean` is the default and matches the app's original accent.
 struct AccentTheme: Equatable {
-
     // MARK: Static Properties
 
     static let all: [AccentTheme] = [
@@ -22,7 +21,14 @@ struct AccentTheme: Equatable {
         AccentTheme(id: "rose", name: "Rose", light: "#be185d", dark: "#f472b6"),
         AccentTheme(id: "dusk", name: "Dusk", light: "#b45309", dark: "#d97706"),
         AccentTheme(id: "slate", name: "Slate", light: "#475569", dark: "#94a3b8"),
-        AccentTheme(id: "indigo", name: "Indigo", light: "#231468", dark: "#818cf8")
+        AccentTheme(id: "teal", name: "Teal", light: "#0d9488", dark: "#2dd4bf"),
+        AccentTheme(id: "coral", name: "Coral", light: "#f97316", dark: "#fb923c"),
+        AccentTheme(id: "lavender", name: "Lavender", light: "#8b5cf6", dark: "#c4b5fd"),
+        AccentTheme(id: "gold", name: "Gold", light: "#eab308", dark: "#facc15"),
+        AccentTheme(id: "apple-music", name: "Music", light: "#FC3C44", dark: "#FC3C44"),
+        AccentTheme(id: "spotify", name: "Spotify", light: "#1DB954", dark: "#1DB954"),
+        AccentTheme(id: "obsidian", name: "Obsidian", light: "#6C31E3", dark: "#6C31E3"),
+        AccentTheme(id: "discord", name: "Discord", light: "#5865F2", dark: "#5865F2")
     ]
 
     static let `default` = all[0]

@@ -231,7 +231,7 @@ page renders never hit the database.
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | UUID | Primary key |
-| `accentTheme` | String | Default `"ocean"`. One of the ten theme identifiers. |
+| `accentTheme` | String | Default `"ocean"`. One of the seventeen theme identifiers. |
 | `aboutText` | String? | Optional. Short message shown in the footer. Max 280 chars. |
 | `footerLinks` | String | JSON array of up to four `FooterLink` objects (`{ "label", "url" }`). Defaults to GitHub, Mastodon, Ko-fi, and one empty custom slot. All URLs must be `https://`. Empty slots are hidden from the rendered footer. |
 | `internetArchiveEnabled` | Bool | Default true. Instance-wide switch for Internet Archive submission; see §7.2 and §12. |
@@ -239,7 +239,7 @@ page renders never hit the database.
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
-**Accent themes.** Ten named themes, each with a light-mode and a dark-mode hex
+**Accent themes.** Seventeen named themes, each with a light-mode and a dark-mode hex
 value; the active value is selected automatically from the `data-theme`
 attribute. `ocean` is the default and matches the app's original accent.
 
@@ -254,7 +254,14 @@ attribute. `ocean` is the default and matches the app's original accent.
 | `rose` | Rose | `#be185d` | `#f472b6` |
 | `dusk` | Dusk | `#b45309` | `#d97706` |
 | `slate` | Slate | `#475569` | `#94a3b8` |
-| `indigo` | Indigo | `#231468` | `#818cf8` |
+| `teal` | Teal | `#0d9488` | `#2dd4bf` |
+| `coral` | Coral | `#f97316` | `#fb923c` |
+| `lavender` | Lavender | `#8b5cf6` | `#c4b5fd` |
+| `gold` | Gold | `#eab308` | `#facc15` |
+| `apple-music` | Apple Music | `#FC3C44` | `#FC3C44` |
+| `spotify` | Spotify | `#1DB954` | `#1DB954` |
+| `obsidian` | Obsidian | `#6C31E3` | `#6C31E3` |
+| `discord` | Discord | `#5865F2` | `#5865F2` |
 
 The selected theme's values are injected into `layout.leaf`'s `<head>` as a CSS
 block overriding `--accent`, from the app-level cache (no per-request query).
