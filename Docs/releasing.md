@@ -53,10 +53,14 @@ Pushing the tag triggers `release.yml`:
 1. **`test`**: runs the backend suite serially (`swift test --no-parallel`,
    in-memory SQLite, no database needed; parallel runs starve the SQLite
    connection pool on a CI runner). Publishing is gated on this passing.
-2. **`publish`** (only if `test` passes): builds the image for `linux/amd64` +
-   `linux/arm64`, pushes `ghcr.io/otaviocc/stash:latest` and
-   `ghcr.io/otaviocc/stash:<version>` (e.g. `1.0.0`), and creates a GitHub Release
-   named `Stash v1.0.0` with `Backend/docker-compose.yml` attached.
+2. **`build`** (only if `test` passes): builds the image for `linux/amd64` and
+   `linux/arm64` in parallel, each **natively on its own runner** (`amd64` on
+   `ubuntu-latest`, `arm64` on `ubuntu-24.04-arm`), and pushes each by digest.
+3. **`publish`** (only if `build` passes): stitches the two digests into one
+   multi-arch manifest, tagged `ghcr.io/otaviocc/stash:latest` and
+   `ghcr.io/otaviocc/stash:<version>` (e.g. `1.0.0`), then creates a GitHub
+   Release named `Stash v1.0.0` with `Backend/docker-compose.yml` and the
+   packaged browser extension attached.
 
 No secrets to configure: the workflow's built-in `GITHUB_TOKEN` covers GHCR
 login, the push, and the release.
@@ -78,10 +82,11 @@ login, the push, and the release.
   pushed as a notification to every self-hosted instance.
 - **`latest` follows the newest tag**: every release re-tags `latest` at the
   new version.
-- **The first release is slow.** The `linux/arm64` leg builds under QEMU
-  emulation with a cold layer cache; expect it to take a while. Later releases
-  reuse the cached Swift dependency layers (`type=gha`) and are faster, though
-  they still recompile changed backend source under emulation.
+- **Both architectures build natively, no QEMU.** `linux/arm64` runs on a
+  native `ubuntu-24.04-arm` runner rather than under emulation (emulating a
+  full Vapor/NIO release build crashed the Swift compiler). The first release
+  is slow because the `type=gha` layer cache is cold; later releases reuse the
+  cached Swift dependency layers and are faster.
 - **Watch the first run**: it's also the first time the backend test suite runs
   on Linux. Fix any surprises there before relying on the pipeline.
 
