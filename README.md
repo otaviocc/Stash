@@ -4,9 +4,11 @@ A self-hosted bookmark manager with native iOS, macOS, web, and browser-extensio
 
 ![CI](https://github.com/otaviocc/stash/actions/workflows/ci.yml/badge.svg)
 
-<img width="1348" height="928" alt="Landing" src="https://github.com/user-attachments/assets/dc0e591f-2476-4f86-a3ff-288517eeeba1" />
+<img width="1216" height="911" alt="Landing Page" src="https://github.com/user-attachments/assets/56938e9d-14b5-4cb0-a8b8-63e89dbaa9bd" />
 
-<img width="1348" height="928" alt="Bookmarks" src="https://github.com/user-attachments/assets/f595a3aa-4a17-4575-a274-34e2a74bcf19" />
+<img width="1216" height="911" alt="App WebUI" src="https://github.com/user-attachments/assets/8c72eb8c-1060-4a63-8fe7-a234ce5fa3a5" />
+
+<img width="1216" height="911" alt="Admin WebUI" src="https://github.com/user-attachments/assets/f279c9e3-ac94-48f4-a683-298c7af644cd" />
 
 ## Features
 
