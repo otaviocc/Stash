@@ -157,6 +157,19 @@ header.nav .who {
     font-size: 0.9rem;
 }
 
+header.nav.admin {
+    background: var(--accent);
+    color: var(--btn-text);
+}
+
+header.nav.admin a {
+    color: var(--btn-text);
+}
+
+header.nav.admin .who {
+    opacity: 0.85;
+}
+
 main {
     max-width: 880px;
     margin: 1.5rem auto;

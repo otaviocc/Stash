@@ -44,7 +44,7 @@
 </head>
 <body>
     #if(adminUsername):
-    <header class="nav">
+    <header class="nav admin">
         <a href="/admin" class="brand">Stash Admin</a>
         <nav>
             <a href="/admin">Dashboard</a>
