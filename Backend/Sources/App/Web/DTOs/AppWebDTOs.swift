@@ -330,6 +330,8 @@ struct AppSettingsContext: Content {
     let message: String?
     let importers: [FormatOption]
     let exporters: [FormatOption]
+    let defaultImporter: String
+    let defaultExporter: String
     let importError: String?
     let importSummary: ImportSummaryContext?
     let theme: String

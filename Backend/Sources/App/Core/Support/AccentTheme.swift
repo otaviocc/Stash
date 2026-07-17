@@ -9,6 +9,7 @@ import Foundation
 /// carries a light-mode and a dark-mode hex value; the active value is selected client-side via
 /// the `data-theme` attribute. `ocean` is the default and matches the app's original accent.
 struct AccentTheme: Equatable {
+
     // MARK: Static Properties
 
     static let all: [AccentTheme] = [

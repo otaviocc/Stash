@@ -128,7 +128,7 @@ the API and the admin dashboard.
 | `POST` | `/app/settings/delete-all-bookmarks` | Danger zone: delete all of the user's bookmarks (typed-phrase confirmation) |
 
 Import/export is pluggable; it ships with Anybox JSON and Stash JSON importers
-and a Stash JSON exporter. Theme (light/dark/auto) is a `stash_theme` cookie
+and Stash JSON and Anybox JSON exporters. Theme (light/dark/auto) is a `stash_theme` cookie
 shared by both web UIs.
 
 ## Talking to the API from Swift

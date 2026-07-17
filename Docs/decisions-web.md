@@ -425,3 +425,33 @@ overrode `background`. The contrast calculation for the accent produced a
 dark text color that was wrong for their dark-gray and red backgrounds.
 Added explicit `color: #ffffff` to both variants, since their backgrounds
 are always dark regardless of the accent theme.
+
+---
+
+## Anybox exporter and an explicit default format
+
+Added an Anybox JSON exporter as the inverse of the existing importer, which
+confirmed the pluggable registry claim a second time: a single
+`register(exporter:)` line, no controller/route/template change. The export is
+deliberately lossy — Anybox has no archived-bookmark or Smart View concept, so
+`isArchived` is dropped and Smart Views are omitted, and tags are written as a
+plain `[String]` (e.g. `topic/swift`) rather than reconstructing Anybox's
+`[[namespace, value]]` pairs. That plain shape is exactly the fallback the
+importer already accepts, so a Stash → Anybox → Stash round-trip preserves tags;
+splitting back into pairs would guess a namespace boundary that Stash doesn't
+actually store.
+
+Registering a second exporter exposed a latent bug in the format selectors: the
+default was purely positional (the first `<option>`), and the options render in
+`displayName` alphabetical order. With only "Stash JSON" registered that was
+harmless, but "Anybox JSON" sorts first, so it would have silently become the
+default for both import and export. Made the default explicit instead — the
+settings context now carries `defaultImporter`/`defaultExporter` (both
+`stash-json`) and the template marks the matching `<option selected>`, the same
+pattern the logs page already uses. Stash JSON is the sensible default: it is
+the lossless, round-trippable, restore-from-backup format; Anybox is a
+migration convenience.
+
+I also backfilled the first import/export tests here (there were none): both
+importers, both exporters, and an export→import round-trip for each format,
+which is what caught the positional-default regression before it shipped.

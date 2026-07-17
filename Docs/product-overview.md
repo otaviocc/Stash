@@ -35,7 +35,7 @@ What I wanted out of it:
 - Let users change their own password
 - Block duplicate URLs per user at save time
 - Import bookmarks from Anybox JSON export and Stash JSON
-- Export bookmarks in Stash native JSON format
+- Export bookmarks in Stash native JSON format or Anybox JSON format
 - Export and import Smart Views as part of the Stash native JSON format
 - Dark mode support (Light / Dark / Auto)
 - Keep all data on infrastructure I control

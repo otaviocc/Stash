@@ -7,6 +7,8 @@ import Vapor
 import VaporTesting
 @testable import App
 
+// MARK: - SmartViewTests
+
 /// Verifies Smart View CRUD, condition validation, live query execution (AND semantics), and
 /// per-user isolation.
 @Suite("Smart Views — CRUD, validation, query execution, isolation")

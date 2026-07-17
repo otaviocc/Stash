@@ -108,7 +108,7 @@
         <form method="post" action="/app/import" enctype="multipart/form-data">
             <label>Format
                 <select name="format">
-                    #for(fmt in importers):<option value="#(fmt.identifier)">#(fmt.displayName)</option>#endfor
+                    #for(fmt in importers):<option value="#(fmt.identifier)"#if(fmt.identifier == defaultImporter): selected#endif>#(fmt.displayName)</option>#endfor
                 </select>
             </label>
             <label>File
@@ -123,7 +123,7 @@
         <form method="get" action="/app/export">
             <label>Format
                 <select name="format">
-                    #for(fmt in exporters):<option value="#(fmt.identifier)">#(fmt.displayName)</option>#endfor
+                    #for(fmt in exporters):<option value="#(fmt.identifier)"#if(fmt.identifier == defaultExporter): selected#endif>#(fmt.displayName)</option>#endfor
                 </select>
             </label>
             <button type="submit">Download your bookmarks</button>

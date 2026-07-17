@@ -40,6 +40,7 @@ final class ImportExportRegistry: @unchecked Sendable {
         register(importer: AnyboxImporter())
         register(importer: StashJSONImporter())
         register(exporter: StashJSONExporter())
+        register(exporter: AnyboxExporter())
     }
 
     // MARK: Functions

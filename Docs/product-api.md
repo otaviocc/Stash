@@ -310,3 +310,32 @@ Views, sorted by `name`:
 
 `Content-Disposition: attachment; filename="stash-export-YYYY-MM-DD.json"`.
 
+### 11.5 Anybox JSON Exporter (`identifier: "anybox"`)
+
+The inverse of the Anybox importer (§11.2): all bookmarks (including archived),
+sorted by `createdAt` ascending, written as a flat top-level JSON array. It is
+intentionally lossy — Anybox has no concept of archived bookmarks or Smart
+Views, so `isArchived` is dropped and Smart Views are omitted.
+
+| Stash field | Anybox field | Notes |
+|---|---|------|
+| `url` | `url` | |
+| `title` | `title` | |
+| `description` | `description` | Omitted when empty |
+| `tags` | `tags` | Plain `[String]` (e.g. `["topic/swift", "ios"]`); the importer's documented fallback shape, so a Stash → Anybox → Stash round-trip preserves tags |
+| `createdAt` | `dateAdded` | ISO-8601 string |
+| `isArchived` | — | Dropped (Anybox has no archive) |
+| Smart Views | — | Omitted (Anybox has no equivalent) |
+
+```json
+[
+  {
+    "url": "https://example.com",
+    "title": "Example",
+    "description": "...",
+    "tags": ["topic/swift", "ios"],
+    "dateAdded": "2026-01-01T00:00:00Z"
+  }
+]
+```
+

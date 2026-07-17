@@ -356,13 +356,15 @@ Turning this off doesn't affect existing submissions or remove the per-bookmark
 it only controls whether *new* bookmarks auto-submit at save time.
 
 **Import & Export:**
-- Import: file upload, format selector (Anybox JSON, Stash JSON), summary banner
-  with imported/updated/skipped counts (plus a Smart Views count when the file
-  carried any), collapsible error details. Upload body limit 16MB. A Stash JSON
-  file also restores Smart Views, matched by name. After a successful import a
-  detached backfill caches a favicon (§7.8) for each distinct imported domain.
-- Export: "Download your bookmarks" → Stash JSON file download (bookmarks and
-  Smart Views).
+- Import: file upload, format selector (Anybox JSON, Stash JSON; defaults to
+  Stash JSON), summary banner with imported/updated/skipped counts (plus a Smart
+  Views count when the file carried any), collapsible error details. Upload body
+  limit 16MB. A Stash JSON file also restores Smart Views, matched by name. After
+  a successful import a detached backfill caches a favicon (§7.8) for each
+  distinct imported domain.
+- Export: "Download your bookmarks" with a format selector (Stash JSON, Anybox
+  JSON; defaults to Stash JSON). Stash JSON carries bookmarks and Smart Views;
+  Anybox JSON is a flat bookmark array (no archived flag, no Smart Views).
 
 **Danger Zone:**
 - "Delete all bookmarks": requires typing `delete all` (case-insensitive).

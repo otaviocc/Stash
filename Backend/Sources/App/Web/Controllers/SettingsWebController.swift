@@ -295,6 +295,8 @@ struct SettingsWebController: RouteCollection {
             message: message,
             importers: ImportExportRegistry.shared.importerOptions,
             exporters: ImportExportRegistry.shared.exporterOptions,
+            defaultImporter: StashJSONImporter.identifier,
+            defaultExporter: StashJSONExporter.identifier,
             importError: importError,
             importSummary: importSummary,
             theme: Self.currentTheme(req),

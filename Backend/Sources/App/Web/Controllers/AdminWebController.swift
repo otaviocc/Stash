@@ -606,9 +606,15 @@ struct AdminWebController: RouteCollection {
         SiteSettingsService.refreshCache(with: settings, on: req.application)
 
         var changed: [String] = []
-        if accentTheme != oldTheme { changed.append("accent theme: \(accentTheme)") }
-        if aboutText != oldAbout { changed.append("about text") }
-        if links != oldLinks { changed.append("footer links") }
+        if accentTheme != oldTheme {
+            changed.append("accent theme: \(accentTheme)")
+        }
+        if aboutText != oldAbout {
+            changed.append("about text")
+        }
+        if links != oldLinks {
+            changed.append("footer links")
+        }
 
         await AuditLogger.record(
             action: "appearance_updated",
