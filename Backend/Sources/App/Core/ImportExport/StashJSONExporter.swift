@@ -62,13 +62,8 @@ struct StashJSONExporter: BookmarkExporter {
     // MARK: Functions
 
     func export(for userID: UUID, on db: any Database) async throws -> Data {
-        let bookmarks = try await Bookmark.query(on: db)
-            .filter(\.$user.$id == userID)
-            .sort(\.$createdAt, .ascending)
-            .sort(\.$id, .ascending)
-            .all()
+        let bookmarks = try await ExportSupport.sortedBookmarks(for: userID, on: db)
 
-        let iso = ISO8601DateFormatter()
         let items = try bookmarks.map { bookmark in
             try Item(
                 id: bookmark.requireID().uuidString,
@@ -78,8 +73,8 @@ struct StashJSONExporter: BookmarkExporter {
                 tags: bookmark.tags,
                 faviconURL: bookmark.faviconURL,
                 isArchived: bookmark.isArchived,
-                createdAt: iso.string(from: bookmark.createdAt ?? Date()),
-                updatedAt: iso.string(from: bookmark.updatedAt ?? Date())
+                createdAt: ExportSupport.iso8601.string(from: bookmark.createdAt ?? Date()),
+                updatedAt: ExportSupport.iso8601.string(from: bookmark.updatedAt ?? Date())
             )
         }
 
@@ -94,19 +89,17 @@ struct StashJSONExporter: BookmarkExporter {
                 name: smartView.name,
                 matchMode: smartView.matchMode,
                 conditions: smartView.conditions.map { ConditionItem(type: $0.typeString, value: $0.valueString) },
-                createdAt: iso.string(from: smartView.createdAt ?? Date()),
-                updatedAt: iso.string(from: smartView.updatedAt ?? Date())
+                createdAt: ExportSupport.iso8601.string(from: smartView.createdAt ?? Date()),
+                updatedAt: ExportSupport.iso8601.string(from: smartView.updatedAt ?? Date())
             )
         }
 
         let document = Document(
             version: "1",
-            exportedAt: iso.string(from: Date()),
+            exportedAt: ExportSupport.iso8601.string(from: Date()),
             bookmarks: items,
             smartViews: smartViewItems
         )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        return try encoder.encode(document)
+        return try ExportSupport.makeEncoder().encode(document)
     }
 }

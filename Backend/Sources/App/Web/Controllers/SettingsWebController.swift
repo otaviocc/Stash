@@ -197,7 +197,7 @@ struct SettingsWebController: RouteCollection {
 
     func exportBookmarks(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
-        let format = req.query[String.self, at: "format"] ?? StashJSONExporter.identifier
+        let format = req.query[String.self, at: "format"] ?? ImportExportRegistry.defaultExporterIdentifier
         guard let exporter = ImportExportRegistry.shared.exporter(for: format) else {
             return req.redirect(to: "/app/settings")
         }
@@ -295,8 +295,8 @@ struct SettingsWebController: RouteCollection {
             message: message,
             importers: ImportExportRegistry.shared.importerOptions,
             exporters: ImportExportRegistry.shared.exporterOptions,
-            defaultImporter: StashJSONImporter.identifier,
-            defaultExporter: StashJSONExporter.identifier,
+            defaultImporter: ImportExportRegistry.defaultImporterIdentifier,
+            defaultExporter: ImportExportRegistry.defaultExporterIdentifier,
             importError: importError,
             importSummary: importSummary,
             theme: Self.currentTheme(req),

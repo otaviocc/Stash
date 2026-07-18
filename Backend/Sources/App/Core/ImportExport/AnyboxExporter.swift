@@ -39,25 +39,18 @@ struct AnyboxExporter: BookmarkExporter {
     // MARK: Functions
 
     func export(for userID: UUID, on db: any Database) async throws -> Data {
-        let bookmarks = try await Bookmark.query(on: db)
-            .filter(\.$user.$id == userID)
-            .sort(\.$createdAt, .ascending)
-            .sort(\.$id, .ascending)
-            .all()
+        let bookmarks = try await ExportSupport.sortedBookmarks(for: userID, on: db)
 
-        let iso = ISO8601DateFormatter()
         let records = bookmarks.map { bookmark in
             Record(
                 url: bookmark.url,
                 title: bookmark.title,
-                description: bookmark.description,
+                description: bookmark.description?.nonEmpty,
                 tags: bookmark.tags,
-                dateAdded: iso.string(from: bookmark.createdAt ?? Date())
+                dateAdded: ExportSupport.iso8601.string(from: bookmark.createdAt ?? Date())
             )
         }
 
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        return try encoder.encode(records)
+        return try ExportSupport.makeEncoder().encode(records)
     }
 }

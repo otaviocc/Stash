@@ -101,3 +101,35 @@ struct FormatOption: Content {
     let identifier: String
     let displayName: String
 }
+
+// MARK: - ExportSupport
+
+/// Shared plumbing for `BookmarkExporter` conformers, so every format fetches, dates, and encodes
+/// consistently.
+enum ExportSupport {
+
+    // MARK: Static Properties
+
+    /// Shared ISO-8601 formatter for `dateAdded`/`createdAt`/`updatedAt` fields.
+    static let iso8601 = ISO8601DateFormatter()
+
+    // MARK: Static Functions
+
+    /// All of a user's bookmarks (archived included), stably sorted `createdAt` ascending with
+    /// `id` as a tie-breaker.
+    static func sortedBookmarks(for userID: UUID, on db: any Database) async throws -> [Bookmark] {
+        try await Bookmark.query(on: db)
+            .filter(\.$user.$id == userID)
+            .sort(\.$createdAt, .ascending)
+            .sort(\.$id, .ascending)
+            .all()
+    }
+
+    /// A `JSONEncoder` configured with the shared export formatting (pretty-printed, sorted keys,
+    /// unescaped slashes).
+    static func makeEncoder() -> JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        return encoder
+    }
+}
