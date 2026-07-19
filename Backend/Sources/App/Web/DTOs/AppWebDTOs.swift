@@ -172,6 +172,7 @@ struct AppBookmarksContext: Content {
     let isSmartView: Bool
     let smartViewID: String
     let showArchivedToggle: Bool
+    let returnToParam: String
     let chrome: SiteChrome
 }
 
@@ -191,6 +192,8 @@ struct AppNewBookmarkContext: Content {
     let tags: String
     let previewed: Bool
     let knownTagsJSON: String
+    let returnURL: String
+    let returnToParam: String
     let chrome: SiteChrome
 }
 
@@ -209,6 +212,7 @@ struct AppEditBookmarkContext: Content {
     let description: String
     let tags: String
     let knownTagsJSON: String
+    let returnToParam: String
     let chrome: SiteChrome
 }
 
@@ -223,6 +227,8 @@ struct AppBookmarkDetailContext: Content {
     let bookmark: AppBookmarkRow
     let message: String?
     let error: String?
+    let returnURL: String
+    let returnToParam: String
     let chrome: SiteChrome
 }
 

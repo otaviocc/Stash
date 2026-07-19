@@ -88,6 +88,9 @@ struct SmartViewWebController: RouteCollection {
             isSmartView: true,
             smartViewID: id,
             showArchivedToggle: !overridesArchived,
+            returnToParam: TagPresenter.queryValue(
+                SmartViewPresenter.smartViewListURL(id: id, archived: archived, page: page)
+            ),
             chrome: req.siteChrome()
         ))
     }

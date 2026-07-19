@@ -455,3 +455,121 @@ migration convenience.
 I also backfilled the first import/export tests here (there were none): both
 importers, both exporters, and an export→import round-trip for each format,
 which is what caught the positional-default regression before it shipped.
+
+---
+
+## Bookmark detail: preserve list return context (`returnTo`)
+
+The bookmark detail page's "← Back to bookmarks" link and its Delete redirect
+were hardcoded to `/app`, so opening a bookmark from a tag or Smart View and
+going back (or deleting it) dropped the user onto the unfiltered list instead
+of where they came from. Scope was explicitly widened beyond just back/delete:
+the return context now survives every detail-page action (Edit, Refresh
+favicon, Wayback, Archive/Unarchive), not just the first page load, so the
+back-link keeps pointing at the originating list for as long as the user stays
+on that bookmark.
+
+Implementation carries the originating list URL as a `?returnTo=` query
+param, reusing existing building blocks rather than inventing new ones:
+`BookmarkPresenter.listURL` / `SmartViewPresenter.smartViewListURL` (already
+used for pagination) build the raw URL, and `TagPresenter.queryValue` (already
+used for sidebar tag hrefs) percent-encodes it for embedding in another query
+string. Every link/form into or within the detail page carries `returnTo` in
+its URL; every handler reads it back via `req.query` — no new hidden form
+fields or `Content` structs needed, since POSTs can carry their own query
+string on the `action` URL independent of the form body.
+
+Since `returnTo` is user-controlled and used as a redirect target, added a
+`safeReturnTo` guard — the first redirect-target validation in this codebase,
+as none of the existing hardcoded `req.redirect(to:)` calls needed one. Falls
+back to `/app` on anything that doesn't look like a local `/app` path.
+
+A code review of the first version turned up four real issues, all fixed:
+
+- `safeReturnTo` separately rejected values containing `//` or `://` on top of
+  requiring the `/app` prefix. That extra check was actually redundant (a
+  string starting with `/app` can never be an absolute or protocol-relative
+  URL — neither can start with a single `/`) *and* actively harmful: a bookmark
+  search for a URL-shaped term (`?q=https://example.com`) produces a
+  perfectly safe, locally-scoped `returnTo` that still contains the substring
+  `://`, so the guard silently discarded it and fell back to `/app` — the
+  exact context loss this feature exists to fix. Removed the `//`/`://` checks
+  entirely; the `/app` prefix requirement alone is sufficient.
+- The guard had no defense against embedded control characters, so a crafted
+  `returnTo` could inject a CR/LF into the eventual redirect `Location`
+  header. Added an explicit rejection — but the first attempt
+  (`!raw.contains("\r"), !raw.contains("\n")`) missed a *combined* CRLF
+  sequence entirely: Swift merges `"\r\n"` into a single extended grapheme
+  cluster, so a `Character`-based `contains("\r")` doesn't match it (neither
+  `Character` equals the cluster). A test exercising exactly this payload
+  caught it; the fix scans `unicodeScalars` instead, which sees the raw CR and
+  LF code points independently of grapheme clustering.
+- The "Add bookmark" page's duplicate-URL conflict link ("View the existing
+  bookmark →") was the one entry point into the detail page this diff missed
+  — carried no `returnTo`, unlike every other link/form into it. Fixed the
+  same way as the rest: `AppNewBookmarkContext` now carries `returnURL`/
+  `returnToParam`, threaded through both the initial GET and the POST
+  re-render-on-conflict path.
+- Backfilled test coverage for the whole mechanism (none existed): the back
+  link honoring/rejecting `returnTo`, the `://`-in-search-text and CRLF cases
+  above, delete redirecting to the preserved list (with and without
+  `returnTo`), and an action (archive) re-attaching `returnTo` to its
+  detail-page redirect.
+
+A follow-up cleanup pass (still no correctness bugs, just quality) replaced
+`detailRedirect`'s manual `"?" + items.joined(separator: "&")` string-building
+with `URLComponents`/`URLQueryItem`, matching the pattern `BookmarkPresenter`/
+`SmartViewPresenter` already use, and added a `returnContext(_:)` helper to
+stop deriving the `(returnURL, returnToParam)` pair separately at each of its
+4 call sites. Also considered and declined: a Leaf partial to enforce
+`returnTo` on every future detail-page link (real gap, but needs new
+Leaf-tag infrastructure — out of scope for a cleanup pass); extracting the
+new tests' repeated Given-block setup (checked against `WaybackTests.swift`
+and confirmed it matches this repo's existing test-file convention of
+explicit, un-factored Given blocks).
+
+---
+
+## Add-bookmark page: return context via Referer, plus tag pre-fill
+
+The "Add bookmark" page's own "← Back to bookmarks" link was fixed to read
+`returnURL` in the pass above, but never actually received one: neither entry
+point into `/app/bookmarks/new` — the global nav "Add" link (`layout.leaf`,
+present on all 24 web-app pages) nor the list's empty-state "Add your first
+bookmark" link — carried `?returnTo=`. The user also wanted the active tag
+pre-filled into the new bookmark's tags field, since the page now knows what
+was being browsed.
+
+`layout.leaf` only receives `title`/`appUsername`/`appIsAdmin`/`chrome`/
+`adminUsername` — no page-specific state. `chrome` (`SiteChrome`) is
+confirmed instance-wide cached config built from admin `SiteSettings` with no
+request access, so it's the wrong seam for per-request nav state. Threading a
+new field through every context struct that extends layout (~25 structs,
+~33 construction sites, only 1 of which — `app-bookmarks.leaf` — has any tag
+concept) would be disproportionate to fixing one link.
+
+Instead, `safeReturnTo` now falls back to the `Referer` header when no
+`returnTo` query param is present (`returnToCandidate(_:)`, extracting
+`path` + `query` from `Referer` via `URLComponents`, then running through the
+same validation). The nav "Add" link is a plain same-origin `<a href>`, so
+the browser already sends the right `Referer` with zero template changes.
+Considered — and rejected — making `Referer` the *only* mechanism, dropping
+`returnTo` entirely: `Referer` only names the immediately preceding page, so
+it works for a single hop (list → new-bookmark) but breaks the detail page's
+own actions, whose `Referer` is the detail page itself after the first hop,
+permanently losing the original list. The two mechanisms are complementary,
+not redundant: explicit `returnTo` for anything that must survive multiple
+hops (the detail page), `Referer` fallback for single-hop links that would
+otherwise need context threaded through unrelated pages. Also explicitly
+decorated the empty-state link (it already has `returnToParam` in scope) as a
+fallback for browsers/extensions that strip `Referer`.
+
+Tag pre-fill (`tagFromReturnURL(_:)`) extracts the `tag` query item from the
+resolved return URL and normalizes it via `Bookmark.normalizeTagQuery`,
+excluding the three sentinel filters (`__untagged__`/`__today__`/
+`__this_week__` — not real tags). A Smart View return URL has no `tag` item
+at all, so nothing is pre-filled there, correctly — a Smart View doesn't
+correspond to one tag. Only wired into the initial GET (`newBookmarkForm`);
+`createBookmark`'s conflict/preview re-render already carries forward
+whatever the user submitted in the `tags` field, so the pre-filled value
+round-trips for free once it's a real form value.

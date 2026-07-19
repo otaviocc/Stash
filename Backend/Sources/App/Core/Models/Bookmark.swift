@@ -187,6 +187,12 @@ extension Bookmark {
         normalizeTags(raw.components(separatedBy: CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines)))
     }
 
+    /// Whether `tag` is one of the synthetic "Views" filters (Untagged/Today/This Week) rather than
+    /// a real, storable tag.
+    static func isSentinelTag(_ tag: String) -> Bool {
+        [untaggedSentinel, todaySentinel, thisWeekSentinel].contains(tag)
+    }
+
     static func normalizeTagQuery(_ raw: String) -> String {
         raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()

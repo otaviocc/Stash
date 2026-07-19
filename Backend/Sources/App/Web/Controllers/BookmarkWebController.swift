@@ -61,7 +61,7 @@ struct BookmarkWebController: RouteCollection {
         let isUntagged = rawTag == Bookmark.untaggedSentinel
         let isToday = rawTag == Bookmark.todaySentinel
         let isThisWeek = rawTag == Bookmark.thisWeekSentinel
-        let isSpecial = isUntagged || isToday || isThisWeek
+        let isSpecial = Bookmark.isSentinelTag(rawTag ?? "")
         let activeTag = isSpecial ? "" : Bookmark.normalizeTagQuery(query.tag ?? "")
         let sidebar = try await AppSidebarLoader.load(
             for: user,
@@ -110,6 +110,7 @@ struct BookmarkWebController: RouteCollection {
             isSmartView: false,
             smartViewID: "",
             showArchivedToggle: false,
+            returnToParam: TagPresenter.queryValue(BookmarkPresenter.listURL(query, page: page)),
             chrome: req.siteChrome()
         ))
     }
@@ -119,12 +120,15 @@ struct BookmarkWebController: RouteCollection {
     func newBookmarkForm(req: Request) async throws -> View {
         let user = try req.auth.require(User.self)
         let url = req.query[String.self, at: "url"] ?? ""
+        let (returnURL, returnToParam) = newBookmarkReturnContext(req)
 
         return try await req.view.render("app-bookmark-new", AppNewBookmarkContext(
             title: "Add bookmark", appUsername: user.username, appIsAdmin: user.role == .admin, error: nil,
             existingID: nil,
-            url: url, bookmarkTitle: "", description: "", tags: "", previewed: false,
+            url: url, bookmarkTitle: "", description: "", tags: tagFromReturnURL(returnURL), previewed: false,
             knownTagsJSON: KnownTags.json(for: user, on: req.db),
+            returnURL: returnURL,
+            returnToParam: returnToParam,
             chrome: req.siteChrome()
         ))
     }
@@ -138,6 +142,7 @@ struct BookmarkWebController: RouteCollection {
         var description = form.description?.nonEmpty
         let tagsText = form.tags ?? ""
         let tagsJSON = try await KnownTags.json(for: user, on: req.db)
+        let (returnURL, returnToParam) = returnContext(req)
 
         func renderForm(
             error: String?,
@@ -150,6 +155,8 @@ struct BookmarkWebController: RouteCollection {
                 existingID: existingID,
                 url: rawURL, bookmarkTitle: title ?? "", description: description ?? "",
                 tags: tagsText, previewed: previewed, knownTagsJSON: tagsJSON,
+                returnURL: returnURL,
+                returnToParam: returnToParam,
                 chrome: req.siteChrome()
             ), status: status)
         }
@@ -212,7 +219,7 @@ struct BookmarkWebController: RouteCollection {
         FaviconFetcher.enqueue(forURL: url, declaredIconURL: declaredIcon, on: req.application)
         await WaybackSubmitter.enqueueIfAllowed(bookmark, for: user, on: req.application)
 
-        return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=created")
+        return try detailRedirect(req, id: bookmark.requireID(), ok: "created")
     }
 
     // MARK: - Detail / edit / update
@@ -222,6 +229,7 @@ struct BookmarkWebController: RouteCollection {
 
         let message = FlashMessage.app(for: req.query[String.self, at: "ok"])
         let error = FlashMessage.appError(for: req.query[String.self, at: "error"])
+        let (returnURL, returnToParam) = returnContext(req)
         return try await req.renderHTML("app-bookmark-detail", AppBookmarkDetailContext(
             title: bookmark.title,
             appUsername: req.auth.require(User.self).username,
@@ -229,6 +237,8 @@ struct BookmarkWebController: RouteCollection {
             bookmark: BookmarkPresenter.row(from: bookmark),
             message: message,
             error: error,
+            returnURL: returnURL,
+            returnToParam: returnToParam,
             chrome: req.siteChrome()
         ))
     }
@@ -248,7 +258,7 @@ struct BookmarkWebController: RouteCollection {
         bookmark.description = form.description?.nonEmpty
         bookmark.applyTags(Bookmark.normalizeTags(fromFreeText: form.tags ?? ""))
         try await bookmark.save(on: req.db)
-        return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=saved")
+        return try detailRedirect(req, id: bookmark.requireID(), ok: "saved")
     }
 
     func deleteBookmark(req: Request) async throws -> Response {
@@ -258,6 +268,7 @@ struct BookmarkWebController: RouteCollection {
         let bookmarkID = try bookmark.requireID()
         let userID = try user.requireID()
         let url = bookmark.url
+        let returnURL = safeReturnTo(req)
 
         try await req.db.transaction { db in
             try await bookmark.delete(on: db)
@@ -266,7 +277,7 @@ struct BookmarkWebController: RouteCollection {
         user.bookmarkCount = max(user.bookmarkCount - 1, 0)
         try await user.save(on: req.db)
         req.logger.info("\(ActivityLog.bookmarkDeleted(url: url, user: user.username))")
-        return req.redirect(to: "/app")
+        return req.redirect(to: returnURL)
     }
 
     func archiveBookmark(req: Request) async throws -> Response {
@@ -284,18 +295,18 @@ struct BookmarkWebController: RouteCollection {
             try await FaviconFetcher.refresh(domain: domain, on: req.application)
         }
 
-        return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=favicon_refreshing")
+        return try detailRedirect(req, id: bookmark.requireID(), ok: "favicon_refreshing")
     }
 
     func saveToWayback(req: Request) async throws -> Response {
         guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
         guard WaybackSubmitter.isInstanceEnabled(on: req.application) else {
-            return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?error=internet_archive_disabled")
+            return try detailRedirect(req, id: bookmark.requireID(), error: "internet_archive_disabled")
         }
 
         await WaybackSubmitter.enqueue(bookmark, on: req.application)
 
-        return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=wayback_started")
+        return try detailRedirect(req, id: bookmark.requireID(), ok: "wayback_started")
     }
 
     // MARK: - Helpers
@@ -322,7 +333,7 @@ struct BookmarkWebController: RouteCollection {
 
         bookmark.isArchived = archived
         try await bookmark.save(on: req.db)
-        return try req.redirect(to: "/app/bookmarks/\(bookmark.requireID())?ok=\(archived ? "archived" : "unarchived")")
+        return try detailRedirect(req, id: bookmark.requireID(), ok: archived ? "archived" : "unarchived")
     }
 
     private func renderEdit(_ req: Request, bookmark: Bookmark, error: String?) async throws -> Response {
@@ -338,7 +349,124 @@ struct BookmarkWebController: RouteCollection {
             description: bookmark.description ?? "",
             tags: bookmark.tags.joined(separator: ", "),
             knownTagsJSON: KnownTags.json(for: user, on: req.db),
+            returnToParam: returnContext(req).param,
             chrome: req.siteChrome()
         ))
+    }
+
+    /// The validated return URL alongside its pre-encoded form for embedding as a query value —
+    /// every context that renders a "back to the list" link needs both.
+    private func returnContext(_ req: Request) -> (url: String, param: String) {
+        let url = safeReturnTo(req)
+        return (url, TagPresenter.queryValue(url))
+    }
+
+    /// The active tag to pre-fill on the "Add bookmark" form, derived from a `returnTo` list URL
+    /// (e.g. `/app?tag=swift`). Empty when the return URL has no `tag` (a Smart View, or unfiltered
+    /// `/app`) or names one of the synthetic sentinel filters, none of which are real tags.
+    private func tagFromReturnURL(_ returnURL: String) -> String {
+        guard let tag = URLComponents(string: returnURL)?.queryItems?.first(where: { $0.name == "tag" })?.value,
+              !Bookmark.isSentinelTag(tag)
+        else {
+            return ""
+        }
+
+        return Bookmark.normalizeTagQuery(tag)
+    }
+
+    /// Validates a `returnTo` candidate: it must be a local `/app` path with no embedded control
+    /// characters, so it's safe to use as a redirect target. Requires an exact `/app` match or a
+    /// `/`-or-`?`-bounded prefix (not just `hasPrefix("/app")`) so a future route merely starting with
+    /// those four characters (e.g. `/appearance`) can't be mistaken for this one. There's no need to
+    /// separately reject `//` or `://`, since a same-origin `/app`-rooted path can never be absolute or
+    /// protocol-relative — doing so previously rejected legitimate paths whose search query happened to
+    /// contain `://` (e.g. `?q=https://example.com`). Checks `unicodeScalars` rather than `Character`s
+    /// for the CR/LF scan: Swift merges `"\r\n"` into a single extended grapheme cluster, so a
+    /// `Character`-based `contains("\r")` silently misses a CR immediately followed by an LF.
+    private func validReturnTo(_ candidate: String?) -> String {
+        guard let candidate,
+              candidate == "/app" || candidate.hasPrefix("/app/") || candidate.hasPrefix("/app?"),
+              !candidate.unicodeScalars.contains(where: { $0 == "\r" || $0 == "\n" })
+        else {
+            return "/app"
+        }
+
+        return candidate
+    }
+
+    /// The `returnTo` query param, validated — every handler except `newBookmarkForm` uses this. No
+    /// `Referer` fallback here: once a request carries no explicit `returnTo` (e.g. a detail-page
+    /// action's redirect target), `Referer` for the *next* request would just be that same page's own
+    /// prior URL — a self-referential loop, not the originating list. See `newBookmarkReturnContext`.
+    private func safeReturnTo(_ req: Request) -> String {
+        validReturnTo(req.query[String.self, at: "returnTo"])
+    }
+
+    /// Return context for the "Add bookmark" page specifically: the explicit `returnTo` query param
+    /// if present, else a same-origin path+query parsed from the `Referer` header — the global nav
+    /// "Add" link is a plain same-origin click with no explicit param of its own, so this is the one
+    /// genuine single-hop entry point that needs the fallback (see `safeReturnTo`'s doc comment for
+    /// why every other handler doesn't).
+    private func newBookmarkReturnContext(_ req: Request) -> (url: String, param: String) {
+        let candidate = req.query[String.self, at: "returnTo"] ?? refererFallback(req)
+        let url = validReturnTo(candidate)
+        return (url, TagPresenter.queryValue(url))
+    }
+
+    /// A same-origin path+query parsed from the `Referer` header, or `nil` if there is none or it
+    /// doesn't share this request's `Host`.
+    private func refererFallback(_ req: Request) -> String? {
+        guard let referer = req.headers.first(name: "Referer"),
+              let components = URLComponents(string: referer),
+              let refererHost = components.host,
+              isSameHost(refererHost, as: req)
+        else {
+            return nil
+        }
+
+        return components.query.map { "\(components.path)?\($0)" } ?? components.path
+    }
+
+    /// Whether `host` (from a parsed `Referer`) matches the current request's own `Host` header,
+    /// ignoring port — `Referer` is otherwise just a client-supplied string with no origin guarantee.
+    /// Parses the `Host` header the same way as the `Referer` itself (via `URLComponents`) rather than
+    /// a separate ad hoc port-strip, so both sides of the comparison handle ports/IPv6 identically.
+    private func isSameHost(_ host: String, as req: Request) -> Bool {
+        guard let hostHeader = req.headers.first(name: .host),
+              let requestHost = URLComponents(string: "http://\(hostHeader)")?.host
+        else {
+            return false
+        }
+
+        return requestHost.caseInsensitiveCompare(host) == .orderedSame
+    }
+
+    /// Redirects back to a bookmark's detail page, re-attaching the `returnTo` context (if any) so
+    /// the "← Back to bookmarks" link keeps pointing at the originating tag/Smart View list across
+    /// detail-page actions (edit, archive, favicon refresh, Wayback submission). `safeReturnTo` here
+    /// never falls back to `Referer` (see its `allowRefererFallback` parameter) — the detail page's
+    /// own actions always carry either an explicit `returnTo` or none, so there's no self-referential
+    /// risk from the Referer being the detail page's own prior URL.
+    private func detailRedirect(
+        _ req: Request,
+        id: some CustomStringConvertible,
+        ok: String? = nil,
+        error: String? = nil
+    ) -> Response {
+        var components = URLComponents()
+        components.path = "/app/bookmarks/\(id)"
+        var items: [URLQueryItem] = []
+        if let ok {
+            items.append(.init(name: "ok", value: ok))
+        }
+        if let error {
+            items.append(.init(name: "error", value: error))
+        }
+        let returnTo = safeReturnTo(req)
+        if returnTo != "/app" {
+            items.append(.init(name: "returnTo", value: returnTo))
+        }
+        components.queryItems = items.isEmpty ? nil : items
+        return req.redirect(to: components.string ?? "/app/bookmarks/\(id)")
     }
 }

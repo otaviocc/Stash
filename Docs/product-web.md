@@ -234,6 +234,40 @@ a dead end for them).
   "Danger zone" card (reusing the `.danger-zone` styling from Settings/admin
   User Detail) containing only Delete, so the destructive action is visually
   set apart rather than sitting in the same row as everything else.
+- **Return context**: the list page (tag-filtered or Smart View, including
+  its search/page/archived state) is carried into the detail page as a
+  `?returnTo=` query param, built server-side from the same URL builders used
+  for pagination (`BookmarkPresenter.listURL`, `SmartViewPresenter
+  .smartViewListURL`) and percent-encoded via `TagPresenter.queryValue`. The
+  "← Back to bookmarks" link, the Edit link/form, every detail-page action
+  (Refresh favicon, Wayback, Archive/Unarchive), and Delete's redirect all
+  read and re-propagate this param, so it survives across actions taken on
+  the detail page and the user always lands back on the list they came from
+  — not an unfiltered `/app`. Also covers the "Add bookmark" page's duplicate-URL
+  conflict link ("View the existing bookmark →"), the one entry point into the
+  detail page that carried no context otherwise. A `safeReturnTo` guard (must
+  start with `/app`; no embedded CR/LF) rejects unsafe values and falls back to
+  `/app`, since the param is user-controlled and used as a redirect target. The
+  `/app` prefix check alone rules out absolute/protocol-relative URLs, so there's
+  no separate `//`/`://` check — an earlier version had one, but it rejected
+  legitimate paths whose own search query happened to contain `://` (e.g.
+  `?q=https://example.com`).
+- The global nav "Add" link and the bookmark list's empty-state "Add your
+  first bookmark" link also carry the browsing context into `/app/bookmarks/new`
+  (its own "← Back to bookmarks" link and, per below, tag pre-fill). The nav
+  link relies on the browser's own same-origin `Referer` header instead of an
+  explicit `?returnTo=` — `layout.leaf` (which renders the nav) is shared by
+  all 24 web-app pages and has no page-specific state like the current tag, so
+  threading a param through every page's context struct would be
+  disproportionate. `returnTo` still wins whenever present (it's what makes
+  context survive across the detail page's own subsequent actions, where
+  `Referer` would just point back at the detail page itself); `Referer` is
+  only consulted as a fallback for single-hop entry points like this one.
+- **Tag pre-fill**: opening "Add bookmark" while browsing a tag pre-fills that
+  tag into the new bookmark's tags field (derived from the resolved return
+  URL's `tag` query item, normalized via `Bookmark.normalizeTagQuery`).
+  Nothing is pre-filled from a Smart View (no single tag) or a sentinel filter
+  (Untagged/Today/This Week — not real tags).
 
 ### Favicons
 

@@ -47,7 +47,7 @@
             #if(bookmark.faviconDomain):
             <div class="domain"><img src="/api/v1/favicons/#(bookmark.faviconDomain)" alt="" class="favicon" loading="lazy" onerror="this.onerror=null;this.src='/favicon-placeholder.svg';this.style.display='';"><a href="#(bookmark.url)" target="_blank" rel="noopener">#(bookmark.faviconDomain)</a></div>
             #endif
-            <h3><a href="/app/bookmarks/#(bookmark.id)">#(bookmark.title)</a></h3>
+            <h3><a href="/app/bookmarks/#(bookmark.id)?returnTo=#(returnToParam)">#(bookmark.title)</a></h3>
             #if(bookmark.description):<p class="desc">#(bookmark.description)</p>#endif
             #if(count(bookmark.tags) > 0):
             <div class="tags">
@@ -66,7 +66,7 @@
         #else:
         <div class="card">
             <p class="muted">No bookmarks found.</p>
-            <p><a href="/app/bookmarks/new">Add your first bookmark</a></p>
+            <p><a href="/app/bookmarks/new?returnTo=#(returnToParam)">Add your first bookmark</a></p>
         </div>
         #endif
     </div>

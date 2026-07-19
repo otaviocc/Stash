@@ -1,7 +1,7 @@
 #extend("layout"):
 #export("content"):
     <h1>Edit bookmark</h1>
-    <p class="muted"><a href="/app/bookmarks/#(id)">← Back to bookmark</a></p>
+    <p class="muted"><a href="/app/bookmarks/#(id)?returnTo=#(returnToParam)">← Back to bookmark</a></p>
 
     #if(error):
     <p class="banner error">#(error)</p>
@@ -9,7 +9,7 @@
 
     <div class="card">
         <p class="url">#(url)</p>
-        <form method="post" action="/app/bookmarks/#(id)">
+        <form method="post" action="/app/bookmarks/#(id)?returnTo=#(returnToParam)">
             <label>Title
                 <input name="title" value="#(bookmarkTitle)" required>
             </label>

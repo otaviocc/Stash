@@ -1,6 +1,6 @@
 #extend("layout"):
 #export("content"):
-    <p class="muted"><a href="/app">← Back to bookmarks</a></p>
+    <p class="muted"><a href="#(returnURL)">← Back to bookmarks</a></p>
     #if(message):
     <p class="banner ok">#(message)</p>
     #endif
@@ -27,7 +27,7 @@
     <div class="card">
         <div class="row-actions" style="margin: 0;">
             <a href="#(bookmark.url)" target="_blank" rel="noopener"><button type="button">Open URL</button></a>
-            <a href="/app/bookmarks/#(bookmark.id)/edit"><button type="button" class="secondary">Edit</button></a>
+            <a href="/app/bookmarks/#(bookmark.id)/edit?returnTo=#(returnToParam)"><button type="button" class="secondary">Edit</button></a>
         </div>
     </div>
 
@@ -35,7 +35,7 @@
         <h2>Actions</h2>
         <div class="action-list">
             #if(bookmark.faviconDomain):
-            <form method="post" action="/app/bookmarks/#(bookmark.id)/refresh-favicon">
+            <form method="post" action="/app/bookmarks/#(bookmark.id)/refresh-favicon?returnTo=#(returnToParam)">
                 <button type="submit" class="action-row">Refresh favicon</button>
             </form>
             #endif
@@ -43,16 +43,16 @@
             #if(bookmark.waybackURL):
             <a class="action-row" href="#(bookmark.waybackURL)" target="_blank" rel="noopener">View on Wayback Machine</a>
             #endif
-            <form method="post" action="/app/bookmarks/#(bookmark.id)/save-to-wayback">
+            <form method="post" action="/app/bookmarks/#(bookmark.id)/save-to-wayback?returnTo=#(returnToParam)">
                 <button type="submit" class="action-row">Save to Wayback Machine</button>
             </form>
             #endif
             #if(bookmark.isArchived):
-            <form method="post" action="/app/bookmarks/#(bookmark.id)/unarchive">
+            <form method="post" action="/app/bookmarks/#(bookmark.id)/unarchive?returnTo=#(returnToParam)">
                 <button type="submit" class="action-row">Unarchive</button>
             </form>
             #else:
-            <form method="post" action="/app/bookmarks/#(bookmark.id)/archive">
+            <form method="post" action="/app/bookmarks/#(bookmark.id)/archive?returnTo=#(returnToParam)">
                 <button type="submit" class="action-row">Archive</button>
             </form>
             #endif
@@ -61,7 +61,7 @@
 
     <div class="card danger-zone">
         <h2>Danger zone</h2>
-        <form method="post" action="/app/bookmarks/#(bookmark.id)/delete"
+        <form method="post" action="/app/bookmarks/#(bookmark.id)/delete?returnTo=#(returnToParam)"
               onsubmit="return confirm('Delete this bookmark? This cannot be undone.');">
             <button type="submit" class="danger">Delete</button>
         </form>

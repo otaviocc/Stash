@@ -1,12 +1,12 @@
 #extend("layout"):
 #export("content"):
     <h1>Add bookmark</h1>
-    <p class="muted"><a href="/app">← Back to bookmarks</a></p>
+    <p class="muted"><a href="#(returnURL)">← Back to bookmarks</a></p>
 
     #if(error):
     <p class="banner error">
         #(error)
-        #if(existingID): <a href="/app/bookmarks/#(existingID)">View the existing bookmark →</a>#endif
+        #if(existingID): <a href="/app/bookmarks/#(existingID)?returnTo=#(returnToParam)">View the existing bookmark →</a>#endif
     </p>
     #endif
     #if(previewed):
@@ -14,7 +14,7 @@
     #endif
 
     <div class="card">
-        <form method="post" action="/app/bookmarks">
+        <form method="post" action="/app/bookmarks?returnTo=#(returnToParam)">
             <label>URL
                 <input name="url" type="url" value="#(url)" placeholder="https://example.com" required>
             </label>
