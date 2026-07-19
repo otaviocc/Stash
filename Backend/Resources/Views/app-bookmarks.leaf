@@ -83,7 +83,7 @@
         <h2>Smart Views</h2>
         <ul class="tag-tree">
             #for(sv in smartViews):
-            <li><a href="#(sv.href)"#if(sv.isActive): class="active"#endif>⊞ #(sv.name)</a></li>
+            <li><a href="#(sv.href)"#if(sv.isActive): class="active"#endif><span class="sv-icon">⊞</span> #(sv.name)</a></li>
             #endfor
         </ul>
         #endif

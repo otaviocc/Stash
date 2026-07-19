@@ -749,6 +749,10 @@ form.inline {
     color: var(--accent);
 }
 
+.tag-tree .sv-icon {
+    color: var(--accent);
+}
+
 .tag-tree .count {
     color: var(--text-muted);
     font-size: 0.85rem;
