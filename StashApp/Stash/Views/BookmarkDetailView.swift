@@ -182,6 +182,20 @@ struct BookmarkDetailView: View {
             }
             .formButtonRowStyle()
 
+            if bookmark.faviconDomain != nil {
+                Button(action: refreshFavicon) {
+                    Label("Refresh Favicon", systemImage: "arrow.clockwise")
+                }
+                .formButtonRowStyle()
+                .disabled(isWorking)
+            }
+
+            Button(action: submitToWayback) {
+                Label("Save to Wayback Machine", systemImage: "clock.arrow.circlepath")
+            }
+            .formButtonRowStyle()
+            .disabled(isWorking)
+
             if let waybackURL = bookmark.waybackURL {
                 Button {
                     openURL(waybackURL)
@@ -252,6 +266,37 @@ struct BookmarkDetailView: View {
 
             do {
                 bookmark = try await repository.setArchived(id: bookmark.id, archived: !bookmark.isArchived)
+            } catch {
+                errorMessage = error.stashUserMessage
+            }
+        }
+    }
+
+    private func refreshFavicon() {
+        errorMessage = nil
+        isWorking = true
+
+        Task {
+            defer { isWorking = false }
+
+            do {
+                guard let domain = bookmark.faviconDomain else { return }
+                try await repository.refreshFavicon(domain: domain)
+            } catch {
+                errorMessage = error.stashUserMessage
+            }
+        }
+    }
+
+    private func submitToWayback() {
+        errorMessage = nil
+        isWorking = true
+
+        Task {
+            defer { isWorking = false }
+
+            do {
+                try await repository.submitToWayback(id: bookmark.id)
             } catch {
                 errorMessage = error.stashUserMessage
             }

@@ -376,6 +376,20 @@ private struct BookmarkListContent: View {
             Label("Share…", systemImage: "square.and.arrow.up")
         }
 
+        if bookmark.faviconDomain != nil {
+            Button {
+                refreshFavicon(bookmark)
+            } label: {
+                Label("Refresh Favicon", systemImage: "arrow.clockwise")
+            }
+        }
+
+        Button {
+            submitToWayback(bookmark)
+        } label: {
+            Label("Save to Wayback Machine", systemImage: "clock.arrow.circlepath")
+        }
+
         if let waybackURL = bookmark.waybackURL {
             Button {
                 openURL(waybackURL)
@@ -414,6 +428,27 @@ private struct BookmarkListContent: View {
         Task {
             do {
                 _ = try await repository.setArchived(id: bookmark.id, archived: archived)
+            } catch {
+                errorMessage = error.stashUserMessage
+            }
+        }
+    }
+
+    private func refreshFavicon(_ bookmark: Bookmark) {
+        Task {
+            do {
+                guard let domain = bookmark.faviconDomain else { return }
+                try await repository.refreshFavicon(domain: domain)
+            } catch {
+                errorMessage = error.stashUserMessage
+            }
+        }
+    }
+
+    private func submitToWayback(_ bookmark: Bookmark) {
+        Task {
+            do {
+                try await repository.submitToWayback(id: bookmark.id)
             } catch {
                 errorMessage = error.stashUserMessage
             }

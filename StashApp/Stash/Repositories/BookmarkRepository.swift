@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import Foundation
+import StashKit
 
 /// Provides access to the current user's bookmarks, reading from the local SwiftData store.
 ///
@@ -120,6 +121,26 @@ final class BookmarkRepository: BookmarkCreating {
         await ClientMetadataFetcher.fetch(for: url)
     }
 
+    func refreshFavicon(domain: String) async throws {
+        let client = try await session.authorizedClient()
+
+        _ = try await client.run(
+            FaviconRequestFactory.makeRefreshRequest(
+                domain: domain
+            )
+        )
+    }
+
+    func submitToWayback(id: UUID) async throws {
+        let client = try await session.authorizedClient()
+
+        _ = try await client.run(
+            BookmarkRequestFactory.makeWaybackSubmitRequest(
+                id: id
+            )
+        )
+    }
+
     // MARK: - Reads
 
     private func loadFirstPage() {
@@ -170,7 +191,12 @@ final class BookmarkRepository: BookmarkCreating {
     }
 
     private func queueCreate(_ input: CreateBookmarkInput) throws -> Bookmark {
-        let record = LocalBookmark(localCreate: input, now: Date(), userID: clientProvider.currentUserID() ?? "")
+        let record = LocalBookmark(
+            localCreate: input,
+            now: Date(),
+            userID: clientProvider.currentUserID() ?? ""
+        )
+
         localStore.insert(record)
         localStore.save()
         refreshVisible()
