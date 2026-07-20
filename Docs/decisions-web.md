@@ -367,7 +367,7 @@ filled capsule background in favor of plain muted text, matching the
 native row's quieter list-context treatment: the capsule style itself is
 untouched everywhere else it's used, like the tag browser. Per an explicit
 product decision, the web row keeps its bordered card container and keeps
-showing the description and date the native row omits, since the web is
+showing the date the native row omits, since the web is
 inherently a denser reading surface than a phone screen.
 
 ## Instance management: landing page copy
