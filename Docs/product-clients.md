@@ -199,12 +199,17 @@ condition field.
 
 Each bookmark row carries a context menu (and the detail view an actions
 section) with a native **Share…** (`ShareLink(item: bookmark.url)`, sharing the
-URL) placed after the Copy actions and before Archive, and a **View on Wayback
-Machine** action right after Share…, shown only when the bookmark has a
-captured Internet Archive snapshot (`waybackURL` non-nil). It opens via the
-same `openURL` environment action as "Open in Browser" (§7.2, §12), so it
-automatically picks up the in-app-browser/Reader-mode routing described below
-with no extra plumbing.
+URL) placed after the Copy actions, followed by **Refresh Favicon** (conditional
+on `faviconDomain` being non-nil, triggers a server-side background re-fetch via
+`POST /api/v1/favicons/:domain/refresh`) and **Save to Wayback Machine** (always
+shown, submits or re-submits to the Internet Archive via
+`POST /api/v1/bookmarks/:id/wayback`; a `409` when the admin has disabled
+submissions instance-wide surfaces as an error message). A **View on Wayback
+Machine** action appears after that, shown only when the bookmark has a
+captured Internet Archive snapshot (`waybackURL` non-nil). All Wayback and
+favicon actions open via the same `openURL` environment action as "Open in
+Browser" (§7.2, §12), so they automatically pick up the in-app-browser/Reader-mode
+routing described below with no extra plumbing.
 
 Context-aware empty states: `ContentUnavailableView.search` for active query,
 tag-specific, archived-specific, first-run.

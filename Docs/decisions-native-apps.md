@@ -996,3 +996,44 @@ dark background, so the dark-mode value lightens it considerably, following
 the same light-in-dark convention every other theme already uses. Any
 instance previously set to Terracotta just falls back to the default theme
 automatically, since that identifier no longer resolves to anything.
+
+## Refresh Favicon and Save to Wayback Machine (native apps)
+
+The web frontend already had both a "Refresh favicon" button on the bookmark
+detail page and a "Save to Wayback Machine" submit button, backed by
+`POST /api/v1/favicons/:domain/refresh` and
+`POST /api/v1/bookmarks/:id/wayback` respectively. Both are fire-and-forget:
+the server returns `202 Accepted` immediately and does the real work in a
+background queue. The native apps never called either endpoint, so these two
+actions close a parity gap that was explicitly called out in the original
+web-vs-app feature comparison.
+
+**StashKit gained one new factory** (`FaviconRequestFactory` with a single
+`makeRefreshRequest(domain:)` method). The wayback submit factory already
+existed in `BookmarkRequestFactory` — it was just never wired into the app.
+
+**Design choices:**
+
+- "Save to Wayback Machine" is always shown in the detail view and context
+  menu, not gated on any client-side flag. The web frontend hides the button
+  when the admin has disabled Internet Archive submissions instance-wide
+  (§12), but the native apps don't track that server-side setting. Instead,
+  a `409` response (error code `internet_archive_disabled`) surfaces as a
+  normal error message via the existing `errorMessage` state, so the user
+  learns the feature is off without the button silently vanishing.
+
+- "Refresh Favicon" is conditional on `bookmark.faviconDomain != nil`, the
+  same guard the web uses (a bookmark without a parseable domain has nothing
+  to refresh).
+
+- Both actions reuse the detail view's single `isWorking` boolean rather than
+  introducing per-action loading states: the calls are near-instant (the
+  server acknowledges immediately), and the user only ever taps one button at
+  a time.
+
+- The two new repository methods (`refreshFavicon(domain:)` and
+  `submitToWayback(id:)`) make a direct authenticated API call without
+  touching the local SwiftData store or the sync engine. Neither operation
+  mutates bookmark fields the client owns — favicon caching and Wayback
+  submissions are server-side background work that the next sync will
+  reflect in `waybackURL` and favicon data.
