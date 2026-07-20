@@ -1037,3 +1037,67 @@ existed in `BookmarkRequestFactory` — it was just never wired into the app.
   mutates bookmark fields the client owns — favicon caching and Wayback
   submissions are server-side background work that the next sync will
   reflect in `waybackURL` and favicon data.
+
+## macOS browser picker: open links in a chosen browser
+
+macOS always handed a tapped bookmark link off to the system default browser,
+with no way to choose otherwise, unlike iOS/iPadOS which already had the
+in-app-browser-or-default choice from the entry above. This adds a macOS-only
+**Browser** picker to the Settings General tab: System Default Browser (the
+default, unchanged behavior) or any specific installed browser.
+
+The browser list is discovered dynamically via
+`NSWorkspace.urlsForApplications(toOpen:)` against a probe `https://` URL,
+rather than a hardcoded Firefox/Chrome/Safari/Orion/Brave list: Launch
+Services already knows every app that declares `http`/`https` handling, so
+this needs no maintenance as new browsers show up and correctly includes
+anything already installed, deduplicated by bundle identifier and sorted by
+display name. The stored preference is the browser's **bundle identifier**,
+not a file path, since bundle identifiers survive the app moving or being
+reinstalled at a different path; resolving it back to a launchable URL at
+open time goes through `NSWorkspace.urlForApplication(withBundleIdentifier:)`
+again rather than caching the path from discovery time.
+
+The interception itself reuses the exact shape of the iOS in-app-browser
+work: a single `openURL` environment override (`.macBrowserChooser()`), so
+the detail page's URL, "Open in Browser," the row context menu, and the
+Wayback/favicon actions all route through it with no edits to the shared
+list/detail views. Only `http`/`https` URLs are intercepted, matching the
+iOS modifier. If no browser is chosen, or the stored bundle identifier no
+longer resolves (the browser was uninstalled), the override returns
+`.systemAction` and silently falls back to the system default: simpler than
+surfacing a "your chosen browser is missing" notice, and self-healing the
+next time the user actually picks a browser again.
+
+**Gotcha found in manual testing:** the first version applied
+`.macBrowserChooser()` to the detail column's own `NavigationStack` inside
+`NavigationSplitView`'s `detail:` closure — the exact placement the iOS
+`.inAppBrowser()` modifier uses successfully on its own `NavigationSplitView`
+(the iPad layout). On macOS, that placement silently never intercepted
+anything: the button's action fired, `openURL(_:)` was called, but the
+override closure itself was never invoked, and every link opened in the
+system default browser regardless of the picker's selection —
+indistinguishable from "the feature does nothing" without instrumenting the
+call chain, since there was no error, crash, or console output pointing at
+a cause. A `NavigationStack` hosted as a split view's `detail:` column
+apparently does not reliably propagate a custom `\.openURL` environment
+override down into that same stack's own `NavigationLink`-pushed
+destinations on macOS, even though the identical pattern works for
+iOS/iPadOS. The fix was moving
+`.macBrowserChooser()` up to wrap `MacContentView`'s entire body, above the
+whole `NavigationSplitView` rather than inside one of its columns; verified
+end to end afterward (Settings picker → stored bundle identifier → resolved
+app URL → the correct browser actually launching), not just by inspecting
+the code.
+
+This works from inside the macOS App Sandbox with no new entitlement.
+`urlsForApplications(toOpen:)` is a read-only Launch Services query, and
+`NSWorkspace.open(_:withApplicationAt:configuration:)` is only restricted for
+apps that *don't* declare `http`/`https` support in their Info.plist (the
+`kLSAppDoesNotClaimTypeErr` failure some Electron-based browser wrappers hit
+under sandboxing); every mainstream browser declares that support, so this
+is a non-issue for the browsers this feature actually targets. iOS/iPadOS
+keep their separate `BrowserPreference` (in-app vs. default) and Reader-mode
+setting unchanged: the two mechanisms solve different problems (an in-app
+viewer vs. picking among external apps) and stay independent rather than
+sharing one setting.

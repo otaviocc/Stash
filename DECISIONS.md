@@ -105,6 +105,7 @@ iOS/macOS SwiftUI apps and the Share Extension (excluding offline sync).
 - Share Extension picks tags offline (out-of-radius add)
 - In-app browser preference (iOS/iPadOS)
 - Refresh Favicon and Save to Wayback Machine (native apps)
+- macOS browser picker: open links in a chosen browser
 
 ### [`Docs/decisions-offline-sync.md`](Docs/decisions-offline-sync.md)
 The native-app offline-sync feature, built in phases with many correctness fixes.

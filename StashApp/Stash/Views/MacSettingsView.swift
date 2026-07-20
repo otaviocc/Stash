@@ -70,6 +70,7 @@
         @Environment(AppSettings.self) private var settings
 
         @State private var isSigningOut = false
+        @State private var browsers: [InstalledBrowser] = []
 
         // MARK: Content Properties
 
@@ -78,10 +79,14 @@
         var body: some View {
             Form {
                 makeServerSection()
+                makeBrowserSection()
                 SyncStatusSection()
                 makeSignOutSection()
             }
             .formStyle(.grouped)
+            .onAppear {
+                browsers = InstalledBrowser.discoverAll()
+            }
         }
 
         // MARK: Content Methods
@@ -96,6 +101,31 @@
                 Text("Server")
             } footer: {
                 Text("Sign out to connect to a different server.")
+            }
+        }
+
+        private func makeBrowserSection() -> some View {
+            @Bindable var settings = settings
+
+            return Section {
+                Picker("Open Links In", selection: $settings.macBrowserBundleID) {
+                    Text("System Default Browser").tag(String?.none)
+
+                    ForEach(browsers) { browser in
+                        Label {
+                            Text(browser.name)
+                        } icon: {
+                            Image(nsImage: browser.icon)
+                        }
+                        .tag(String?.some(browser.bundleID))
+                    }
+                }
+            } header: {
+                Text("Browser")
+            } footer: {
+                Text(
+                    "Choose which browser opens a bookmark's link. Falls back to the system default if the chosen browser is later uninstalled."
+                )
             }
         }
 

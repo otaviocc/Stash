@@ -287,10 +287,26 @@ building against the SDK; no explicit modifiers.
   add/edit sheets uses the shared `TagPickerSheet` (read-only `TagPill` summary +
   "Add Tags" button → the always-expanded tag tree with single-tap toggle and
   search-as-create).
-- **Settings scene (⌘,):** General (server URL, sign out), Account (change
-  password, 2FA enroll / disable), Smart Views (create / edit / delete, the shared
-  `SmartViewManagementView`), Appearance (Light / Dark / Auto, stored in
-  `UserDefaults`, no theme cookie on native).
+- **Settings scene (⌘,):** General (server URL, sign out, and a **Browser**
+  picker), Account (change password, 2FA enroll / disable), Smart Views
+  (create / edit / delete, the shared `SmartViewManagementView`), Appearance
+  (Light / Dark / Auto, stored in `UserDefaults`, no theme cookie on native).
+  The Browser picker lists **System Default Browser** (the default) plus
+  every installed app that declares `http`/`https` handling, discovered via
+  `NSWorkspace.urlsForApplications(toOpen:)` (no hardcoded browser list, so
+  Firefox, Chrome, Safari, Orion, Brave, and anything else installed all show
+  up the same way). The choice is stored as the browser's bundle identifier
+  in the App Group `UserDefaults` suite (app-only; the Share Extension does
+  not open links). Opening a bookmark link routes through a macOS-only
+  `openURL` environment override (`.macBrowserChooser()`, applied above the
+  whole `NavigationSplitView`, not inside its `detail:` column — see the
+  decision log for why) that launches the chosen browser via
+  `NSWorkspace.open(_:withApplicationAt:configuration:)`; if no browser is
+  chosen, or the previously chosen one is no longer installed, it falls back
+  silently to `.systemAction` (the system default browser). Same centralized-
+  interception shape as the iOS in-app-browser preference, just a different
+  destination. iOS/iPadOS keep their separate in-app-browser/Reader-mode
+  preference; macOS has no in-app browser.
 - **Keyboard shortcuts:** ⌘N new, ⌘E edit, ⌘R sync (triggers an offline-sync
   cycle), ⌘⌫ delete (with confirmation), and **Esc** to leave the bookmark
   detail and return to the list (the same binding ships on iOS/iPadOS, where it

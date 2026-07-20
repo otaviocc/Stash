@@ -48,6 +48,11 @@ enum AppGroup {
     /// Whether in-app links open in Safari's Reader mode where available. App-only.
     static let readerModeKey = "readerMode"
 
+    /// The bundle identifier of the user's chosen browser for opening bookmark links on macOS. `nil`
+    /// (the key absent) means the system default browser. App-only, macOS-only: iOS/iPadOS use
+    /// `browserPreferenceKey` instead.
+    static let macBrowserKey = "macBrowser"
+
     /// The `SyncEngine` delta cursor — the start time of the last successful sync, used as `since=` on
     /// the next pull. Absent until the first full sync completes; reset on sign-out. App-only; the
     /// Share Extension does not read it.

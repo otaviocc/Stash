@@ -25,6 +25,7 @@
 
         var body: some View {
             makeSplit()
+                .macBrowserChooser()
                 .safeAreaInset(edge: .top, spacing: 0) {
                     if !environment.connectivityMonitor.isOnline {
                         OfflineBanner()

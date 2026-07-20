@@ -69,6 +69,17 @@ final class AppSettings {
         }
     }
 
+    /// The bundle identifier of the user's chosen browser on macOS, or `nil` for the system default
+    /// browser. Unused on iOS/iPadOS, which use `browserPreference` instead.
+    var macBrowserBundleID: String? {
+        didSet {
+            defaults.set(
+                macBrowserBundleID,
+                forKey: AppGroup.macBrowserKey
+            )
+        }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
 
     // MARK: Computed Properties
@@ -92,5 +103,7 @@ final class AppSettings {
             .flatMap(BrowserPreference.init(rawValue:)) ?? .inApp
 
         readerMode = defaults.bool(forKey: AppGroup.readerModeKey)
+
+        macBrowserBundleID = defaults.string(forKey: AppGroup.macBrowserKey)
     }
 }
