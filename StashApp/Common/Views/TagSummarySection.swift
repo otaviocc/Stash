@@ -18,7 +18,7 @@ struct TagSummarySection: View {
     @Binding var selectedTags: [String]
 
     @State private var isShowingPicker = false
-    @Environment(\.instanceAccent) private var instanceAccent
+    @Environment(\.instanceAccentForeground) private var instanceAccentForeground
 
     // MARK: Properties
 
@@ -72,7 +72,7 @@ struct TagSummarySection: View {
             isShowingPicker = true
         }
         .buttonStyle(.plain)
-        .foregroundStyle(instanceAccent)
+        .foregroundStyle(instanceAccentForeground)
         .font(.body)
     }
 }

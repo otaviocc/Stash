@@ -154,13 +154,13 @@ extension View {
 
 // MARK: - FormButtonRowStyleModifier
 
-/// A `ViewModifier` (rather than a plain `View` extension) so it can read `\.instanceAccent` from
-/// the environment for the tinted row's foreground colour.
+/// A `ViewModifier` (rather than a plain `View` extension) so it can read `\.instanceAccentForeground`
+/// from the environment for the tinted row's foreground colour.
 private struct FormButtonRowStyleModifier: ViewModifier {
 
     // MARK: SwiftUI Properties
 
-    @Environment(\.instanceAccent) private var instanceAccent
+    @Environment(\.instanceAccentForeground) private var instanceAccentForeground
 
     // MARK: Properties
 
@@ -174,7 +174,7 @@ private struct FormButtonRowStyleModifier: ViewModifier {
         #if os(macOS)
             content
                 .buttonStyle(.plain)
-                .foregroundStyle(isDestructive ? AnyShapeStyle(.red) : AnyShapeStyle(instanceAccent))
+                .foregroundStyle(isDestructive ? AnyShapeStyle(.red) : AnyShapeStyle(instanceAccentForeground))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
         #else

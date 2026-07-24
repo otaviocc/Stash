@@ -1227,3 +1227,51 @@ browser (the chosen browser was uninstalled), it resets
 an actual `.tag()` instead of silently drifting — the runtime open-link
 fallback already handled this gracefully (`BrowserChooserModifier`), but the
 Picker itself never self-corrected.
+
+## A second accent variant for text/icons on the app's own surface
+
+Several places used `instanceAccent` directly as a foreground/text/icon
+colour — the tag pills' label, the "Add Tags"/"Fetch"/"Create" buttons, and
+(via `formButtonRowStyle`) every macOS action button in
+`BookmarkDetailView` (Open, Refresh Favicon, Wayback, Share, Archive). That's
+fine for most themes, but several instance themes deliberately reuse an
+*identical*, very dark hex for both light and dark mode (`tumblr` `#35465c`,
+`boeing` `#0033a1`, and other brand colours) — a hex chosen to read as dark
+text on a white page, not as literal foreground text on the app's near-black
+dark-mode surface, where it's nearly invisible. The web never hits this: it
+only ever uses `--accent` as a *fill* (buttons, badges), with `--btn-text`
+already picking readable text for that fill; it never uses the accent as
+plain foreground colour on the page's own background.
+
+Added `AccentContrast.legibleForegroundHex(_:forDarkBackground:)` and
+`InstanceAccent.foregroundColor` (backing a new `\.instanceAccentForeground`
+environment value, injected everywhere `\.instanceAccent` already is): given
+a hex, if its WCAG relative luminance falls outside a legible range, it's
+mixed toward white (dark mode) or black (light mode) — a closed-form blend
+(`t = (target - L) / (1 - L)` toward white, `t = (L - target) / L` toward
+black) that reaches the target luminance exactly while preserving the
+colour's hue/identity, rather than swapping to an unrelated neutral the way
+`readableTextHex` does for the solid-fill case. Themes already inside the
+legible range (Ocean, Sunny, …) pass through unchanged.
+
+Swapped every foreground/text/icon use of `instanceAccent` over to
+`instanceAccentForeground` (`TagPill`, `TagSuggestionView`,
+`TagSummarySection`, `TagPickerSheet`, `AddBookmarkView`,
+`FormButtonRowStyleModifier`), plus two spots that had silently stopped
+following the instance accent at all after the earlier `.tint()` removal
+(`BookmarkDetailView`'s URL link, the 2FA setup-key copy button — both used
+`.foregroundStyle(.tint)`, which without a root `.tint()` just reads the
+neutral asset-catalog colour). Left every *fill*/wash use of `instanceAccent`
+untouched (`TagPill`'s capsule background, `TagCountBadge`'s solid fill, the
+sidebar drop-target highlight) — those already get contrast-safe text via
+`textColor`/`readableTextHex`, and don't need their own hue nudged.
+
+The dark-mode target started at `0.35` luminance, which technically fixed
+the invisibility but still looked quite dim against the review screenshots;
+raised it to `0.5` after visual review — for `tumblr`'s `#35465c` that's the
+difference between landing on `#4c5b6f` (still fairly muted) and `#758190`
+(clearly legible slate-blue-gray, still recognizably not just grey). No
+formatter/linter can catch this class of bug — it's a live, mode-dependent
+contrast check against admin-configurable colour, so this was found and
+tuned entirely by visual inspection of a real dark-hex theme in both colour
+schemes, not by a rule.

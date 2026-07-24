@@ -44,6 +44,7 @@ struct StashApp: App {
                     .environment(appEnvironment)
                     .environment(\.instanceAccent, appSettings.accent.color)
                     .environment(\.instanceAccentTextColor, appSettings.accent.textColor)
+                    .environment(\.instanceAccentForeground, appSettings.accent.foregroundColor)
             }
         #else
             WindowGroup {

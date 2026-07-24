@@ -10,6 +10,13 @@ import SwiftUI
 /// `--btn-text` CSS variables. Persisted to the shared App Group defaults so the app (and Share
 /// Extension) show the right colour immediately at next launch, with no flash while the network
 /// fetch is in flight.
+///
+/// `color` is the true brand colour, for fills and washes; `textColor` is for text on a *solid*
+/// accent fill. Neither is safe as the accent's own foreground/text/icon colour directly on the
+/// app's plain surface — some themes use an identical, very dark hex for both light and dark mode
+/// (a brand navy, say), which reads fine on white but is nearly invisible as text on the app's
+/// near-black dark-mode background. `foregroundColor` is for that case: it nudges the accent
+/// toward white/black just enough to stay legible there, keeping its identity otherwise intact.
 struct InstanceAccent: Equatable {
 
     // MARK: Static Properties
@@ -43,6 +50,15 @@ struct InstanceAccent: Equatable {
         .dynamic(
             light: Color(hex: AccentContrast.readableTextHex(forBackgroundHex: light)) ?? .white,
             dark: Color(hex: AccentContrast.readableTextHex(forBackgroundHex: dark)) ?? .white
+        )
+    }
+
+    /// The accent, safe to use as its *own* foreground/text/icon colour (as opposed to `color`,
+    /// meant for fills and washes). See the type-level note above for why the two differ.
+    var foregroundColor: Color {
+        .dynamic(
+            light: Color(hex: AccentContrast.legibleForegroundHex(light, forDarkBackground: false)) ?? .accentColor,
+            dark: Color(hex: AccentContrast.legibleForegroundHex(dark, forDarkBackground: true)) ?? .accentColor
         )
     }
 

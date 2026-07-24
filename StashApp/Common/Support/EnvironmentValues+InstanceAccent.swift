@@ -14,4 +14,10 @@ extension EnvironmentValues {
     /// Readable text for content sitting on a *solid* `instanceAccent` background (e.g.
     /// `TagCountBadge`). Defaults to white, matching the previous hardcoded behaviour.
     @Entry var instanceAccentTextColor: Color = .white
+
+    /// The accent, nudged to stay legible when used as its *own* foreground/text/icon colour
+    /// directly on the app's surface (e.g. a tag pill's label, a form row's tinted button) — as
+    /// opposed to `instanceAccent`, which is the true brand colour for fills and washes. See
+    /// `InstanceAccent.foregroundColor` for why the two differ.
+    @Entry var instanceAccentForeground: Color = .accentColor
 }

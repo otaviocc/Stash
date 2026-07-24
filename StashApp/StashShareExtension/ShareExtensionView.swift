@@ -60,6 +60,7 @@ struct ShareExtensionView: View {
         makeContent()
             .environment(\.instanceAccent, instanceAccent.color)
             .environment(\.instanceAccentTextColor, instanceAccent.textColor)
+            .environment(\.instanceAccentForeground, instanceAccent.foregroundColor)
             .task {
                 await bootstrap()
             }

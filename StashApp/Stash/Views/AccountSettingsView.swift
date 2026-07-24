@@ -192,6 +192,7 @@ private struct TwoFactorEnrollView: View {
     // MARK: SwiftUI Properties
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.instanceAccentForeground) private var instanceAccentForeground
 
     @State private var setup: TOTPSetup?
     @State private var code = ""
@@ -274,7 +275,7 @@ private struct TwoFactorEnrollView: View {
                 }
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.tint)
+            .foregroundStyle(instanceAccentForeground)
             .accessibilityLabel(didCopySecret ? "Setup key copied" : "Copy setup key")
 
             TextField("6-digit code", text: $code)

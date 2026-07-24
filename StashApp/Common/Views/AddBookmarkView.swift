@@ -31,7 +31,7 @@ struct AddBookmarkView: View {
     @State private var isFetching = false
     @State private var isSaving = false
     @State private var errorMessage: String?
-    @Environment(\.instanceAccent) private var instanceAccent
+    @Environment(\.instanceAccentForeground) private var instanceAccentForeground
 
     // MARK: Properties
 
@@ -214,7 +214,7 @@ struct AddBookmarkView: View {
         } else if !trimmedURL.isEmpty, fetchedDomain == nil {
             Button("Fetch", action: fetchMetadata)
                 .buttonStyle(.plain)
-                .foregroundStyle(instanceAccent)
+                .foregroundStyle(instanceAccentForeground)
                 .disabled(parsedURL == nil)
         }
     }

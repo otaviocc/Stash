@@ -14,6 +14,7 @@ struct TagPill: View {
     // MARK: SwiftUI Properties
 
     @Environment(\.instanceAccent) private var instanceAccent
+    @Environment(\.instanceAccentForeground) private var instanceAccentForeground
 
     // MARK: Properties
 
@@ -41,7 +42,7 @@ struct TagPill: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(instanceAccent.opacity(0.15), in: .capsule)
-                .foregroundStyle(instanceAccent)
+                .foregroundStyle(instanceAccentForeground)
         }
     }
 }

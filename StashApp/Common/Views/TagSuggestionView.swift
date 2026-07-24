@@ -11,6 +11,7 @@ struct TagSuggestionView: View {
     // MARK: SwiftUI Properties
 
     @Environment(\.instanceAccent) private var instanceAccent
+    @Environment(\.instanceAccentForeground) private var instanceAccentForeground
 
     // MARK: Properties
 
@@ -35,7 +36,7 @@ struct TagSuggestionView: View {
                             .background(instanceAccent.opacity(0.15), in: .capsule)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(instanceAccent)
+                    .foregroundStyle(instanceAccentForeground)
                 }
             }
         }

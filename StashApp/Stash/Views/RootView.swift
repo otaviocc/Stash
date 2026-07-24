@@ -29,6 +29,7 @@ struct RootView: View {
         }
         .environment(\.instanceAccent, settings.accent.color)
         .environment(\.instanceAccentTextColor, settings.accent.textColor)
+        .environment(\.instanceAccentForeground, settings.accent.foregroundColor)
         .task(id: settings.serverURL) {
             await refreshAccent()
         }
