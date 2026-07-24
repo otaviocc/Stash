@@ -46,7 +46,7 @@
                     SmartViewManagementView()
                 }
             }
-            .frame(width: 460, height: 420)
+            .frame(width: 460, height: 480)
         }
 
         private func makeSignedOutView() -> some View {
@@ -55,7 +55,7 @@
             } description: {
                 Text("Sign in from the main Stash window to manage your settings.")
             }
-            .frame(width: 460, height: 420)
+            .frame(width: 460, height: 480)
         }
     }
 
@@ -70,7 +70,12 @@
         @Environment(AppSettings.self) private var settings
 
         @State private var isSigningOut = false
-        @State private var browsers: [InstalledBrowser] = []
+
+        /// Discovered eagerly, not in `.onAppear`: `discoverAll()` is a synchronous Launch Services
+        /// query, so populating this lazily left the Picker's first render with an empty list and a
+        /// persisted selection that matched no `.tag()` yet — SwiftUI logs "selection … is invalid"
+        /// for that one frame. An eager initial value removes the gap entirely.
+        @State private var browsers = InstalledBrowser.discoverAll()
 
         // MARK: Content Properties
 
@@ -86,6 +91,7 @@
             .formStyle(.grouped)
             .onAppear {
                 browsers = InstalledBrowser.discoverAll()
+                healStaleBrowserSelection()
             }
         }
 
@@ -110,6 +116,8 @@
             return Section {
                 Picker("Open Links In", selection: $settings.macBrowserBundleID) {
                     Text("System Default Browser").tag(String?.none)
+
+                    Divider()
 
                     ForEach(browsers) { browser in
                         Label {
@@ -153,6 +161,19 @@
 
                 try? await environment.authRepository.logout()
             }
+        }
+
+        /// Clears a previously chosen browser that no longer resolves to an installed app, so the
+        /// Picker's selection always matches one of its `.tag()`s instead of logging "selection …
+        /// is invalid" every time Settings opens.
+        private func healStaleBrowserSelection() {
+            guard let bundleID = settings.macBrowserBundleID,
+                  !browsers.contains(where: { $0.bundleID == bundleID })
+            else {
+                return
+            }
+
+            settings.macBrowserBundleID = nil
         }
     }
 

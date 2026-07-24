@@ -1205,3 +1205,25 @@ through `ConnectivityMonitor.onReconnect` — connectivity, not auth state, is
 the right signal for "the earlier network-dependent fetch is worth trying
 again." Both the launch-time `.task` and the reconnect handler share one
 `refreshAccent()` so there's a single fetch-and-apply path.
+
+## Unrelated: fixed a stale `Picker` warning in the macOS browser chooser
+
+Noticed while testing the accent work, not caused by it: opening ⌘, logged
+`Picker: the selection "Optional("com.kagi.kagimacOS")" is invalid and does
+not have an associated tag` on the General tab. `GeneralSettingsView`
+(macOS browser picker, see "macOS browser picker: open links in a chosen
+browser" above) populated its `browsers` list inside `.onAppear`, so the
+Picker's very first render had an empty list while `settings
+.macBrowserBundleID` already pointed at a previously-chosen browser (Orion)
+— no `.tag()` matched yet, hence the warning for that one frame.
+
+`InstalledBrowser.discoverAll()` is a synchronous Launch Services call, so
+there was never a reason to defer it to `.onAppear` in the first place;
+switched `browsers` to an eager `@State` initial value, closing the gap
+entirely. Also added `healStaleBrowserSelection()`, called after every
+re-discovery: if the persisted bundle ID no longer matches any discovered
+browser (the chosen browser was uninstalled), it resets
+`macBrowserBundleID` to `nil` so the Picker's selection always lines up with
+an actual `.tag()` instead of silently drifting — the runtime open-link
+fallback already handled this gracefully (`BrowserChooserModifier`), but the
+Picker itself never self-corrected.
