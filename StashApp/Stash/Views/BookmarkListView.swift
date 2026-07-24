@@ -438,6 +438,7 @@ private struct BookmarkListContent: View {
         Task {
             do {
                 guard let domain = bookmark.faviconDomain else { return }
+
                 try await repository.refreshFavicon(domain: domain)
             } catch {
                 errorMessage = error.stashUserMessage
