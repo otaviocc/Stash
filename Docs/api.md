@@ -58,6 +58,7 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `GET`  | `/admin/sessions` | admin | List live sessions (admin dashboard + app frontend); `?q=` filters by username prefix |
 | `POST` | `/admin/sessions/revoke-all` | admin | Revoke every live session and refresh token (204) |
 | `POST` | `/admin/sessions/revoke-user` | admin | `{ "userName": "alice" }` — revoke a user's sessions (204); 404 if unknown |
+| `GET`  | `/instance` | none | Public instance chrome: `{ accent: { theme, light, dark } }` — the resolved accent theme |
 
 Errors use a standard `{ error, code, message, existingID? }` envelope across
 every route, including routing 404s and validation failures.

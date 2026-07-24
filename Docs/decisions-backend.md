@@ -1289,3 +1289,24 @@ changed, with `"no changes"` logged when nothing actually differed. This
 follows the same principle as other audit entries: the detail should let an
 operator understand what happened without needing to inspect the
 before/after state.
+
+## Public `GET /api/v1/instance` endpoint
+
+The accent theme was resolvable only inside a web request, via
+`Request.siteChrome()` reading the `SiteSettingsCache` — fine for Leaf
+templates, useless for the native apps, which never render Leaf and have no
+concept of `Request`. Rather than build a client-side theme picker duplicating
+the backend's `AccentTheme` catalog, I added one small public endpoint,
+`InstanceController` at `GET /api/v1/instance`, returning the same resolved
+`{ theme, light, dark }` the web chrome already computes — reusing
+`AccentTheme.theme(for:)` against the same `SiteSettingsCacheKey` snapshot, so
+it costs no extra database hit and stays in lockstep with whatever the admin
+last saved.
+
+It's deliberately unauthenticated, registered on `api` next to the favicon
+route rather than behind `AccessTokenAuthenticator`: the accent is instance
+chrome, not user data, and an unauthenticated read lets even the login screen
+(and native apps before sign-in) pick up the instance's branding. The response
+nests the theme under an `accent` key (`{ accent: { theme, light, dark } }`)
+rather than flattening it, so the endpoint can grow to cover other instance
+chrome later (about text, footer links) without a breaking shape change.

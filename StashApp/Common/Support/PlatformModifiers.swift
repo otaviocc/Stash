@@ -148,13 +148,37 @@ extension View {
     /// bordered push-button chrome. A no-op on iOS, where the grouped form already renders buttons
     /// this way. Pass `isDestructive: true` to tint the row red, matching a destructive `Link`/role.
     func formButtonRowStyle(isDestructive: Bool = false) -> some View {
+        modifier(FormButtonRowStyleModifier(isDestructive: isDestructive))
+    }
+}
+
+// MARK: - FormButtonRowStyleModifier
+
+/// A `ViewModifier` (rather than a plain `View` extension) so it can read `\.instanceAccent` from
+/// the environment for the tinted row's foreground colour.
+private struct FormButtonRowStyleModifier: ViewModifier {
+
+    // MARK: SwiftUI Properties
+
+    @Environment(\.instanceAccent) private var instanceAccent
+
+    // MARK: Properties
+
+    let isDestructive: Bool
+
+    // MARK: Content Methods
+
+    // MARK: Content
+
+    func body(content: Content) -> some View {
         #if os(macOS)
-            buttonStyle(.plain)
-                .foregroundStyle(isDestructive ? AnyShapeStyle(.red) : AnyShapeStyle(Color.accentColor))
+            content
+                .buttonStyle(.plain)
+                .foregroundStyle(isDestructive ? AnyShapeStyle(.red) : AnyShapeStyle(instanceAccent))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
         #else
-            self
+            content
         #endif
     }
 }

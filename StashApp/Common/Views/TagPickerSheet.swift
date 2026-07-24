@@ -20,6 +20,7 @@ struct TagPickerSheet: View {
     @Binding var selectedTags: [String]
 
     @State private var searchText = ""
+    @Environment(\.instanceAccent) private var instanceAccent
 
     // MARK: Properties
 
@@ -151,7 +152,7 @@ struct TagPickerSheet: View {
             HStack(spacing: 12) {
                 Image(systemName: "plus.circle.fill")
                     .imageScale(.medium)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(instanceAccent)
                 Text("Create \"\(normalizedQuery)\"")
                     .font(.body)
                     .fontWeight(.medium)
@@ -171,7 +172,7 @@ struct TagPickerSheet: View {
             HStack(spacing: 12) {
                 Image(systemName: isSelected ? "circle.fill" : "circle")
                     .imageScale(.medium)
-                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(isSelected ? instanceAccent : Color.secondary)
                 TagTreeLabel(node: node, depth: depth)
             }
             .contentShape(Rectangle())

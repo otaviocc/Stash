@@ -12,6 +12,11 @@ import SwiftUI
 /// dimmed always means "hidden".
 struct TagCountBadge: View {
 
+    // MARK: SwiftUI Properties
+
+    @Environment(\.instanceAccent) private var instanceAccent
+    @Environment(\.instanceAccentTextColor) private var instanceAccentTextColor
+
     // MARK: Properties
 
     let count: Int
@@ -36,8 +41,8 @@ struct TagCountBadge: View {
             Text("\(count)")
                 .padding(.horizontal, 7)
                 .padding(.vertical, 2)
-                .background(Color.accentColor)
-                .foregroundStyle(.white)
+                .background(instanceAccent)
+                .foregroundStyle(instanceAccentTextColor)
 
             Rectangle()
                 .fill(.quaternary)
@@ -56,10 +61,10 @@ struct TagCountBadge: View {
     private func makePlainBadge() -> some View {
         Text("\(count)")
             .font(.caption.weight(.medium))
-            .foregroundStyle(.white)
+            .foregroundStyle(instanceAccentTextColor)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Color.accentColor, in: Capsule())
+            .background(instanceAccent, in: Capsule())
     }
 }
 

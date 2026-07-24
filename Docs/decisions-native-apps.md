@@ -1101,3 +1101,107 @@ keep their separate `BrowserPreference` (in-app vs. default) and Reader-mode
 setting unchanged: the two mechanisms solve different problems (an in-app
 viewer vs. picking among external apps) and stay independent rather than
 sharing one setting.
+
+---
+
+## Native apps follow the instance accent
+
+Every accent-tinted control in the native apps read the static asset-catalog
+`AccentColor` (`#0a84ff`, matching `ocean`) via `Color.accentColor`, so an
+admin who picked a different instance theme on the web (Sunny, Discord,
+whatever) saw it there but never in the apps. Fixed by fetching the backend's
+`GET /api/v1/instance` (new; see `decisions-backend.md`) and applying it at
+the app root.
+
+`InstanceAccent` (`StashApp/Common/Support/`) wraps the theme id + light/dark
+hex pair and exposes a dynamic `Color` per colour scheme, bridging through
+`UIColor { traits in … }` / `NSColor(name:dynamicProvider:)` since SwiftUI has
+no cross-platform "light/dark pair" `Color` initializer. `InstanceRepository`
+fetches it (unauthenticated, so it works pre-login too) and `AppSettings`
+persists the last-known value to the shared App Group defaults, so the right
+accent shows immediately at next launch — no flash while the fetch is in
+flight — and the Share Extension, which has no network access of its own,
+reads the same persisted value.
+
+`.tint(...)` alone was not enough: `Color.accentColor` reads the static
+asset-catalog colour, not the environment tint set by `.tint(...)`, so every
+custom component that referenced it directly (`TagPill`, `TagCountBadge`,
+`TagSuggestionView`, `TagSummarySection`, `TagPickerSheet`, `AddBookmarkView`,
+the macOS `formButtonRowStyle` row, the sidebar drop-target highlight) had to
+switch to a new `\.instanceAccent` environment value instead, injected
+alongside `.tint(...)` at the root.
+
+The bigger fix was `TagCountBadge`: its solid accent-filled count pill
+hardcoded white text, which reads poorly on a light instance theme (Sunny,
+Gold, Coral) — a light accent with white text has too little contrast. Ported
+the web frontend's "Accent-aware button text contrast" rule (the WCAG
+relative-luminance formula, `0.2126R + 0.7152G + 0.0722B`, threshold `0.4`,
+`#1a1a1a` vs `#ffffff`) to `AccentContrast`, and exposed the result as a
+second environment value, `\.instanceAccentTextColor`, so it reads exactly the
+same way the CSS `--btn-text` variable does. `TagPill` and
+`TagSuggestionView`'s low-opacity capsules (accent text on a 15%-opacity
+accent wash) didn't need this — accent-on-its-own-tint is always readable —
+so only the solid-fill badge changed foreground colour.
+
+## Fallback accent changed from Ocean blue to neutral gray
+
+`InstanceAccent.default` (the built-in fallback shown before the first
+`GET /api/v1/instance` fetch completes, and the asset-catalog `AccentColor`
+alongside it) used to be Ocean blue (`#0a84ff`/`#409cff`), matching the app's
+pre-feature accent. Once the app started tinting from the instance's actual
+theme, that blue became actively misleading: it's a real, valid theme choice
+(`ocean` is the backend's default), so a user briefly saw "their" accent
+before the fetch resolved to something else entirely — worse than a neutral
+placeholder, since it looked like a real answer rather than a loading state.
+
+Changed both the asset-catalog `AccentColor` and `InstanceAccent.default` to a
+neutral system gray pair (`#8e8e93` light / `#98989d` dark, matching
+`UIColor.systemGray`'s dynamic values) that isn't one of the backend's named
+`AccentTheme`s. `default`'s `theme` id changed from `"ocean"` to `"default"`
+to match — it was never validated against the server's theme catalog (that
+field is write-only, round-tripped through the shared defaults, not read back
+by any UI), so the rename is cosmetic but keeps it from reading like a real
+selected theme.
+
+## Dropped the root-level `.tint(...)`, kept only the explicit environment values
+
+The first pass applied `.tint(settings.accent.color)` at the app root (plus
+the macOS Settings scene and the Share Extension), on top of injecting
+`\.instanceAccent`/`\.instanceAccentTextColor` for the custom components
+(`TagPill`, `TagCountBadge`, etc.) that read them explicitly. That `.tint(...)`
+turned out to be too broad: it recolours *every* unstyled system control that
+defaults to the app's accent — `Menu` trigger icons, toolbar buttons,
+`Toggle`, `.borderedProminent` buttons — not just the handful of views this
+feature actually meant to brand. In practice that meant a red instance theme
+turned the bookmark list's `ellipsis.circle` options-menu button (and its
+open-state highlight) red along with everything else, which reads as a bug,
+not a feature — chrome that was never meant to carry the instance's identity
+suddenly does.
+
+Removed all three `.tint(...)` calls, keeping only the `\.instanceAccent`/
+`\.instanceAccentTextColor` environment injections. Every view this feature
+intentionally tints reads one of those two values directly (not the
+environment's `tint`/`accentColor`), so removing `.tint(...)` doesn't touch
+them — it only stops *unstyled* system chrome from inheriting the instance
+colour. Standard buttons, toggles, and menus now render with the system's own
+accent again, and only the views explicitly wired to `\.instanceAccent`
+follow the instance theme.
+
+## Retry the accent fetch on reconnect, not just at launch
+
+The initial fetch ran once, in a `.task(id: settings.serverURL)` — fine when
+it succeeds, but a failure (offline at launch, a transient server hiccup) left
+`settings.accent` on `.default` for the rest of the session, since nothing
+ever re-ran the fetch. An already-signed-in user has no `isAuthenticated`
+transition to hang a retry on, so keying the retry off login state would only
+help someone who explicitly signs out and back in — not the common case of
+"was offline for a second at launch."
+
+Added a second trigger: `RootView` now also observes
+`ConnectivityMonitor.isOnline` (already `@Observable`, already driving the
+offline banner) via `.onChange(of:)`, and re-runs the same `refreshAccent()`
+whenever it flips to `true`. This mirrors how `SyncEngine` already retries
+through `ConnectivityMonitor.onReconnect` — connectivity, not auth state, is
+the right signal for "the earlier network-dependent fetch is worth trying
+again." Both the launch-time `.task` and the reconnect handler share one
+`refreshAccent()` so there's a single fetch-and-apply path.

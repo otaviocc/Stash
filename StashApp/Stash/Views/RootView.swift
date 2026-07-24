@@ -18,12 +18,39 @@ struct RootView: View {
     // MARK: Content
 
     var body: some View {
-        if !settings.isConfigured {
-            SetupView()
-        } else if !environment.authRepository.isAuthenticated {
-            LoginView()
-        } else {
-            MainFlowView()
+        Group {
+            if !settings.isConfigured {
+                SetupView()
+            } else if !environment.authRepository.isAuthenticated {
+                LoginView()
+            } else {
+                MainFlowView()
+            }
+        }
+        .environment(\.instanceAccent, settings.accent.color)
+        .environment(\.instanceAccentTextColor, settings.accent.textColor)
+        .task(id: settings.serverURL) {
+            await refreshAccent()
+        }
+        .onChange(of: environment.connectivityMonitor.isOnline) { _, isOnline in
+            guard isOnline else { return }
+
+            Task { await refreshAccent() }
+        }
+    }
+
+    // MARK: Functions
+
+    /// Fetches the current instance accent and applies it, or leaves `settings.accent` untouched on
+    /// failure. Called at launch (keyed on the server URL) and again whenever connectivity returns
+    /// (`ConnectivityMonitor.isOnline`), so an initial fetch that failed offline — or on a transient
+    /// server error — gets retried as soon as the network comes back, instead of leaving the app
+    /// stuck on `.default` for the rest of the session.
+    private func refreshAccent() async {
+        guard settings.isConfigured else { return }
+
+        if let accent = await environment.instanceRepository.fetchAccent() {
+            settings.accent = accent
         }
     }
 }

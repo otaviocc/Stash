@@ -37,6 +37,11 @@ struct ShareExtensionView: View {
     private let bookmarkRepository: ExtensionBookmarkRepository
     private let tagRepository: ExtensionTagRepository
 
+    /// The app's last-known instance accent, read once from the shared App Group defaults. The
+    /// extension has no network access of its own — it relies entirely on whatever the main app
+    /// last fetched and persisted (`InstanceAccent.saveShared`).
+    private let instanceAccent = InstanceAccent.loadShared(from: AppGroup.makeSharedDefaults())
+
     // MARK: Lifecycle
 
     init(extensionContext: NSExtensionContext) {
@@ -53,6 +58,8 @@ struct ShareExtensionView: View {
 
     var body: some View {
         makeContent()
+            .environment(\.instanceAccent, instanceAccent.color)
+            .environment(\.instanceAccentTextColor, instanceAccent.textColor)
             .task {
                 await bootstrap()
             }

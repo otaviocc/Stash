@@ -153,6 +153,30 @@ alongside the web session.
   kicks off a fresh fetch detached, returning `202 Accepted` immediately. No rate
   limiting (see `DECISIONS.md`).
 
+### 9.9 Instance (unauthenticated)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/instance` | Public instance chrome — currently just the accent theme |
+
+```json
+{
+  "accent": {
+    "theme": "ocean",
+    "light": "#0a84ff",
+    "dark": "#409cff"
+  }
+}
+```
+
+Unauthenticated so any client — the login screen, native apps before sign-in,
+the CLI — can tint before authenticating. Reads the same app-level cache as the
+web `siteChrome()` (§12), so it never hits the database. Native apps
+(`InstanceRepository` in StashKit/StashApp) persist the last-known value to the
+shared App Group defaults and apply it via `.tint(...)`, computing readable text
+for solid-accent backgrounds with the same luminance rule as the web frontend
+(§12, "Accent-aware button text contrast").
+
 ---
 
 ## 10. Metadata Fetching

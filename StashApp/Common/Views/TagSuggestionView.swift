@@ -8,6 +8,10 @@ import SwiftUI
 /// A horizontally-scrolling row of tag suggestion chips. Tapping a chip appends it to the input.
 struct TagSuggestionView: View {
 
+    // MARK: SwiftUI Properties
+
+    @Environment(\.instanceAccent) private var instanceAccent
+
     // MARK: Properties
 
     let suggestions: [Tag]
@@ -28,10 +32,10 @@ struct TagSuggestionView: View {
                             .font(.caption)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(Color.accentColor.opacity(0.15), in: .capsule)
+                            .background(instanceAccent.opacity(0.15), in: .capsule)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(instanceAccent)
                 }
             }
         }

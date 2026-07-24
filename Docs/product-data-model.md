@@ -121,9 +121,10 @@ page renders never hit the database.
 | `createdAt` | Date | Auto-set |
 | `updatedAt` | Date | Auto-updated |
 
-**Accent themes.** Seventeen named themes, each with a light-mode and a dark-mode hex
-value; the active value is selected automatically from the `data-theme`
-attribute. `ocean` is the default and matches the app's original accent.
+**Accent themes.** Twenty-three named themes, each with a light-mode and a
+dark-mode hex value; the active value is selected automatically from the
+`data-theme` attribute. `ocean` is the default and matches the app's original
+accent.
 
 | Identifier | Name | Light | Dark |
 |------------|------|-------|------|
@@ -144,9 +145,17 @@ attribute. `ocean` is the default and matches the app's original accent.
 | `spotify` | Spotify | `#1DB954` | `#1DB954` |
 | `obsidian` | Obsidian | `#6C31E3` | `#6C31E3` |
 | `discord` | Discord | `#5865F2` | `#5865F2` |
+| `starbucks` | Starbucks | `#00704a` | `#00704a` |
+| `t-mobile` | T-Mobile | `#e20074` | `#e20074` |
+| `tumblr` | Tumblr | `#35465c` | `#35465c` |
+| `whatsapp` | WhatsApp | `#075e54` | `#075e54` |
+| `android` | Android | `#a4c639` | `#a4c639` |
+| `boeing` | Boeing | `#0033a1` | `#0033a1` |
 
 The selected theme's values are injected into `layout.leaf`'s `<head>` as a CSS
 block overriding `--accent`, from the app-level cache (no per-request query).
+The resolved light/dark hex is also exposed to non-web clients via `GET
+/api/v1/instance` (§9.9), so native apps tint to the same instance accent.
 
 ### 7.7 Smart View
 

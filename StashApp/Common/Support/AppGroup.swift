@@ -64,6 +64,13 @@ enum AppGroup {
     /// extension via `SharedTagCache`.
     static let knownTagsKey = "\(bundleBase).knownTags"
 
+    /// The instance's last-known accent theme (`InstanceAccent`), fetched from `GET
+    /// /api/v1/instance`. Persisted so the correct accent shows immediately at next launch with no
+    /// flash, and so the Share Extension — which never calls the network itself — matches the app.
+    static let instanceAccentThemeKey = "\(bundleBase).instanceAccentTheme"
+    static let instanceAccentLightKey = "\(bundleBase).instanceAccentLight"
+    static let instanceAccentDarkKey = "\(bundleBase).instanceAccentDark"
+
     // MARK: Static Functions
 
     /// Builds the `UserDefaults` suite backed by the App Group, so the server URL is visible to both

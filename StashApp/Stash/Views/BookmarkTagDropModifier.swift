@@ -13,6 +13,7 @@ struct BookmarkTagDropModifier: ViewModifier {
     // MARK: SwiftUI Properties
 
     @Environment(AppEnvironment.self) private var environment
+    @Environment(\.instanceAccent) private var instanceAccent
     @State private var isTargeted = false
 
     // MARK: Properties
@@ -30,7 +31,7 @@ struct BookmarkTagDropModifier: ViewModifier {
 
                 return true
             } isTargeted: { isTargeted = $0 }
-            .listRowBackground(isTargeted ? Color.accentColor.opacity(0.15) : nil)
+            .listRowBackground(isTargeted ? instanceAccent.opacity(0.15) : nil)
     }
 
     // MARK: Functions

@@ -11,6 +11,8 @@ func routes(_ app: Application) throws {
 
     try api.register(collection: AuthController())
 
+    try api.register(collection: InstanceController())
+
     let favicons = FaviconController()
     api.get("favicons", ":domain", use: favicons.serve)
 
