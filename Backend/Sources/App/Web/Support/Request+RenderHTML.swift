@@ -19,4 +19,18 @@ extension Request {
         response.body = .init(buffer: view.data)
         return response
     }
+
+    /// Reads a single HTML checkbox posted under `name`, defaulting to `false`. An unchecked
+    /// checkbox is omitted from the form entirely, so a form whose *only* field is that checkbox
+    /// submits a genuinely empty body — which `Content.decode` rejects outright with a `422`
+    /// before any decoding happens, regardless of how permissive the target type is. Checking the
+    /// body's byte count first sidesteps that: an empty body means "unchecked", same as a body
+    /// that decodes but is missing the key.
+    func decodedCheckbox(named name: String) throws -> Bool {
+        guard let data = body.data, data.readableBytes > 0 else {
+            return false
+        }
+
+        return try content.get(Bool?.self, at: name) ?? false
+    }
 }

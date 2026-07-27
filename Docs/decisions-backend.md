@@ -1310,3 +1310,43 @@ chrome, not user data, and an unauthenticated read lets even the login screen
 nests the theme under an `accent` key (`{ accent: { theme, light, dark } }`)
 rather than flattening it, so the endpoint can grow to cover other instance
 chrome later (about text, footer links) without a breaking shape change.
+
+## Bug: unchecking a form's only checkbox 422'd instead of saving
+
+Turning Internet Archive submissions off from `/admin/internet-archive`
+(and, it turned out, the update-check toggle and the per-user archive
+preference — the same pattern, three places) failed with a JSON
+`validation_failed` / `422 Unprocessable Entity` instead of saving. The
+handlers themselves were fine: `req.content.decode(...)` into a
+`Bool?`-only form and coalescing a missing key to `false` correctly
+handles an unchecked checkbox that simply isn't present in the submitted
+fields. The bug was one level down — when a checkbox is a form's *only*
+field, unchecking it means the browser POSTs a **completely empty** body
+(zero bytes), not a body missing just that key. Vapor's `Request.content.decode`
+guards on `request.body.data` before invoking any decoder and throws
+`Abort(.unprocessableEntity)` with no reason when the body is empty, which
+`StashErrorMiddleware` (applied globally, including `/admin` and `/app`
+HTML routes, not just the JSON API) serializes as
+`{"code":"validation_failed","message":"Unprocessable Entity"}` — a
+generic, unhelpful message that gave no hint the real cause was an empty
+body, not a validation rule.
+
+The existing test for the toggle (`adminToggleDisables`) never caught this
+because it encoded a dummy `_unused` field to avoid sending a truly empty
+body — accidentally testing a request shape a real browser never sends.
+Reproducing the bug required posting with no body at all (but the real
+`Content-Type` header a browser always sets even on an empty POST).
+
+Fixed at the request layer, not the template: a new `Request.decodedCheckbox(named:)`
+helper (`Request+RenderHTML.swift`) checks `body.data`'s byte count before
+decoding, treating a zero-byte body the same as a body that decodes but is
+missing the key — both mean "unchecked". This is more robust than the
+alternative (adding a hidden dummy field to each Leaf form so the body is
+never empty): it fixes the three existing single-checkbox forms in one
+place and any future one, without depending on every form remembering to
+carry a decoy field. The three now-unused `Bool?`-only DTOs
+(`InternetArchiveToggleForm`, `UpdateCheckToggleForm`, `ArchivePrefForm`)
+were deleted along with the switch to the helper. Added a genuinely-empty-body
+regression test alongside each of the three existing toggle tests, since the
+existing ones (with their dummy field) would keep passing even if this
+regressed.

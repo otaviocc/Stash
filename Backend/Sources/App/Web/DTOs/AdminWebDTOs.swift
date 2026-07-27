@@ -118,15 +118,6 @@ struct HealthContext: Content {
     let chrome: SiteChrome
 }
 
-// MARK: - UpdateCheckToggleForm
-
-/// `POST /admin/health/toggle-updates` form. An unchecked HTML checkbox sends nothing, so this
-/// decodes as an optional and is coalesced to `false`.
-struct UpdateCheckToggleForm: Content {
-
-    let enabled: Bool?
-}
-
 // MARK: - MaintenanceContext
 
 /// View context for the admin maintenance page (database optimize / VACUUM).
@@ -266,15 +257,6 @@ struct InternetArchiveAdminContext: Content {
     let message: String?
     let error: String?
     let chrome: SiteChrome
-}
-
-// MARK: - InternetArchiveToggleForm
-
-/// `POST /admin/internet-archive/toggle` form. An unchecked HTML checkbox sends nothing, so this
-/// decodes as an optional and is coalesced to `false`.
-struct InternetArchiveToggleForm: Content {
-
-    let enabled: Bool?
 }
 
 // MARK: - BackupContext

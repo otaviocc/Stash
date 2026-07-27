@@ -268,9 +268,8 @@ struct SettingsWebController: RouteCollection {
 
     func setArchivePref(req: Request) async throws -> Response {
         let user = try req.auth.require(User.self)
-        let form = try req.content.decode(ArchivePrefForm.self)
 
-        user.archiveNewBookmarks = form.enabled ?? false
+        user.archiveNewBookmarks = try req.decodedCheckbox(named: "enabled")
         try await user.save(on: req.db)
 
         return req.redirect(to: "/app/settings?ok=archive_pref")

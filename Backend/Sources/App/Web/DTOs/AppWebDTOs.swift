@@ -89,15 +89,6 @@ struct ThemeForm: Content {
     let theme: String
 }
 
-// MARK: - ArchivePrefForm
-
-/// `POST /app/settings/archive-pref` form. An unchecked HTML checkbox sends nothing, so this
-/// decodes as an optional and is coalesced to `false`.
-struct ArchivePrefForm: Content {
-
-    let enabled: Bool?
-}
-
 // MARK: - TagLink
 
 /// A tag rendered both as it is stored (`swift/vapor`) and for display (`swift › vapor`).

@@ -236,6 +236,31 @@ struct UpdateCheckerTests {
         }
     }
 
+    @Test("unchecking the sole update-check checkbox sends a genuinely empty body, which still succeeds")
+    func toggleUpdatesOffWithTrulyEmptyBody() async throws {
+        try await withTestApp { app in
+            // Given
+            var headers = try await app.adminWebSession()
+            headers.replaceOrAdd(name: .contentType, value: "application/x-www-form-urlencoded")
+
+            // When — a real browser sends zero bytes when the form's only field is unchecked
+            try await app.testing().test(
+                .POST, "admin/health/toggle-updates",
+                headers: headers
+            ) { res async throws in
+                // Then
+                #expect(res.status == .seeOther, "It should redirect after saving, not 422")
+                #expect(
+                    res.headers.first(name: .location) == "/admin/health?ok=updates_disabled",
+                    "It should PRG with the disabled flash"
+                )
+            }
+
+            let settings = try await SiteSettingsService.current(on: app.db)
+            #expect(!settings.updateCheckEnabled, "It should persist the disabled setting")
+        }
+    }
+
     @Test("refreshIfStale is a no-op when update checking is disabled")
     func refreshIfStaleNoOpWhenDisabled() async throws {
         try await withTestApp { app in

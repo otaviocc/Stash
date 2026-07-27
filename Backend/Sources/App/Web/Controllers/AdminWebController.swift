@@ -312,9 +312,8 @@ struct AdminWebController: RouteCollection {
 
     func toggleUpdateCheck(req: Request) async throws -> Response {
         let admin = try req.auth.require(User.self)
-        let form = try req.content.decode(UpdateCheckToggleForm.self)
         let settings = try await SiteSettingsService.current(on: req.db)
-        settings.updateCheckEnabled = form.enabled ?? false
+        settings.updateCheckEnabled = try req.decodedCheckbox(named: "enabled")
         try await settings.save(on: req.db)
         SiteSettingsService.refreshCache(with: settings, on: req.application)
 
@@ -786,9 +785,8 @@ struct AdminWebController: RouteCollection {
 
     func toggleInternetArchive(req: Request) async throws -> Response {
         let admin = try req.auth.require(User.self)
-        let form = try req.content.decode(InternetArchiveToggleForm.self)
         let settings = try await SiteSettingsService.current(on: req.db)
-        settings.internetArchiveEnabled = form.enabled ?? false
+        settings.internetArchiveEnabled = try req.decodedCheckbox(named: "enabled")
         try await settings.save(on: req.db)
         SiteSettingsService.refreshCache(with: settings, on: req.application)
 

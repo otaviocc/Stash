@@ -552,6 +552,31 @@ struct WaybackTests {
         }
     }
 
+    @Test("unchecking the sole archive-pref checkbox sends a genuinely empty body, which still succeeds")
+    func settingsTogglePreferenceWithTrulyEmptyBody() async throws {
+        try await withTestApp { app in
+            // Given
+            var headers = try await app.appWebSession()
+            headers.replaceOrAdd(name: .contentType, value: "application/x-www-form-urlencoded")
+
+            // When — a real browser sends zero bytes when the form's only field is unchecked
+            try await app.testing().test(
+                .POST, "app/settings/archive-pref",
+                headers: headers
+            ) { res async throws in
+                // Then
+                #expect(res.status == .seeOther, "It should redirect after saving, not 422")
+                #expect(
+                    res.headers.first(name: .location) == "/app/settings?ok=archive_pref",
+                    "It should PRG to the settings page"
+                )
+            }
+
+            let user = try #require(try await User.query(on: app.db).filter(\.$username == "otavio").first())
+            #expect(!user.archiveNewBookmarks, "It should turn the preference off when the checkbox is unchecked")
+        }
+    }
+
     // MARK: - Admin dashboard
 
     @Test("the admin Internet Archive page shows counts per status")
@@ -636,6 +661,31 @@ struct WaybackTests {
 
             let rows = try await AuditLog.query(on: app.db).filter(\.$action == "internet_archive_toggled").all()
             #expect(rows.count == 1, "It should audit-log its own distinct action, not appearance_updated")
+        }
+    }
+
+    @Test("unchecking the sole checkbox sends a genuinely empty body, which still succeeds")
+    func adminToggleDisablesWithTrulyEmptyBody() async throws {
+        try await withTestApp { app in
+            // Given
+            var headers = try await app.adminWebSession()
+            headers.replaceOrAdd(name: .contentType, value: "application/x-www-form-urlencoded")
+
+            // When — a real browser sends zero bytes when the form's only field is unchecked
+            try await app.testing().test(
+                .POST, "admin/internet-archive/toggle",
+                headers: headers
+            ) { res async throws in
+                // Then
+                #expect(res.status == .seeOther, "It should redirect after saving, not 422")
+                #expect(
+                    res.headers.first(name: .location) == "/admin/internet-archive?ok=ia_saved",
+                    "It should PRG to the page with the saved flash"
+                )
+            }
+
+            let settings = try await SiteSettingsService.current(on: app.db)
+            #expect(!settings.internetArchiveEnabled, "It should turn the switch off when unchecked")
         }
     }
 
