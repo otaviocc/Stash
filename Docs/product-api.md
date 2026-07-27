@@ -363,3 +363,115 @@ Views, so `isArchived` is dropped and Smart Views are omitted.
 ]
 ```
 
+### 11.6 Netscape HTML Importer/Exporter (`identifier: "netscape-html"`)
+
+A Netscape Bookmark File (`<!DOCTYPE NETSCAPE-Bookmark-file-1>`) — the universal browser-export
+format (Chrome, Firefox, Safari, Edge), also produced by Raindrop.io's and Pinboard's own "HTML"
+export options. The format has no strict XML structure (real exports leave `<DT>`/`<p>` unclosed),
+so the importer is a small hand-rolled token scanner over `<A>`/`<H3>`/`<DL>`/`</DL>`/`<DD>`,
+dependency-free like `MetadataFetcher`'s HTML handling — no HTML/XML parser library was added.
+
+| Netscape field | Stash field | Notes |
+|---|---|------|
+| `HREF` | `url` | Required; skip if missing or invalid |
+| anchor inner text | `title` | HTML entities decoded |
+| `<DD>` line | `description` | Only attaches to the immediately preceding bookmark |
+| `ADD_DATE` | `createdAt` | Unix seconds; current time if missing/unparseable |
+| folder nesting (`<H3>` + its `<DL>`) | `tags` | One hierarchical tag joined by `/`, e.g. `bookmarks bar/github`. No folder name is special-cased (browsers localize "Bookmarks Bar" etc.) |
+| `TAGS="a,b,c"` (non-standard, used by Pinboard/Delicious-style exporters) | `tags` | Merged in alongside the folder tag |
+
+Duplicate URL: update title, description, tags in place. `createdAt` preserved.
+
+The exporter (all bookmarks including archived) is intentionally **flat** — no folders — since
+Stash tags are hierarchical *and* multi-valued per bookmark, while a Netscape file's folders are a
+strict single-parent tree; there's no lossless way to place a multi-tagged bookmark into one
+folder. Every bookmark's full tag set is instead written into the `TAGS` attribute, which the
+importer above reads back losslessly on a round-trip. `isArchived` and Smart Views are dropped, same
+as the Anybox exporter (§11.5).
+
+```html
+<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<TITLE>Bookmarks</TITLE>
+<H1>Bookmarks</H1>
+<DL><p>
+    <DT><A HREF="https://example.com" ADD_DATE="1735689600" TAGS="topic/swift,ios">Example</A>
+    <DD>A description
+</DL><p>
+```
+
+`Content-Disposition: attachment; filename="stash-export-YYYY-MM-DD.html"`, `Content-Type: text/html`.
+
+### 11.7 Raindrop.io CSV Importer/Exporter (`identifier: "raindrop-csv"`)
+
+Raindrop.io has no JSON export in its UI (only HTML, CSV, TXT). Raindrop documents the CSV columns
+it both produces and accepts back as `folder,url,title,note,tags,created`
+(help.raindrop.io/import#csv), but a full-account export may carry extra columns from Raindrop's
+richer API object model (`id`, `cover`, `highlights`, `favorite`, …) — so columns are matched **by
+header name** (case-insensitively, with aliases), and any unrecognized column is ignored rather
+than rejecting the file, following the same "tolerate shape variance" convention as the Anybox
+importer (§11.2).
+
+| Raindrop column (aliases) | Stash field | Notes |
+|---|---|------|
+| `url` (`link`, `href`) | `url` | Required; skip if missing or invalid |
+| `title` | `title` | Empty string if missing |
+| `note` (`excerpt`, `description`) | `description` | |
+| `tags` | `tags` | Comma-separated (Raindrop's own convention); split on comma only, not whitespace, so a tag containing a space survives |
+| `folder` (`collection`) | `tags` | Raindrop already uses `/` to nest folders, the same separator Stash uses for hierarchical tags, so the whole path becomes one additional tag as-is |
+| `created` | `createdAt` | Unix seconds or ISO-8601 (both documented as accepted by Raindrop itself) |
+
+Duplicate URL: update in place. `createdAt` preserved.
+
+The exporter (all bookmarks including archived) uses the exact column layout Raindrop documents
+accepting back, for the best round-trip fidelity into Raindrop itself. `folder` is left empty:
+Stash has no folder concept, and Raindrop has no hierarchical-tag concept, so a Stash tag like
+`topic/swift` is written as-is into `tags` rather than guessing a single "primary" folder for a
+bookmark that may carry several tags. `isArchived` and Smart Views are dropped, same as the Anybox
+exporter.
+
+```csv
+folder,url,title,note,tags,created
+,https://example.com,Example,A description,"topic/swift, ios",2026-01-01T00:00:00Z
+```
+
+`Content-Disposition: attachment; filename="stash-export-YYYY-MM-DD.csv"`, `Content-Type: text/csv`.
+
+### 11.8 Pinboard JSON Importer/Exporter (`identifier: "pinboard-json"`)
+
+Pinboard's export (`Settings → Backups → JSON`, backed by `GET /v1/posts/all?format=json`) is a
+flat top-level array using Pinboard's Delicious-legacy field names.
+
+| Pinboard field | Stash field | Notes |
+|---|---|------|
+| `href` | `url` | Required; skip if missing or invalid |
+| `description` | `title` | Pinboard's field for the page title, not a description |
+| `extended` | `description` | Pinboard's actual description field |
+| `tags` | `tags` | A single space-separated string (Pinboard tags may not contain whitespace) |
+| `time` | `createdAt` | ISO-8601 |
+| `shared`, `toread` | — | Read and discarded: Stash has no public-sharing or read-later/unread concept (§22, Out of Scope) |
+
+Duplicate URL: update in place. `createdAt` preserved.
+
+The exporter (all bookmarks including archived) writes Pinboard's field names so the file is
+importable by Pinboard itself and by the many tools that already speak this shape. `shared`/`toread`
+are always written as `"no"`. `isArchived` and Smart Views are dropped, same as the Anybox exporter.
+Known lossy edge case: a Stash tag containing a literal space (rare, but not disallowed) would not
+survive a round-trip, since Pinboard's `tags` field is space-separated.
+
+```json
+[
+  {
+    "href": "https://example.com",
+    "description": "Example",
+    "extended": "A description",
+    "tags": "topic/swift ios",
+    "time": "2026-01-01T00:00:00Z",
+    "shared": "no",
+    "toread": "no"
+  }
+]
+```
+
+`Content-Disposition: attachment; filename="stash-export-YYYY-MM-DD.json"`.
+

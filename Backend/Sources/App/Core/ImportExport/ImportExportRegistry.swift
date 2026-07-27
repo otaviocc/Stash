@@ -49,8 +49,14 @@ final class ImportExportRegistry: @unchecked Sendable {
     private init() {
         register(importer: AnyboxImporter())
         register(importer: StashJSONImporter())
+        register(importer: NetscapeHTMLImporter())
+        register(importer: RaindropCSVImporter())
+        register(importer: PinboardJSONImporter())
         register(exporter: StashJSONExporter())
         register(exporter: AnyboxExporter())
+        register(exporter: NetscapeHTMLExporter())
+        register(exporter: RaindropCSVExporter())
+        register(exporter: PinboardJSONExporter())
     }
 
     // MARK: Functions

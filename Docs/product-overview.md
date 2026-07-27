@@ -34,8 +34,11 @@ What I wanted out of it:
 - Let users enable, disable, and manage their own 2FA
 - Let users change their own password
 - Block duplicate URLs per user at save time
-- Import bookmarks from Anybox JSON export and Stash JSON
-- Export bookmarks in Stash native JSON format or Anybox JSON format
+- Import bookmarks from Anybox JSON, Stash JSON, Netscape Bookmark File (HTML —
+  every browser, plus Raindrop.io's and Pinboard's HTML exports), Raindrop.io
+  CSV, or Pinboard JSON
+- Export bookmarks in Stash native JSON, Anybox JSON, Netscape Bookmark File
+  (HTML), Raindrop.io CSV, or Pinboard JSON format
 - Export and import Smart Views as part of the Stash native JSON format
 - Dark mode support (Light / Dark / Auto)
 - Keep all data on infrastructure I control

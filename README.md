@@ -13,7 +13,8 @@ A self-hosted bookmark manager with native iOS, macOS, web, and browser-extensio
 - Save bookmarks from iOS, macOS, Safari Share Extension, CLI, the web UI, or a
   Firefox/Chrome browser extension
 - Hierarchical tags, full-text search, bulk tag rename and delete
-- Import from Anybox JSON; export to Stash JSON
+- Import/export Anybox JSON, Stash JSON, Netscape Bookmark File (HTML — every
+  browser, plus Raindrop.io/Pinboard), Raindrop.io CSV, and Pinboard JSON
 - Multi-user with per-user 2FA (TOTP) and recovery codes
 - Admin dashboard for user management
 - Dark mode (Light / Dark / Auto)

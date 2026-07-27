@@ -573,3 +573,70 @@ correspond to one tag. Only wired into the initial GET (`newBookmarkForm`);
 `createBookmark`'s conflict/preview re-render already carries forward
 whatever the user submitted in the `tags` field, so the pre-filled value
 round-trips for free once it's a real form value.
+
+---
+
+## Import: Netscape HTML, Raindrop CSV, and Pinboard JSON
+
+Added three more import/export pairs ahead of open-sourcing, aimed at the
+"migrating in from somewhere else" onboarding gap: a generic Netscape Bookmark
+File (`<!DOCTYPE NETSCAPE-Bookmark-file-1>`) importer/exporter covering every
+browser's own bookmark export plus Raindrop's and Pinboard's "HTML" options, a
+Raindrop.io CSV importer/exporter, and a Pinboard JSON importer/exporter. All
+three are import *and* export, unlike the original plan of import-only, since
+a symmetric pair costs little extra once the registry pattern exists and gives
+every format a round-trip test — which is exactly the kind of test that
+already caught one real regression here (the Anybox exporter's positional
+default, above). Third-party registration proof again: six
+`register(...)` lines, no controller/route/template change beyond widening the
+import `<input type="file">`'s `accept` attribute to include `.html`/`.csv`
+alongside `.json`.
+
+I had no real export files from any of the three services on hand, so the
+field shapes below come from each vendor's own documentation plus independent
+verification (real sample files, community parsers/exporters), the same
+caution `decisions-web.md`'s Anybox entry above already learned the hard way
+("verify against a real export before finalizing"). Raindrop.io in particular
+has no JSON export in its UI at all (HTML/CSV/TXT only); its own docs give the
+CSV columns it both produces and accepts back as
+`folder,url,title,note,tags,created`, but a full-account export likely carries
+extra columns from Raindrop's richer API object model (`id`, `cover`,
+`highlights`, `favorite`, …) that I couldn't confirm the exact names of. Rather
+than assume a fixed column set, `RaindropCSVImporter` matches columns **by
+header name** (case-insensitively, with a couple of aliases:
+`url`/`link`/`href`, `note`/`excerpt`/`description`, `folder`/`collection`) and
+silently ignores anything it doesn't recognize, the same "tolerate shape
+variance" convention `AnyboxImporter` already established. Worth a sanity check
+against a real Raindrop export before this ships, since the documented shape
+may not be the full one.
+
+The Netscape exporter is deliberately **flat** — no folders — even though the
+format's whole reason for being is nested folders. Stash tags are hierarchical
+*and* multi-valued per bookmark, while a Netscape file's folders are a strict
+single-parent tree: there is no lossless way to file a bookmark carrying two
+unrelated tags into one folder without inventing an arbitrary "primary tag
+wins" rule. Instead every bookmark's full tag set is written into the
+non-standard but widely-supported `TAGS="a,b,c"` attribute (the same
+convention Pinboard/Delicious-style exporters use, confirmed against a real
+Delicious export), which `NetscapeHTMLImporter` reads back losslessly on a
+round-trip. The importer itself has to handle *real* nested folders on the way
+in, though (a browser export's whole point): it's a small hand-rolled token
+scanner over `<A>`/`<H3>`/`<DL>`/`</DL>`/`<DD>`, not a proper HTML/XML parser
+— real exports leave `<DT>`/`<p>` unclosed, so a strict parser would choke, and
+this backend already has a precedent for dependency-free, regex-based HTML
+handling (`MetadataFetcher`). No folder name is special-cased (browsers
+localize "Bookmarks Bar" as something different in every language), so a
+folder becomes a plain hierarchical tag that can be renamed or deleted
+afterward with the existing tag tools if unwanted.
+
+The Raindrop CSV exporter leaves the `folder` column empty for the same
+multi-tag-vs-single-folder reason, relying on `tags` (Raindrop's own
+comma-separated convention) to carry a Stash tag's full `/`-hierarchy as a
+literal string — Raindrop has no hierarchical-tag concept either way, so
+nothing is lost that Raindrop would otherwise have used. The Pinboard JSON
+exporter has one known, accepted lossy edge: Pinboard's `tags` field is a
+single **space**-separated string (Pinboard tags may not contain whitespace),
+so a Stash tag with a literal space in it — rare, since nothing forbids one —
+would not survive a round-trip through this format specifically. `shared`/
+`toread` have no Stash equivalent (no sharing, no read-later/unread state per
+§22) and are read-and-discarded on import, always `"no"` on export.

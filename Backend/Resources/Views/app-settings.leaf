@@ -112,7 +112,7 @@
                 </select>
             </label>
             <label>File
-                <input type="file" name="file" accept=".json" required>
+                <input type="file" name="file" accept=".json,.html,.htm,.csv" required>
             </label>
             <button type="submit">Import</button>
         </form>
