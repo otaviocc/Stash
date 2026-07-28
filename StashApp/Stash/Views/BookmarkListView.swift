@@ -128,6 +128,7 @@ private struct BookmarkListContent: View {
             case BookmarkListQuery.untaggedTag: return "Untagged"
             case BookmarkListQuery.todayTag: return "Today"
             case BookmarkListQuery.thisWeekTag: return "This Week"
+            case BookmarkListQuery.readLaterTag: return "Read Later"
             default: return tag
             }
         }
