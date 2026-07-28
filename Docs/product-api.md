@@ -171,11 +171,10 @@ alongside the web session.
 
 Unauthenticated so any client — the login screen, native apps before sign-in,
 the CLI — can tint before authenticating. Reads the same app-level cache as the
-web `siteChrome()` (§12), so it never hits the database. Native apps
-(`InstanceRepository` in StashKit/StashApp) persist the last-known value to the
-shared App Group defaults and apply it via `.tint(...)`, computing readable text
-for solid-accent backgrounds with the same luminance rule as the web frontend
-(§12, "Accent-aware button text contrast").
+web `siteChrome()` (§12), so it never hits the database. StashKit has a
+matching DTO and request factory, but no client consumes the endpoint yet: the
+native apps' first attempt at instance-accent theming was reverted (see
+`DECISIONS.md`), and the endpoint is kept for a future redesign.
 
 ---
 

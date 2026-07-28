@@ -292,13 +292,9 @@ building against the SDK; no explicit modifiers.
   picker), Account (change password, 2FA enroll / disable), Smart Views
   (create / edit / delete, the shared `SmartViewManagementView`), Appearance
   (Light / Dark / Auto, stored in `UserDefaults`, no theme cookie on native).
-  The **accent** colour is separate from this light/dark override: it follows
-  the instance's admin-configured theme (fetched from `GET /api/v1/instance`,
-  §9.9) rather than a native-only setting, applied via a custom
-  `\.instanceAccent` environment value everywhere `Color.accentColor` used to
-  be read directly — deliberately *not* a root-level `.tint(...)`, which would
-  also recolour unstyled system chrome like toolbar menus (see
-  `DECISIONS.md`).
+  Accent colour is the system default (`Color.accentColor`); the native apps
+  don't yet follow the instance's admin-configured accent theme, unlike the
+  web frontend (see `DECISIONS.md`).
   The Browser picker lists **System Default Browser** (the default) plus
   every installed app that declares `http`/`https` handling, discovered via
   `NSWorkspace.urlsForApplications(toOpen:)` (no hardcoded browser list, so

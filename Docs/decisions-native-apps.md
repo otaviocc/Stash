@@ -1106,6 +1106,10 @@ sharing one setting.
 
 ## Native apps follow the instance accent
 
+*Superseded:* reverted — see "Reverted native-app instance-accent theming,
+kept the backend endpoint" below. Entry kept for the reasoning that still
+applies to a future redesign.
+
 Every accent-tinted control in the native apps read the static asset-catalog
 `AccentColor` (`#0a84ff`, matching `ocean`) via `Color.accentColor`, so an
 admin who picked a different instance theme on the web (Sunny, Discord,
@@ -1230,6 +1234,10 @@ Picker itself never self-corrected.
 
 ## A second accent variant for text/icons on the app's own surface
 
+*Superseded:* reverted along with the rest of the native-app theming — see
+"Reverted native-app instance-accent theming, kept the backend endpoint"
+below.
+
 Several places used `instanceAccent` directly as a foreground/text/icon
 colour — the tag pills' label, the "Add Tags"/"Fetch"/"Create" buttons, and
 (via `formButtonRowStyle`) every macOS action button in
@@ -1275,3 +1283,30 @@ formatter/linter can catch this class of bug — it's a live, mode-dependent
 contrast check against admin-configurable colour, so this was found and
 tuned entirely by visual inspection of a real dark-hex theme in both colour
 schemes, not by a rule.
+
+---
+
+## Reverted native-app instance-accent theming, kept the backend endpoint
+
+Superseding both "Native apps follow the instance accent" and "A second
+accent variant for text/icons on the app's own surface" above: on review, the
+resulting look — tag pills, badges, and buttons all recoloured per-instance —
+didn't hold up as a design, independent of any of the individual contrast
+fixes. Rather than keep iterating on top of an approach that wasn't working,
+reverted every native-app-side piece: `InstanceAccent`, `AccentContrast`,
+`Color+Hex`, the `\.instanceAccent`/`\.instanceAccentTextColor`/
+`\.instanceAccentForeground` environment values, `InstanceRepository`, the
+`AppSettings.accent`/`AppGroup` persistence keys, and every call site that had
+switched off `Color.accentColor` (`TagPill`, `TagCountBadge`,
+`TagSuggestionView`, `TagSummarySection`, `TagPickerSheet`, `AddBookmarkView`,
+`BookmarkTagDropModifier`, `formButtonRowStyle`, the bookmark URL link, the
+2FA setup-key button). The asset-catalog `AccentColor` goes back to the
+original Ocean blue (`#0a84ff`/`#409cff`); native apps once again use the
+system-resolved `Color.accentColor` everywhere, with no per-instance tint.
+
+The backend side is deliberately untouched: `GET /api/v1/instance` (see
+`decisions-backend.md`), its `Docs/api.md`/`product-api.md` §9.9 entry, and
+StashKit's `InstanceDTO`/`InstanceRequestFactory` all stay. Nothing consumes
+them right now, but the endpoint costs nothing to keep serving (same
+app-level `SiteSettingsCache` the web chrome already reads) and a future
+native-app redesign can fetch it again without reopening the backend work.

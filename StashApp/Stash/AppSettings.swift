@@ -80,19 +80,6 @@ final class AppSettings {
         }
     }
 
-    /// The instance's accent theme, fetched from `GET /api/v1/instance` by `InstanceRepository` and
-    /// applied at the app root via `\.instanceAccent`/`\.instanceAccentTextColor` — deliberately not
-    /// `.tint(...)`, which would also recolour unstyled system chrome (toolbars, menus, standard
-    /// buttons) that should stay neutral. Starts from whatever was last persisted
-    /// (or `.default`, a neutral gray, on first launch) so the UI never flashes a branded colour that
-    /// might clash with the instance's actual theme while the fetch is in flight, and is written
-    /// straight back to the shared defaults on every update.
-    var accent: InstanceAccent {
-        didSet {
-            accent.saveShared(to: defaults)
-        }
-    }
-
     @ObservationIgnored private let defaults: UserDefaults
 
     // MARK: Computed Properties
@@ -118,7 +105,5 @@ final class AppSettings {
         readerMode = defaults.bool(forKey: AppGroup.readerModeKey)
 
         macBrowserBundleID = defaults.string(forKey: AppGroup.macBrowserKey)
-
-        accent = InstanceAccent.loadShared(from: defaults)
     }
 }

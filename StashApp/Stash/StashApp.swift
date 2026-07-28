@@ -42,9 +42,6 @@ struct StashApp: App {
                 MacSettingsView()
                     .environment(appSettings)
                     .environment(appEnvironment)
-                    .environment(\.instanceAccent, appSettings.accent.color)
-                    .environment(\.instanceAccentTextColor, appSettings.accent.textColor)
-                    .environment(\.instanceAccentForeground, appSettings.accent.foregroundColor)
             }
         #else
             WindowGroup {

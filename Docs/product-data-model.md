@@ -155,7 +155,9 @@ accent.
 The selected theme's values are injected into `layout.leaf`'s `<head>` as a CSS
 block overriding `--accent`, from the app-level cache (no per-request query).
 The resolved light/dark hex is also exposed to non-web clients via `GET
-/api/v1/instance` (§9.9), so native apps tint to the same instance accent.
+/api/v1/instance` (§9.9). No client consumes it yet — the native apps tried
+and reverted it (see `DECISIONS.md`) — but the endpoint stays for a future
+redesign.
 
 ### 7.7 Smart View
 

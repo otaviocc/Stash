@@ -11,11 +11,6 @@ import SwiftUI
 /// drops the background to a quiet, text-only treatment for the content-first list row.
 struct TagPill: View {
 
-    // MARK: SwiftUI Properties
-
-    @Environment(\.instanceAccent) private var instanceAccent
-    @Environment(\.instanceAccentForeground) private var instanceAccentForeground
-
     // MARK: Properties
 
     let name: String
@@ -41,8 +36,8 @@ struct TagPill: View {
                 .font(.caption2)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(instanceAccent.opacity(0.15), in: .capsule)
-                .foregroundStyle(instanceAccentForeground)
+                .background(Color.accentColor.opacity(0.15), in: .capsule)
+                .foregroundStyle(Color.accentColor)
         }
     }
 }

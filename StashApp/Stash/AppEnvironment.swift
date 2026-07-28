@@ -23,7 +23,6 @@ final class AppEnvironment {
     let authRepository: AuthRepository
     let tagRepository: TagRepository
     let smartViewRepository: SmartViewRepository
-    let instanceRepository: InstanceRepository
     let connectivityMonitor: ConnectivityMonitor
     let syncEngine: SyncEngine
     let notificationCenter: NotificationCenter
@@ -84,8 +83,6 @@ final class AppEnvironment {
 
         let smartViewRepository = SmartViewRepository(session: authRepository)
         self.smartViewRepository = smartViewRepository
-
-        instanceRepository = InstanceRepository(clientProvider: clientProvider)
 
         let syncEngine = SyncEngine(
             clientProvider: clientProvider,
