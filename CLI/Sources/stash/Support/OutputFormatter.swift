@@ -71,6 +71,7 @@ enum OutputFormatter {
 
         lines.append("Tags:        \(bookmark.tags.isEmpty ? "—" : bookmark.tags.joined(separator: ", "))")
         lines.append("Archived:    \(bookmark.isArchived ? "yes" : "no")")
+        lines.append("Read later:  \(bookmark.isReadLater ? "yes" : "no")")
         lines.append("Created:     \(ISO8601DateFormatter().string(from: bookmark.createdAt))")
 
         return lines.joined(separator: "\n")

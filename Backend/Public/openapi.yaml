@@ -350,10 +350,10 @@ paths:
           required: false
           description: |
             Hierarchical prefix filter. `swift` matches `swift` and `swift/*`
-            but not `swiftui`. Three sentinel values select the sidebar "Views":
+            but not `swiftui`. Four sentinel values select the sidebar "Views":
             `__untagged__` (bookmarks with no tags), `__today__` (created since
             the start of today), `__this_week__` (created since the most recent
-            Monday).
+            Monday), `__read_later__` (bookmarks with `isReadLater` set).
           schema:
             type: string
           example: swift/vapor
@@ -1377,7 +1377,7 @@ components:
     # ---- Bookmarks ----
     Bookmark:
       type: object
-      required: [id, url, title, tags, isArchived, waybackStatus, createdAt, updatedAt]
+      required: [id, url, title, tags, isArchived, isReadLater, waybackStatus, createdAt, updatedAt]
       properties:
         id:
           type: string
@@ -1402,6 +1402,10 @@ components:
           description: Flat or hierarchical (e.g. `swift/vapor`).
         isArchived:
           type: boolean
+        isReadLater:
+          type: boolean
+          description: >-
+            Marked to read later. Independent of `isArchived` — neither flag clears the other.
         waybackStatus:
           type: string
           enum: [none, pending, archived, failed]
@@ -1431,6 +1435,7 @@ components:
         faviconURL: http://localhost:8080/api/v1/favicons/vapor.codes
         tags: ["swift", "swift/vapor"]
         isArchived: false
+        isReadLater: false
         waybackStatus: archived
         waybackURL: https://web.archive.org/web/20260601093000/https://vapor.codes
         waybackArchivedAt: "2026-06-01T09:30:05Z"
@@ -1455,6 +1460,9 @@ components:
         isArchived:
           type: boolean
           default: false
+        isReadLater:
+          type: boolean
+          default: false
         fetchMetadata:
           type: boolean
           default: true
@@ -1476,6 +1484,8 @@ components:
           items:
             type: string
         isArchived:
+          type: boolean
+        isReadLater:
           type: boolean
 
     BookmarkPage:
@@ -1583,6 +1593,7 @@ components:
         - `isArchived` — `"true"` or `"false"`
         - `hasTags` — `"true"` (has any tags) or `"false"` (untagged)
         - `isWaybackArchived` — `"true"` (has a captured Internet Archive snapshot) or `"false"` (does not)
+        - `isReadLater` — `"true"` or `"false"`
       properties:
         type:
           type: string
@@ -1598,6 +1609,7 @@ components:
             - isArchived
             - hasTags
             - isWaybackArchived
+            - isReadLater
         value:
           type: string
       example:

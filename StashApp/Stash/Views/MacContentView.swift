@@ -73,6 +73,8 @@
                     .tag(MacSidebarItem.today)
                 Label("This Week", systemImage: "calendar")
                     .tag(MacSidebarItem.thisWeek)
+                Label("To Read", systemImage: "book")
+                    .tag(MacSidebarItem.readLater)
             }
         }
 
@@ -117,6 +119,7 @@
         case untagged
         case today
         case thisWeek
+        case readLater
         case tag(String)
         case smartView(SmartView)
 
@@ -130,6 +133,7 @@
             case .untagged: BookmarkListQuery.untaggedTag
             case .today: BookmarkListQuery.todayTag
             case .thisWeek: BookmarkListQuery.thisWeekTag
+            case .readLater: BookmarkListQuery.readLaterTag
             case let .tag(name): name
             case .smartView: nil
             }

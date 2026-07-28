@@ -33,6 +33,7 @@ final class LocalBookmark {
     var bookmarkDescription: String?
     var tags: [String]
     var isArchived: Bool
+    var isReadLater: Bool
     var faviconDomain: String?
     var serverCreatedAt: Date
     var serverUpdatedAt: Date
@@ -70,6 +71,7 @@ final class LocalBookmark {
         bookmarkDescription = dto.description
         tags = dto.tags
         isArchived = dto.isArchived
+        isReadLater = dto.isReadLater
         faviconDomain = Bookmark.faviconDomain(for: dto.url)
         serverCreatedAt = dto.createdAt
         serverUpdatedAt = dto.updatedAt
@@ -93,6 +95,7 @@ final class LocalBookmark {
         bookmarkDescription = input.description
         tags = input.tags
         isArchived = false
+        isReadLater = input.isReadLater
         faviconDomain = Bookmark.faviconDomain(for: input.url)
         serverCreatedAt = now
         serverUpdatedAt = now
@@ -114,6 +117,7 @@ final class LocalBookmark {
             bookmarkDescription = bookmark.description
             tags = bookmark.tags
             isArchived = bookmark.isArchived
+            isReadLater = bookmark.isReadLater
             faviconDomain = Bookmark.faviconDomain(for: bookmark.url)
             serverCreatedAt = bookmark.createdAt
             serverUpdatedAt = bookmark.updatedAt
@@ -135,6 +139,7 @@ final class LocalBookmark {
         bookmarkDescription = dto.description
         tags = dto.tags
         isArchived = dto.isArchived
+        isReadLater = dto.isReadLater
         faviconDomain = Bookmark.faviconDomain(for: dto.url)
         serverCreatedAt = dto.createdAt
         serverUpdatedAt = dto.updatedAt
@@ -163,6 +168,7 @@ extension Bookmark {
         faviconURL = nil
         tags = local.tags
         isArchived = local.isArchived
+        isReadLater = local.isReadLater
         createdAt = local.serverCreatedAt
         updatedAt = local.serverUpdatedAt
         waybackURL = local.waybackURL.flatMap { URL(string: $0) }

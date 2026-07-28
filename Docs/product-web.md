@@ -228,20 +228,25 @@ a dead end for them).
 - Actions are grouped rather than shown as one flat row of buttons, mirroring
   the native apps' sectioned list (§14): a top row with only the two most
   common actions (Open URL, Edit), an "Actions" card below listing the rest
-  (Refresh favicon, View/Save to Wayback Machine, Archive/Unarchive) as
-  stacked full-width rows — each conditionally shown per the same rules as
-  before (favicon present, Internet Archive enabled, etc.) — and a separate
-  "Danger zone" card (reusing the `.danger-zone` styling from Settings/admin
-  User Detail) containing only Delete, so the destructive action is visually
-  set apart rather than sitting in the same row as everything else.
+  (Refresh favicon, View/Save to Wayback Machine, Archive/Unarchive, Mark to
+  Read Later/Mark as Read) as stacked full-width rows — each conditionally
+  shown per the same rules as before (favicon present, Internet Archive
+  enabled, etc.) — and a separate "Danger zone" card (reusing the
+  `.danger-zone` styling from Settings/admin User Detail) containing only
+  Delete, so the destructive action is visually set apart rather than sitting
+  in the same row as everything else. The read-later toggle (`POST
+  /app/bookmarks/:id/read-later` / `.../mark-read`) is independent of
+  Archive/Unarchive — toggling one never changes the other — and the button
+  label flips the same way (`Mark to Read Later` ↔ `Mark as Read`).
 - **Return context**: the list page (tag-filtered or Smart View, including
   its search/page/archived state) is carried into the detail page as a
   `?returnTo=` query param, built server-side from the same URL builders used
   for pagination (`BookmarkPresenter.listURL`, `SmartViewPresenter
   .smartViewListURL`) and percent-encoded via `TagPresenter.queryValue`. The
   "← Back to bookmarks" link, the Edit link/form, every detail-page action
-  (Refresh favicon, Wayback, Archive/Unarchive), and Delete's redirect all
-  read and re-propagate this param, so it survives across actions taken on
+  (Refresh favicon, Wayback, Archive/Unarchive, read-later toggle), and
+  Delete's redirect all read and re-propagate this param, so it survives
+  across actions taken on
   the detail page and the user always lands back on the list they came from
   — not an unfiltered `/app`. Also covers the "Add bookmark" page's duplicate-URL
   conflict link ("View the existing bookmark →"), the one entry point into the
@@ -267,7 +272,7 @@ a dead end for them).
   tag into the new bookmark's tags field (derived from the resolved return
   URL's `tag` query item, normalized via `Bookmark.normalizeTagQuery`).
   Nothing is pre-filled from a Smart View (no single tag) or a sentinel filter
-  (Untagged/Today/This Week — not real tags).
+  (Untagged/Today/This Week/To Read — not real tags).
 
 ### Favicons
 
@@ -304,14 +309,17 @@ a dead end for them).
 - Right column, plain flex; scrolls with the page as one unit (no fixed/sticky
   positioning)
 - Two labeled sections: a **Views** heading over the smart filters (All,
-  Untagged, Today, This Week), then a **Tags** heading over the hierarchical tag
-  tree. The top heading also lines the sidebar up with the search field.
+  Untagged, Today, This Week, To Read), then a **Tags** heading over the
+  hierarchical tag tree. The top heading also lines the sidebar up with the
+  search field.
 - "All" link at top (highlighted when no filter active)
 - "Untagged" link (highlighted when `?tag=__untagged__`; count shown when > 0)
 - "Today" link (highlighted when `?tag=__today__`; bookmarks created since the
   start of the current day; count shown when > 0)
 - "This Week" link (highlighted when `?tag=__this_week__`; bookmarks created
   since the most recent Monday; count shown when > 0)
+- "To Read" link (highlighted when `?tag=__read_later__`; bookmarks with
+  `isReadLater` set; count shown when > 0)
 - Full hierarchical tag tree, alphabetical at every level
 - Parent tags with children shown via indentation; synthetic parents (no count)
   included so children always nest
@@ -337,6 +345,11 @@ a dead end for them).
   user's existing tags embedded as JSON in `data-known-tags` attribute by
   per-segment prefix (a fragment matches any `/`-delimited segment that starts
   with it, so `music` finds `kind/music-gear`)
+- Both the add and edit forms carry a "Read later" checkbox (`isReadLater`),
+  false by default on add. Unlike `isArchived` (never exposed on these forms —
+  archiving is detail-page-only), read-later is settable at creation time
+  since users commonly know at save time whether something is for later
+  reading.
 
 ### Tag Browser (`/app/tags`)
 
@@ -363,7 +376,8 @@ a dead end for them).
 - Management is a top-level nav item (`Smart Views`, between Tags and Settings): a
   table of all Smart Views with their condition summaries and Edit / Delete actions. The create/edit form is
   a dynamic condition builder (type `<select>` + value input per row, Add / Remove
-  rows, native date picker for date conditions, Yes/No select for `isArchived`),
+  rows, native date picker for date conditions, Yes/No select for boolean conditions
+  like `isArchived`/`hasTags`/`isWaybackArchived`/`isReadLater`),
   using the same minimal vanilla JS as the tag autocomplete. A `tag` condition's
   value field reuses the bookmark forms' tag autocomplete (suggesting the user's
   existing tags), so tags don't have to be guessed. PRG with `?ok=saved` /

@@ -64,4 +64,23 @@ struct BookmarkListQueryTests {
             "It should pass __untagged__ through as the tag query value"
         )
     }
+
+    @Test("sends the __read_later__ sentinel as the tag value for the read-later filter")
+    func readLaterSentinel() {
+        // Given
+        let query = BookmarkListQuery(tag: BookmarkListQuery.readLaterTag)
+
+        // When
+        let items = query.queryItems
+
+        // Then
+        #expect(
+            BookmarkListQuery.readLaterTag == "__read_later__",
+            "It should expose the documented read-later sentinel"
+        )
+        #expect(
+            items.contains(URLQueryItem(name: "tag", value: "__read_later__")),
+            "It should pass __read_later__ through as the tag query value"
+        )
+    }
 }

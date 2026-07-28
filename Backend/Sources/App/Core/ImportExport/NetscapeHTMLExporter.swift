@@ -15,8 +15,8 @@ import Foundation
 /// `TAGS="a,b,c"` attribute (the same convention Pinboard/Delicious use), which `NetscapeHTMLImporter`
 /// reads back losslessly on a round-trip.
 ///
-/// `isArchived` and Smart Views have no equivalent in this format and are dropped, same as
-/// `AnyboxExporter`.
+/// `isArchived`/`isReadLater` and Smart Views have no equivalent in this format and are dropped,
+/// same as `AnyboxExporter`.
 struct NetscapeHTMLExporter: BookmarkExporter {
 
     // MARK: Static Properties

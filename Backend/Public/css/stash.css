@@ -476,6 +476,11 @@ form.inline {
     text-decoration: none;
 }
 
+.read-later-badge {
+    font-size: 0.85rem;
+    margin-right: 0.35rem;
+}
+
 .favicon {
     width: 16px;
     height: 16px;

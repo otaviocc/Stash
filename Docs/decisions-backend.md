@@ -1350,3 +1350,60 @@ were deleted along with the switch to the helper. Added a genuinely-empty-body
 regression test alongside each of the three existing toggle tests, since the
 existing ones (with their dummy field) would keep passing even if this
 regressed.
+
+---
+
+## Feature: "Read Later" flag (`isReadLater`)
+
+A second boolean flag on `Bookmark`, `isReadLater`, alongside `isArchived`:
+"save this for later" is a different intent from "I'm done with this and
+filing it away," and users kept wanting both at once (an archived RFC you
+still haven't gotten around to reading). The two flags are deliberately
+**independent** — setting one never clears the other, unlike some read-later
+services that fold "read" into "archived." Same shape as `isArchived`
+end-to-end: a plain migration adding `is_read_later BOOLEAN NOT NULL DEFAULT
+false`, a model field, and optional fields on the create/update DTOs.
+
+Unlike `isArchived` — which the web frontend only ever sets after creation,
+via a dedicated detail-page action — `isReadLater` gets an add-time toggle on
+every client's add form (a checkbox on the web form, a `Toggle` in the native
+`AddBookmarkView`, `--read-later` on `stash add`, a checkbox in the browser
+extension popup), since a user typically already knows at save time whether
+something is for later reading. The detail-page toggle action still exists
+too (`POST /bookmarks/:id/read-later` / `.../mark-read` on the web,
+`repository.setReadLater(...)` on the native apps, `stash read-later`/`stash
+mark-read` on the CLI), for the common case of marking something read after
+the fact.
+
+Added as a Smart View condition (`case isReadLater(Bool)`) for parity with
+`isArchived`/`hasTags`/`isWaybackArchived` — same `validated`/`apply` arms,
+same Yes/No value editor everywhere. Unlike `isArchived`, it does **not**
+get an implicit default filter (`applyConditions`'s `overridesArchived`
+check has no read-later equivalent): every other Smart View condition is
+already an explicit opt-in, and there's no product reason to hide
+read-later bookmarks by default the way archived ones are hidden.
+
+For the quick-access sidebar entry ("To Read", appearing after Untagged /
+Today / This Week), I reused the existing sentinel-tag mechanism
+(`Bookmark.readLaterSentinel = "__read_later__"`, handled in
+`QueryBuilder+Search.filterByTag`) rather than inventing a new boolean query
+parameter the way `archived` works. This keeps the "Views" section entirely
+riding the same `?tag=` query slot across every client with almost no new
+surface area (no new `BookmarkListQuery` field, no new StashKit request
+field) — the trade-off is that, in the plain list endpoint, `__read_later__`
+can't be combined with a real tag filter in the same request the way
+`archived` can. Power users who want "tag X AND read later" reach for a
+Smart View instead, which already supports arbitrary condition combinations.
+
+One free win discovered while updating the import/export formats for the
+new field: Pinboard's own JSON format has a `toread` field that is exactly
+this concept. **Supersedes** the "Import: Netscape HTML, Raindrop CSV, and
+Pinboard JSON" entry above, which said `shared`/`toread` were "read and
+discarded: Stash has no public-sharing or read-later/unread concept" —
+`toread` now round-trips losslessly to/from `isReadLater` in both the
+Pinboard importer and exporter; only `shared` (no Stash equivalent) is still
+dropped. Every other format (Anybox, Netscape HTML, Raindrop CSV, and the
+lossless Stash JSON round-trip / instance backup) got the new field added
+alongside `isArchived` in whatever way that format already handled it —
+included and round-tripped for Stash JSON and the instance backup, dropped
+(with an updated doc comment) for the formats with no equivalent concept.

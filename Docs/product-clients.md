@@ -12,11 +12,13 @@ Swift CLI, `ArgumentParser` + `MicroClient` (direct, for 2FA login branch),
 ```
 stash login / logout
 
-stash add <url> [--title] [--description] [--tag] [--no-fetch] [--json]
-stash list [--tag] [--search] [--archived] [--page] [--json]
+stash add <url> [--title] [--description] [--tag] [--no-fetch] [--read-later] [--json]
+stash list [--tag] [--search] [--archived] [--read-later] [--page] [--json]
 stash get <id> [--json]
 stash delete <id>
 stash archive <id>
+stash read-later <id>
+stash mark-read <id>
 stash tags [--json]
 stash tags rename --from <tag> --to <tag>
 stash tags delete <tag>
@@ -44,6 +46,12 @@ limitation already noted for bookmarks.
 the saved query server-side and prints the matching bookmarks in the same table / `--json` shape as
 `stash list`. Creating and editing Smart Views is done in the web frontend (or round-tripped via
 import/export); a richer condition-builder CLI is a possible later step.
+
+**Read later** gets full symmetric support, unlike `archive` (add-only toggle, no `unarchive`):
+`stash add --read-later` marks a new bookmark at save time; `stash read-later <id>` /
+`stash mark-read <id>` set and clear the flag on an existing one; `stash list --read-later` filters
+to the "To Read" view (mutually exclusive with `--tag`, since it rides the same `__read_later__`
+sentinel the web/native "To Read" view uses).
 
 ---
 
@@ -144,7 +152,7 @@ Extension reuse (deviation from original memory-only access token spec).
 ### Navigation
 
 - **iPad:** `NavigationSplitView`, a sidebar with a **Views** section (All,
-  Untagged, Today, This Week), an optional **Smart Views** section (one entry per
+  Untagged, Today, This Week, To Read), an optional **Smart Views** section (one entry per
   Smart View, shown only when the user has any), and an **always-expanded, indented
   hierarchical tag tree** (a flattened `ForEach`, mirroring the web sidebar), all
   driving the filtered `BookmarkListView` in the detail column. **Drag a bookmark row onto a tag** in the
@@ -260,7 +268,7 @@ os(macOS)`. Adopts the macOS 26 design language (Liquid Glass) automatically by
 building against the SDK; no explicit modifiers.
 
 - **Navigation:** `NavigationSplitView` with a sidebar that has a **Views**
-  section (All Bookmarks, Untagged, Today, This Week), an optional **Smart Views**
+  section (All Bookmarks, Untagged, Today, This Week, To Read), an optional **Smart Views**
   section (one entry per Smart View, shown only when the user has any), and a
   **always-expanded, indented hierarchical tag tree** (a flattened `ForEach`,
   mirroring the web sidebar) driving the shared `BookmarkListView` in the detail column; selecting a
@@ -272,17 +280,23 @@ building against the SDK; no explicit modifiers.
   (`windowResizability(.contentMinSize)`).
 - **Bookmarks:** shared list and rows; right-click context menu (Open in
   Browser, Copy URL, Copy Markdown URL, Share…, View on Wayback Machine,
-  Archive/Unarchive, Delete); add and edit via shared sheets; delete with
-  confirmation. The detail view's actions section carries the same Copy and
-  Share… actions (Share… is a native `ShareLink` sharing the bookmark URL,
-  placed after Copy and before Archive). **View on Wayback Machine** (shared
-  with iPad/iPhone) appears in both the detail view and the row context menu,
-  after Share… and before Archive, only when the bookmark has a captured
-  Internet Archive snapshot (`waybackURL` non-nil, synced down from the
-  backend's Wayback submission queue — §7.2); opens the real snapshot URL via
-  the same `openURL` action as "Open in Browser". Read-only: the native apps
-  don't yet expose the instance/user auto-submit toggles or a manual "submit
-  now" action (web-only for now, §13).
+  Archive/Unarchive, Mark to Read Later/Mark as Read, Delete); add and edit via
+  shared sheets; delete with confirmation. The detail view's actions section
+  carries the same Copy and Share… actions (Share… is a native `ShareLink`
+  sharing the bookmark URL, placed after Copy and before Archive). **View on
+  Wayback Machine** (shared with iPad/iPhone) appears in both the detail view
+  and the row context menu, after Share… and before Archive, only when the
+  bookmark has a captured Internet Archive snapshot (`waybackURL` non-nil,
+  synced down from the backend's Wayback submission queue — §7.2); opens the
+  real snapshot URL via the same `openURL` action as "Open in Browser".
+  Read-only: the native apps don't yet expose the instance/user auto-submit
+  toggles or a manual "submit now" action (web-only for now, §13). **Read
+  later** (`isReadLater`) is a separate boolean from `isArchived` — the
+  detail view and row context menu both carry a "Mark to Read Later"/"Mark as
+  Read" toggle button (same `Button`+flipping `Label` idiom as
+  Archive/Unarchive), a small bookmark-glyph badge marks read-later rows in
+  the list, and the add sheet carries a "Read Later" toggle (unlike
+  `isArchived`, which has no add-time toggle — archiving is detail-view-only).
   Tags render as `TagPill`s showing `swift › server` (middot `›`, U+2023),
   mirroring the web; the stored tag keeps the raw slash slug. Tag editing on the
   add/edit sheets uses the shared `TagPickerSheet` (read-only `TagPill` summary +
@@ -365,8 +379,10 @@ Clicking the toolbar button opens a popup with the full add-bookmark form,
 pre-filled with the active tab's URL (read-only) and title. A "Fetch metadata"
 button pulls the server-side title/description (`POST /api/v1/metadata`, filling
 only empty fields); tag input offers autocomplete chips from `GET /api/v1/tags`
-using the web UI's per-segment prefix rule; "Save" creates the bookmark
-(`fetchMetadata: false`). A duplicate URL surfaces inline as "Already saved" with
+using the web UI's per-segment prefix rule; a "Read later" checkbox (unchecked by
+default) sets `isReadLater`; "Save" creates the bookmark (`fetchMetadata: false`).
+The extension is add-only (no edit UI), so there is no way to toggle read-later
+or archived state on an already-saved bookmark from here. A duplicate URL surfaces inline as "Already saved" with
 a link to the existing bookmark; a save confirmation offers a View bookmark link
 and auto-closes. No undo (the popup lifecycle is too short), and no "save
 another", the extension saves the page you are on, so there is nothing more to

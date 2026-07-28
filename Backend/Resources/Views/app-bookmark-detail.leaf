@@ -21,6 +21,7 @@
         <p class="muted" style="margin-top:0.75rem;">
             Saved #(bookmark.createdAt)
             #if(bookmark.isArchived): · <strong>Archived</strong>#endif
+            #if(bookmark.isReadLater): · <strong>To Read</strong>#endif
         </p>
     </div>
 
@@ -54,6 +55,15 @@
             #else:
             <form method="post" action="/app/bookmarks/#(bookmark.id)/archive?returnTo=#(returnToParam)">
                 <button type="submit" class="action-row">Archive</button>
+            </form>
+            #endif
+            #if(bookmark.isReadLater):
+            <form method="post" action="/app/bookmarks/#(bookmark.id)/mark-read?returnTo=#(returnToParam)">
+                <button type="submit" class="action-row">Mark as Read</button>
+            </form>
+            #else:
+            <form method="post" action="/app/bookmarks/#(bookmark.id)/read-later?returnTo=#(returnToParam)">
+                <button type="submit" class="action-row">Mark to Read Later</button>
             </form>
             #endif
         </div>

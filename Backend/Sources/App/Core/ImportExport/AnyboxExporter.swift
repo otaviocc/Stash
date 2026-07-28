@@ -8,7 +8,8 @@ import Foundation
 /// top-level array of bookmark objects, sorted by `createdAt` ascending.
 ///
 /// This is the inverse of `AnyboxImporter`, and is intentionally lossy: Anybox has no concept of
-/// archived bookmarks or Smart Views, so `isArchived` is dropped and Smart Views are omitted.
+/// archived bookmarks or Smart Views, so `isArchived`/`isReadLater` are dropped and Smart Views are
+/// omitted.
 ///
 /// Field mapping:
 /// - `url`, `title`, `description` (omitted when empty)

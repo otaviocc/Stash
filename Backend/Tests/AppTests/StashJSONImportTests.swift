@@ -15,7 +15,7 @@ struct StashJSONImportTests {
 
     // MARK: - Bookmarks
 
-    @Test("importing bookmarks stores url, title, description, tags, and archived flag")
+    @Test("importing bookmarks stores url, title, description, tags, archived, and read-later flags")
     func importsBookmarkFields() async throws {
         try await withTestApp { app in
             // Given
@@ -30,6 +30,7 @@ struct StashJSONImportTests {
                   "description": "Desc",
                   "tags": ["swift", "ios"],
                   "isArchived": true,
+                  "isReadLater": true,
                   "createdAt": "2020-06-15T12:00:00Z"
                 }
               ]
@@ -47,6 +48,7 @@ struct StashJSONImportTests {
             #expect(bookmark.$description.value == "Desc", "It should import the description")
             #expect(bookmark.tags == ["swift", "ios"], "It should import the tags")
             #expect(bookmark.isArchived, "It should import the archived flag")
+            #expect(bookmark.isReadLater, "It should import the read-later flag")
             #expect(
                 bookmark.createdAt == ISO8601DateFormatter().date(from: "2020-06-15T12:00:00Z"),
                 "It should import createdAt"

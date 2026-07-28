@@ -6,8 +6,8 @@ import ArgumentParser
 /// The `stash` command-line interface root command.
 ///
 /// Bookmark and tag subcommands are also exposed as top-level aliases (`stash list`, `stash add`,
-/// `stash get`, `stash delete`, `stash archive`) for convenience, in addition to their grouped
-/// forms (`stash bookmarks list`, …).
+/// `stash get`, `stash delete`, `stash archive`, `stash read-later`, `stash mark-read`) for
+/// convenience, in addition to their grouped forms (`stash bookmarks list`, …).
 @main
 struct Stash: AsyncParsableCommand {
 
@@ -28,7 +28,9 @@ struct Stash: AsyncParsableCommand {
             BookmarksAdd.self,
             BookmarksGet.self,
             BookmarksDelete.self,
-            BookmarksArchive.self
+            BookmarksArchive.self,
+            BookmarksReadLater.self,
+            BookmarksMarkRead.self
         ]
     )
 }

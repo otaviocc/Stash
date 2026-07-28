@@ -15,6 +15,7 @@ struct AppSidebarData {
     let untaggedCount: Int
     let todayCount: Int
     let thisWeekCount: Int
+    let readLaterCount: Int
     let smartViews: [SidebarSmartView]
 }
 
@@ -41,9 +42,14 @@ enum AppSidebarLoader {
         var untaggedCount = 0
         var todayCount = 0
         var thisWeekCount = 0
+        var readLaterCount = 0
         for bookmark in bookmarks {
             if bookmark.tags.isEmpty {
                 untaggedCount += 1
+            }
+
+            if bookmark.isReadLater {
+                readLaterCount += 1
             }
 
             if let created = bookmark.createdAt {
@@ -71,6 +77,7 @@ enum AppSidebarLoader {
             untaggedCount: untaggedCount,
             todayCount: todayCount,
             thisWeekCount: thisWeekCount,
+            readLaterCount: readLaterCount,
             smartViews: smartViews
         )
     }

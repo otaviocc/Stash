@@ -43,6 +43,26 @@ struct DTOBackwardCompatibilityTests {
         #expect(bookmark.title == "Example", "It should still decode the rest of the bookmark")
     }
 
+    @Test("a bookmark without the isReadLater key decodes with it defaulting to false")
+    func bookmarkWithoutReadLaterKeyDecodes() throws {
+        let json = """
+        {
+            "id": "7C9E6679-7425-40DE-944B-E07FC1F90AE7",
+            "url": "https://example.com",
+            "title": "Example",
+            "tags": ["swift"],
+            "isArchived": false,
+            "createdAt": "2026-06-01T09:30:00Z",
+            "updatedAt": "2026-06-01T09:30:00Z"
+        }
+        """
+
+        let bookmark = try decoder.decode(BookmarkDTO.self, from: Data(json.utf8))
+
+        #expect(bookmark.isReadLater == false, "It should default a missing isReadLater to false")
+        #expect(bookmark.title == "Example", "It should still decode the rest of the bookmark")
+    }
+
     @Test("a user without the archiveNewBookmarks key decodes with the server-side default of true")
     func userWithoutArchivePreferenceDecodes() throws {
         let json = """

@@ -261,3 +261,34 @@ user who'd never enabled 2FA in the first place, which would have silently
 signed out every one of that user's sessions for no reason: both fixed
 before release, with new test coverage for the success path, the
 already-disabled no-op case, and the permission-denied case.
+
+---
+
+## "Read Later" on the CLI and browser extension
+
+StashKit already carried full plumbing for a new boolean field (the same
+shape as `isArchived`'s `Bool?` on both request bodies), so `isReadLater`
+only needed a `BookmarkListQuery.readLaterTag` sentinel constant added
+alongside `untaggedTag`/`todayTag`/`thisWeekTag`.
+
+**CLI:** got full symmetric support, deliberately going further than
+`archive` (which is add-only via a dedicated `stash archive` subcommand,
+with no `unarchive`): `stash add --read-later` marks a bookmark at creation,
+`stash read-later <id>` / `stash mark-read <id>` are a matched pair of
+subcommands (with top-level aliases, same convention as `archive`), and
+`stash list --read-later` filters to the "To Read" view by mapping onto the
+`__read_later__` tag sentinel — rejected as a usage error if combined with
+an explicit `--tag`, since both occupy the same underlying query slot. The
+asymmetry with `archive` is deliberate: this feature's ask was explicitly
+two-directional ("mark to read later" / "mark as read") from the start,
+where archiving has so far only ever needed the one direction from the CLI.
+The CLI's own hand-rolled Stash-JSON import/export mirror
+(`ImportParser`/`ExportDocument`, duplicated from the backend importer since
+the import endpoint is web-only) picked up the field the same way it
+already carries `isArchived`.
+
+**Browser extension:** a "Read later" checkbox in the popup's add-bookmark
+form (next to Tags, unchecked by default), read into the `POST
+/api/v1/bookmarks` body as `isReadLater`. The extension remains add-only (no
+edit UI), so — same as `isArchived` — there's no way to toggle it on an
+already-saved bookmark from the popup itself.

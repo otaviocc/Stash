@@ -37,6 +37,7 @@ struct BookmarkTests {
                     #expect(bookmark.title == "Example", "It should store the submitted title")
                     #expect(bookmark.tags == ["swift", "swift/vapor"], "It should normalize and lowercase the tags")
                     #expect(bookmark.isArchived == false, "It should create the bookmark unarchived")
+                    #expect(bookmark.isReadLater == false, "It should create the bookmark not marked to read later")
                 }
             )
 
@@ -127,7 +128,8 @@ struct BookmarkTests {
                 headers: bearer(pair.accessToken),
                 beforeRequest: { req in
                     try req.content.encode(UpdateBookmarkInput(
-                        url: nil, title: "A updated", description: "desc", tags: ["y", "y/z"], isArchived: true
+                        url: nil, title: "A updated", description: "desc", tags: ["y", "y/z"], isArchived: true,
+                        isReadLater: true
                     ))
                 },
                 afterResponse: { res async throws in
@@ -137,6 +139,7 @@ struct BookmarkTests {
                     #expect(updated.description == "desc", "It should update the description")
                     #expect(updated.tags == ["y", "y/z"], "It should update the tags")
                     #expect(updated.isArchived == true, "It should update the archived flag")
+                    #expect(updated.isReadLater == true, "It should update the read-later flag")
                 }
             )
 
@@ -170,7 +173,8 @@ struct BookmarkTests {
                 headers: bearer(pair.accessToken),
                 beforeRequest: { req in
                     try req.content.encode(UpdateBookmarkInput(
-                        url: "https://one.com", title: nil, description: nil, tags: nil, isArchived: nil
+                        url: "https://one.com", title: nil, description: nil, tags: nil, isArchived: nil,
+                        isReadLater: nil
                     ))
                 },
                 afterResponse: { res async throws in
@@ -425,6 +429,30 @@ struct BookmarkTests {
         }
     }
 
+    @Test("the __read_later__ sentinel filters to bookmarks marked to read later")
+    func readLaterFilter() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://not-yet.com", isReadLater: false)
+            try await app.makeBookmark(for: user, url: "https://to-read.com", isReadLater: true)
+
+            // When
+            try await app.testing().test(
+                .GET, "api/v1/bookmarks?tag=__read_later__",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                // Then
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://to-read.com"],
+                    "It should return only bookmarks marked to read later"
+                )
+            }
+        }
+    }
+
     @Test("archived filter defaults to false and can be toggled")
     func archivedFilter() async throws {
         try await withTestApp { app in
@@ -484,7 +512,8 @@ struct BookmarkTests {
         tags: [String]? = nil
     ) -> CreateBookmarkInput {
         CreateBookmarkInput(
-            url: url, title: title, description: description, tags: tags, fetchMetadata: false, isArchived: nil
+            url: url, title: title, description: description, tags: tags, fetchMetadata: false, isArchived: nil,
+            isReadLater: nil
         )
     }
 }

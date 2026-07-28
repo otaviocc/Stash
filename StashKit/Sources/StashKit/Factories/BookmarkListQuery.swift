@@ -19,6 +19,9 @@ public struct BookmarkListQuery: Sendable {
     /// The sentinel `tag` value that filters for bookmarks created since the most recent Monday.
     public static let thisWeekTag = "__this_week__"
 
+    /// The sentinel `tag` value that filters for bookmarks marked to read later.
+    public static let readLaterTag = "__read_later__"
+
     // MARK: Properties
 
     public let searchQuery: String?

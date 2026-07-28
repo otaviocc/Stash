@@ -192,7 +192,8 @@ struct BookmarkController: RouteCollection {
             title: title ?? url,
             description: description,
             tags: Bookmark.normalizeTags(input.tags ?? []),
-            isArchived: input.isArchived ?? false
+            isArchived: input.isArchived ?? false,
+            isReadLater: input.isReadLater ?? false
         )
 
         do {
@@ -267,6 +268,9 @@ struct BookmarkController: RouteCollection {
         }
         if let isArchived = input.isArchived {
             bookmark.isArchived = isArchived
+        }
+        if let isReadLater = input.isReadLater {
+            bookmark.isReadLater = isReadLater
         }
 
         try await bookmark.save(on: req.db)

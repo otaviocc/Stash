@@ -53,6 +53,7 @@ enum SmartViewPresenter {
         case let .isArchived(value): "Archived: \(value ? "Yes" : "No")"
         case let .hasTags(value): "Has tags: \(value ? "Yes" : "No")"
         case let .isWaybackArchived(value): "Wayback archived: \(value ? "Yes" : "No")"
+        case let .isReadLater(value): "Read later: \(value ? "Yes" : "No")"
         }
     }
 
@@ -122,7 +123,7 @@ enum SmartViewPresenter {
     }
 
     static func field(type: String, rawValue: String) -> SmartViewConditionField {
-        let isBool = type == "isArchived" || type == "hasTags" || type == "isWaybackArchived"
+        let isBool = type == "isArchived" || type == "hasTags" || type == "isWaybackArchived" || type == "isReadLater"
         let isDate = type == "createdBefore" || type == "createdAfter"
         let isDuration = type == "olderThan" || type == "newerThan"
         let boolValue = (isBool && rawValue.lowercased() == "false") ? "false" : "true"

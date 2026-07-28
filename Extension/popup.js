@@ -18,6 +18,7 @@ const openUrl = document.getElementById("open-url");
 const titleInput = document.getElementById("title");
 const descriptionInput = document.getElementById("description");
 const tagsInput = document.getElementById("tags");
+const readLaterInput = document.getElementById("read-later");
 const suggestionsEl = document.getElementById("suggestions");
 const formError = document.getElementById("form-error");
 const fetchButton = document.getElementById("fetch");
@@ -179,7 +180,8 @@ async function save() {
       title: titleInput.value.trim(),
       description: descriptionInput.value.trim(),
       tags,
-      fetchMetadata: false
+      fetchMetadata: false,
+      isReadLater: readLaterInput.checked
     }
   });
 

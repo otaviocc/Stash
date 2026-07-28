@@ -100,6 +100,7 @@ struct InstanceBackupTests {
                                 tags: ["swift"],
                                 faviconURL: nil,
                                 isArchived: false,
+                                isReadLater: false,
                                 createdAt: "2026-01-01T00:00:00Z",
                                 updatedAt: "2026-01-01T00:00:00Z"
                             )
@@ -155,7 +156,7 @@ struct InstanceBackupTests {
             let backupBookmark = { (title: String) in
                 BackupBookmark(
                     url: "https://example.com", title: title, description: nil, tags: [],
-                    faviconURL: nil, isArchived: false,
+                    faviconURL: nil, isArchived: false, isReadLater: false,
                     createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z"
                 )
             }
@@ -230,6 +231,7 @@ struct InstanceBackupTests {
                                 tags: [],
                                 faviconURL: nil,
                                 isArchived: false,
+                                isReadLater: false,
                                 createdAt: "2026-01-01T00:00:00Z",
                                 updatedAt: "2026-01-01T00:00:00Z"
                             )

@@ -144,6 +144,20 @@ input[readonly] {
 
 .suggestions:empty { margin-top: 0; }
 
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0;
+  font-weight: 400;
+}
+
+.checkbox-row input {
+  display: inline-block;
+  width: auto;
+  margin: 0;
+}
+
 .chip {
   padding: 0.1rem 0.55rem;
   font-size: 0.8rem;

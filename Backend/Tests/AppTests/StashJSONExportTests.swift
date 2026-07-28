@@ -31,6 +31,7 @@ struct StashJSONExportTests {
         let description: String?
         let tags: [String]
         let isArchived: Bool
+        let isReadLater: Bool
         let createdAt: String
     }
 
@@ -156,7 +157,7 @@ struct StashJSONExportTests {
             let user = try await app.makeUser()
             try await app.makeBookmark(
                 for: user, url: "https://example.com", title: "Example",
-                description: "Desc", tags: ["swift"], isArchived: true
+                description: "Desc", tags: ["swift"], isArchived: true, isReadLater: true
             )
             try await SmartView(
                 userID: user.requireID(), name: "Reading list", conditions: [.tag("swift")]
@@ -174,6 +175,7 @@ struct StashJSONExportTests {
             #expect(bookmark.title == "Example", "It should preserve the title")
             #expect(bookmark.tags == ["swift"], "It should preserve the tags")
             #expect(bookmark.isArchived, "It should preserve the archived flag")
+            #expect(bookmark.isReadLater, "It should preserve the read-later flag")
             #expect(bookmark.createdAt == originalCreatedAt, "It should preserve createdAt")
         }
     }

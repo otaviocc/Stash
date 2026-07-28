@@ -151,6 +151,9 @@ struct BookmarkDetailView: View {
             if bookmark.isArchived {
                 LabeledContent("Status", value: "Archived")
             }
+            if bookmark.isReadLater {
+                LabeledContent("Status", value: "To Read")
+            }
         }
     }
 
@@ -213,6 +216,15 @@ struct BookmarkDetailView: View {
             }
             .formButtonRowStyle()
             .disabled(isWorking)
+
+            Button(action: toggleReadLater) {
+                Label(
+                    bookmark.isReadLater ? "Mark as Read" : "Mark to Read Later",
+                    systemImage: bookmark.isReadLater ? "book.closed" : "bookmark.fill"
+                )
+            }
+            .formButtonRowStyle()
+            .disabled(isWorking)
         }
     }
 
@@ -266,6 +278,21 @@ struct BookmarkDetailView: View {
 
             do {
                 bookmark = try await repository.setArchived(id: bookmark.id, archived: !bookmark.isArchived)
+            } catch {
+                errorMessage = error.stashUserMessage
+            }
+        }
+    }
+
+    private func toggleReadLater() {
+        errorMessage = nil
+        isWorking = true
+
+        Task {
+            defer { isWorking = false }
+
+            do {
+                bookmark = try await repository.setReadLater(id: bookmark.id, readLater: !bookmark.isReadLater)
             } catch {
                 errorMessage = error.stashUserMessage
             }

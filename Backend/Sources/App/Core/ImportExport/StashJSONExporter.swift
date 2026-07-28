@@ -30,6 +30,7 @@ struct StashJSONExporter: BookmarkExporter {
         let tags: [String]
         let faviconURL: String?
         let isArchived: Bool
+        let isReadLater: Bool
         let createdAt: String
         let updatedAt: String
     }
@@ -73,6 +74,7 @@ struct StashJSONExporter: BookmarkExporter {
                 tags: bookmark.tags,
                 faviconURL: bookmark.faviconURL,
                 isArchived: bookmark.isArchived,
+                isReadLater: bookmark.isReadLater,
                 createdAt: ExportSupport.iso8601.string(from: bookmark.createdAt ?? Date()),
                 updatedAt: ExportSupport.iso8601.string(from: bookmark.updatedAt ?? Date())
             )

@@ -112,6 +112,13 @@ final class BookmarkRepository: BookmarkCreating {
         return bookmark
     }
 
+    func setReadLater(id: UUID, readLater: Bool) async throws -> Bookmark {
+        let bookmark = try queueReadLater(id: id, readLater: readLater)
+        scheduleSync()
+
+        return bookmark
+    }
+
     func delete(id: UUID) async throws {
         queueDelete(id: id)
         scheduleSync()
@@ -231,6 +238,17 @@ final class BookmarkRepository: BookmarkCreating {
         }
 
         record.isArchived = archived
+        markPending(record)
+
+        return try domainBookmark(from: record)
+    }
+
+    private func queueReadLater(id: UUID, readLater: Bool) throws -> Bookmark {
+        guard let record = localStore.record(forServerID: id) else {
+            throw AppError.unexpectedResponse
+        }
+
+        record.isReadLater = readLater
         markPending(record)
 
         return try domainBookmark(from: record)

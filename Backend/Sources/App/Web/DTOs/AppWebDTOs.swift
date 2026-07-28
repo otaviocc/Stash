@@ -26,6 +26,7 @@ struct CreateBookmarkForm: Content {
     let title: String?
     let description: String?
     let tags: String?
+    let readLater: Bool?
 }
 
 // MARK: - EditBookmarkForm
@@ -36,6 +37,7 @@ struct EditBookmarkForm: Content {
     let title: String?
     let description: String?
     let tags: String?
+    let readLater: Bool?
 }
 
 // MARK: - AppChangePasswordForm
@@ -127,6 +129,7 @@ struct AppBookmarkRow: Content {
     let faviconDomain: String?
     let tags: [TagLink]
     let isArchived: Bool
+    let isReadLater: Bool
     let waybackURL: String?
     let waybackStatus: String
     let createdAt: String
@@ -159,6 +162,8 @@ struct AppBookmarksContext: Content {
     let todayActive: Bool
     let thisWeekCount: Int
     let thisWeekActive: Bool
+    let readLaterCount: Int
+    let readLaterActive: Bool
     let smartViews: [SidebarSmartView]
     let isSmartView: Bool
     let smartViewID: String
@@ -181,6 +186,7 @@ struct AppNewBookmarkContext: Content {
     let bookmarkTitle: String
     let description: String
     let tags: String
+    let readLater: Bool
     let previewed: Bool
     let knownTagsJSON: String
     let returnURL: String
@@ -202,6 +208,7 @@ struct AppEditBookmarkContext: Content {
     let bookmarkTitle: String
     let description: String
     let tags: String
+    let readLater: Bool
     let knownTagsJSON: String
     let returnToParam: String
     let chrome: SiteChrome

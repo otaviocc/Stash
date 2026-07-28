@@ -31,6 +31,7 @@ public struct BookmarkDTO: Codable, Identifiable, Sendable {
         case faviconURL
         case tags
         case isArchived
+        case isReadLater
         case waybackStatus
         case waybackURL
         case waybackArchivedAt
@@ -47,6 +48,7 @@ public struct BookmarkDTO: Codable, Identifiable, Sendable {
     public let faviconURL: URL?
     public let tags: [String]
     public let isArchived: Bool
+    public let isReadLater: Bool
     public let waybackStatus: WaybackStatusDTO
     public let waybackURL: URL?
     public let waybackArchivedAt: Date?
@@ -64,6 +66,7 @@ public struct BookmarkDTO: Codable, Identifiable, Sendable {
         faviconURL = try container.decodeIfPresent(URL.self, forKey: .faviconURL)
         tags = try container.decode([String].self, forKey: .tags)
         isArchived = try container.decode(Bool.self, forKey: .isArchived)
+        isReadLater = try container.decodeIfPresent(Bool.self, forKey: .isReadLater) ?? false
         waybackStatus = try container.decodeIfPresent(WaybackStatusDTO.self, forKey: .waybackStatus) ?? .none
         waybackURL = try container.decodeIfPresent(URL.self, forKey: .waybackURL)
         waybackArchivedAt = try container.decodeIfPresent(Date.self, forKey: .waybackArchivedAt)

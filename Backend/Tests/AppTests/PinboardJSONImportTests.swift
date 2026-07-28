@@ -9,7 +9,8 @@ import VaporTesting
 @testable import App
 
 /// Verifies `PinboardJSONImporter`: Pinboard's Delicious-legacy field names, space-separated
-/// tags, `shared`/`toread` being dropped, duplicate-URL updates, and parse failures.
+/// tags, `toread` mapping to `isReadLater`, `shared` being dropped, duplicate-URL updates, and
+/// parse failures.
 @Suite("Pinboard JSON import")
 struct PinboardJSONImportTests {
 
@@ -45,6 +46,7 @@ struct PinboardJSONImportTests {
             #expect(bookmark.title == "weather.com", "It should map description to title")
             #expect(bookmark.$description.value == "Local forecasts", "It should map extended to description")
             #expect(bookmark.tags == ["weather", "reference"], "It should split space-separated tags")
+            #expect(bookmark.isReadLater == false, "It should map toread:no to isReadLater:false")
             #expect(
                 bookmark.createdAt == ISO8601DateFormatter().date(from: "2005-11-29T20:30:47Z"),
                 "It should parse the ISO-8601 time field"
@@ -52,8 +54,8 @@ struct PinboardJSONImportTests {
         }
     }
 
-    @Test("importing toread/shared has no effect on the imported bookmark")
-    func dropsToreadAndShared() async throws {
+    @Test("importing toread:yes maps to isReadLater; shared has no effect on the imported bookmark")
+    func mapsToreadDropsShared() async throws {
         try await withTestApp { app in
             // Given
             let user = try await app.makeUser()
@@ -67,7 +69,8 @@ struct PinboardJSONImportTests {
 
             // Then
             let bookmark = try #require(try await Bookmark.query(on: app.db).first())
-            #expect(bookmark.isArchived == false, "It should not map toread onto any Stash field")
+            #expect(bookmark.isReadLater == true, "It should map toread:yes to isReadLater:true")
+            #expect(bookmark.isArchived == false, "It should not map shared onto any Stash field")
         }
     }
 

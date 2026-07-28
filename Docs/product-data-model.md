@@ -35,6 +35,7 @@ _Part of the Stash Product Requirements Document. See [`PRODUCT.md`](../PRODUCT.
 | `tags` | [String] | Flat or hierarchical (e.g. `swift/vapor`). JSON column. |
 | `tagsSearch` | String | Derived: `\|swift\|swift/vapor\|` for portable LIKE queries |
 | `isArchived` | Bool | Default false. Stash's own archive/inbox flag, unrelated to `waybackStatus` below. |
+| `isReadLater` | Bool | Default false. Marked to read later. Independent of `isArchived` — neither flag clears the other. |
 | `waybackStatus` | Enum | `none` (default), `pending`, `archived`, or `failed`. Internet Archive (Wayback Machine) submission state. |
 | `waybackURL` | String? | The captured snapshot's URL, set once `waybackStatus` is `archived` |
 | `waybackArchivedAt` | Date? | When the snapshot was last captured |
@@ -178,7 +179,7 @@ following rules".
 | `updatedAt` | Date | Auto-updated |
 
 Each condition is a `{ type, value }` object (all values strings; dates ISO-8601,
-`isArchived` is `"true"`/`"false"`). Supported types:
+`isArchived`/`isReadLater` are `"true"`/`"false"`). Supported types:
 
 | Type | Meaning |
 |------|---------|
@@ -193,6 +194,7 @@ Each condition is a `{ type, value }` object (all values strings; dates ISO-8601
 | `isArchived` | `isArchived` equals `true`/`false` |
 | `hasTags` | `tagsSearch` is non-empty (`true`) or empty (`false`); i.e. the bookmark has any tags |
 | `isWaybackArchived` | `waybackStatus` equals `archived` (`true`), or anything else — `none`/`pending`/`failed` (`false`); i.e. whether the bookmark has a captured Internet Archive snapshot |
+| `isReadLater` | `isReadLater` equals `true`/`false` |
 
 Text conditions use the same portable `lower(column) LIKE lower('%value%')` helper
 as full-text search. Multiple conditions of the same type are allowed (with

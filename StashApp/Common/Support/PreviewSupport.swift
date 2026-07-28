@@ -16,6 +16,7 @@
             faviconURL: URL(string: "https://swift.org/favicon.ico"),
             tags: ["swift", "swift/server", "ios"],
             isArchived: false,
+            isReadLater: false,
             createdAt: Date(timeIntervalSince1970: 1_770_000_000),
             updatedAt: Date(timeIntervalSince1970: 1_770_000_000)
         )
@@ -30,6 +31,7 @@
                 faviconURL: nil,
                 tags: ["swift", "functional"],
                 isArchived: false,
+                isReadLater: true,
                 createdAt: Date(timeIntervalSince1970: 1_769_000_000),
                 updatedAt: Date(timeIntervalSince1970: 1_769_000_000)
             ),
@@ -41,6 +43,7 @@
                 faviconURL: nil,
                 tags: [],
                 isArchived: false,
+                isReadLater: false,
                 createdAt: Date(timeIntervalSince1970: 1_768_000_000),
                 updatedAt: Date(timeIntervalSince1970: 1_768_000_000)
             )

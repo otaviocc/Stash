@@ -10,13 +10,14 @@ import Foundation
 ///
 /// Per-bookmark mapping:
 /// - `url` (required; record skipped if missing/invalid)
-/// - `title` (empty string if missing) · `description` · `tags` (normalized) · `isArchived`
+/// - `title` (empty string if missing) · `description` · `tags` (normalized) · `isArchived` ·
+///   `isReadLater`
 /// - `faviconURL`
 /// - `createdAt` (ISO-8601 string; current time if missing/unparseable)
 /// - `id`/`updatedAt` and the top-level `version`/`exportedAt` are ignored.
 ///
 /// A duplicate URL updates the existing bookmark in place (title/description/tags/isArchived/
-/// faviconURL overwritten, `createdAt` left untouched).
+/// isReadLater/faviconURL overwritten, `createdAt` left untouched).
 ///
 /// Per-Smart-View mapping: `name`, `matchMode` (defaults to `all`), and `conditions` are used and
 /// validated; `id`/`createdAt`/`updatedAt` are ignored. A Smart View whose name already exists is
@@ -41,6 +42,7 @@ struct StashJSONImporter: BookmarkImporter {
         let description: String?
         let tags: [String]?
         let isArchived: Bool?
+        let isReadLater: Bool?
         let faviconURL: String?
         let createdAt: String?
     }
@@ -119,6 +121,7 @@ struct StashJSONImporter: BookmarkImporter {
             let description = record.description?.nonEmpty
             let tags = Bookmark.normalizeTags(record.tags ?? [])
             let isArchived = record.isArchived ?? false
+            let isReadLater = record.isReadLater ?? false
             let faviconURL = record.faviconURL?.nonEmpty
 
             if let existing = try await Bookmark.query(on: db)
@@ -130,6 +133,7 @@ struct StashJSONImporter: BookmarkImporter {
                 existing.description = description
                 existing.applyTags(tags)
                 existing.isArchived = isArchived
+                existing.isReadLater = isReadLater
                 existing.faviconURL = faviconURL
                 try await existing.save(on: db)
                 updated += 1
@@ -141,7 +145,8 @@ struct StashJSONImporter: BookmarkImporter {
                     description: description,
                     faviconURL: faviconURL,
                     tags: tags,
-                    isArchived: isArchived
+                    isArchived: isArchived,
+                    isReadLater: isReadLater
                 )
                 try await bookmark.save(on: db)
                 if let createdAt = record.createdAt, let date = Self.parseDate(createdAt) {

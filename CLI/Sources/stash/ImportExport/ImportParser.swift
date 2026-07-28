@@ -23,6 +23,7 @@ struct ParsedBookmark {
     var description: String?
     var tags: [String]
     var isArchived: Bool
+    var isReadLater: Bool
 }
 
 // MARK: - ParsedSmartView
@@ -78,7 +79,8 @@ enum ImportParser {
                 title: record.title,
                 description: record.description,
                 tags: record.tags,
-                isArchived: false
+                isArchived: false,
+                isReadLater: false
             )
         }
 
@@ -101,7 +103,8 @@ enum ImportParser {
                 title: record.title,
                 description: record.description,
                 tags: record.tags ?? [],
-                isArchived: record.isArchived ?? false
+                isArchived: record.isArchived ?? false,
+                isReadLater: record.isReadLater ?? false
             )
         }
 
@@ -194,6 +197,7 @@ private struct StashRecord: Decodable {
     let description: String?
     let tags: [String]?
     let isArchived: Bool?
+    let isReadLater: Bool?
 }
 
 // MARK: - StashSmartViewRecord

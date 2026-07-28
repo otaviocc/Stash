@@ -84,6 +84,8 @@ struct SmartViewWebController: RouteCollection {
             todayActive: false,
             thisWeekCount: sidebar.thisWeekCount,
             thisWeekActive: false,
+            readLaterCount: sidebar.readLaterCount,
+            readLaterActive: false,
             smartViews: sidebar.smartViews,
             isSmartView: true,
             smartViewID: id,

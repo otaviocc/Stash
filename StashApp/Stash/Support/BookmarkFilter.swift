@@ -11,9 +11,9 @@ import StashKit
 ///
 /// The backend matches case-insensitively with escaped `LIKE`, filters tags against a pipe-wrapped
 /// `tags_search` string (`|swift|swift/server|`), honors the `__untagged__` / `__today__` /
-/// `__this_week__` sentinels, and sorts newest-first by `createdAt` then `id`. These helpers reproduce
-/// that behavior over the local `Bookmark` copies. See `QueryBuilder+Search` and `SmartView` on the
-/// backend.
+/// `__this_week__` / `__read_later__` sentinels, and sorts newest-first by `createdAt` then `id`.
+/// These helpers reproduce that behavior over the local `Bookmark` copies. See
+/// `QueryBuilder+Search` and `SmartView` on the backend.
 enum BookmarkFilter {
 
     static func dateBoundaries(now: Date = Date()) -> (today: Date, week: Date) {
@@ -107,6 +107,8 @@ enum BookmarkFilter {
             return bookmark.createdAt >= boundaries.today
         case BookmarkListQuery.thisWeekTag:
             return bookmark.createdAt >= boundaries.week
+        case BookmarkListQuery.readLaterTag:
+            return bookmark.isReadLater
         default:
             let tag = normalizeTagQuery(rawTag)
             guard !tag.isEmpty else { return true }
@@ -158,6 +160,8 @@ enum BookmarkFilter {
             return condition.value == "true" ? !bookmark.tags.isEmpty : bookmark.tags.isEmpty
         case .isWaybackArchived:
             return (bookmark.waybackURL != nil) == (condition.value == "true")
+        case .isReadLater:
+            return bookmark.isReadLater == (condition.value == "true")
         case nil:
             return false
         }

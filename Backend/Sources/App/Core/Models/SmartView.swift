@@ -135,6 +135,7 @@ enum SmartViewCondition: Codable, Equatable {
     case isArchived(Bool)
     case hasTags(Bool)
     case isWaybackArchived(Bool)
+    case isReadLater(Bool)
 
     // MARK: Nested Types
 
@@ -167,6 +168,7 @@ enum SmartViewCondition: Codable, Equatable {
         case .isArchived: "isArchived"
         case .hasTags: "hasTags"
         case .isWaybackArchived: "isWaybackArchived"
+        case .isReadLater: "isReadLater"
         }
     }
 
@@ -177,7 +179,8 @@ enum SmartViewCondition: Codable, Equatable {
             value
         case let .createdBefore(date), let .createdAfter(date):
             Self.iso8601.string(from: date)
-        case let .isArchived(value), let .hasTags(value), let .isWaybackArchived(value):
+        case let .isArchived(value), let .hasTags(value), let .isWaybackArchived(value),
+             let .isReadLater(value):
             value ? "true" : "false"
         }
     }
@@ -256,6 +259,12 @@ enum SmartViewCondition: Codable, Equatable {
             case "false": return .isWaybackArchived(false)
             default: throw APIError.validationFailed("The isWaybackArchived value must be 'true' or 'false'.")
             }
+        case "isReadLater":
+            switch trimmed.lowercased() {
+            case "true": return .isReadLater(true)
+            case "false": return .isReadLater(false)
+            default: throw APIError.validationFailed("The isReadLater value must be 'true' or 'false'.")
+            }
         default:
             throw APIError.validationFailed("'\(type)' is not a valid condition type.")
         }
@@ -307,6 +316,8 @@ enum SmartViewCondition: Codable, Equatable {
             } else {
                 builder.filter(\.$waybackStatus != .archived)
             }
+        case let .isReadLater(value):
+            builder.filter(\.$isReadLater == value)
         }
     }
 }

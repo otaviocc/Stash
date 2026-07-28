@@ -12,8 +12,8 @@ import Foundation
 /// concept, so a Stash tag like `topic/swift` is written as-is into `tags` rather than guessing a
 /// single "primary" folder for a bookmark that may carry several tags.
 ///
-/// `isArchived` and Smart Views have no equivalent in this format and are dropped, same as
-/// `AnyboxExporter`.
+/// `isArchived`/`isReadLater` and Smart Views have no equivalent in this format and are dropped,
+/// same as `AnyboxExporter`.
 struct RaindropCSVExporter: BookmarkExporter {
 
     // MARK: Static Properties

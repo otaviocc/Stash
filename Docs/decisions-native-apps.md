@@ -1310,3 +1310,44 @@ StashKit's `InstanceDTO`/`InstanceRequestFactory` all stay. Nothing consumes
 them right now, but the endpoint costs nothing to keep serving (same
 app-level `SiteSettingsCache` the web chrome already reads) and a future
 native-app redesign can fetch it again without reopening the backend work.
+
+---
+
+## "Read Later" in the iOS/macOS apps and Share Extension
+
+Added `isReadLater` (see `decisions-backend.md`) end-to-end through the
+offline-sync stack: `LocalBookmark` gets a plain stored property (mirrored
+in `init(from:)`, `apply(_:)`, the local-create initializer, and the debug
+preview initializer), `SyncEngine` threads it through `pushCreate`,
+`pushUpdate`, and `resolveDuplicate` exactly like `isArchived` — no special
+conflict-resolution rule, since it's just another generic mutable field
+under the existing last-write-wins policy.
+
+`AddBookmarkView` (shared by the app's add sheet and the Share Extension)
+gained a `Toggle("Read Later", …)` row after the tags section, defaulting
+off, so both surfaces get it for free from the one shared view — unlike
+`isArchived`, which still has no add-time toggle anywhere in the app.
+`BookmarkDetailView` and the list row's context menu both gained a "Mark to
+Read Later"/"Mark as Read" button, the same flipping `Button`+`Label` idiom
+already used for Archive/Unarchive (not a `Toggle` control), calling a new
+`BookmarkRepository.setReadLater(id:readLater:)` that mirrors
+`setArchived` exactly (optimistic local update, `markPending`, background
+push). List rows also show a small filled-bookmark glyph next to the title
+when `isReadLater` is set, so it's scannable without opening the detail
+view — a deliberate asymmetry with `isArchived`, which has no row badge
+since archived bookmarks live only in their own opt-in view.
+
+The sidebar gained a fourth `SidebarItem`/`MacSidebarItem` case, `.readLater`,
+mapping to `BookmarkListQuery.readLaterTag` exactly like `.untagged`/`.today`/
+`.thisWeek` — hardcoded, client-side, not fetched from the backend, same as
+the other three Views entries. `BookmarkFilter` (the offline in-memory query
+evaluator) got a matching `case BookmarkListQuery.readLaterTag` branch and an
+`isReadLater` Smart View condition arm, mirroring the backend's
+`QueryBuilder+Search`/`SmartView` exactly so a local, offline read of the
+"To Read" view or a Smart View with a read-later condition returns the same
+set the server would.
+
+`SmartViewConditionType` gained an `.isReadLater` case mapped to
+`.valueKind == .boolean`, so the existing Yes/No `Picker` value editor in
+`SmartViewFormView` applies to it automatically — no new UI code, the same
+free-ride every other boolean condition already gets.

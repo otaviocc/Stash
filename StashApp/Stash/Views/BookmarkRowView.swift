@@ -53,11 +53,20 @@ struct BookmarkRowView: View {
     }
 
     private func makeTitle() -> some View {
-        Text(bookmark.title)
-            .font(.body)
-            .fontWeight(.medium)
-            .foregroundStyle(.primary)
-            .lineLimit(2)
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            if bookmark.isReadLater {
+                Image(systemName: "bookmark.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.tint)
+                    .accessibilityLabel("Marked to read later")
+            }
+
+            Text(bookmark.title)
+                .font(.body)
+                .fontWeight(.medium)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+        }
     }
 
     @ViewBuilder

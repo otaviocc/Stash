@@ -16,6 +16,7 @@ public struct CreateBookmarkRequest: Encodable, Sendable {
     public let tags: [String]?
     public let fetchMetadata: Bool?
     public let isArchived: Bool?
+    public let isReadLater: Bool?
 
     // MARK: Lifecycle
 
@@ -25,7 +26,8 @@ public struct CreateBookmarkRequest: Encodable, Sendable {
         description: String? = nil,
         tags: [String]? = nil,
         fetchMetadata: Bool? = nil,
-        isArchived: Bool? = nil
+        isArchived: Bool? = nil,
+        isReadLater: Bool? = nil
     ) {
         self.url = url
         self.title = title
@@ -33,6 +35,7 @@ public struct CreateBookmarkRequest: Encodable, Sendable {
         self.tags = tags
         self.fetchMetadata = fetchMetadata
         self.isArchived = isArchived
+        self.isReadLater = isReadLater
     }
 }
 
@@ -48,6 +51,7 @@ public struct UpdateBookmarkRequest: Encodable, Sendable {
     public let description: String?
     public let tags: [String]?
     public let isArchived: Bool?
+    public let isReadLater: Bool?
 
     // MARK: Lifecycle
 
@@ -56,12 +60,14 @@ public struct UpdateBookmarkRequest: Encodable, Sendable {
         title: String? = nil,
         description: String? = nil,
         tags: [String]? = nil,
-        isArchived: Bool? = nil
+        isArchived: Bool? = nil,
+        isReadLater: Bool? = nil
     ) {
         self.url = url
         self.title = title
         self.description = description
         self.tags = tags
         self.isArchived = isArchived
+        self.isReadLater = isReadLater
     }
 }

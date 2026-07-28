@@ -8,8 +8,9 @@ import Vapor
 import VaporTesting
 @testable import App
 
-/// Verifies `PinboardJSONExporter`: Pinboard's field names, space-joined tags, `shared`/`toread`
-/// always `"no"`, the download route, and an export → import round-trip.
+/// Verifies `PinboardJSONExporter`: Pinboard's field names, space-joined tags, `toread` mapping
+/// from `isReadLater`, `shared` always `"no"`, the download route, and an export → import
+/// round-trip.
 @Suite("Pinboard JSON export")
 struct PinboardJSONExportTests {
 
@@ -51,7 +52,24 @@ struct PinboardJSONExportTests {
             #expect(record.extended == "Desc", "It should export the description as extended")
             #expect(record.tags == "topic/swift ios", "It should space-join tags")
             #expect(record.shared == "no", "It should always mark bookmarks private")
-            #expect(record.toread == "no", "It should always mark bookmarks as not-to-read")
+            #expect(record.toread == "no", "It should map isReadLater:false to toread:no")
+        }
+    }
+
+    @Test("exporting a bookmark marked to read later sets toread:yes")
+    func exportsReadLaterAsToread() async throws {
+        try await withTestApp { app in
+            // Given
+            let user = try await app.makeUser()
+            try await app.makeBookmark(for: user, url: "https://example.com", title: "Example", isReadLater: true)
+
+            // When
+            let data = try await PinboardJSONExporter().export(for: user.requireID(), on: app.db)
+            let records = try JSONDecoder().decode([ExportedRecord].self, from: data)
+
+            // Then
+            let record = try #require(records.first)
+            #expect(record.toread == "yes", "It should map isReadLater:true to toread:yes")
         }
     }
 

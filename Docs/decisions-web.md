@@ -640,3 +640,35 @@ so a Stash tag with a literal space in it — rare, since nothing forbids one �
 would not survive a round-trip through this format specifically. `shared`/
 `toread` have no Stash equivalent (no sharing, no read-later/unread state per
 §22) and are read-and-discarded on import, always `"no"` on export.
+
+---
+
+## "Read Later" in the web frontend
+
+Added the `isReadLater` flag (see `decisions-backend.md`) to the `/app`
+bookmark forms and detail page. The add and edit forms both got a plain
+"Read later" checkbox (unchecked by default on add) — decoded the same way
+as every other optional form field (`form.readLater ?? false`), no special
+empty-body handling needed since neither form has it as its *only* field
+(see the earlier "unchecking a form's only checkbox 422'd" bug — doesn't
+apply here). The detail page got a second toggle-style action row, following
+the existing Archive/Unarchive pattern exactly: two POST routes
+(`/app/bookmarks/:id/read-later`, `.../mark-read`), a shared private
+`setReadLater` helper, and a button whose label flips between "Mark to Read
+Later" and "Mark as Read" depending on current state.
+
+The sidebar "Views" section gained a fourth entry, "To Read", implemented
+identically to Untagged/Today/This Week: a new sentinel constant
+(`__read_later__`), a case in `filterByTag`, a count threaded through
+`AppSidebarLoader`/`AppBookmarksContext`, and one more `<li>` in
+`app-bookmarks.leaf`. List rows also get a small 🔖 badge next to the title
+when `isReadLater` is set, so a read-later bookmark is scannable from any
+list (not just the dedicated "To Read" view) — `isArchived` has no
+equivalent row badge today, since archived bookmarks only ever appear in
+their own separate, opt-in view, but read-later bookmarks live alongside
+everything else.
+
+The Smart View condition builder got a fourth boolean option ("Read later"),
+next to "Is archived" / "Has tags" / "Archived on Wayback Machine" — same
+Yes/No `<select>`, same `isBool` list in both `SmartViewPresenter.field` and
+`smart-view-form.js`.

@@ -70,6 +70,7 @@ struct BackupBookmark: Codable, Sendable {
     let tags: [String]
     let faviconURL: String?
     let isArchived: Bool
+    let isReadLater: Bool
     let createdAt: String
     let updatedAt: String
 }
@@ -179,6 +180,7 @@ enum InstanceBackupService {
                     tags: bookmark.tags,
                     faviconURL: bookmark.faviconURL,
                     isArchived: bookmark.isArchived,
+                    isReadLater: bookmark.isReadLater,
                     createdAt: iso.string(from: bookmark.createdAt ?? Date()),
                     updatedAt: iso.string(from: bookmark.updatedAt ?? Date())
                 )
@@ -367,6 +369,7 @@ enum InstanceBackupService {
                         existingBookmark.description = item.description
                         existingBookmark.applyTags(tags)
                         existingBookmark.isArchived = item.isArchived
+                        existingBookmark.isReadLater = item.isReadLater
                         existingBookmark.faviconURL = item.faviconURL
                         try await existingBookmark.save(on: db)
                         bookmarksUpdated += 1
@@ -378,7 +381,8 @@ enum InstanceBackupService {
                             description: item.description,
                             faviconURL: item.faviconURL,
                             tags: tags,
-                            isArchived: item.isArchived
+                            isArchived: item.isArchived,
+                            isReadLater: item.isReadLater
                         )
                         try await bookmark.save(on: db)
                         if let createdAt = FlexibleISO8601.date(from: item.createdAt) {

@@ -22,6 +22,8 @@ struct BookmarkWebController: RouteCollection {
         bookmarks.post(":bookmarkID", "delete", use: deleteBookmark)
         bookmarks.post(":bookmarkID", "archive", use: archiveBookmark)
         bookmarks.post(":bookmarkID", "unarchive", use: unarchiveBookmark)
+        bookmarks.post(":bookmarkID", "read-later", use: markReadLater)
+        bookmarks.post(":bookmarkID", "mark-read", use: markRead)
         bookmarks.post(":bookmarkID", "refresh-favicon", use: refreshFavicon)
         bookmarks.post(":bookmarkID", "save-to-wayback", use: saveToWayback)
     }
@@ -61,6 +63,7 @@ struct BookmarkWebController: RouteCollection {
         let isUntagged = rawTag == Bookmark.untaggedSentinel
         let isToday = rawTag == Bookmark.todaySentinel
         let isThisWeek = rawTag == Bookmark.thisWeekSentinel
+        let isReadLaterView = rawTag == Bookmark.readLaterSentinel
         let isSpecial = Bookmark.isSentinelTag(rawTag ?? "")
         let activeTag = isSpecial ? "" : Bookmark.normalizeTagQuery(query.tag ?? "")
         let sidebar = try await AppSidebarLoader.load(
@@ -79,6 +82,8 @@ struct BookmarkWebController: RouteCollection {
                 "Today"
             } else if isThisWeek {
                 "This Week"
+            } else if isReadLaterView {
+                "To Read"
             } else {
                 TagPresenter.display(rawTag ?? "")
             }
@@ -106,6 +111,8 @@ struct BookmarkWebController: RouteCollection {
             todayActive: isToday,
             thisWeekCount: sidebar.thisWeekCount,
             thisWeekActive: isThisWeek,
+            readLaterCount: sidebar.readLaterCount,
+            readLaterActive: isReadLaterView,
             smartViews: sidebar.smartViews,
             isSmartView: false,
             smartViewID: "",
@@ -125,7 +132,8 @@ struct BookmarkWebController: RouteCollection {
         return try await req.view.render("app-bookmark-new", AppNewBookmarkContext(
             title: "Add bookmark", appUsername: user.username, appIsAdmin: user.role == .admin, error: nil,
             existingID: nil,
-            url: url, bookmarkTitle: "", description: "", tags: tagFromReturnURL(returnURL), previewed: false,
+            url: url, bookmarkTitle: "", description: "", tags: tagFromReturnURL(returnURL), readLater: false,
+            previewed: false,
             knownTagsJSON: KnownTags.json(for: user, on: req.db),
             returnURL: returnURL,
             returnToParam: returnToParam,
@@ -141,6 +149,7 @@ struct BookmarkWebController: RouteCollection {
         var title = form.title?.nonEmpty
         var description = form.description?.nonEmpty
         let tagsText = form.tags ?? ""
+        let readLater = form.readLater ?? false
         let tagsJSON = try await KnownTags.json(for: user, on: req.db)
         let (returnURL, returnToParam) = returnContext(req)
 
@@ -154,7 +163,7 @@ struct BookmarkWebController: RouteCollection {
                 title: "Add bookmark", appUsername: user.username, appIsAdmin: user.role == .admin, error: error,
                 existingID: existingID,
                 url: rawURL, bookmarkTitle: title ?? "", description: description ?? "",
-                tags: tagsText, previewed: previewed, knownTagsJSON: tagsJSON,
+                tags: tagsText, readLater: readLater, previewed: previewed, knownTagsJSON: tagsJSON,
                 returnURL: returnURL,
                 returnToParam: returnToParam,
                 chrome: req.siteChrome()
@@ -198,7 +207,8 @@ struct BookmarkWebController: RouteCollection {
             title: title ?? url,
             description: description,
             tags: Bookmark.normalizeTags(fromFreeText: tagsText),
-            isArchived: false
+            isArchived: false,
+            isReadLater: readLater
         )
         do {
             try await bookmark.save(on: req.db)
@@ -257,6 +267,7 @@ struct BookmarkWebController: RouteCollection {
         bookmark.title = form.title?.nonEmpty ?? bookmark.url
         bookmark.description = form.description?.nonEmpty
         bookmark.applyTags(Bookmark.normalizeTags(fromFreeText: form.tags ?? ""))
+        bookmark.isReadLater = form.readLater ?? false
         try await bookmark.save(on: req.db)
         return try detailRedirect(req, id: bookmark.requireID(), ok: "saved")
     }
@@ -286,6 +297,14 @@ struct BookmarkWebController: RouteCollection {
 
     func unarchiveBookmark(req: Request) async throws -> Response {
         try await setArchived(req, false)
+    }
+
+    func markReadLater(req: Request) async throws -> Response {
+        try await setReadLater(req, true)
+    }
+
+    func markRead(req: Request) async throws -> Response {
+        try await setReadLater(req, false)
     }
 
     func refreshFavicon(req: Request) async throws -> Response {
@@ -336,6 +355,14 @@ struct BookmarkWebController: RouteCollection {
         return try detailRedirect(req, id: bookmark.requireID(), ok: archived ? "archived" : "unarchived")
     }
 
+    private func setReadLater(_ req: Request, _ readLater: Bool) async throws -> Response {
+        guard let bookmark = try await loadBookmark(req) else { return req.redirect(to: "/app") }
+
+        bookmark.isReadLater = readLater
+        try await bookmark.save(on: req.db)
+        return try detailRedirect(req, id: bookmark.requireID(), ok: readLater ? "read_later" : "marked_read")
+    }
+
     private func renderEdit(_ req: Request, bookmark: Bookmark, error: String?) async throws -> Response {
         let user = try req.auth.require(User.self)
         return try await req.renderHTML("app-bookmark-edit", AppEditBookmarkContext(
@@ -348,6 +375,7 @@ struct BookmarkWebController: RouteCollection {
             bookmarkTitle: bookmark.title,
             description: bookmark.description ?? "",
             tags: bookmark.tags.joined(separator: ", "),
+            readLater: bookmark.isReadLater,
             knownTagsJSON: KnownTags.json(for: user, on: req.db),
             returnToParam: returnContext(req).param,
             chrome: req.siteChrome()

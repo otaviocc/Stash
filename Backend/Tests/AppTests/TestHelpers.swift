@@ -54,7 +54,8 @@ extension Application {
         title: String = "Title",
         description: String? = nil,
         tags: [String] = [],
-        isArchived: Bool = false
+        isArchived: Bool = false,
+        isReadLater: Bool = false
     ) async throws -> Bookmark {
         let bookmark = try Bookmark(
             userID: user.requireID(),
@@ -62,7 +63,8 @@ extension Application {
             title: title,
             description: description,
             tags: tags,
-            isArchived: isArchived
+            isArchived: isArchived,
+            isReadLater: isReadLater
         )
         try await bookmark.save(on: db)
         user.bookmarkCount += 1

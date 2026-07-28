@@ -60,6 +60,7 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(AddBookmarkWaybackRetryCount())
     app.migrations.add(AddSiteSettingsUpdateCheck())
     app.migrations.add(AddSiteSettingsFooterLinks())
+    app.migrations.add(AddBookmarkReadLater())
 
     // MARK: Version
 

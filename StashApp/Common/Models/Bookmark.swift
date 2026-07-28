@@ -20,6 +20,7 @@ struct Bookmark: Identifiable, Hashable, Codable {
     let faviconURL: URL?
     let tags: [String]
     let isArchived: Bool
+    let isReadLater: Bool
     let createdAt: Date
     let updatedAt: Date
 
@@ -103,6 +104,7 @@ extension Bookmark {
         faviconURL = dto.faviconURL
         tags = dto.tags
         isArchived = dto.isArchived
+        isReadLater = dto.isReadLater
         createdAt = dto.createdAt
         updatedAt = dto.updatedAt
         waybackURL = dto.waybackURL

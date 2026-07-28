@@ -15,6 +15,7 @@ struct CreateBookmarkInput: Content {
     let tags: [String]?
     let fetchMetadata: Bool?
     let isArchived: Bool?
+    let isReadLater: Bool?
 }
 
 // MARK: - ChangesPage
@@ -40,6 +41,7 @@ struct UpdateBookmarkInput: Content {
     let description: String?
     let tags: [String]?
     let isArchived: Bool?
+    let isReadLater: Bool?
 }
 
 // MARK: - BookmarkListQuery
@@ -74,6 +76,7 @@ struct BookmarkResponse: Content {
     let faviconURL: String?
     let tags: [String]
     let isArchived: Bool
+    let isReadLater: Bool
     let waybackStatus: String
     let waybackURL: String?
     let waybackArchivedAt: Date?

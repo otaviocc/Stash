@@ -169,3 +169,19 @@ Smart View form switched from generic bordered buttons to proper SF Symbol
 icon buttons: a neutral minus-circle for remove, an accent-colored
 plus-circle for add, which reads more consistently with the rest of the
 app's iconography. No behavior change.
+
+---
+
+## Smart View condition: `isReadLater`
+
+A fourth boolean condition, alongside `isArchived`/`hasTags`/
+`isWaybackArchived`, added as part of the "Read Later" feature (see
+`decisions-backend.md`). Same mechanical shape as the other three: a new
+`SmartViewCondition` case, one `validated`/`apply` arm each, and — unlike
+`isArchived` — no interaction with `applyConditions`'s default-archived-
+filter override, since read-later has no implicit default to override.
+Every surface that already special-cases the three existing boolean
+conditions (the web presenter/JS's `isBool` lists, the native
+`SmartViewConditionType.valueKind` switch and its Yes/No `Picker`, the
+offline `BookmarkFilter` evaluator) picked up the fourth for free by
+extension rather than needing new code paths.

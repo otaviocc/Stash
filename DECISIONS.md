@@ -61,6 +61,7 @@ Vapor backend: API, migrations, admin tools, and instance features.
 - `Script/bump-version.sh`: one script, three version numbers
 - Editable footer links
 - Appearance audit log: record actual changes
+- Feature: "Read Later" flag (`isReadLater`)
 
 ### [`Docs/decisions-web.md`](Docs/decisions-web.md)
 Server-rendered web frontend (`/app`) and admin dashboard (`/admin`).
@@ -81,6 +82,7 @@ Server-rendered web frontend (`/app`) and admin dashboard (`/admin`).
 - WebUI favicon placeholder
 - Accent-aware button text contrast
 - Bookmark detail: preserve list return context (`returnTo`)
+- "Read Later" in the web frontend
 
 ### [`Docs/decisions-native-apps.md`](Docs/decisions-native-apps.md)
 iOS/macOS SwiftUI apps and the Share Extension (excluding offline sync).
@@ -106,6 +108,7 @@ iOS/macOS SwiftUI apps and the Share Extension (excluding offline sync).
 - In-app browser preference (iOS/iPadOS)
 - Refresh Favicon and Save to Wayback Machine (native apps)
 - macOS browser picker: open links in a chosen browser
+- "Read Later" in the iOS/macOS apps and Share Extension
 
 ### [`Docs/decisions-offline-sync.md`](Docs/decisions-offline-sync.md)
 The native-app offline-sync feature, built in phases with many correctness fixes.
@@ -124,6 +127,7 @@ Smart Views across all surfaces.
 - Smart View create / edit / delete in the native apps
 - Smart View relative date conditions (`olderThan` / `newerThan`)
 - Smart View form: condition row buttons follow-up
+- Smart View condition: `isReadLater`
 
 ### [`Docs/decisions-clients.md`](Docs/decisions-clients.md)
 Shared package and non-Apple clients.
@@ -131,6 +135,7 @@ Shared package and non-Apple clients.
 - M7: CLI (`stash`)
 - Browser Extension
 - 2FA disable / reset land on the JSON API
+- "Read Later" on the CLI and browser extension
 
 ### [`Docs/decisions-deployment.md`](Docs/decisions-deployment.md)
 Docker, CI/CD, HTTPS, and licensing.

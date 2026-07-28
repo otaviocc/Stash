@@ -307,6 +307,58 @@ struct SmartViewTests {
         }
     }
 
+    @Test("an isReadLater:true condition returns only bookmarks marked to read later")
+    func isReadLaterCondition() async throws {
+        try await withTestApp { app in
+            let user = try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+            try await app.makeBookmark(for: user, url: "https://not-yet.com", isReadLater: false)
+            try await app.makeBookmark(for: user, url: "https://to-read.com", isReadLater: true)
+            let view = try await app.makeSmartView(
+                token: pair.accessToken,
+                name: "To Read",
+                conditions: [SmartViewConditionPayload(type: "isReadLater", value: "true")]
+            )
+
+            try await app.testing().test(
+                .GET, "api/v1/smart-views/\(view.id)/bookmarks",
+                headers: bearer(pair.accessToken)
+            ) { res async throws in
+                let page = try res.content.decode(Page<BookmarkResponse>.self)
+                #expect(
+                    page.items.map(\.url) == ["https://to-read.com"],
+                    "It should return only the bookmark marked to read later"
+                )
+            }
+        }
+    }
+
+    @Test("an invalid isReadLater value returns 422")
+    func invalidIsReadLater() async throws {
+        try await withTestApp { app in
+            try await app.makeUser()
+            let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
+
+            try await app.testing().test(
+                .POST, "api/v1/smart-views",
+                headers: bearer(pair.accessToken),
+                beforeRequest: { req in
+                    try req.content.encode(SmartViewRequestBody(
+                        name: "Bad",
+                        conditions: [SmartViewConditionPayload(type: "isReadLater", value: "maybe")]
+                    ))
+                },
+                afterResponse: { res async throws in
+                    #expect(res.status == .unprocessableEntity, "It should reject a non-boolean isReadLater value")
+                    #expect(
+                        try res.content.decode(TestError.self).code == "validation_failed",
+                        "It should fail validation"
+                    )
+                }
+            )
+        }
+    }
+
     @Test("a hasTags condition filters on whether a bookmark has any tags")
     func hasTagsCondition() async throws {
         try await withTestApp { app in

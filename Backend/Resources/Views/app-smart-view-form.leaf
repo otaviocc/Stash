@@ -40,6 +40,7 @@
                         <option value="isArchived"#if(c.type == "isArchived"): selected#endif>Is archived</option>
                         <option value="hasTags"#if(c.type == "hasTags"): selected#endif>Has tags</option>
                         <option value="isWaybackArchived"#if(c.type == "isWaybackArchived"): selected#endif>Archived on Wayback Machine</option>
+                        <option value="isReadLater"#if(c.type == "isReadLater"): selected#endif>Read later</option>
                     </select>
                     <input name="conditionValue[]" class="cond-value-text" type="#(c.textInputType)" value="#(c.textValue)" autocomplete="off"#if(c.isBool): disabled style="display:none"#endif>
                     <select name="conditionValue[]" class="cond-value-bool"#if(c.hideBool): disabled style="display:none"#endif>
@@ -81,6 +82,7 @@
                 <option value="isArchived">Is archived</option>
                 <option value="hasTags">Has tags</option>
                 <option value="isWaybackArchived">Archived on Wayback Machine</option>
+                <option value="isReadLater">Read later</option>
             </select>
             <input name="conditionValue[]" class="cond-value-text" type="text" value="" autocomplete="off">
             <select name="conditionValue[]" class="cond-value-bool" disabled style="display:none">

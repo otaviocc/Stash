@@ -72,7 +72,7 @@ struct WaybackTests {
                 beforeRequest: { req in
                     try req.content.encode(CreateBookmarkInput(
                         url: "https://example.com", title: nil, description: nil,
-                        tags: nil, fetchMetadata: false, isArchived: nil
+                        tags: nil, fetchMetadata: false, isArchived: nil, isReadLater: nil
                     ))
                 },
                 afterResponse: { res async throws in
@@ -110,7 +110,7 @@ struct WaybackTests {
                 beforeRequest: { req in
                     try req.content.encode(CreateBookmarkInput(
                         url: "https://example.com", title: nil, description: nil,
-                        tags: nil, fetchMetadata: false, isArchived: nil
+                        tags: nil, fetchMetadata: false, isArchived: nil, isReadLater: nil
                     ))
                 },
                 afterResponse: { res async throws in
@@ -141,7 +141,7 @@ struct WaybackTests {
                 beforeRequest: { req in
                     try req.content.encode(CreateBookmarkInput(
                         url: "https://example.com", title: nil, description: nil,
-                        tags: nil, fetchMetadata: false, isArchived: nil
+                        tags: nil, fetchMetadata: false, isArchived: nil, isReadLater: nil
                     ))
                 },
                 afterResponse: { res async throws in

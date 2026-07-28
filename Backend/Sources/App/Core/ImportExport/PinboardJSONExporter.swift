@@ -13,8 +13,8 @@ import Foundation
 /// disallowed by `Bookmark.normalizeTags`) would not survive a round-trip through this format.
 ///
 /// `isArchived` and Smart Views have no equivalent in this format and are dropped, same as
-/// `AnyboxExporter`. `shared`/`toread` are always written as `"no"`: Stash has no public-sharing or
-/// read-later/unread concept.
+/// `AnyboxExporter`. `toread` maps directly from `isReadLater`; `shared` is always written as
+/// `"no"`, since Stash has no public-sharing concept.
 struct PinboardJSONExporter: BookmarkExporter {
 
     // MARK: Nested Types
@@ -51,7 +51,7 @@ struct PinboardJSONExporter: BookmarkExporter {
                 tags: bookmark.tags.joined(separator: " "),
                 time: ExportSupport.iso8601.string(from: bookmark.createdAt ?? Date()),
                 shared: "no",
-                toread: "no"
+                toread: bookmark.isReadLater ? "yes" : "no"
             )
         }
 

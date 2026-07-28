@@ -429,7 +429,8 @@ struct BookmarkSyncTests {
                         description: nil,
                         tags: nil,
                         fetchMetadata: false,
-                        isArchived: true
+                        isArchived: true,
+                        isReadLater: nil
                     ))
                 },
                 afterResponse: { res async throws in

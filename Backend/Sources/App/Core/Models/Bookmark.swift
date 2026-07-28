@@ -30,6 +30,7 @@ final class Bookmark: Model, Content, @unchecked Sendable {
     static let untaggedSentinel = "__untagged__"
     static let todaySentinel = "__today__"
     static let thisWeekSentinel = "__this_week__"
+    static let readLaterSentinel = "__read_later__"
 
     // MARK: Properties
 
@@ -59,6 +60,10 @@ final class Bookmark: Model, Content, @unchecked Sendable {
 
     @Field(key: "is_archived")
     var isArchived: Bool
+
+    /// Marked to read later. Independent of `isArchived` — neither flag clears the other.
+    @Field(key: "is_read_later")
+    var isReadLater: Bool
 
     @Field(key: "wayback_status")
     var waybackStatus: WaybackStatus
@@ -94,6 +99,7 @@ final class Bookmark: Model, Content, @unchecked Sendable {
         faviconURL: String? = nil,
         tags: [String] = [],
         isArchived: Bool = false,
+        isReadLater: Bool = false,
         waybackStatus: WaybackStatus = .none,
         waybackURL: String? = nil,
         waybackArchivedAt: Date? = nil,
@@ -108,6 +114,7 @@ final class Bookmark: Model, Content, @unchecked Sendable {
         self.tags = tags
         tagsSearch = Bookmark.searchString(for: tags)
         self.isArchived = isArchived
+        self.isReadLater = isReadLater
         self.waybackStatus = waybackStatus
         self.waybackURL = waybackURL
         self.waybackArchivedAt = waybackArchivedAt
@@ -136,6 +143,7 @@ final class Bookmark: Model, Content, @unchecked Sendable {
             faviconURL: faviconURL,
             tags: tags,
             isArchived: isArchived,
+            isReadLater: isReadLater,
             waybackStatus: waybackStatus.rawValue,
             waybackURL: waybackURL,
             waybackArchivedAt: waybackArchivedAt,
@@ -187,10 +195,10 @@ extension Bookmark {
         normalizeTags(raw.components(separatedBy: CharacterSet(charactersIn: ",").union(.whitespacesAndNewlines)))
     }
 
-    /// Whether `tag` is one of the synthetic "Views" filters (Untagged/Today/This Week) rather than
-    /// a real, storable tag.
+    /// Whether `tag` is one of the synthetic "Views" filters (Untagged/Today/This Week/To Read)
+    /// rather than a real, storable tag.
     static func isSentinelTag(_ tag: String) -> Bool {
-        [untaggedSentinel, todaySentinel, thisWeekSentinel].contains(tag)
+        [untaggedSentinel, todaySentinel, thisWeekSentinel, readLaterSentinel].contains(tag)
     }
 
     static func normalizeTagQuery(_ raw: String) -> String {

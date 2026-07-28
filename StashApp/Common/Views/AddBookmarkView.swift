@@ -26,6 +26,7 @@ struct AddBookmarkView: View {
     @State private var title = ""
     @State private var description = ""
     @State private var selectedTags: [String] = []
+    @State private var isReadLater = false
     @State private var fetchedDomain: String?
     @State private var fetchTask: Task<Void, Never>?
     @State private var isFetching = false
@@ -99,6 +100,8 @@ struct AddBookmarkView: View {
                 Divider().opacity(0.3)
 
                 TagSummarySection(selectedTags: $selectedTags, tagHierarchy: tagStore.tagHierarchy)
+                Divider().opacity(0.3)
+                makeReadLaterSection()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onChange(of: urlText) {
@@ -256,6 +259,13 @@ struct AddBookmarkView: View {
         .frame(maxHeight: .infinity)
     }
 
+    private func makeReadLaterSection() -> some View {
+        Toggle(isOn: $isReadLater) {
+            Label("Read Later", systemImage: "bookmark.fill")
+        }
+        .fieldSectionPadding()
+    }
+
     @ViewBuilder
     private func makeInlineError() -> some View {
         if let errorMessage {
@@ -317,7 +327,8 @@ struct AddBookmarkView: View {
                 title: trimmedTitle.isEmpty ? nil : trimmedTitle,
                 description: trimmedDescription.isEmpty ? nil : trimmedDescription,
                 tags: selectedTags,
-                fetchMetadata: true
+                fetchMetadata: true,
+                isReadLater: isReadLater
             )
 
             do {

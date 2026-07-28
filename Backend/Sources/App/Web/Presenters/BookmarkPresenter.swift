@@ -16,6 +16,7 @@ enum BookmarkPresenter {
             faviconDomain: DomainExtractor.domain(from: bookmark.url),
             tags: bookmark.tags.map { TagLink(name: $0, display: TagPresenter.display($0)) },
             isArchived: bookmark.isArchived,
+            isReadLater: bookmark.isReadLater,
             waybackURL: bookmark.waybackURL,
             waybackStatus: bookmark.waybackStatus.rawValue,
             createdAt: DateFormatter.webDateTime.string(from: bookmark.createdAt ?? Date())

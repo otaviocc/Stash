@@ -343,6 +343,12 @@ private struct BookmarkListContent: View {
                 title: "Nothing saved this week",
                 message: "Bookmarks you save this week will appear here."
             )
+        case BookmarkListQuery.readLaterTag:
+            BookmarkEmptyState(
+                symbol: "book",
+                title: "Nothing to read",
+                message: "Bookmarks you mark to read later will appear here."
+            )
         default:
             BookmarkEmptyState(
                 symbol: "tag",
@@ -407,6 +413,15 @@ private struct BookmarkListContent: View {
             )
         }
 
+        Button {
+            setReadLater(bookmark, readLater: !bookmark.isReadLater)
+        } label: {
+            Label(
+                bookmark.isReadLater ? "Mark as Read" : "Mark to Read Later",
+                systemImage: bookmark.isReadLater ? "book.closed" : "bookmark.fill"
+            )
+        }
+
         Button(role: .destructive) {
             delete(bookmark)
         } label: {
@@ -428,6 +443,16 @@ private struct BookmarkListContent: View {
         Task {
             do {
                 _ = try await repository.setArchived(id: bookmark.id, archived: archived)
+            } catch {
+                errorMessage = error.stashUserMessage
+            }
+        }
+    }
+
+    private func setReadLater(_ bookmark: Bookmark, readLater: Bool) {
+        Task {
+            do {
+                _ = try await repository.setReadLater(id: bookmark.id, readLater: readLater)
             } catch {
                 errorMessage = error.stashUserMessage
             }

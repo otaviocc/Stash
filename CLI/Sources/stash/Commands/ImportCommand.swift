@@ -136,14 +136,11 @@ struct ImportCommand: AsyncParsableCommand {
                 title: record.title,
                 description: description?.isEmpty == true ? nil : description,
                 tags: tags.isEmpty ? nil : tags,
-                fetchMetadata: false
+                fetchMetadata: false,
+                isArchived: record.isArchived ? true : nil,
+                isReadLater: record.isReadLater ? true : nil
             )
-            let bookmark = try await client.run(BookmarkRequestFactory.makeCreateRequest(create)).value
-
-            if record.isArchived {
-                let archive = UpdateBookmarkRequest(isArchived: true)
-                _ = try await client.run(BookmarkRequestFactory.makeUpdateRequest(id: bookmark.id, body: archive))
-            }
+            _ = try await client.run(BookmarkRequestFactory.makeCreateRequest(create)).value
 
             return .imported
         } catch let StashAPIError.duplicateURL(existingID) {
@@ -151,7 +148,8 @@ struct ImportCommand: AsyncParsableCommand {
                 title: record.title,
                 description: description?.isEmpty == true ? nil : description,
                 tags: tags,
-                isArchived: record.isArchived
+                isArchived: record.isArchived,
+                isReadLater: record.isReadLater
             )
             _ = try await client.run(BookmarkRequestFactory.makeUpdateRequest(id: existingID, body: update))
 

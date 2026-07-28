@@ -109,6 +109,8 @@ import SwiftUI
                     .tag(SidebarItem.today)
                 Label("This Week", systemImage: "calendar")
                     .tag(SidebarItem.thisWeek)
+                Label("To Read", systemImage: "book")
+                    .tag(SidebarItem.readLater)
             }
         }
 
@@ -164,6 +166,7 @@ import SwiftUI
         case untagged
         case today
         case thisWeek
+        case readLater
         case tag(String)
         case smartView(SmartView)
 
@@ -177,6 +180,7 @@ import SwiftUI
             case .untagged: BookmarkListQuery.untaggedTag
             case .today: BookmarkListQuery.todayTag
             case .thisWeek: BookmarkListQuery.thisWeekTag
+            case .readLater: BookmarkListQuery.readLaterTag
             case let .tag(name): name
             case .smartView: nil
             }

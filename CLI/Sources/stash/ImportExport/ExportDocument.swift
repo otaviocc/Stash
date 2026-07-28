@@ -54,6 +54,7 @@ struct ExportItem: Encodable {
     let tags: [String]
     let faviconURL: String?
     let isArchived: Bool
+    let isReadLater: Bool
     let createdAt: String
     let updatedAt: String
 
@@ -67,6 +68,7 @@ struct ExportItem: Encodable {
         tags = bookmark.tags
         faviconURL = bookmark.faviconURL?.absoluteString
         isArchived = bookmark.isArchived
+        isReadLater = bookmark.isReadLater
         createdAt = formatter.string(from: bookmark.createdAt)
         updatedAt = formatter.string(from: bookmark.updatedAt)
     }

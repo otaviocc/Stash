@@ -46,7 +46,7 @@ All API routes prefixed `/api/v1/`. Health check at `/health` (unversioned).
 | Parameter | Description |
 |-----------|-------------|
 | `q` | Full-text search (URL, title, description, tags). Case-insensitive on both SQLite and PostgreSQL via `lower(column) LIKE lower(term)`. |
-| `tag` | Prefix filter. `swift` matches `swift` and `swift/*` but not `swiftui`. Special values: `__untagged__` returns bookmarks with no tags; `__today__` / `__this_week__` return bookmarks created since the start of the day / the most recent Monday. |
+| `tag` | Prefix filter. `swift` matches `swift` and `swift/*` but not `swiftui`. Special values: `__untagged__` returns bookmarks with no tags; `__today__` / `__this_week__` return bookmarks created since the start of the day / the most recent Monday; `__read_later__` returns bookmarks with `isReadLater` set. |
 | `archived` | Default false. Pass `true` for archived bookmarks. |
 | `page` / `per` | Pagination. `per` clamped 1-100. |
 
@@ -281,6 +281,7 @@ instances.
 | `bookmarks[].description` | |
 | `bookmarks[].tags` | Normalized |
 | `bookmarks[].isArchived` | |
+| `bookmarks[].isReadLater` | |
 | `bookmarks[].faviconURL` | |
 | `bookmarks[].createdAt` | ISO-8601; current time if missing |
 | `smartViews[].name` | Required; ≤ 100 chars |
@@ -311,6 +312,7 @@ Views, sorted by `name`:
       "tags": ["swift", "ios"],
       "faviconURL": "https://example.com/favicon.ico",
       "isArchived": false,
+      "isReadLater": false,
       "createdAt": "2026-01-01T00:00:00Z",
       "updatedAt": "2026-01-02T00:00:00Z"
     }
@@ -337,8 +339,9 @@ Views, sorted by `name`:
 
 The inverse of the Anybox importer (§11.2): all bookmarks (including archived),
 sorted by `createdAt` ascending, written as a flat top-level JSON array. It is
-intentionally lossy — Anybox has no concept of archived bookmarks or Smart
-Views, so `isArchived` is dropped and Smart Views are omitted.
+intentionally lossy — Anybox has no concept of archived or read-later
+bookmarks, or Smart Views, so `isArchived`/`isReadLater` are dropped and Smart
+Views are omitted.
 
 | Stash field | Anybox field | Notes |
 |---|---|------|
@@ -348,6 +351,7 @@ Views, so `isArchived` is dropped and Smart Views are omitted.
 | `tags` | `tags` | Plain `[String]` (e.g. `["topic/swift", "ios"]`); the importer's documented fallback shape, so a Stash → Anybox → Stash round-trip preserves tags |
 | `createdAt` | `dateAdded` | ISO-8601 string |
 | `isArchived` | — | Dropped (Anybox has no archive) |
+| `isReadLater` | — | Dropped (Anybox has no read-later concept) |
 | Smart Views | — | Omitted (Anybox has no equivalent) |
 
 ```json
@@ -385,8 +389,8 @@ The exporter (all bookmarks including archived) is intentionally **flat** — no
 Stash tags are hierarchical *and* multi-valued per bookmark, while a Netscape file's folders are a
 strict single-parent tree; there's no lossless way to place a multi-tagged bookmark into one
 folder. Every bookmark's full tag set is instead written into the `TAGS` attribute, which the
-importer above reads back losslessly on a round-trip. `isArchived` and Smart Views are dropped, same
-as the Anybox exporter (§11.5).
+importer above reads back losslessly on a round-trip. `isArchived`/`isReadLater` and Smart Views are
+dropped, same as the Anybox exporter (§11.5).
 
 ```html
 <!DOCTYPE NETSCAPE-Bookmark-file-1>
@@ -426,8 +430,8 @@ The exporter (all bookmarks including archived) uses the exact column layout Rai
 accepting back, for the best round-trip fidelity into Raindrop itself. `folder` is left empty:
 Stash has no folder concept, and Raindrop has no hierarchical-tag concept, so a Stash tag like
 `topic/swift` is written as-is into `tags` rather than guessing a single "primary" folder for a
-bookmark that may carry several tags. `isArchived` and Smart Views are dropped, same as the Anybox
-exporter.
+bookmark that may carry several tags. `isArchived`/`isReadLater` and Smart Views are dropped, same
+as the Anybox exporter.
 
 ```csv
 folder,url,title,note,tags,created
@@ -448,15 +452,17 @@ flat top-level array using Pinboard's Delicious-legacy field names.
 | `extended` | `description` | Pinboard's actual description field |
 | `tags` | `tags` | A single space-separated string (Pinboard tags may not contain whitespace) |
 | `time` | `createdAt` | ISO-8601 |
-| `shared`, `toread` | — | Read and discarded: Stash has no public-sharing or read-later/unread concept (§22, Out of Scope) |
+| `toread` | `isReadLater` | `"yes"`/`"no"` |
+| `shared` | — | Read and discarded: Stash has no public-sharing concept (§22, Out of Scope) |
 
 Duplicate URL: update in place. `createdAt` preserved.
 
 The exporter (all bookmarks including archived) writes Pinboard's field names so the file is
-importable by Pinboard itself and by the many tools that already speak this shape. `shared`/`toread`
-are always written as `"no"`. `isArchived` and Smart Views are dropped, same as the Anybox exporter.
-Known lossy edge case: a Stash tag containing a literal space (rare, but not disallowed) would not
-survive a round-trip, since Pinboard's `tags` field is space-separated.
+importable by Pinboard itself and by the many tools that already speak this shape. `toread` maps
+directly from `isReadLater`; `shared` is always written as `"no"`. `isArchived` and Smart Views are
+dropped, same as the Anybox exporter. Known lossy edge case: a Stash tag containing a literal space
+(rare, but not disallowed) would not survive a round-trip, since Pinboard's `tags` field is
+space-separated.
 
 ```json
 [

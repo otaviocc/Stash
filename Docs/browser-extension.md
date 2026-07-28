@@ -6,8 +6,8 @@ directly to the backend over the public REST API ([`/api/v1/`](api.md)); there
 are no backend, [StashKit](stashkit.md), or native-app changes behind it.
 
 Clicking the toolbar button opens the full add-bookmark form, pre-filled with the
-page's URL and title, with a "Fetch metadata" button, tag autocomplete, and a
-"Save" button.
+page's URL and title, with a "Fetch metadata" button, tag autocomplete, a "Read
+later" checkbox, and a "Save" button.
 
 ## Prerequisites
 
@@ -59,8 +59,9 @@ The status line reads "Connected as _username_" once you are signed in.
 
 Navigate to any page, click the Stash icon, optionally click **Fetch metadata**
 to pull the server-side title and description, add tags (with autocomplete from
-your existing tags), and click **Save**. A confirmation appears with a link to
-view the bookmark; it closes itself after a few seconds.
+your existing tags), check **Read later** if you want it to show up in Stash's
+"To Read" view, and click **Save**. A confirmation appears with a link to view
+the bookmark; it closes itself after a few seconds.
 
 The URL field is read-only; the extension always saves the page you are on. If
 the page is already saved, an inline "Already saved" message links to the existing

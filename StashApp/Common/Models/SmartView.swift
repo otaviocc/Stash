@@ -89,6 +89,7 @@ enum SmartViewConditionType: String, CaseIterable, Identifiable {
     case isArchived
     case hasTags
     case isWaybackArchived
+    case isReadLater
 
     // MARK: Computed Properties
 
@@ -109,6 +110,7 @@ enum SmartViewConditionType: String, CaseIterable, Identifiable {
         case .isArchived: "Is archived"
         case .hasTags: "Has tags"
         case .isWaybackArchived: "Archived on Wayback Machine"
+        case .isReadLater: "Read later"
         }
     }
 
@@ -118,7 +120,7 @@ enum SmartViewConditionType: String, CaseIterable, Identifiable {
         case .urlContains, .titleContains, .descriptionContains: .text
         case .createdBefore, .createdAfter: .date
         case .olderThan, .newerThan: .duration
-        case .isArchived, .hasTags, .isWaybackArchived: .boolean
+        case .isArchived, .hasTags, .isWaybackArchived, .isReadLater: .boolean
         }
     }
 }

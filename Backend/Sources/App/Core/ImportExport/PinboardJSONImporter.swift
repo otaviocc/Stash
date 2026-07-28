@@ -15,8 +15,8 @@ import Foundation
 /// - `tags`: a single **space-separated** string (Pinboard tags may not contain whitespace, so
 ///   this is unambiguous)
 /// - `time`: ISO-8601 → `createdAt`
-/// - `shared`/`toread` are read and discarded: Stash has no public-sharing or read-later/unread
-///   concept (see PRD §22, Out of Scope)
+/// - `toread` (`"yes"`/`"no"`) → `isReadLater`
+/// - `shared` is read and discarded: Stash has no public-sharing concept (see PRD §22, Out of Scope)
 ///
 /// A duplicate URL updates the existing bookmark in place, same convention as every other
 /// importer.
@@ -32,6 +32,7 @@ struct PinboardJSONImporter: BookmarkImporter {
         let extended: String?
         let tags: String?
         let time: String?
+        let toread: String?
     }
 
     // MARK: Static Properties
@@ -84,6 +85,7 @@ struct PinboardJSONImporter: BookmarkImporter {
                 (record.tags ?? "").split(whereSeparator: \.isWhitespace).map(String.init)
             )
             let createdAt = record.time.flatMap(Self.iso.date(from:))
+            let isReadLater = record.toread?.lowercased() == "yes"
 
             if let existing = try await Bookmark.query(on: db)
                 .filter(\.$user.$id == userID)
@@ -93,10 +95,18 @@ struct PinboardJSONImporter: BookmarkImporter {
                 existing.title = title
                 existing.description = description
                 existing.applyTags(tags)
+                existing.isReadLater = isReadLater
                 try await existing.save(on: db)
                 updated += 1
             } else {
-                let bookmark = Bookmark(userID: userID, url: url, title: title, description: description, tags: tags)
+                let bookmark = Bookmark(
+                    userID: userID,
+                    url: url,
+                    title: title,
+                    description: description,
+                    tags: tags,
+                    isReadLater: isReadLater
+                )
                 try await bookmark.save(on: db)
                 if let createdAt {
                     bookmark.createdAt = createdAt

@@ -341,7 +341,8 @@ final class SyncEngine {
                 description: record.bookmarkDescription,
                 tags: record.tags.isEmpty ? nil : record.tags,
                 fetchMetadata: record.wantsMetadataFetch,
-                isArchived: record.isArchived
+                isArchived: record.isArchived,
+                isReadLater: record.isReadLater
             )
         )
 
@@ -360,7 +361,8 @@ final class SyncEngine {
                 title: record.title,
                 description: record.bookmarkDescription,
                 tags: record.tags,
-                isArchived: record.isArchived
+                isArchived: record.isArchived,
+                isReadLater: record.isReadLater
             )
         )
 
@@ -397,7 +399,8 @@ final class SyncEngine {
                 title: record.title,
                 description: record.bookmarkDescription,
                 tags: record.tags,
-                isArchived: record.isArchived
+                isArchived: record.isArchived,
+                isReadLater: record.isReadLater
             )
         )
         let dto = try await client.run(request).value

@@ -47,7 +47,7 @@
             #if(bookmark.faviconDomain):
             <div class="domain"><img src="/api/v1/favicons/#(bookmark.faviconDomain)" alt="" class="favicon" loading="lazy" onerror="this.onerror=null;this.src='/favicon-placeholder.svg';this.style.display='';"><a href="#(bookmark.url)" target="_blank" rel="noopener">#(bookmark.faviconDomain)</a></div>
             #endif
-            <h3><a href="/app/bookmarks/#(bookmark.id)?returnTo=#(returnToParam)">#(bookmark.title)</a></h3>
+            <h3>#if(bookmark.isReadLater):<span class="read-later-badge" title="Read later">🔖</span>#endif<a href="/app/bookmarks/#(bookmark.id)?returnTo=#(returnToParam)">#(bookmark.title)</a></h3>
             #if(bookmark.description):<p class="desc">#(bookmark.description)</p>#endif
             #if(count(bookmark.tags) > 0):
             <div class="tags">
@@ -78,6 +78,7 @@
             <li><a href="/app?tag=__untagged__"#if(untaggedActive): class="active"#endif>Untagged</a>#if(untaggedCount > 0): <span class="count">(#(untaggedCount))</span>#endif</li>
             <li><a href="/app?tag=__today__"#if(todayActive): class="active"#endif>Today</a>#if(todayCount > 0): <span class="count">(#(todayCount))</span>#endif</li>
             <li><a href="/app?tag=__this_week__"#if(thisWeekActive): class="active"#endif>This Week</a>#if(thisWeekCount > 0): <span class="count">(#(thisWeekCount))</span>#endif</li>
+            <li><a href="/app?tag=__read_later__"#if(readLaterActive): class="active"#endif>To Read</a>#if(readLaterCount > 0): <span class="count">(#(readLaterCount))</span>#endif</li>
         </ul>
         #if(count(smartViews) > 0):
         <h2>Smart Views</h2>

@@ -18,7 +18,9 @@ struct Bookmarks: AsyncParsableCommand {
             BookmarksAdd.self,
             BookmarksGet.self,
             BookmarksDelete.self,
-            BookmarksArchive.self
+            BookmarksArchive.self,
+            BookmarksReadLater.self,
+            BookmarksMarkRead.self
         ],
         defaultSubcommand: BookmarksList.self
     )
@@ -47,6 +49,9 @@ struct BookmarksList: AsyncParsableCommand {
     @Flag(name: .customLong("archived"), help: "Show archived bookmarks.")
     var archived = false
 
+    @Flag(name: .customLong("read-later"), help: "Show only bookmarks marked to read later (the \"To Read\" view).")
+    var readLater = false
+
     @Option(name: .customLong("page"), help: "Page number.")
     var page = 1
 
@@ -60,10 +65,14 @@ struct BookmarksList: AsyncParsableCommand {
 
     func run() async throws {
         try await runCLI {
+            if readLater, tag != nil {
+                throw CLIError("--read-later and --tag are mutually exclusive.")
+            }
+
             let client = try await CLIRuntime.authenticatedClient(store: ConfigStore())
             let query = BookmarkListQuery(
                 searchQuery: search,
-                tag: tag,
+                tag: readLater ? BookmarkListQuery.readLaterTag : tag,
                 archived: archived,
                 page: page,
                 perPage: per
@@ -108,6 +117,9 @@ struct BookmarksAdd: AsyncParsableCommand {
     @Flag(name: .customLong("no-fetch"), help: "Skip metadata fetching.")
     var noFetch = false
 
+    @Flag(name: .customLong("read-later"), help: "Mark the bookmark to read later.")
+    var readLater = false
+
     @Flag(name: .customLong("json"), help: "Output the created bookmark as JSON.")
     var json = false
 
@@ -121,7 +133,8 @@ struct BookmarksAdd: AsyncParsableCommand {
                 title: title,
                 description: description,
                 tags: tag.isEmpty ? nil : tag,
-                fetchMetadata: noFetch ? false : nil
+                fetchMetadata: noFetch ? false : nil,
+                isReadLater: readLater ? true : nil
             )
             let bookmark = try await client.run(BookmarkRequestFactory.makeCreateRequest(body)).value
 
@@ -238,6 +251,68 @@ struct BookmarksArchive: AsyncParsableCommand {
             _ = try await client.run(BookmarkRequestFactory.makeUpdateRequest(id: bookmarkID, body: body))
 
             Console.out("Archived \(bookmarkID.uuidString).")
+        }
+    }
+}
+
+// MARK: - BookmarksReadLater
+
+/// `stash bookmarks read-later` (alias `stash read-later`) — mark a bookmark to read later.
+struct BookmarksReadLater: AsyncParsableCommand {
+
+    // MARK: Static Properties
+
+    static let configuration = CommandConfiguration(
+        commandName: "read-later",
+        abstract: "Mark a bookmark to read later."
+    )
+
+    // MARK: Properties
+
+    @Argument(help: "The bookmark UUID.")
+    var id: String
+
+    // MARK: Functions
+
+    func run() async throws {
+        try await runCLI {
+            let bookmarkID = try requireUUID(id, label: "bookmark ID")
+            let client = try await CLIRuntime.authenticatedClient(store: ConfigStore())
+            let body = UpdateBookmarkRequest(isReadLater: true)
+            _ = try await client.run(BookmarkRequestFactory.makeUpdateRequest(id: bookmarkID, body: body))
+
+            Console.out("Marked \(bookmarkID.uuidString) to read later.")
+        }
+    }
+}
+
+// MARK: - BookmarksMarkRead
+
+/// `stash bookmarks mark-read` (alias `stash mark-read`) — clear a bookmark's read-later flag.
+struct BookmarksMarkRead: AsyncParsableCommand {
+
+    // MARK: Static Properties
+
+    static let configuration = CommandConfiguration(
+        commandName: "mark-read",
+        abstract: "Mark a bookmark as read (clears the read-later flag)."
+    )
+
+    // MARK: Properties
+
+    @Argument(help: "The bookmark UUID.")
+    var id: String
+
+    // MARK: Functions
+
+    func run() async throws {
+        try await runCLI {
+            let bookmarkID = try requireUUID(id, label: "bookmark ID")
+            let client = try await CLIRuntime.authenticatedClient(store: ConfigStore())
+            let body = UpdateBookmarkRequest(isReadLater: false)
+            _ = try await client.run(BookmarkRequestFactory.makeUpdateRequest(id: bookmarkID, body: body))
+
+            Console.out("Marked \(bookmarkID.uuidString) as read.")
         }
     }
 }

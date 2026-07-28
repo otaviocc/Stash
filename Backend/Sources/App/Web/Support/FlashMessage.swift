@@ -15,6 +15,8 @@ enum FlashMessage {
         case "saved": "Changes saved."
         case "archived": "Bookmark archived."
         case "unarchived": "Bookmark unarchived."
+        case "read_later": "Marked to read later."
+        case "marked_read": "Marked as read."
         case "password": "Password changed."
         case "totp_disabled": "Two-factor authentication disabled."
         case "theme": "Appearance updated."

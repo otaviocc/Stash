@@ -13,6 +13,7 @@ struct CreateBookmarkInput {
     let description: String?
     let tags: [String]
     let fetchMetadata: Bool
+    let isReadLater: Bool
 }
 
 // MARK: - BookmarkQuery
