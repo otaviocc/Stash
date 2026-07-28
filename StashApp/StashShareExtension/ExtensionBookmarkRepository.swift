@@ -32,7 +32,8 @@ final class ExtensionBookmarkRepository: BookmarkCreating {
                 title: input.title,
                 description: input.description,
                 tags: input.tags.isEmpty ? nil : input.tags,
-                fetchMetadata: input.fetchMetadata
+                fetchMetadata: input.fetchMetadata,
+                isReadLater: input.isReadLater
             )
         )
         let dto = try await client.run(request).value
