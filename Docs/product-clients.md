@@ -110,8 +110,14 @@ avoid reference cycles.
 bookmarks (`LocalStore` + `LocalBookmark`, owned by `AppEnvironment`).
 `BookmarkRepository` reads entirely from this store: search, tag, recency, and
 Smart View filters run in memory, mirroring the backend's SQL semantics, so
-browsing works without the network. `TagRepository` derives the tag list from the
-store.
+browsing works without the network — the server-side `GET /smart-views/:id/bookmarks`
+results endpoint is never called by the apps at all. `TagRepository` derives the tag
+list from the store. `LocalStore` also holds a `LocalSmartView` cache of each Smart
+View's definition (name, match mode, conditions), so `SmartViewRepository` shows the
+sidebars' Smart Views section immediately from disk on a cold launch offline, then
+best-effort refreshes and reconciles from `GET /smart-views` in the background;
+authoring a Smart View (create/edit/delete) is unchanged and still requires
+connectivity, with no offline queue.
 
 `SyncEngine` runs a pull-then-push cycle with last-write-wins: it pulls
 `GET /bookmarks/changes?since=` and `GET /bookmarks/deleted?since=` (the `since`

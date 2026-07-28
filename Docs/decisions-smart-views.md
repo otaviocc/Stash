@@ -172,6 +172,46 @@ app's iconography. No behavior change.
 
 ---
 
+## Smart View definitions persisted locally (offline cold-launch fix)
+
+Smart View *results* had been fully offline-capable since the native apps' consumption-only pass:
+`BookmarkFilter` evaluates every condition in memory against the local bookmark store, and the app
+never calls the server-side `/smart-views/:id/bookmarks` results endpoint at all (that endpoint exists
+only for the CLI). What wasn't offline-capable was the list of Smart View *definitions* itself:
+`SmartViewRepository` cached the `GET /smart-views` response only in an in-process array, fetched once
+per launch. Offline on a cold launch, that fetch failed silently and the cache stayed empty, so the
+sidebars' Smart Views section — gated on having at least one — simply never appeared. There was nothing
+to tap, even though every Smart View's *results* were fully answerable from data already on disk.
+
+The fix adds a `LocalSmartView` SwiftData model alongside `LocalBookmark`, so `SmartViewRepository.load()`
+now reads the cache from disk synchronously first (available with no network at all) and only then makes
+a best-effort attempt to refresh from the server; a failed refresh is swallowed as long as something was
+already cached, and only propagates if the cache was genuinely empty too (the very first launch,
+offline). `reload()` (pull-to-refresh, and the management screen) keeps throwing on failure unconditionally,
+so a deliberate refresh still surfaces a real error. Since `GET /smart-views` returns the complete,
+unpaginated list every time — no delta cursor, no tombstones, the same "small enough not to bother"
+reasoning already applied to the deletions endpoint — reconciling the cache on each successful refresh is
+a straightforward full replace: update rows present in the response, insert new ones, delete local rows
+absent from it.
+
+Two deliberate simplifications versus `LocalBookmark`: no local/server id split (a Smart View is never
+authored offline, so every cached row always mirrors a real server record, and `id` doubles as the
+server id), and no pending-write bookkeeping at all — authoring stays online-only, unchanged, and still
+fails outright with a visible error when offline (evaluated and explicitly deferred, not an oversight;
+building a Smart View offline-write queue akin to the bookmark one felt like meaningfully more risk for
+a rarely-used, low-frequency write path). Every read is scoped by `userID` from the very first line of
+code, rather than repeating the bookmark store's own documented residual gap of shipping without one.
+The two sign-out paths also diverge on purpose: an explicit "Sign Out" wipes the cached Smart Views
+entirely (the next person on the device must never inherit them), while an involuntary session clear
+leaves them untouched — there's no pending state to lose, and the `userID` scoping already makes it safe
+for a different user to sign in afterward, so preserving the cache just means the *same* user's Smart
+Views come back instantly, offline, the moment they sign back in.
+
+`SyncEngine`'s cycle also picked up a small addition here: a best-effort Smart View refresh runs right
+after the existing bookmark pull/push, so every trigger that already drives a sync (launch, reconnect,
+iOS background refresh, macOS foreground, the manual "Sync Now" button) keeps Smart View rules current
+too, instead of only refreshing on each sidebar's own first appearance per session.
+
 ## Smart View condition: `isReadLater`
 
 A fourth boolean condition, alongside `isArchived`/`hasTags`/

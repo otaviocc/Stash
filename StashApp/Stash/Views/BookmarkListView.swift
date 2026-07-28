@@ -28,7 +28,8 @@ struct BookmarkListView: View {
         source = .tag(tag)
     }
 
-    /// A list backed by a Smart View's saved query, run live server-side.
+    /// A list backed by a Smart View's saved query, run live locally against `LocalStore` (see
+    /// `BookmarkRepository`'s class doc comment) — never a request to the server.
     init(smartView: SmartView) {
         source = .smartView(smartView)
     }

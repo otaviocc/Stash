@@ -14,6 +14,14 @@ import StashKit
 /// engine is `@MainActor` and single-flight — concurrent callers await the in-flight cycle. Client
 /// provisioning mirrors the repositories (`StashClientProvider` + `SessionRefreshing`) rather than the
 /// brief's raw `StashClient`, so a silent refresh runs first.
+///
+/// A full `sync()` cycle also does a best-effort Smart View definitions refresh (`SmartViewRepository
+/// .reload()`) right after the bookmark pull/push, so every existing sync trigger (launch, reconnect,
+/// background refresh, manual "Sync Now") keeps Smart View rules fresh too, not just each sidebar's own
+/// first-appearance load. A failed refresh there is swallowed — Smart Views already have their own
+/// on-disk cache and don't need to fail the whole cycle. `pushPending()` skips this, since it runs right
+/// after a local write with nothing new to pull, so there's nothing about Smart View rules to refresh
+/// either.
 @MainActor
 @Observable
 final class SyncEngine {
@@ -35,6 +43,7 @@ final class SyncEngine {
     private let localStore: LocalStore
     private let connectivity: ConnectivityMonitor
     private let defaults: UserDefaults
+    private let smartViewRepository: SmartViewRepository
     private var inflightSync: Task<Void, Never>?
 
     /// Bumped each time a cycle is registered in `inflightSync`. A finishing cycle clears the slot only
@@ -64,13 +73,15 @@ final class SyncEngine {
         session: SessionRefreshing,
         localStore: LocalStore,
         connectivity: ConnectivityMonitor,
-        defaults: UserDefaults
+        defaults: UserDefaults,
+        smartViewRepository: SmartViewRepository
     ) {
         self.clientProvider = clientProvider
         self.session = session
         self.localStore = localStore
         self.connectivity = connectivity
         self.defaults = defaults
+        self.smartViewRepository = smartViewRepository
         lastSyncedAt = defaults.object(forKey: AppGroup.lastSyncedAtKey) as? Date
         let userID = clientProvider.currentUserID() ?? ""
         pendingCount = localStore.pendingCount(userID: userID)
@@ -213,6 +224,8 @@ final class SyncEngine {
         } catch {
             lastSyncError = error
         }
+
+        try? await smartViewRepository.reload()
 
         refreshPendingCount()
         isSyncing = false
