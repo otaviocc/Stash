@@ -25,7 +25,7 @@ import Foundation
 ///   merged in as additional tags alongside the folder tag.
 ///
 /// A duplicate URL updates the existing bookmark in place (title/description/tags overwritten,
-/// `createdAt` left untouched) — same convention as every other importer.
+/// `createdAt`/`isArchived`/`isReadLater` left untouched) — same convention as every other importer.
 struct NetscapeHTMLImporter: BookmarkImporter {
 
     // MARK: Nested Types

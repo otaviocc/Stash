@@ -148,11 +148,12 @@ struct BookmarkDetailView: View {
     private func makeMetadataSection() -> some View {
         Section {
             LabeledContent("Added", value: bookmark.createdAt, format: .dateTime.day().month().year())
-            if bookmark.isArchived {
-                LabeledContent("Status", value: "Archived")
-            }
-            if bookmark.isReadLater {
-                LabeledContent("Status", value: "To Read")
+            let statuses = [
+                bookmark.isArchived ? "Archived" : nil,
+                bookmark.isReadLater ? "To Read" : nil,
+            ].compactMap { $0 }
+            if !statuses.isEmpty {
+                LabeledContent("Status", value: statuses.joined(separator: ", "))
             }
         }
     }
