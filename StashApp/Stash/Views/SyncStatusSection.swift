@@ -76,7 +76,7 @@ struct SyncStatusRows: View {
             makeFailedRow()
         }
 
-        if environment.syncEngine.lastSyncError != nil {
+        if environment.syncEngine.lastSyncFailed {
             makeErrorNotice()
         }
 

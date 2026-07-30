@@ -34,7 +34,11 @@ final class SyncEngine {
 
     private(set) var isSyncing = false
     private(set) var lastSyncedAt: Date?
-    private(set) var lastSyncError: Error?
+
+    /// Whether the last cycle failed. `Bool` (unlike the raw `Error` it replaces) is `Equatable`, so
+    /// the `@Observable`-generated setter can skip notifying observers when a cycle resets this to
+    /// `false` and it was already `false` — which is the common case on every successful cycle.
+    private(set) var lastSyncFailed = false
     private(set) var pendingCount = 0
     private(set) var failedCount = 0
 
@@ -175,7 +179,7 @@ final class SyncEngine {
 
     /// Dismisses the last sync error (the inline Settings alert). The next cycle also clears it.
     func dismissError() {
-        lastSyncError = nil
+        lastSyncFailed = false
     }
 
     /// Deletes the current user's permanently-failed records. The user acknowledges that the
@@ -196,7 +200,7 @@ final class SyncEngine {
         inflightSync?.cancel()
         inflightSync = nil
         lastSyncedAt = nil
-        lastSyncError = nil
+        lastSyncFailed = false
         pendingCount = 0
         defaults.removeObject(forKey: AppGroup.lastSyncedAtKey)
     }
@@ -209,7 +213,7 @@ final class SyncEngine {
         }
 
         isSyncing = true
-        lastSyncError = nil
+        lastSyncFailed = false
         let cycleStart = Date()
 
         let userID = currentUserID
@@ -222,7 +226,7 @@ final class SyncEngine {
             localStore.save()
             setLastSyncedAt(cycleStart)
         } catch {
-            lastSyncError = error
+            lastSyncFailed = true
         }
 
         try? await smartViewRepository.reload()
@@ -237,7 +241,7 @@ final class SyncEngine {
         }
 
         isSyncing = true
-        lastSyncError = nil
+        lastSyncFailed = false
         let userID = currentUserID
 
         do {
@@ -245,7 +249,7 @@ final class SyncEngine {
             try await push(client: client, userID: userID)
             localStore.save()
         } catch {
-            lastSyncError = error
+            lastSyncFailed = true
         }
 
         refreshPendingCount()
