@@ -26,6 +26,12 @@ struct TagPickerSheet: View {
     let tagHierarchy: [TagNode]
     var onDismiss: () -> Void
 
+    /// Every slug in `tagHierarchy`, walked once at `init` rather than recomputed from a computed
+    /// property — `tagHierarchy` doesn't change for the sheet's lifetime, but a computed property
+    /// would otherwise re-walk the whole tree on every `searchText` keystroke since `showsCreateRow`
+    /// reads it in `body`.
+    private let allSlugs: Set<String>
+
     // MARK: Computed Properties
 
     private var normalizedQuery: String {
@@ -40,12 +46,17 @@ struct TagPickerSheet: View {
         !normalizedQuery.isEmpty && !allSlugs.contains(normalizedQuery)
     }
 
-    private var allSlugs: Set<String> {
-        func collect(_ nodes: [TagNode]) -> [String] {
-            nodes.flatMap { [$0.slug] + collect($0.children ?? []) }
-        }
+    // MARK: Lifecycle
 
-        return Set(collect(tagHierarchy))
+    init(
+        selectedTags: Binding<[String]>,
+        tagHierarchy: [TagNode],
+        onDismiss: @escaping () -> Void
+    ) {
+        _selectedTags = selectedTags
+        self.tagHierarchy = tagHierarchy
+        self.onDismiss = onDismiss
+        allSlugs = Self.collectSlugs(tagHierarchy)
     }
 
     // MARK: Content Properties
@@ -227,6 +238,15 @@ struct TagPickerSheet: View {
 
             return nil
         }
+    }
+
+    /// Every slug in the tree, walked once (see `allSlugs`).
+    private static func collectSlugs(_ nodes: [TagNode]) -> Set<String> {
+        func collect(_ nodes: [TagNode]) -> [String] {
+            nodes.flatMap { [$0.slug] + collect($0.children ?? []) }
+        }
+
+        return Set(collect(nodes))
     }
 
     // MARK: Functions
