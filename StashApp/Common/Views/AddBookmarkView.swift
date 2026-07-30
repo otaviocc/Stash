@@ -96,17 +96,25 @@ struct AddBookmarkView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                makeURLSection()
+                URLSectionView(
+                    urlText: $urlText,
+                    isURLEditable: isURLEditable,
+                    isFetching: isFetching,
+                    canFetch: !trimmedURL.isEmpty && fetchedDomain == nil,
+                    fetchDisabled: parsedURL == nil,
+                    errorMessage: errorMessage,
+                    onFetch: fetchMetadata
+                )
                 Divider().opacity(0.3)
-                makeMetadataPreview()
-                makeTitleSection()
+                MetadataPreviewSectionView(domain: fetchedDomain)
+                TitleSectionView(title: $title)
                 Divider().opacity(0.3)
-                makeDescriptionSection()
+                DescriptionSectionView(description: $description)
                 Divider().opacity(0.3)
 
                 TagSummarySection(selectedTags: $selectedTags, tagHierarchy: tagStore.tagHierarchy)
                 Divider().opacity(0.3)
-                makeReadLaterSection()
+                ReadLaterSectionView(isReadLater: $isReadLater)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onChange(of: urlText) {
@@ -135,6 +143,9 @@ struct AddBookmarkView: View {
                 if autoFetchOnAppear {
                     fetchMetadata()
                 }
+            }
+            .onDisappear {
+                fetchTask?.cancel()
             }
             #if os(macOS)
             .safeAreaInset(edge: .bottom) {
@@ -174,110 +185,6 @@ struct AddBookmarkView: View {
         } else {
             Button("Save", action: save)
                 .disabled(parsedURL == nil)
-        }
-    }
-
-    private func makeURLSection() -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            FieldLabel(text: "URL")
-
-            if isURLEditable {
-                HStack(spacing: 8) {
-                    TextField("https://…", text: $urlText)
-                        .textFieldStyle(.plain)
-                        .urlFieldStyle()
-
-                    PasteButton(payloadType: String.self) { strings in
-                        guard let pasted = strings.first else {
-                            return
-                        }
-
-                        urlText = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
-                    }
-                    .labelStyle(.iconOnly)
-                    .buttonBorderShape(.circle)
-
-                    makeFetchButton()
-                }
-            } else {
-                Text(urlText)
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            makeInlineError()
-        }
-        .fieldSectionPadding()
-    }
-
-    @ViewBuilder
-    private func makeFetchButton() -> some View {
-        if isFetching {
-            ProgressView()
-                .controlSize(.small)
-        } else if !trimmedURL.isEmpty, fetchedDomain == nil {
-            Button("Fetch", action: fetchMetadata)
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
-                .disabled(parsedURL == nil)
-        }
-    }
-
-    @ViewBuilder
-    private func makeMetadataPreview() -> some View {
-        if let fetchedDomain {
-            VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    MetadataFaviconView(domain: fetchedDomain, size: 24)
-                    Text(fetchedDomain)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-                .fieldSectionPadding()
-
-                Divider().opacity(0.3)
-            }
-            .transition(.opacity)
-        }
-    }
-
-    private func makeTitleSection() -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            FieldLabel(text: "Title")
-            TextField("Title", text: $title, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...3)
-        }
-        .fieldSectionPadding()
-    }
-
-    private func makeDescriptionSection() -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            FieldLabel(text: "Description")
-            DescriptionEditor(text: $description)
-        }
-        .fieldSectionPadding()
-        .frame(maxHeight: .infinity)
-    }
-
-    private func makeReadLaterSection() -> some View {
-        Toggle(isOn: $isReadLater) {
-            Label("Read Later", systemImage: "bookmark.fill")
-        }
-        .fieldSectionPadding()
-    }
-
-    @ViewBuilder
-    private func makeInlineError() -> some View {
-        if let errorMessage {
-            Text(errorMessage)
-                .font(.caption)
-                .foregroundStyle(.red)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -343,6 +250,194 @@ struct AddBookmarkView: View {
                 errorMessage = error.stashUserMessage
             }
         }
+    }
+}
+
+// MARK: - URLSectionView
+
+/// The URL field, its paste/fetch controls, and the inline fetch-error message. Extracted so editing
+/// the title or description elsewhere in `AddBookmarkView` doesn't re-diff this section too.
+private struct URLSectionView: View {
+
+    // MARK: SwiftUI Properties
+
+    @Binding var urlText: String
+
+    // MARK: Properties
+
+    let isURLEditable: Bool
+    let isFetching: Bool
+    let canFetch: Bool
+    let fetchDisabled: Bool
+    let errorMessage: String?
+    let onFetch: () -> Void
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            FieldLabel(text: "URL")
+
+            if isURLEditable {
+                HStack(spacing: 8) {
+                    TextField("https://…", text: $urlText)
+                        .textFieldStyle(.plain)
+                        .urlFieldStyle()
+
+                    PasteButton(payloadType: String.self) { strings in
+                        guard let pasted = strings.first else {
+                            return
+                        }
+
+                        urlText = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonBorderShape(.circle)
+
+                    makeFetchButton()
+                }
+            } else {
+                Text(urlText)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            makeInlineError()
+        }
+        .fieldSectionPadding()
+    }
+
+    // MARK: Content Methods
+
+    @ViewBuilder
+    private func makeFetchButton() -> some View {
+        if isFetching {
+            ProgressView()
+                .controlSize(.small)
+        } else if canFetch {
+            Button("Fetch", action: onFetch)
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+                .disabled(fetchDisabled)
+        }
+    }
+
+    @ViewBuilder
+    private func makeInlineError() -> some View {
+        if let errorMessage {
+            Text(errorMessage)
+                .font(.caption)
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+// MARK: - MetadataPreviewSectionView
+
+/// The fetched favicon/domain preview shown once metadata comes back. Extracted so it doesn't share
+/// an invalidation boundary with the fields around it.
+private struct MetadataPreviewSectionView: View {
+
+    // MARK: Properties
+
+    let domain: String?
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        if let domain {
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    MetadataFaviconView(domain: domain, size: 24)
+                    Text(domain)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .fieldSectionPadding()
+
+                Divider().opacity(0.3)
+            }
+            .transition(.opacity)
+        }
+    }
+}
+
+// MARK: - TitleSectionView
+
+/// The title field. Extracted so it doesn't share an invalidation boundary with the fields around it.
+private struct TitleSectionView: View {
+
+    // MARK: SwiftUI Properties
+
+    @Binding var title: String
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            FieldLabel(text: "Title")
+            TextField("Title", text: $title, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(1...3)
+        }
+        .fieldSectionPadding()
+    }
+}
+
+// MARK: - DescriptionSectionView
+
+/// The description field. Extracted so it doesn't share an invalidation boundary with the fields
+/// around it.
+private struct DescriptionSectionView: View {
+
+    // MARK: SwiftUI Properties
+
+    @Binding var description: String
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            FieldLabel(text: "Description")
+            DescriptionEditor(text: $description)
+        }
+        .fieldSectionPadding()
+        .frame(maxHeight: .infinity)
+    }
+}
+
+// MARK: - ReadLaterSectionView
+
+/// The read-later toggle. Extracted so it doesn't share an invalidation boundary with the fields
+/// above it.
+private struct ReadLaterSectionView: View {
+
+    // MARK: SwiftUI Properties
+
+    @Binding var isReadLater: Bool
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        Toggle(isOn: $isReadLater) {
+            Label("Read Later", systemImage: "bookmark.fill")
+        }
+        .fieldSectionPadding()
     }
 }
 
