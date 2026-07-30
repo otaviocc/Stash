@@ -280,6 +280,9 @@ private struct TwoFactorEnrollView: View {
             TextField("6-digit code", text: $code)
                 .multilineTextAlignment(.center)
                 .oneTimeCodeFieldStyle()
+                .onChange(of: code) { _, newValue in
+                    code = String(newValue.filter(\.isNumber).prefix(6))
+                }
 
             if let errorMessage {
                 Text(errorMessage)
