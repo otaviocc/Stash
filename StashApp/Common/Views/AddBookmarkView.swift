@@ -66,6 +66,7 @@ struct AddBookmarkView: View {
 
     init(
         initialURL: String = "",
+        restoring restoredBookmark: Bookmark? = nil,
         isURLEditable: Bool,
         autoFetchOnAppear: Bool,
         usesInlineActionBar: Bool = false,
@@ -74,7 +75,11 @@ struct AddBookmarkView: View {
         onSaved: @escaping (Bookmark) -> Void,
         onCancel: @escaping () -> Void
     ) {
-        _urlText = State(initialValue: initialURL)
+        _urlText = State(initialValue: restoredBookmark?.url.absoluteString ?? initialURL)
+        _title = State(initialValue: restoredBookmark?.title ?? "")
+        _description = State(initialValue: restoredBookmark?.description ?? "")
+        _selectedTags = State(initialValue: restoredBookmark?.tags ?? [])
+        _isReadLater = State(initialValue: restoredBookmark?.isReadLater ?? false)
         self.isURLEditable = isURLEditable
         self.autoFetchOnAppear = autoFetchOnAppear
         self.usesInlineActionBar = usesInlineActionBar

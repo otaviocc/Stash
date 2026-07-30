@@ -22,6 +22,7 @@ struct ShareExtensionView: View {
         case loading
         case signedOut
         case add(URL)
+        case restoring(Bookmark)
         case confirmation(Bookmark)
     }
 
@@ -74,6 +75,22 @@ struct ShareExtensionView: View {
                 initialURL: url.absoluteString,
                 isURLEditable: false,
                 autoFetchOnAppear: true,
+                usesInlineActionBar: true,
+                bookmarkStore: bookmarkRepository,
+                tagStore: tagRepository,
+                onSaved: { bookmark in
+                    withAnimation {
+                        phase = .confirmation(bookmark)
+                    }
+                },
+                onCancel: cancel
+            )
+
+        case let .restoring(bookmark):
+            AddBookmarkView(
+                restoring: bookmark,
+                isURLEditable: false,
+                autoFetchOnAppear: false,
                 usesInlineActionBar: true,
                 bookmarkStore: bookmarkRepository,
                 tagStore: tagRepository,
@@ -146,7 +163,7 @@ struct ShareExtensionView: View {
             try? await bookmarkRepository.deleteBookmark(id: bookmark.id)
 
             withAnimation {
-                phase = .add(bookmark.url)
+                phase = .restoring(bookmark)
             }
         }
     }
