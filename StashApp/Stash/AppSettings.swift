@@ -8,7 +8,7 @@ import Foundation
 /// Where the app opens a bookmark's link. `inApp` presents an in-app Safari view
 /// (`SFSafariViewController`, iOS/iPadOS only); `defaultBrowser` hands off to the system default
 /// browser. The setting is unused on macOS, which always uses the default browser.
-enum BrowserPreference: String, CaseIterable, Identifiable {
+enum BrowserPreference: String, CaseIterable, Identifiable, Equatable {
 
     case inApp
     case defaultBrowser
