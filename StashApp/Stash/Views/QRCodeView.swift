@@ -10,6 +10,13 @@ import SwiftUI
 /// available on both iOS and macOS, so the same view serves every native client.
 struct QRCodeView: View {
 
+    // MARK: Static Properties
+
+    /// Shared across renders: `CIContext` compiles and allocates render resources on creation, so
+    /// reusing one instance instead of allocating a fresh context per image avoids repeating that
+    /// cost every time this view (re-)renders.
+    private static let context = CIContext()
+
     // MARK: Properties
 
     let string: String
@@ -45,7 +52,7 @@ struct QRCodeView: View {
 
         let scaled = output.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
 
-        return CIContext().createCGImage(scaled, from: scaled.extent)
+        return context.createCGImage(scaled, from: scaled.extent)
     }
 }
 
