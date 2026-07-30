@@ -9,22 +9,19 @@
     // MARK: - InstalledBrowser
 
     /// A browser discovered on the Mac, capable of opening `http`/`https` URLs.
-    struct InstalledBrowser: Identifiable, Hashable {
+    struct InstalledBrowser: Identifiable {
 
         // MARK: Properties
 
         let bundleID: String
         let name: String
         let appURL: URL
+        let icon: NSImage
 
         // MARK: Computed Properties
 
         var id: String {
             bundleID
-        }
-
-        var icon: NSImage {
-            NSWorkspace.shared.icon(forFile: appURL.path)
         }
 
         // MARK: Static Functions
@@ -48,7 +45,12 @@
                     .displayName(atPath: appURL.path)
                     .replacingOccurrences(of: ".app", with: "")
 
-                return InstalledBrowser(bundleID: bundleID, name: name, appURL: appURL)
+                return InstalledBrowser(
+                    bundleID: bundleID,
+                    name: name,
+                    appURL: appURL,
+                    icon: NSWorkspace.shared.icon(forFile: appURL.path)
+                )
             }
 
             var seen = Set<String>()
