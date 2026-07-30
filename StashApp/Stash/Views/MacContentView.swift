@@ -24,44 +24,62 @@
         // MARK: Content
 
         var body: some View {
-            makeSplit()
-                .macBrowserChooser()
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    if !environment.connectivityMonitor.isOnline {
-                        OfflineBanner()
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-                }
-                .animation(.default, value: environment.connectivityMonitor.isOnline)
-        }
-
-        // MARK: Content Methods
-
-        private func makeSplit() -> some View {
             NavigationSplitView {
-                List(selection: $selection) {
-                    makeViewsSection()
-                    makeSmartViewsSection()
-                    makeTagsSection()
-                }
-                .navigationTitle("Stash")
-                .navigationSplitViewColumnWidth(min: 200, ideal: 240)
-                .task {
-                    try? await environment.tagRepository.load()
-                }
-                .task {
-                    try? await environment.smartViewRepository.load()
-                }
-                .onSyncCompleted {
-                    environment.tagRepository.refresh()
-                }
+                MacSidebarView(selection: $selection)
             } detail: {
                 NavigationStack {
-                    makeDetail()
+                    MacDetailView(selection: selection)
                 }
                 .id(selection)
             }
+            .macBrowserChooser()
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if !environment.connectivityMonitor.isOnline {
+                    OfflineBanner()
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.default, value: environment.connectivityMonitor.isOnline)
         }
+    }
+
+    // MARK: - MacSidebarView
+
+    /// The sidebar column: Views, Smart Views, and the tag tree. Extracted from `MacContentView` so a
+    /// background tag/Smart View refresh only re-diffs this list, not the detail column or the
+    /// offline banner above the whole split view.
+    private struct MacSidebarView: View {
+
+        // MARK: SwiftUI Properties
+
+        @Binding var selection: MacSidebarItem?
+
+        @Environment(AppEnvironment.self) private var environment
+
+        // MARK: Content Properties
+
+        // MARK: Content
+
+        var body: some View {
+            List(selection: $selection) {
+                makeViewsSection()
+                makeSmartViewsSection()
+                makeTagsSection()
+            }
+            .navigationTitle("Stash")
+            .navigationSplitViewColumnWidth(min: 200, ideal: 240)
+            .task {
+                try? await environment.tagRepository.load()
+            }
+            .task {
+                try? await environment.smartViewRepository.load()
+            }
+            .onSyncCompleted {
+                environment.tagRepository.refresh()
+            }
+        }
+
+        // MARK: Content Methods
 
         private func makeViewsSection() -> some View {
             Section("Views") {
@@ -99,9 +117,23 @@
                 }
             }
         }
+    }
 
-        @ViewBuilder
-        private func makeDetail() -> some View {
+    // MARK: - MacDetailView
+
+    /// The detail column: the bookmark list for the current sidebar selection. Extracted from
+    /// `MacContentView` so it doesn't share an invalidation boundary with the sidebar.
+    private struct MacDetailView: View {
+
+        // MARK: Properties
+
+        let selection: MacSidebarItem?
+
+        // MARK: Content Properties
+
+        // MARK: Content
+
+        var body: some View {
             if case let .smartView(smartView) = selection {
                 BookmarkListView(smartView: smartView)
             } else {
