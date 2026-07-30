@@ -46,13 +46,26 @@ struct BookmarkDetailView: View {
 
     var body: some View {
         Form {
-            makeHeaderSection()
-            makeDescriptionSection()
-            makeTagsSection()
-            makeMetadataSection()
-            makeActionsSection()
-            makeDeleteSection()
-            makeErrorMessage()
+            HeaderSectionView(bookmark: bookmark)
+            DescriptionSectionView(description: bookmark.description)
+            TagsSectionView(tags: bookmark.tags)
+            MetadataSectionView(
+                createdAt: bookmark.createdAt,
+                isArchived: bookmark.isArchived,
+                isReadLater: bookmark.isReadLater
+            )
+            ActionsSectionView(
+                bookmark: bookmark,
+                isWorking: isWorking,
+                onRefreshFavicon: refreshFavicon,
+                onSubmitToWayback: submitToWayback,
+                onToggleArchived: toggleArchived,
+                onToggleReadLater: toggleReadLater
+            )
+            DeleteSectionView(isWorking: isWorking) {
+                showingDeleteConfirmation = true
+            }
+            ErrorMessageView(message: errorMessage)
         }
         .formStyle(.grouped)
         .navigationTitle("Bookmark")
@@ -83,173 +96,6 @@ struct BookmarkDetailView: View {
     }
 
     // MARK: Content Methods
-
-    private func makeHeaderSection() -> some View {
-        Section {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(bookmark.title)
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if bookmark.isPendingSync || bookmark.hasSyncError {
-                        PendingSyncBadge(failed: bookmark.hasSyncError)
-                    }
-                }
-
-                HStack(spacing: 6) {
-                    FaviconView(domain: bookmark.faviconDomain)
-                    Text(bookmark.faviconDomain ?? bookmark.hostname)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                Link(destination: bookmark.url) {
-                    Text(bookmark.url.absoluteString)
-                        .font(.footnote)
-                        .foregroundStyle(.tint)
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    @ViewBuilder
-    private func makeDescriptionSection() -> some View {
-        if let description = bookmark.description, !description.isEmpty {
-            Section("Description") {
-                Text(description)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func makeTagsSection() -> some View {
-        if !bookmark.tags.isEmpty {
-            Section("Tags") {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(bookmark.tags, id: \.self) { tag in
-                            TagPill(name: tag)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func makeMetadataSection() -> some View {
-        Section {
-            LabeledContent("Added", value: bookmark.createdAt, format: .dateTime.day().month().year())
-            let statuses = [
-                bookmark.isArchived ? "Archived" : nil,
-                bookmark.isReadLater ? "To Read" : nil,
-            ].compactMap { $0 }
-            if !statuses.isEmpty {
-                LabeledContent("Status", value: statuses.joined(separator: ", "))
-            }
-        }
-    }
-
-    private func makeActionsSection() -> some View {
-        Section {
-            Button {
-                openURL(bookmark.url)
-            } label: {
-                Label("Open in Browser", systemImage: "safari")
-            }
-            .formButtonRowStyle()
-
-            Button {
-                copyToPasteboard(bookmark.url.absoluteString)
-            } label: {
-                Label("Copy URL", systemImage: "doc.on.doc")
-            }
-            .formButtonRowStyle()
-
-            Button {
-                copyToPasteboard("[\(bookmark.title)](\(bookmark.url.absoluteString))")
-            } label: {
-                Label("Copy Markdown URL", systemImage: "doc.on.doc")
-            }
-            .formButtonRowStyle()
-
-            ShareLink(item: bookmark.url) {
-                Label("Share…", systemImage: "square.and.arrow.up")
-            }
-            .formButtonRowStyle()
-
-            if bookmark.faviconDomain != nil {
-                Button(action: refreshFavicon) {
-                    Label("Refresh Favicon", systemImage: "arrow.clockwise")
-                }
-                .formButtonRowStyle()
-                .disabled(isWorking)
-            }
-
-            Button(action: submitToWayback) {
-                Label("Save to Wayback Machine", systemImage: "clock.arrow.circlepath")
-            }
-            .formButtonRowStyle()
-            .disabled(isWorking)
-
-            if let waybackURL = bookmark.waybackURL {
-                Button {
-                    openURL(waybackURL)
-                } label: {
-                    Label("View on Wayback Machine", systemImage: "clock.arrow.circlepath")
-                }
-                .formButtonRowStyle()
-            }
-
-            Button(action: toggleArchived) {
-                Label(
-                    bookmark.isArchived ? "Unarchive" : "Archive",
-                    systemImage: bookmark.isArchived ? "tray.and.arrow.up" : "archivebox"
-                )
-            }
-            .formButtonRowStyle()
-            .disabled(isWorking)
-
-            Button(action: toggleReadLater) {
-                Label(
-                    bookmark.isReadLater ? "Mark as Read" : "Mark to Read Later",
-                    systemImage: bookmark.isReadLater ? "book.closed" : "bookmark.fill"
-                )
-            }
-            .formButtonRowStyle()
-            .disabled(isWorking)
-        }
-    }
-
-    private func makeDeleteSection() -> some View {
-        Section {
-            Button(role: .destructive) {
-                showingDeleteConfirmation = true
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-            .formButtonRowStyle(isDestructive: true)
-            .keyboardShortcut(.delete, modifiers: .command)
-            .disabled(isWorking)
-        }
-    }
-
-    @ViewBuilder
-    private func makeErrorMessage() -> some View {
-        if let errorMessage {
-            Text(errorMessage)
-                .foregroundStyle(.red)
-                .font(.footnote)
-        }
-    }
 
     private func makeEscapeShortcut() -> some View {
         Button("Back") { dismiss() }
@@ -346,6 +192,291 @@ struct BookmarkDetailView: View {
             } catch {
                 errorMessage = error.stashUserMessage
             }
+        }
+    }
+}
+
+// MARK: - HeaderSectionView
+
+/// The title, favicon/domain, pending-sync badge, and link. Extracted so toggling `isWorking`
+/// elsewhere in `BookmarkDetailView` doesn't re-diff this section too.
+private struct HeaderSectionView: View {
+
+    // MARK: Properties
+
+    let bookmark: Bookmark
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(bookmark.title)
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if bookmark.isPendingSync || bookmark.hasSyncError {
+                        PendingSyncBadge(failed: bookmark.hasSyncError)
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    FaviconView(domain: bookmark.faviconDomain)
+                    Text(bookmark.faviconDomain ?? bookmark.hostname)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Link(destination: bookmark.url) {
+                    Text(bookmark.url.absoluteString)
+                        .font(.footnote)
+                        .foregroundStyle(.tint)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+}
+
+// MARK: - DescriptionSectionView
+
+/// The description section, hidden when empty. Extracted so it doesn't share an invalidation
+/// boundary with the actions below it.
+private struct DescriptionSectionView: View {
+
+    // MARK: Properties
+
+    let description: String?
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        if let description, !description.isEmpty {
+            Section("Description") {
+                Text(description)
+            }
+        }
+    }
+}
+
+// MARK: - TagsSectionView
+
+/// The tag chips, hidden when empty. Extracted so it doesn't share an invalidation boundary with the
+/// actions below it.
+private struct TagsSectionView: View {
+
+    // MARK: Properties
+
+    let tags: [String]
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        if !tags.isEmpty {
+            Section("Tags") {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(tags, id: \.self) { tag in
+                            TagPill(name: tag)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - MetadataSectionView
+
+/// The "Added"/status row. Extracted so it doesn't share an invalidation boundary with the actions
+/// below it.
+private struct MetadataSectionView: View {
+
+    // MARK: Properties
+
+    let createdAt: Date
+    let isArchived: Bool
+    let isReadLater: Bool
+
+    // MARK: Computed Properties
+
+    private var statuses: [String] {
+        [
+            isArchived ? "Archived" : nil,
+            isReadLater ? "To Read" : nil
+        ].compactMap(\.self)
+    }
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        Section {
+            LabeledContent("Added", value: createdAt, format: .dateTime.day().month().year())
+
+            if !statuses.isEmpty {
+                LabeledContent("Status", value: statuses.joined(separator: ", "))
+            }
+        }
+    }
+}
+
+// MARK: - ActionsSectionView
+
+/// The open/copy/share/favicon/wayback/archive/read-later actions. Extracted so toggling `isWorking`
+/// while one of these actions runs only re-diffs this section, not the header/description/tags/
+/// metadata sections above it.
+private struct ActionsSectionView: View {
+
+    // MARK: SwiftUI Properties
+
+    @Environment(\.openURL) private var openURL
+
+    // MARK: Properties
+
+    let bookmark: Bookmark
+    let isWorking: Bool
+    let onRefreshFavicon: () -> Void
+    let onSubmitToWayback: () -> Void
+    let onToggleArchived: () -> Void
+    let onToggleReadLater: () -> Void
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        Section {
+            Button {
+                openURL(bookmark.url)
+            } label: {
+                Label("Open in Browser", systemImage: "safari")
+            }
+            .formButtonRowStyle()
+
+            Button {
+                copyToPasteboard(bookmark.url.absoluteString)
+            } label: {
+                Label("Copy URL", systemImage: "doc.on.doc")
+            }
+            .formButtonRowStyle()
+
+            Button {
+                copyToPasteboard("[\(bookmark.title)](\(bookmark.url.absoluteString))")
+            } label: {
+                Label("Copy Markdown URL", systemImage: "doc.on.doc")
+            }
+            .formButtonRowStyle()
+
+            ShareLink(item: bookmark.url) {
+                Label("Share…", systemImage: "square.and.arrow.up")
+            }
+            .formButtonRowStyle()
+
+            if bookmark.faviconDomain != nil {
+                Button(action: onRefreshFavicon) {
+                    Label("Refresh Favicon", systemImage: "arrow.clockwise")
+                }
+                .formButtonRowStyle()
+                .disabled(isWorking)
+            }
+
+            Button(action: onSubmitToWayback) {
+                Label("Save to Wayback Machine", systemImage: "clock.arrow.circlepath")
+            }
+            .formButtonRowStyle()
+            .disabled(isWorking)
+
+            if let waybackURL = bookmark.waybackURL {
+                Button {
+                    openURL(waybackURL)
+                } label: {
+                    Label("View on Wayback Machine", systemImage: "clock.arrow.circlepath")
+                }
+                .formButtonRowStyle()
+            }
+
+            Button(action: onToggleArchived) {
+                Label(
+                    bookmark.isArchived ? "Unarchive" : "Archive",
+                    systemImage: bookmark.isArchived ? "tray.and.arrow.up" : "archivebox"
+                )
+            }
+            .formButtonRowStyle()
+            .disabled(isWorking)
+
+            Button(action: onToggleReadLater) {
+                Label(
+                    bookmark.isReadLater ? "Mark as Read" : "Mark to Read Later",
+                    systemImage: bookmark.isReadLater ? "book.closed" : "bookmark.fill"
+                )
+            }
+            .formButtonRowStyle()
+            .disabled(isWorking)
+        }
+    }
+}
+
+// MARK: - DeleteSectionView
+
+/// The destructive delete action. Extracted so toggling `isWorking` only re-diffs this section, not
+/// the sections above it.
+private struct DeleteSectionView: View {
+
+    // MARK: Properties
+
+    let isWorking: Bool
+    let onDelete: () -> Void
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        Section {
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete", systemImage: "trash")
+            }
+            .formButtonRowStyle(isDestructive: true)
+            .keyboardShortcut(.delete, modifiers: .command)
+            .disabled(isWorking)
+        }
+    }
+}
+
+// MARK: - ErrorMessageView
+
+/// The inline error message, hidden when there is none.
+private struct ErrorMessageView: View {
+
+    // MARK: Properties
+
+    let message: String?
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        if let message {
+            Text(message)
+                .foregroundStyle(.red)
+                .font(.footnote)
         }
     }
 }
