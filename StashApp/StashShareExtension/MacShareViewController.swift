@@ -25,10 +25,35 @@
             super.viewDidLoad()
 
             guard let extensionContext else {
+                presentMissingContextFallback()
+
                 return
             }
 
             let hosting = NSHostingController(rootView: ShareExtensionView(extensionContext: extensionContext))
+            addChild(hosting)
+            hosting.view.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(hosting.view)
+
+            NSLayoutConstraint.activate([
+                hosting.view.topAnchor.constraint(equalTo: view.topAnchor),
+                hosting.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+                hosting.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+                hosting.view.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+            ])
+        }
+
+        // MARK: Functions
+
+        /// The host is expected to always supply an `NSExtensionContext`; this only guards against
+        /// a stranded, permanently blank window if it somehow doesn't, by giving the user an explicit
+        /// way to close the extension instead of a dead end.
+        private func presentMissingContextFallback() {
+            let hosting = NSHostingController(
+                rootView: MissingExtensionContextView { [weak self] in
+                    self?.dismiss(nil)
+                }
+            )
             addChild(hosting)
             hosting.view.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(hosting.view)

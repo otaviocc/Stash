@@ -251,6 +251,36 @@ private struct ConfirmationView: View {
     }
 }
 
+// MARK: - MissingExtensionContextView
+
+/// Shown by the host view controllers when `extensionContext` is unexpectedly `nil`, so the user has
+/// an explicit way to close the extension instead of a permanently blank, stuck screen.
+struct MissingExtensionContextView: View {
+
+    // MARK: Properties
+
+    let onClose: () -> Void
+
+    // MARK: Content Properties
+
+    // MARK: Content
+
+    var body: some View {
+        NavigationStack {
+            BookmarkEmptyState(
+                symbol: "exclamationmark.triangle",
+                title: "Something Went Wrong",
+                message: "This share sheet couldn't be set up. Please close it and try again."
+            )
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", action: onClose)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - ExtensionCancellation
 
 /// The error passed to `cancelRequest(withError:)` when the user dismisses the extension.
