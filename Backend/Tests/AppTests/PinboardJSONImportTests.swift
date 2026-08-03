@@ -105,7 +105,7 @@ struct PinboardJSONImportTests {
                 title: "Old",
                 tags: ["old"]
             )
-            let originalCreatedAt = original.createdAt
+            let originalCreatedAt = try #require(try await Bookmark.find(original.requireID(), on: app.db)).createdAt
             let data = Data(
                 #"[{ "href": "https://example.com", "description": "New", "tags": "new" }]"#.utf8
             )

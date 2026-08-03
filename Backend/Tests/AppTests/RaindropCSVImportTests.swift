@@ -168,7 +168,7 @@ struct RaindropCSVImportTests {
                 title: "Old",
                 tags: ["old"]
             )
-            let originalCreatedAt = original.createdAt
+            let originalCreatedAt = try #require(try await Bookmark.find(original.requireID(), on: app.db)).createdAt
             let csv = """
             url,title,tags
             https://example.com,New,new

@@ -167,7 +167,7 @@ struct AnyboxImportTests {
             let original = try await app.makeBookmark(
                 for: user, url: "https://example.com", title: "Old", tags: ["old"]
             )
-            let originalCreatedAt = original.createdAt
+            let originalCreatedAt = try #require(try await Bookmark.find(original.requireID(), on: app.db)).createdAt
             let data = Data(
                 #"[{ "url": "https://example.com", "title": "New", "tags": ["new"] }]"#.utf8
             )
