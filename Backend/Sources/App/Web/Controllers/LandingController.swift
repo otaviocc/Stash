@@ -3,7 +3,8 @@
 
 import Vapor
 
-/// Public landing page at `/` (Docs/product-overview.md §1). Unauthenticated and unprotected;
+/// Public landing page at `/` (see the "Public landing page at `/`" entry in
+/// `Docs/decisions-web.md`). Unauthenticated and unprotected;
 /// it is the only web surface a visitor sees before signing in. It deliberately touches no session: the
 /// `stash_session` cookie is path-scoped to `/app`, so reading or writing it from `/` would
 /// clobber the visitor's logged-in session cookie. The page renders the same for everyone; a
