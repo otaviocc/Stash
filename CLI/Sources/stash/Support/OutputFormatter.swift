@@ -8,7 +8,7 @@ import StashKit
 
 /// Renders command output as pretty-printed JSON or as simple aligned text tables.
 ///
-/// Tables are built with plain string padding — no external table library — matching the column
+/// Tables are built with plain string padding (no external table library), matching the column
 /// widths described in the CLI spec (ID truncated to 8, title to 40, URL to 50).
 enum OutputFormatter {
 

@@ -5,7 +5,7 @@ import Fluent
 import Foundation
 import Vapor
 
-/// Bookmark CRUD, scoped to the authenticated user (PRD §9.3).
+/// Bookmark CRUD, scoped to the authenticated user (Docs/product-api.md §9.3).
 struct BookmarkController: RouteCollection {
 
     // MARK: Static Properties
@@ -223,8 +223,8 @@ struct BookmarkController: RouteCollection {
 
     /// Submits (or re-submits, with a fresh date) a bookmark to the Wayback Machine, regardless of
     /// the user's `archiveNewBookmarks` auto-submit preference. Refused with `409` when the admin has
-    /// turned the feature off instance-wide (PRD §9.7 admin toggle). Existence/ownership is checked
-    /// first — a missing or foreign bookmark is always `404`, whether or not the feature is enabled,
+    /// turned the feature off instance-wide (Docs/product-web.md §12 admin toggle). Existence/ownership is checked
+    /// first; a missing or foreign bookmark is always `404`, whether or not the feature is enabled,
     /// matching the OpenAPI contract and the web handler's ordering.
     func submitToWayback(req: Request) async throws -> Response {
         let bookmark = try await requireBookmark(req)

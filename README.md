@@ -2,7 +2,7 @@
 
 A self-hosted bookmark manager with native iOS, macOS, web, and browser-extension clients.
 
-![CI](https://github.com/otaviocc/stash/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/otaviocc/Stash/actions/workflows/ci.yml/badge.svg)
 
 <div><img width="1216" height="911" alt="Landing Page" src="https://github.com/user-attachments/assets/56938e9d-14b5-4cb0-a8b8-63e89dbaa9bd" /></div>
 <div><img width="1216" height="911" alt="App WebUI" src="https://github.com/user-attachments/assets/8c72eb8c-1060-4a63-8fe7-a234ce5fa3a5" /></div>
@@ -11,19 +11,27 @@ A self-hosted bookmark manager with native iOS, macOS, web, and browser-extensio
 ## Features
 
 - Save bookmarks from iOS, macOS, Safari Share Extension, CLI, the web UI, or a
-  Firefox/Chrome browser extension
+  Firefox (including Zen) or Chrome browser extension
 - Hierarchical tags, full-text search, bulk tag rename and delete
-- Import/export Anybox JSON, Stash JSON, Netscape Bookmark File (HTML — every
+- Smart Views: saved searches that filter your collection by tag, text,
+  date, and more
+- Mark bookmarks to read later, independent of archiving
+- Offline sync on iOS and macOS: read and edit bookmarks with no connection,
+  synced back when you're online
+- Submit bookmarks to the Internet Archive's Wayback Machine, automatically
+  or on demand
+- Import/export Anybox JSON, Stash JSON, Netscape Bookmark File (HTML, every
   browser, plus Raindrop.io/Pinboard), Raindrop.io CSV, and Pinboard JSON
 - Multi-user with per-user 2FA (TOTP) and recovery codes
-- Admin dashboard for user management
+- Admin dashboard: user management, an audit log, active-session control,
+  a favicon cache, and one-click instance backup/restore
 - Dark mode (Light / Dark / Auto)
 - Self-hosted, fully private: your data stays on your infrastructure
 
 ## Quick start
 
 1. Download
-   [`docker-compose.yml`](https://github.com/otaviocc/stash/releases/latest)
+   [`docker-compose.yml`](https://github.com/otaviocc/Stash/releases/latest)
 2. Create a `.env` file. See [Running with Docker](Docs/backend-docker.md) for
    the full guide
 3. `docker compose up -d`
@@ -52,7 +60,7 @@ A self-hosted bookmark manager with native iOS, macOS, web, and browser-extensio
 - **iOS**: native SwiftUI app (build from source)
 - **macOS**: native SwiftUI app (build from source)
 - **CLI**: `stash` command-line tool (build from source)
-- **Browser extension**: Firefox & Chrome (including Zen); saves the current
+- **Browser extension**: Firefox (including Zen) & Chrome; saves the current
   page (see [Browser extension](Docs/browser-extension.md))
 
 ## License

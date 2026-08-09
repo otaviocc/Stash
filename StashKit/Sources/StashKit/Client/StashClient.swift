@@ -10,7 +10,7 @@ import MicroClient
 ///
 /// `StashClient` is a thin wrapper around `NetworkClient`: it owns the `NetworkConfiguration`
 /// (base URL plus a `BearerAuthorizationInterceptor` for the JWT access token) and exposes a
-/// single `run(_:)` method. It performs no storage, no token refresh, and no business logic —
+/// single `run(_:)` method. It performs no storage, no token refresh, and no business logic:
 /// those are the app's repository-layer responsibilities. Its only added behavior over
 /// `NetworkClient` is mapping a failed response into a typed `StashAPIError`.
 public final class StashClient: Sendable {
@@ -19,8 +19,8 @@ public final class StashClient: Sendable {
 
     /// The per-request timeout, in seconds, for the default session.
     ///
-    /// Kept well below `URLSession`'s 60-second default so that an unreachable server — the network
-    /// is up but the backend can't be reached (e.g. the user is off the LAN where Stash is hosted) —
+    /// Kept well below `URLSession`'s 60-second default so that an unreachable server (the network
+    /// is up but the backend can't be reached, e.g. the user is off the LAN where Stash is hosted)
     /// fails fast and surfaces an error, rather than leaving a spinner running for a full minute. This
     /// caps the wait for *new data* and resets whenever data arrives, so a slow-but-progressing
     /// transfer is not aborted; no `timeoutIntervalForResource` is set for the same reason.

@@ -382,7 +382,7 @@ struct BookmarkWebController: RouteCollection {
         ))
     }
 
-    /// The validated return URL alongside its pre-encoded form for embedding as a query value —
+    /// The validated return URL alongside its pre-encoded form for embedding as a query value;
     /// every context that renders a "back to the list" link needs both.
     private func returnContext(_ req: Request) -> (url: String, param: String) {
         let url = safeReturnTo(req)
@@ -407,7 +407,7 @@ struct BookmarkWebController: RouteCollection {
     /// `/`-or-`?`-bounded prefix (not just `hasPrefix("/app")`) so a future route merely starting with
     /// those four characters (e.g. `/appearance`) can't be mistaken for this one. There's no need to
     /// separately reject `//` or `://`, since a same-origin `/app`-rooted path can never be absolute or
-    /// protocol-relative — doing so previously rejected legitimate paths whose search query happened to
+    /// protocol-relative; doing so previously rejected legitimate paths whose search query happened to
     /// contain `://` (e.g. `?q=https://example.com`). Checks `unicodeScalars` rather than `Character`s
     /// for the CR/LF scan: Swift merges `"\r\n"` into a single extended grapheme cluster, so a
     /// `Character`-based `contains("\r")` silently misses a CR immediately followed by an LF.
@@ -422,16 +422,16 @@ struct BookmarkWebController: RouteCollection {
         return candidate
     }
 
-    /// The `returnTo` query param, validated — every handler except `newBookmarkForm` uses this. No
+    /// The `returnTo` query param, validated; every handler except `newBookmarkForm` uses this. No
     /// `Referer` fallback here: once a request carries no explicit `returnTo` (e.g. a detail-page
     /// action's redirect target), `Referer` for the *next* request would just be that same page's own
-    /// prior URL — a self-referential loop, not the originating list. See `newBookmarkReturnContext`.
+    /// prior URL, a self-referential loop, not the originating list. See `newBookmarkReturnContext`.
     private func safeReturnTo(_ req: Request) -> String {
         validReturnTo(req.query[String.self, at: "returnTo"])
     }
 
     /// Return context for the "Add bookmark" page specifically: the explicit `returnTo` query param
-    /// if present, else a same-origin path+query parsed from the `Referer` header — the global nav
+    /// if present, else a same-origin path+query parsed from the `Referer` header; the global nav
     /// "Add" link is a plain same-origin click with no explicit param of its own, so this is the one
     /// genuine single-hop entry point that needs the fallback (see `safeReturnTo`'s doc comment for
     /// why every other handler doesn't).
@@ -456,7 +456,7 @@ struct BookmarkWebController: RouteCollection {
     }
 
     /// Whether `host` (from a parsed `Referer`) matches the current request's own `Host` header,
-    /// ignoring port — `Referer` is otherwise just a client-supplied string with no origin guarantee.
+    /// ignoring port; `Referer` is otherwise just a client-supplied string with no origin guarantee.
     /// Parses the `Host` header the same way as the `Referer` itself (via `URLComponents`) rather than
     /// a separate ad hoc port-strip, so both sides of the comparison handle ports/IPv6 identically.
     private func isSameHost(_ host: String, as req: Request) -> Bool {
@@ -472,7 +472,8 @@ struct BookmarkWebController: RouteCollection {
     /// Redirects back to a bookmark's detail page, re-attaching the `returnTo` context (if any) so
     /// the "← Back to bookmarks" link keeps pointing at the originating tag/Smart View list across
     /// detail-page actions (edit, archive, favicon refresh, Wayback submission). `safeReturnTo` here
-    /// never falls back to `Referer` (see its `allowRefererFallback` parameter) — the detail page's
+    /// never falls back to `Referer` (`safeReturnTo` has no fallback path at all; only
+    /// `newBookmarkReturnContext` does): the detail page's
     /// own actions always carry either an explicit `returnTo` or none, so there's no self-referential
     /// risk from the Referer being the detail page's own prior URL.
     private func detailRedirect(

@@ -6,7 +6,7 @@ import Foundation
 
 /// Exports all of a user's bookmarks (archived included) as a Raindrop.io-compatible CSV, using
 /// the exact column layout Raindrop documents accepting back (`folder,url,title,note,tags,created`
-/// — see help.raindrop.io/import#csv), for the best round-trip fidelity into Raindrop itself.
+/// (see help.raindrop.io/import#csv), for the best round-trip fidelity into Raindrop itself.
 ///
 /// `folder` is left empty: Stash has no folder concept, and Raindrop has no hierarchical-tag
 /// concept, so a Stash tag like `topic/swift` is written as-is into `tags` rather than guessing a

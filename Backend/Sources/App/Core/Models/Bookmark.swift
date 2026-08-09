@@ -21,7 +21,7 @@ enum WaybackStatus: String, Codable {
 
 // MARK: - Bookmark
 
-/// A saved bookmark, scoped to a single user. See PRD §7.2.
+/// A saved bookmark, scoped to a single user. See Docs/product-data-model.md §7.2.
 final class Bookmark: Model, Content, @unchecked Sendable {
 
     // MARK: Static Properties
@@ -61,7 +61,7 @@ final class Bookmark: Model, Content, @unchecked Sendable {
     @Field(key: "is_archived")
     var isArchived: Bool
 
-    /// Marked to read later. Independent of `isArchived` — neither flag clears the other.
+    /// Marked to read later. Independent of `isArchived`; neither flag clears the other.
     @Field(key: "is_read_later")
     var isReadLater: Bool
 
@@ -75,7 +75,7 @@ final class Bookmark: Model, Content, @unchecked Sendable {
     var waybackArchivedAt: Date?
 
     /// Consecutive `429` (rate-limited) attempts since the last successful submission or give-up.
-    /// Internal bookkeeping for `WaybackSubmitter`, not exposed via the API — reset to `0` whenever
+    /// Internal bookkeeping for `WaybackSubmitter`, not exposed via the API; reset to `0` whenever
     /// the bookmark leaves the retry loop (archived, or gives up and becomes failed).
     @Field(key: "wayback_retry_count")
     var waybackRetryCount: Int

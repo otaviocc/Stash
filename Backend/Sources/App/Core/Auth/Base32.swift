@@ -3,7 +3,7 @@
 
 import Foundation
 
-/// RFC 4648 Base32 (no padding on encode) — used for TOTP secrets.
+/// RFC 4648 Base32 (no padding on encode), used for TOTP secrets.
 enum Base32 {
 
     // MARK: Static Properties

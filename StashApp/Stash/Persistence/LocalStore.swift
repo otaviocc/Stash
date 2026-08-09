@@ -10,7 +10,7 @@ import SwiftData
 ///
 /// The container is created once by `AppEnvironment` and shared by every `BookmarkRepository`, the
 /// `TagRepository`, and `SmartViewRepository`, so all reads see the same store. All access runs on the
-/// main actor — the store is small (one user's bookmarks and Smart Views) and the repositories that
+/// main actor: the store is small (one user's bookmarks and Smart Views) and the repositories that
 /// touch it are `@MainActor`. The Share Extension stays online-only and never opens this store.
 @MainActor
 final class LocalStore {
@@ -32,8 +32,6 @@ final class LocalStore {
 
     // MARK: Lifecycle
 
-    /// Initialises the SwiftData container for the local bookmark store.
-    ///
     /// If container creation fails (corrupt file, incompatible schema), the store is deleted and
     /// recreated from scratch and `didResetOnInit` is set. The `SyncEngine` re-seeds from the server on
     /// the next sync cycle. This is preferable to crashing, since the local store is a disposable cache;
@@ -76,7 +74,7 @@ final class LocalStore {
 
     // MARK: Functions
 
-    /// All bookmarks the user still has locally — those not soft-deleted offline.
+    /// All bookmarks the user still has locally: those not soft-deleted offline.
     func fetchActive() -> [LocalBookmark] {
         let descriptor = FetchDescriptor<LocalBookmark>(
             predicate: #Predicate { $0.locallyDeletedAt == nil }
@@ -113,7 +111,7 @@ final class LocalStore {
         return (try? mainContext.fetchCount(descriptor)) ?? 0
     }
 
-    /// Deletes the given user's permanently-failed records — the user has acknowledged losing the
+    /// Deletes the given user's permanently-failed records; the user has acknowledged losing the
     /// unrecoverable offline changes.
     func clearFailed(userID: String) {
         try? mainContext.delete(
@@ -140,18 +138,18 @@ final class LocalStore {
     }
 
     /// Deletes the already-synced local bookmarks, used on sign-out so the next sign-in starts from a
-    /// fresh copy — but **preserves any record with a queued offline change** (`pendingSyncAt != nil`,
+    /// fresh copy, but **preserves any record with a queued offline change** (`pendingSyncAt != nil`,
     /// which also covers offline soft-deletes). Unpushed writes therefore survive a forced logout from
     /// an involuntary session expiry and push on the next sign-in, rather than being silently lost.
     ///
-    /// When `currentUserID` is known, only that user's pending records are preserved — any other user's
+    /// When `currentUserID` is known, only that user's pending records are preserved; any other user's
     /// leftover pending records are also dropped. When it is `nil` (the usual case at involuntary
     /// expiry, where tokens are already cleared), it conservatively preserves all pending records; the
     /// per-user push filter (`fetchPending(userID:)`) still prevents pushing them under the wrong user.
     ///
     /// Deliberately leaves every `LocalSmartView` row untouched, unlike `wipeAll()`. There is no
     /// "pending" state to preserve for Smart Views (they are never authored offline), so the only
-    /// question is whether a stale cache can leak to a different user — and it cannot, since every
+    /// question is whether a stale cache can leak to a different user, and it cannot, since every
     /// Smart View read is scoped by `userID` (`fetchSmartViews(userID:)`). Leaving the cache in place
     /// means the *same* user's Smart Views survive an involuntary session clear and are available
     /// immediately, offline, the moment they sign back in.
@@ -172,7 +170,7 @@ final class LocalStore {
 
     /// Deletes every local bookmark unconditionally, including records with pending offline writes.
     /// Used on explicit sign-out so the next user starts from a complete clean slate. Also wipes every
-    /// cached `LocalSmartView`, unlike `wipe(currentUserID:)` — see that method's doc comment for why
+    /// cached `LocalSmartView`, unlike `wipe(currentUserID:)`; see that method's doc comment for why
     /// Smart Views are treated differently there.
     func wipeAll() {
         try? mainContext.delete(model: LocalBookmark.self)
@@ -200,7 +198,7 @@ final class LocalStore {
     }
 
     /// Full-replace reconciliation against the given user's cached Smart Views: `GET /smart-views`
-    /// always returns the complete, unpaginated list, so — unlike bookmarks — there is no delta/
+    /// always returns the complete, unpaginated list, so, unlike bookmarks, there is no delta/
     /// tombstone endpoint to reconcile against. Existing rows are updated in place, new ones inserted,
     /// and any local row absent from `dtos` (deleted elsewhere: the web, another device) is removed.
     func replaceSmartViews(_ dtos: [SmartViewDTO], userID: String) {

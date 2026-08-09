@@ -7,7 +7,7 @@ import Logging
 // MARK: - RingBufferLogHandler
 
 /// A `LogHandler` that appends every log line it receives to a shared `LogRingBuffer`, so the
-/// `/admin/logs` page has something to display. This handler is never installed alone — it is
+/// `/admin/logs` page has something to display. This handler is never installed alone; it is
 /// always combined with the existing console handler via `MultiplexLogHandler` in
 /// `entrypoint.swift`, so it is purely additive and never replaces stdout logging.
 struct RingBufferLogHandler: LogHandler {

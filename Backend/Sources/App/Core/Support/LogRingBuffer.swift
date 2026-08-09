@@ -11,8 +11,8 @@ import Logging
 /// (`Core/Services/SiteSettingsService.swift`) rather than an actor or `DispatchQueue`, to stay
 /// consistent with the rest of the codebase. Entries are appended by `RingBufferLogHandler` on
 /// every log call across the whole app; oldest entries are dropped once `capacity` is exceeded.
-/// This is deliberately ephemeral — nothing here is ever written to disk or the database. See
-/// DECISIONS.md, "Feature #8: System Logs" for why.
+/// This is deliberately ephemeral: nothing here is ever written to disk or the database. See
+/// the "Feature #8: System Logs" entry in `Docs/decisions-backend.md` for why.
 final class LogRingBuffer: @unchecked Sendable {
 
     // MARK: Nested Types
@@ -57,7 +57,7 @@ final class LogRingBuffer: @unchecked Sendable {
     }
 
     /// Returns a snapshot of buffered entries, newest first, optionally filtered to `level` and
-    /// above (`Logger.Level` is `Comparable`, so `>=` works directly — `.error` is "greater than"
+    /// above (`Logger.Level` is `Comparable`, so `>=` works directly; `.error` is "greater than"
     /// `.info`).
     func snapshot(level: Logger.Level? = nil) -> [Entry] {
         lock.lock()

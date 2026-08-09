@@ -29,8 +29,9 @@ unversioned `/health` check. The server-rendered web UIs (`/app` and `/admin`)
 are session-cookie driven and are deliberately **excluded**: they are not part
 of the public, token-authenticated API surface.
 
-Authentication is JWT Bearer (`Authorization: Bearer <accessToken>`). The only
-unauthenticated endpoints are `POST /api/v1/auth/*` (login/refresh/etc.), the
+Authentication is JWT Bearer (`Authorization: Bearer <accessToken>`). The
+unauthenticated endpoints are `POST /api/v1/auth/*` (login/refresh/etc.),
+`GET /api/v1/instance` (accent theme, for unauthenticated screens), the
 favicon **serve** endpoint (`GET /api/v1/favicons/{domain}`), and `/health`.
 
 ## Using it with third-party tools

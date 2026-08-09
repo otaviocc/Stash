@@ -25,17 +25,22 @@ Add it to a SwiftPM target:
 
 ## Architecture
 
-Three layers, in dependency order:
+Four directories, in dependency order:
 
 1. **DTOs** (`Sources/StashKit/DTOs/`): `Codable & Sendable` structs matching
    the API's JSON shapes (`BookmarkDTO`, `TagDTO`, `UserDTO`, `TokenPairDTO`,
-   `SmartViewDTO`, `SmartViewConditionDTO`, `PageDTO<T>`, `APIErrorDTO`, …).
-2. **Request factories** (`Sources/StashKit/Factories/`): one `enum` per API
+   `SmartViewDTO`, `SmartViewConditionDTO`, `PageDTO<T>`, `APIErrorDTO`,
+   `InstanceDTO`, `MetadataDTO` (as `PageMetadataDTO`), `ChangesPageDTO`,
+   `DeletedBookmarkDTO`, …).
+2. **Requests** (`Sources/StashKit/Requests/`): the `NetworkRequest` bodies
+   themselves, one file per domain, kept separate from the factories that
+   assemble them.
+3. **Request factories** (`Sources/StashKit/Factories/`): one `enum` per API
    domain whose `public static` methods build typed
    `NetworkRequest<RequestModel, ResponseModel>` values. They are pure value
    builders with no I/O, so they're trivially testable by inspecting the returned
    request.
-3. **`StashClient`** (`Sources/StashKit/Client/`): a thin wrapper over
+4. **`StashClient`** (`Sources/StashKit/Client/`): a thin wrapper over
    `MicroClient.NetworkClient` that owns the configuration (base URL +
    interceptors) and exposes a single `run(_:)`. Its only value-add over
    `NetworkClient` is mapping non-2xx responses to a typed `StashAPIError`.
@@ -90,16 +95,19 @@ The factories:
 | Factory | Domain |
 |---------|--------|
 | `AuthRequestFactory` | login, TOTP, recovery, refresh, logout, TOTP setup/verify/disable |
-| `BookmarkRequestFactory` | list, get, create, update, delete |
+| `BookmarkRequestFactory` | list, get, create, update, delete, submit to Wayback, offline-sync `changes`/`deleted` |
 | `TagRequestFactory` | list, rename, delete |
 | `SmartViewRequestFactory` | list, get, create, update, delete, run query (`:id/bookmarks`) |
 | `MetadataRequestFactory` | fetch title/description/favicon for a URL |
+| `FaviconRequestFactory` | refresh a domain's cached favicon |
+| `InstanceRequestFactory` | unauthenticated instance info (accent theme) |
 | `UserRequestFactory` | current user (`/me`), change password |
-| `AdminRequestFactory` | list/create/get/update/delete users, stats |
+| `AdminRequestFactory` | list/create/update/delete users, reset a user's TOTP, stats |
 
 `BookmarkListQuery` maps to the API's `q`/`tag`/`archived`/`page`/`per` query
-items; its `untaggedTag` sentinel (`__untagged__`) filters for bookmarks with no
-tags.
+items; its sentinel tags (`untaggedTag` = `__untagged__`, `todayTag`,
+`thisWeekTag`, `readLaterTag`) select the sidebar "Views" instead of filtering
+by a real tag.
 
 ## 3. Trigger the request
 

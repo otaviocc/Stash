@@ -8,7 +8,7 @@ import StashKit
 
 // MARK: - Login
 
-/// `stash login` — authenticate interactively and persist the resulting tokens.
+/// `stash login`: authenticate interactively and persist the resulting tokens.
 ///
 /// Prompts for the server URL (if not already configured), username, and a hidden password. When
 /// the account has 2FA enabled the server returns a challenge, and the command then prompts for a

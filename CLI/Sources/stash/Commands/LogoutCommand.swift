@@ -5,7 +5,7 @@ import ArgumentParser
 import Foundation
 import StashKit
 
-/// `stash logout` — invalidate the stored refresh token and clear local credentials.
+/// `stash logout`: invalidate the stored refresh token and clear local credentials.
 struct Logout: AsyncParsableCommand {
 
     // MARK: Static Properties

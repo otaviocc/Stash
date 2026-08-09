@@ -9,7 +9,7 @@ import Foundation
 /// RFC 6238 Time-based One-Time Password generator/validator (HMAC-SHA1, 6 digits, 30s step).
 ///
 /// Implemented natively on `swift-crypto` (already a transitive Vapor dependency) rather than
-/// pulling in a third-party TOTP package — keeps the backend dependency-light per the PRD's
+/// pulling in a third-party TOTP package, keeps the backend dependency-light per the PRD's
 /// data-ownership philosophy.
 struct TOTP {
 

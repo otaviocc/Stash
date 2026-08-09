@@ -6,7 +6,7 @@ import VaporTesting
 @testable import App
 
 /// Verifies the current-user profile endpoint and password-change flow.
-@Suite("Account — /me and password change")
+@Suite("Account: /me and password change")
 struct AccountTests {
 
     @Test("GET /me returns the current user profile")

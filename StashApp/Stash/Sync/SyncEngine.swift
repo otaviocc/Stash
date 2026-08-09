@@ -7,18 +7,18 @@ import StashKit
 /// Coordinates pull and push between the local SwiftData store and the server.
 ///
 /// A cycle always **pulls first, then pushes** (last-write-wins on `updatedAt`): the pull applies
-/// server changes — skipping records whose local edit is newer than the server's — and removes
+/// server changes (skipping records whose local edit is newer than the server's) and removes
 /// tombstoned bookmarks; the push then sweeps every record with a queued offline change (creates,
 /// updates, deletes) up to the server. `lastSyncedAt` is the delta cursor, persisted in the App Group
 /// defaults; the first cycle (cursor `nil`) pulls the full library, subsuming the initial seed. The
-/// engine is `@MainActor` and single-flight — concurrent callers await the in-flight cycle. Client
-/// provisioning mirrors the repositories (`StashClientProvider` + `SessionRefreshing`) rather than the
-/// brief's raw `StashClient`, so a silent refresh runs first.
+/// engine is `@MainActor` and single-flight; concurrent callers await the in-flight cycle. Client
+/// provisioning mirrors the repositories (`StashClientProvider` + `SessionRefreshing`) rather than a
+/// raw `StashClient`, so a silent refresh runs first.
 ///
 /// A full `sync()` cycle also does a best-effort Smart View definitions refresh (`SmartViewRepository
 /// .reload()`) right after the bookmark pull/push, so every existing sync trigger (launch, reconnect,
 /// background refresh, manual "Sync Now") keeps Smart View rules fresh too, not just each sidebar's own
-/// first-appearance load. A failed refresh there is swallowed — Smart Views already have their own
+/// first-appearance load. A failed refresh there is swallowed: Smart Views already have their own
 /// on-disk cache and don't need to fail the whole cycle. `pushPending()` skips this, since it runs right
 /// after a local write with nothing new to pull, so there's nothing about Smart View rules to refresh
 /// either.
@@ -37,7 +37,7 @@ final class SyncEngine {
 
     /// Whether the last cycle failed. `Bool` (unlike the raw `Error` it replaces) is `Equatable`, so
     /// the `@Observable`-generated setter can skip notifying observers when a cycle resets this to
-    /// `false` and it was already `false` — which is the common case on every successful cycle.
+    /// `false` and it was already `false`, which is the common case on every successful cycle.
     private(set) var lastSyncFailed = false
     private(set) var pendingCount = 0
     private(set) var failedCount = 0
@@ -51,8 +51,8 @@ final class SyncEngine {
     private var inflightSync: Task<Void, Never>?
 
     /// Bumped each time a cycle is registered in `inflightSync`. A finishing cycle clears the slot only
-    /// when the generation still matches its own, so a cycle that `reset()` cancelled mid-flight cannot
-    /// null out a newer cycle's registration on resume — which would otherwise let a third caller start
+    /// when the generation still matches its own, so a cycle that `reset()` canceled mid-flight cannot
+    /// null out a newer cycle's registration on resume, which would otherwise let a third caller start
     /// a second concurrent cycle.
     private var syncGeneration = 0
 
@@ -99,7 +99,7 @@ final class SyncEngine {
     /// (5xx) errors are recoverable and left pending; a `422`/`403`/etc. the server keeps rejecting is
     /// permanent. A `token_expired`/`token_invalid` reaching here has *already* been retried once by
     /// `AuthorizedClient` after a forced refresh, so it means the refresh could not recover the session
-    /// this cycle — still recoverable (the next cycle re-tries with a token from a fresh login).
+    /// this cycle; still recoverable (the next cycle re-tries with a token from a fresh login).
     private static func isPermanentFailure(_ error: Error) -> Bool {
         guard let apiError = error as? StashAPIError else {
             return false
@@ -116,7 +116,7 @@ final class SyncEngine {
 
     // MARK: Functions
 
-    /// Full sync cycle: pull then push. Safe to call concurrently — subsequent calls await the
+    /// Full sync cycle: pull then push. Safe to call concurrently: subsequent calls await the
     /// in-flight cycle rather than starting a second one.
     func sync() async {
         if let inflightSync {
@@ -138,7 +138,7 @@ final class SyncEngine {
     /// Pushes queued local changes **without** a preceding pull. Used after a write: the device just
     /// produced the change, so there is nothing new to pull, and skipping the pull avoids an
     /// unnecessary round-trip and a redundant list refresh per write. Shares the single-flight
-    /// `inflightSync` guard — if any cycle is already running this is a no-op, because that cycle's
+    /// `inflightSync` guard: if any cycle is already running this is a no-op, because that cycle's
     /// push phase fetches the pending records fresh and therefore includes this write.
     func pushPending() async {
         guard inflightSync == nil else {
@@ -189,12 +189,13 @@ final class SyncEngine {
         refreshPendingCount()
     }
 
-    /// Clears the sync cursor and pending count on sign-out so the next user starts from a full pull.
+    /// Clears the sync cursor, pending count, and failure flag on sign-out so the next user starts
+    /// from a full pull.
     ///
     /// Cancels any in-flight cycle first: without this, a cycle racing the sign-out wipe would resume,
-    /// `save()` the records the wipe just deleted, and re-persist the cursor — leaving the next user
+    /// `save()` the records the wipe just deleted, and re-persist the cursor, leaving the next user
     /// browsing the previous user's bookmarks. `SyncEngine` is `@MainActor`, so the cancel and the
-    /// caller's subsequent wipe run without interleaving, and the cancelled cycle aborts at its next
+    /// caller's subsequent wipe run without interleaving, and the canceled cycle aborts at its next
     /// `pull()`/`push()` cancellation check rather than completing.
     func reset() {
         inflightSync?.cancel()
@@ -406,7 +407,7 @@ final class SyncEngine {
     }
 
     /// Resolves a `409 duplicate_url` from pushing an offline-created bookmark: the URL already exists
-    /// server-side (saved on another device). Local content wins — we `PUT` the local title,
+    /// server-side (saved on another device). Local content wins: we `PUT` the local title,
     /// description, and tags onto the existing server record, then collapse onto whichever local copy
     /// holds that server ID.
     private func resolveDuplicate(_ record: LocalBookmark, existingID: UUID, client: AuthorizedClient) async throws {

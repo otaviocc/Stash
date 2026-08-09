@@ -10,7 +10,7 @@ import VaporTesting
 /// Verifies the "read later" feature in the user-facing web frontend: the add/edit form checkbox,
 /// the detail-page "Mark to Read Later" / "Mark as Read" toggle actions, and the `__read_later__`
 /// sentinel "To Read" sidebar view.
-@Suite("Bookmarks — read later (web frontend)")
+@Suite("Bookmarks: read later (web frontend)")
 struct BookmarkReadLaterWebTests {
 
     @Test("submitting the add-bookmark form with the read-later checkbox checked marks it")
@@ -46,7 +46,7 @@ struct BookmarkReadLaterWebTests {
             // Given
             let headers = try await app.appWebSession()
 
-            // When — the checkbox is simply absent from the body, as an unchecked HTML checkbox
+            // When: the checkbox is simply absent from the body, as an unchecked HTML checkbox
             try await app.testing().test(
                 .POST, "app/bookmarks",
                 headers: headers,
@@ -75,7 +75,7 @@ struct BookmarkReadLaterWebTests {
             let bookmark = try await app.makeBookmark(for: user, url: "https://example.com", isReadLater: false)
             let id = try bookmark.requireID()
 
-            // When — checking it on
+            // When: checking it on
             try await app.testing().test(
                 .POST, "app/bookmarks/\(id)",
                 headers: headers,
@@ -90,7 +90,7 @@ struct BookmarkReadLaterWebTests {
             var updated = try #require(try await Bookmark.find(id, on: app.db))
             #expect(updated.isReadLater == true, "It should mark the bookmark to read later")
 
-            // When — unchecking it (absent from the submitted body)
+            // When: unchecking it (absent from the submitted body)
             try await app.testing().test(
                 .POST, "app/bookmarks/\(id)",
                 headers: headers,

@@ -120,6 +120,7 @@ folder-level:
 | `Stash/` | app only | Repositories, views, `AppEnvironment`/`AppSettings`, the `@main` entry point |
 | `StashShareExtension/` | extension only | The share extension and its iOS/macOS principal controllers (`ShareViewController` / `MacShareViewController`, `#if`-guarded in one folder) |
 | `Config/` | (not synced) | Per-platform `Info.plist`/entitlements, selected by SDK-conditional build settings |
+| `icon/` | (not synced) | `generate-app-icon.py`, the source the app icon asset is generated from |
 
 ## App Group
 

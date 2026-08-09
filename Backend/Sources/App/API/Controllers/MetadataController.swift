@@ -3,7 +3,7 @@
 
 import Vapor
 
-/// Fetch page metadata for a URL without saving it (PRD §9.5).
+/// Fetch page metadata for a URL without saving it (Docs/product-api.md §9.6).
 struct MetadataController: RouteCollection {
 
     func boot(routes: RoutesBuilder) throws {

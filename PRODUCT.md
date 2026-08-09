@@ -1,6 +1,7 @@
 # Stash: Product Requirements Document
 
-**Version:** 1.9
+**Document revision:** 1.9 (tracks edits to this spec, not the shipped product
+version in `Backend/VERSION`)
 **Status:** Living Document
 **Author:** Otávio
 

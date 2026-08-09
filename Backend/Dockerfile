@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # ==============================================================================
-# Stage 1 — Build (PRD §16)
-# swift:5.10 on Ubuntu 22.04 (jammy) so the produced binary is ABI-compatible
+# Stage 1: Build (Docs/product-deployment.md §18)
+# swift:6.1 on Ubuntu 22.04 (jammy) so the produced binary is ABI-compatible
 # with the ubuntu:22.04 runtime stage. Works for both linux/amd64 and linux/arm64
 # (buildx selects the matching base per target platform).
 # ==============================================================================
@@ -32,15 +32,15 @@ RUN swift build -c release \
 WORKDIR /staging
 RUN cp "$(swift build --package-path /build -c release --show-bin-path)/App" ./
 RUN find -L "$(swift build --package-path /build -c release --show-bin-path)/" -regex '.*\.resources$' -exec cp -Ra {} ./ \; || true
-# Leaf templates for the web admin dashboard (PRD §11).
+# Leaf templates for the web admin dashboard (Docs/product-web.md §12).
 RUN [ -d /build/Resources ] && cp -Ra /build/Resources ./Resources || true
 # Static assets (CSS) served by FileMiddleware for the web UIs.
 RUN [ -d /build/Public ] && cp -Ra /build/Public ./Public || true
-# Version file read at startup for the footer (Site Settings & Admin Customisation).
+# Version file read at startup for the footer (Site Settings & Admin Customization).
 RUN [ -f /build/VERSION ] && cp /build/VERSION ./VERSION || true
 
 # ==============================================================================
-# Stage 2 — Runtime (PRD §16)
+# Stage 2: Runtime (Docs/product-deployment.md §18)
 # Minimal ubuntu:22.04 image: the compiled binary plus only the required
 # system libraries. No Swift toolchain, no source.
 # ==============================================================================

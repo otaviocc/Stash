@@ -3,7 +3,8 @@
 
 import Foundation
 
-/// Generation and normalization of single-use 2FA recovery codes. PRD §8.3 / §7.4.
+/// Generation and normalization of single-use 2FA recovery codes. Docs/product-auth.md §8.3,
+/// Docs/product-data-model.md §7.4.
 ///
 /// Format: 8 uppercase alphanumeric characters, presented in two groups for readability
 /// (`ABCD-EFGH`). Eight codes are generated at enrollment.

@@ -6,7 +6,7 @@ import Foundation
 /// A small, dependency-free RFC 4180-ish CSV reader/writer, used by `RaindropCSVImporter`/
 /// `RaindropCSVExporter`. Handles the cases real exports actually use: quoted fields, commas and
 /// newlines embedded inside quoted fields, `""`-escaped quotes, and an optional UTF-8 BOM (common
-/// in CSVs produced by spreadsheet tools) — matching this backend's existing "dependency-free"
+/// in CSVs produced by spreadsheet tools), matching this backend's existing "dependency-free"
 /// approach to text formats (see `MetadataFetcher`'s regex-based HTML scanning).
 enum CSVParser {
 

@@ -3,7 +3,7 @@
 
 import Vapor
 
-/// Response for `GET /api/v1/instance` (PRD §9.x). Public, unauthenticated instance chrome that
+/// Response for `GET /api/v1/instance` (Docs/product-api.md §9.9). Public, unauthenticated instance chrome that
 /// non-web clients (native apps, CLI) can read before or after login.
 struct InstanceResponse: Content {
 

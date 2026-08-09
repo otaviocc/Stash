@@ -41,8 +41,8 @@ extension QueryBuilder where Model == Bookmark {
     /// (`__untagged__`, `__today__`, `__this_week__`, `__read_later__`) before falling back to a
     /// hierarchical prefix match (`tag` matches the exact tag and its `tag/*` children). Shared by
     /// the JSON API (`BookmarkController`) and the web frontend (`BookmarkWebController`) so the two
-    /// never diverge — see `DECISIONS.md`. Pass `boundaries` to reuse a value already computed for
-    /// sidebar counts.
+    /// never diverge; see Docs/product-data-model.md §7.5 for the tag-matching rules. Pass
+    /// `boundaries` to reuse a value already computed for sidebar counts.
     @discardableResult
     func filterByTag(
         _ rawTag: String,

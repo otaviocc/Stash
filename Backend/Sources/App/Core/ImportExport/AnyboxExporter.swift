@@ -4,7 +4,7 @@
 import Fluent
 import Foundation
 
-/// Exports all of a user's bookmarks (archived included) as an Anybox JSON export — a flat
+/// Exports all of a user's bookmarks (archived included) as an Anybox JSON export, a flat
 /// top-level array of bookmark objects, sorted by `createdAt` ascending.
 ///
 /// This is the inverse of `AnyboxImporter`, and is intentionally lossy: Anybox has no concept of

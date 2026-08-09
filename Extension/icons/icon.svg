@@ -2,7 +2,7 @@
   <!-- Stash bookmark ribbon: a vertical ribbon with a V-notch at the bottom,
        deep indigo (#231468) on a transparent background. This master vector is
        the toolbar-action treatment (rendered to the 16/32 PNGs). The 48/128
-       display icons wear the full app-icon look instead — a white ribbon on an
+       display icons wear the full app-icon look instead, a white ribbon on an
        indigo rounded square. generate-icons.py draws every size procedurally
        (it does not read this SVG); regenerate rather than hand-editing PNGs. -->
   <path fill="#231468"

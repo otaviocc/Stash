@@ -19,7 +19,7 @@ enum FaviconStatus: String, Codable {
 
 /// A favicon cached once per domain and shared across every user and bookmark on that domain.
 /// Fetched at the point a domain is first encountered and only re-fetched on an explicit manual
-/// refresh. See the Favicon Caching section of `DECISIONS.md`.
+/// refresh. See the "Favicon Caching" entry in `Docs/decisions-backend.md`.
 final class FaviconCache: Model, @unchecked Sendable {
 
     // MARK: Static Properties

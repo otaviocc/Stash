@@ -5,9 +5,9 @@ import Vapor
 
 // MARK: - CreateUserInput
 
-/// `POST /admin/users` body (PRD §9.6). Accounts created here are always `user` role; any
+/// `POST /admin/users` body (Docs/product-api.md §9.7). Accounts created here are always `user` role; any
 /// `role` field in the body is silently ignored (unknown keys are dropped on decode). Admin
-/// accounts can only exist via first-boot seeding (PRD §4).
+/// accounts can only exist via first-boot seeding (Docs/product-overview.md §4).
 struct CreateUserInput: Content, Validatable {
 
     // MARK: Properties
@@ -25,7 +25,7 @@ struct CreateUserInput: Content, Validatable {
 
 // MARK: - UpdateUserInput
 
-/// `PUT /admin/users/:id` body — all fields optional (PRD §9.6).
+/// `PUT /admin/users/:id` body, all fields optional (Docs/product-api.md §9.7).
 struct UpdateUserInput: Content {
 
     let isActive: Bool?
@@ -34,7 +34,7 @@ struct UpdateUserInput: Content {
 
 // MARK: - UserStat
 
-/// One row of the aggregate stats response (PRD §13 `UserStat`).
+/// One row of the aggregate stats response (Docs/product-api.md §9.7 `UserStat`).
 struct UserStat: Content {
 
     let id: UUID
@@ -45,7 +45,7 @@ struct UserStat: Content {
 
 // MARK: - AdminStatsResponse
 
-/// `GET /admin/stats` response (PRD §9.6, §13 `AdminStats`).
+/// `GET /admin/stats` response (Docs/product-api.md §9.7 `AdminStats`).
 struct AdminStatsResponse: Content {
 
     let totalUsers: Int
@@ -55,7 +55,7 @@ struct AdminStatsResponse: Content {
 
 // MARK: - SessionRowResponse
 
-/// One row of `GET /admin/sessions` — a live session resolved from Vapor's in-memory
+/// One row of `GET /admin/sessions`: a live session resolved from Vapor's in-memory
 /// session store (see `ActiveSessionLoader`).
 struct SessionRowResponse: Content {
 

@@ -49,7 +49,7 @@ struct ParsedImport {
 
 /// Parses Anybox and Stash JSON exports into a common `ParsedImport` (bookmarks plus, for Stash
 /// JSON, Smart Views), re-implementing the backend's importer field mapping locally because the
-/// import endpoint is web-only (PRD §13).
+/// import endpoint is web-only (Docs/product-web.md §13).
 ///
 /// Anybox stores `tags` as arrays of `[namespace, value]` pairs joined with `/`; a plain `[String]`
 /// is accepted as a fallback, and Anybox carries no Smart Views. Validation, duplicate handling,

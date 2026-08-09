@@ -5,7 +5,7 @@ import SwiftUI
 
 extension View {
 
-    /// Runs `action` each time a sync cycle finishes — the sync engine transitioning from syncing back
+    /// Runs `action` each time a sync cycle finishes: the sync engine transitioning from syncing back
     /// to idle. Views backed by a local-store-derived repository (the bookmark list, the tag sidebars)
     /// use this to re-derive once a pull may have changed their source data, rather than re-inlining the
     /// same `onChange(of: syncEngine.isSyncing)` observation at every call site.

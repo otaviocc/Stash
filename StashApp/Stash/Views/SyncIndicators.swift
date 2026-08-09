@@ -7,7 +7,7 @@ import SwiftUI
 
 /// A slim, informational banner shown at the top of the app shell while the device is offline.
 ///
-/// Muted rather than alarming — being offline is a supported state, and queued changes sync on
+/// Muted rather than alarming: being offline is a supported state, and queued changes sync on
 /// reconnect. Applied as a `.safeAreaInset(edge: .top)` on the main shells, which animate it in and
 /// out as connectivity changes.
 struct OfflineBanner: View {
@@ -17,7 +17,7 @@ struct OfflineBanner: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "bolt.horizontal.circle")
-            Text("Working offline — changes will sync when reconnected")
+            Text("Working offline, changes will sync when reconnected")
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
@@ -31,8 +31,8 @@ struct OfflineBanner: View {
 // MARK: - PendingSyncBadge
 
 /// A small trailing indicator for a bookmark's sync state. Muted when a local change is still waiting
-/// to be pushed; an orange warning when the push failed permanently. It carries no action —
-/// interaction with the bookmark is never blocked — and disappears once the change syncs or is cleared.
+/// to be pushed; an orange warning when the push failed permanently. It carries no action;
+/// interaction with the bookmark is never blocked, and disappears once the change syncs or is cleared.
 struct PendingSyncBadge: View {
 
     // MARK: Properties

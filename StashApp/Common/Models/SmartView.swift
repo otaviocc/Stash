@@ -152,7 +152,7 @@ enum DurationUnit: String, CaseIterable, Identifiable {
 
 // MARK: - SmartViewDuration
 
-/// A relative-age offset parsed from a compact duration string — a positive integer followed by a
+/// A relative-age offset parsed from a compact duration string: a positive integer followed by a
 /// `d`/`m`/`y` unit suffix (`"30d"`, `"3m"`, `"1y"`). Mirrors the backend's `SmartViewDuration` so the
 /// offline Smart View evaluation in `BookmarkFilter` produces the same cutoff. The cutoff is computed
 /// from `Date()` at evaluation time using `Calendar` arithmetic, so months and years are calendar
@@ -210,7 +210,7 @@ struct SmartViewDuration: Equatable {
 
 /// Converts between a `DatePicker` `Date` and the wire value the date conditions expect. The backend
 /// requires a full ISO-8601 datetime (not a bare `YYYY-MM-DD`), so the selected calendar day is
-/// serialized at `00:00:00Z` — matching the web frontend, which sends the day and lets the server
+/// serialized at `00:00:00Z`, matching the web frontend, which sends the day and lets the server
 /// append `T00:00:00Z`.
 enum SmartViewConditionDate {
 

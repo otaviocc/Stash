@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Generate the Stash web favicon assets.
 
-Writes the browser favicon set into Backend/Public/ in the full app-icon look —
+Writes the browser favicon set into Backend/Public/ in the full app-icon look:
 a white bookmark-ribbon glyph (the same V-notched ribbon the native app and the
 browser extension use) on an indigo (#231468) rounded square. This is the web
 twin of Extension/icons/generate-icons.py and StashApp/icon/generate-app-icon.py;
 all three share the ribbon proportions and the brand indigo.
 
 Emits:
-    favicon.svg          — scalable master, served for modern browsers
-    favicon-32.png       — PNG fallback for <link rel="icon">
-    apple-touch-icon.png — 180x180 home-screen icon
-    favicon.ico          — multi-res 16/32/48 for the implicit /favicon.ico request
+    favicon.svg          : scalable master, served for modern browsers
+    favicon-32.png       : PNG fallback for <link rel="icon">
+    apple-touch-icon.png : 180x180 home-screen icon
+    favicon.ico          : multi-res 16/32/48 for the implicit /favicon.ico request
 
 No external dependencies beyond Pillow. Run from the Backend/ folder:
 

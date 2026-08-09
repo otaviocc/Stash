@@ -6,7 +6,7 @@ import Vapor
 
 // MARK: - User
 
-/// A Stash account. See PRD §7.1.
+/// A Stash account. See Docs/product-data-model.md §7.1.
 final class User: Model, Content, @unchecked Sendable {
 
     // MARK: Static Properties
@@ -14,7 +14,7 @@ final class User: Model, Content, @unchecked Sendable {
     static let schema = "users"
 
     /// A throwaway bcrypt hash to verify against when the username is unknown, so login timing doesn't
-    /// reveal whether an account exists (PRD §8.5). Shared by the JSON API and both web logins.
+    /// reveal whether an account exists (Docs/product-auth.md §8.5). Shared by the JSON API and both web logins.
     static let dummyPasswordHash =
         "$2b$12$C6UzMDM.H6dfI/f/IKcEeO2x0jXJ8nKqK8h0V2vQ1nC3l6mFqKQ4u"
 
@@ -118,7 +118,8 @@ extension User {
     }
 
     /// Tears down two-factor auth: deletes the recovery codes, clears the TOTP secret, disables
-    /// TOTP, persists, and revokes every refresh token so other sessions are signed out (PRD §8.4).
+    /// TOTP, persists, and revokes every refresh token so other sessions are signed out
+    /// (Docs/product-auth.md §8.4).
     /// The single owner of this multi-model invariant, shared by self-service disable and admin reset.
     func disableTOTP(on db: any Database) async throws {
         try await $recoveryCodes.query(on: db).delete()

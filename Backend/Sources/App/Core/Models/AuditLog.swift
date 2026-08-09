@@ -6,7 +6,7 @@ import Vapor
 
 /// A single audit-trail entry: an auth event (login success/failure, logout) or an
 /// admin user-management action (create, suspend, unsuspend, password reset, TOTP
-/// reset, delete, appearance change). Best-effort — see `AuditLogger` for the
+/// reset, delete, appearance change). Best-effort; see `AuditLogger` for the
 /// non-throwing write contract. Deliberately narrow scope: does NOT cover bookmark,
 /// tag, or smart view CRUD (too high-volume, low audit value for v1).
 final class AuditLog: Model, Content, @unchecked Sendable {
@@ -35,7 +35,7 @@ final class AuditLog: Model, Content, @unchecked Sendable {
     @OptionalField(key: "detail")
     var detail: String?
 
-    /// Best-effort client IP — see AuditLogger / §6 for how this is resolved.
+    /// Best-effort client IP; see AuditLogger / §6 for how this is resolved.
     @OptionalField(key: "ip")
     var ip: String?
 

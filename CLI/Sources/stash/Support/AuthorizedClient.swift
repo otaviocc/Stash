@@ -12,7 +12,7 @@ import StashKit
 /// `CLIRuntime` already refreshes a token that is expiring within the next minute before building the
 /// client. This handles the residual case: a token the CLI believed valid that the server rejects
 /// anyway (clock skew, or a backend `JWT_SECRET` rotation). On a retryable authentication failure it
-/// forces one refresh and replays the request exactly once — safe because a `401` is rejected by the
+/// forces one refresh and replays the request exactly once, safe because a `401` is rejected by the
 /// auth middleware before the route runs, so the request carries no side effects. The CLI keeps its
 /// own copy of this type (mirroring the app's) because StashKit is deliberately free of refresh logic.
 struct AuthorizedClient {
@@ -83,7 +83,7 @@ extension StashAPIError {
 
     /// Whether the failure is an access-token rejection worth retrying after a forced refresh. A dead
     /// *refresh* token surfaces the same cases on the refresh call itself and is handled there by
-    /// clearing the stored tokens — this only governs a single replay of the original request.
+    /// clearing the stored tokens; this only governs a single replay of the original request.
     var isRetryableAuthFailure: Bool {
         switch self {
         case .tokenExpired, .tokenInvalid:

@@ -12,13 +12,13 @@
         }
     })();
     </script>
-    <title>#if(adminUsername):Stash Admin#else:Stash#endif — #(title)</title>
+    <title>#if(adminUsername):Stash Admin#else:Stash#endif - #(title)</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="/css/stash.css">
     #import("css")
-    <!-- Accent theme override from SiteSettings (Site Settings & Admin Customisation). -->
+    <!-- Accent theme override from SiteSettings (Site Settings & Admin Customization). -->
     <style>
         :root { --accent: #(chrome.accentLight); }
         [data-theme="dark"] { --accent: #(chrome.accentDark); }

@@ -9,7 +9,7 @@ import Network
 ///
 /// `isOnline` drives the offline banner (`MainFlowView`) and gates `SyncEngine`'s cycle attempts;
 /// `onReconnect` is wired to trigger a sync as soon as connectivity returns. `BookmarkRepository`
-/// does not use it — writes are unconditionally optimistic-local and reconciled by the sync engine.
+/// does not use it; writes are unconditionally optimistic-local and reconciled by the sync engine.
 /// Starts optimistically online; `NWPathMonitor` corrects it on the first path update.
 @MainActor
 @Observable

@@ -4,7 +4,7 @@
 import Fluent
 
 /// Migration that adds the "read later" flag to `bookmarks`. The `false` default backfills
-/// existing rows. Independent of `is_archived` — neither flag clears the other.
+/// existing rows. Independent of `is_archived`; neither flag clears the other.
 struct AddBookmarkReadLater: AsyncMigration {
 
     func prepare(on database: Database) async throws {

@@ -27,7 +27,7 @@ final class AuthRepository: SessionRefreshing {
     /// account suspended). Pending offline writes are preserved by this path.
     var onSessionCleared: (() -> Void)?
 
-    /// Invoked when the user **explicitly** signs out. A full clean slate — pending offline writes are
+    /// Invoked when the user **explicitly** signs out. A full clean slate: pending offline writes are
     /// discarded so the next user inherits nothing.
     var onExplicitLogout: (() -> Void)?
 
@@ -209,12 +209,12 @@ final class AuthRepository: SessionRefreshing {
 
     /// Rotates the token pair using the stored refresh token.
     ///
-    /// On a definitive authentication failure the session is cleared — but only if the refresh token
+    /// On a definitive authentication failure the session is cleared, but only if the refresh token
     /// in the Keychain is still the one this call attempted with. The app and the Share Extension share
     /// one single-use refresh token across processes, so the other process may have legitimately
     /// rotated it between our read and the server's reply; in that race our token is rejected as
     /// already-used while a valid successor sits in the Keychain. Re-reading guards against that
-    /// spurious logout — the next request picks up the rotated token instead.
+    /// spurious logout; the next request picks up the rotated token instead.
     private func performRefresh() async throws {
         guard let client = clientProvider.client(), let refreshToken = tokenManager.refreshToken else {
             throw AppError.sessionExpired
@@ -257,7 +257,7 @@ final class AuthRepository: SessionRefreshing {
 ///
 /// StashKit's typed login factory returns only `TokenPairDTO`, which cannot represent the
 /// 2FA-challenge branch (both are returned as HTTP 200), so the repository builds its own request
-/// against the same endpoint — the same approach the CLI uses.
+/// against the same endpoint, the same approach the CLI uses.
 struct LoginOutcome: Decodable {
 
     // MARK: Properties

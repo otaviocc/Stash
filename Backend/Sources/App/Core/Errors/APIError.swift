@@ -3,7 +3,7 @@
 
 import Vapor
 
-/// Strongly-typed API errors that serialize to the standard envelope (PRD §17.4).
+/// Strongly-typed API errors that serialize to the standard envelope (Docs/product-technical.md §19.4).
 enum APIError: AbortError {
 
     case invalidCredentials

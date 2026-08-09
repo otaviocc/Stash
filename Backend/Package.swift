@@ -13,11 +13,11 @@ let package = Package(
         .package(url: "https://github.com/vapor/fluent.git", from: "4.0.0"),
         // PostgreSQL driver (production)
         .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.0.0"),
-        // SQLite driver (in-memory test database — see PRD §17.7)
+        // SQLite driver (in-memory test database, see Docs/product-technical.md §19.6)
         .package(url: "https://github.com/vapor/fluent-sqlite-driver.git", from: "4.0.0"),
         // JWT signing + verification
         .package(url: "https://github.com/vapor/jwt.git", from: "4.0.0"),
-        // Server-rendered HTML (admin dashboard — used from M5 onward)
+        // Server-rendered HTML (admin dashboard, used from M5 onward)
         .package(url: "https://github.com/vapor/leaf.git", from: "4.0.0"),
         // Vapor's own outbound HTTP client, needed directly so Internet Archive submission can use
         // a dedicated HTTPClient with a longer read timeout than the app-wide one (favicon/metadata

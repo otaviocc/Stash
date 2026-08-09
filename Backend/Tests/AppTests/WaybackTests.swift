@@ -11,7 +11,7 @@ import VaporTesting
 /// Verifies the Internet Archive (Wayback Machine) submission feature: the bookmark/site/user
 /// model defaults, the create-flow auto-submit gating, the manual submit endpoints (API and web),
 /// the user settings toggle, and the admin dashboard page.
-@Suite("Wayback — Internet Archive submission")
+@Suite("Wayback: Internet Archive submission")
 struct WaybackTests {
 
     // MARK: - Model defaults
@@ -219,7 +219,7 @@ struct WaybackTests {
             let client = MockClient(eventLoop: app.eventLoopGroup.any())
             client.stub(contains: "web.archive.org/save/", status: .tooManyRequests, contentType: nil, bytes: nil)
 
-            // When / Then — every attempt before the cap stays pending and keeps counting
+            // When / Then: every attempt before the cap stays pending and keeps counting
             for expectedCount in 1..<WaybackSubmitter.maxRateLimitRetries {
                 let outcome = await WaybackSubmitter.submit(bookmark: bookmark, on: app.db, client: client)
                 #expect(outcome == .rateLimited, "Attempt \(expectedCount) should still be rate-limited, not terminal")
@@ -227,7 +227,7 @@ struct WaybackTests {
                 #expect(bookmark.waybackRetryCount == expectedCount, "It should count attempt \(expectedCount)")
             }
 
-            // When — the attempt that reaches the cap gives up
+            // When: the attempt that reaches the cap gives up
             let finalOutcome = await WaybackSubmitter.submit(bookmark: bookmark, on: app.db, client: client)
 
             // Then
@@ -269,7 +269,7 @@ struct WaybackTests {
         for state in statuses {
             let text = AdminWebController.queueStatusText(enabled: false, pendingCount: 5, state: state)
             #expect(
-                text == "Disabled — no submissions will run.",
+                text == "Disabled: no submissions will run.",
                 "It should report disabled regardless of the queue's own state (\(state))"
             )
         }
@@ -278,14 +278,14 @@ struct WaybackTests {
     @Test("idle with nothing queued reads as idle")
     func queueStatusTextIdleEmpty() {
         let text = AdminWebController.queueStatusText(enabled: true, pendingCount: 0, state: .idle)
-        #expect(text == "Idle — nothing queued.", "It should report idle when there is nothing pending")
+        #expect(text == "Idle: nothing queued.", "It should report idle when there is nothing pending")
     }
 
     @Test("idle with bookmarks still pending reads as paused, not idle")
     func queueStatusTextIdleWithPending() {
         let text = AdminWebController.queueStatusText(enabled: true, pendingCount: 3, state: .idle)
         #expect(
-            text == "Paused — 3 bookmarks queued, waiting to start.",
+            text == "Paused: 3 bookmarks queued, waiting to start.",
             "It should report paused, pluralized, when the drain loop isn't running but work is queued"
         )
     }
@@ -294,7 +294,7 @@ struct WaybackTests {
     func queueStatusTextIdleWithOnePending() {
         let text = AdminWebController.queueStatusText(enabled: true, pendingCount: 1, state: .idle)
         #expect(
-            text == "Paused — 1 bookmark queued, waiting to start.",
+            text == "Paused: 1 bookmark queued, waiting to start.",
             "It should use the singular for a count of 1"
         )
     }
@@ -313,7 +313,7 @@ struct WaybackTests {
     func queueStatusTextWaitingNormalPace() {
         let text = AdminWebController.queueStatusText(enabled: true, pendingCount: 2, state: .waitingNormalPace)
         #expect(
-            text == "Running — next submission in about 30 seconds.",
+            text == "Running: next submission in about 30 seconds.",
             "It should report the normal between-submission pace"
         )
     }
@@ -326,7 +326,7 @@ struct WaybackTests {
             state: .waitingAfterRateLimit(url: "https://amazon.com", attempt: 1, maxAttempts: 3)
         )
         #expect(
-            text == "Rate-limited — retrying https://amazon.com in about 5 minutes (attempt 2 of 3).",
+            text == "Rate-limited: retrying https://amazon.com in about 5 minutes (attempt 2 of 3).",
             "It should report the upcoming attempt number (attempt + 1), not the one just made"
         )
     }
@@ -336,7 +336,7 @@ struct WaybackTests {
     @Test("the drain loop stops immediately when the instance switch is off, leaving pending bookmarks untouched")
     func drainStopsWhenDisabled() async throws {
         try await withTestApp { app in
-            // Given — bookmarks queued, but the instance switch off before the worker ever runs
+            // Given: bookmarks queued, but the instance switch off before the worker ever runs
             let user = try await app.makeUser()
             let first = try await app.makeBookmark(for: user, url: "https://one.example.com")
             first.waybackStatus = .pending
@@ -430,12 +430,12 @@ struct WaybackTests {
             let reloaded = try #require(try await Bookmark.find(bookmark.requireID(), on: app.db))
             #expect(reloaded.waybackStatus == .none, "It should leave the bookmark unqueued")
 
-            // When — a nonexistent bookmark, still with the switch off
+            // When: a nonexistent bookmark, still with the switch off
             try await app.testing().test(
                 .POST, "api/v1/bookmarks/\(UUID())/wayback",
                 headers: bearer(pair.accessToken)
             ) { res async throws in
-                // Then — existence/ownership is checked before the instance gate
+                // Then: existence/ownership is checked before the instance gate
                 #expect(res.status == .notFound, "It should 404 for an unknown bookmark even while disabled")
             }
         }
@@ -530,7 +530,7 @@ struct WaybackTests {
             // Given
             let headers = try await app.appWebSession()
 
-            // When — turning it off (no "enabled" field submitted)
+            // When: turning it off (no "enabled" field submitted)
             try await app.testing().test(
                 .POST, "app/settings/archive-pref",
                 headers: headers,
@@ -559,7 +559,7 @@ struct WaybackTests {
             var headers = try await app.appWebSession()
             headers.replaceOrAdd(name: .contentType, value: "application/x-www-form-urlencoded")
 
-            // When — a real browser sends zero bytes when the form's only field is unchecked
+            // When: a real browser sends zero bytes when the form's only field is unchecked
             try await app.testing().test(
                 .POST, "app/settings/archive-pref",
                 headers: headers
@@ -582,7 +582,7 @@ struct WaybackTests {
     @Test("the admin Internet Archive page shows counts per status")
     func adminPageCounts() async throws {
         try await withTestApp { app in
-            // Given — a distinct count per status, so a swapped or miscounted status is detectable
+            // Given: a distinct count per status, so a swapped or miscounted status is detectable
             let headers = try await app.adminWebSession()
             let user = try await app.makeUser(username: "alice", password: "alice-password-123")
 
@@ -671,7 +671,7 @@ struct WaybackTests {
             var headers = try await app.adminWebSession()
             headers.replaceOrAdd(name: .contentType, value: "application/x-www-form-urlencoded")
 
-            // When — a real browser sends zero bytes when the form's only field is unchecked
+            // When: a real browser sends zero bytes when the form's only field is unchecked
             try await app.testing().test(
                 .POST, "admin/internet-archive/toggle",
                 headers: headers
@@ -809,7 +809,7 @@ struct WaybackTests {
                 // Then
                 #expect(res.status == .ok, "It should render the page")
                 #expect(
-                    res.body.string.contains("Disabled — no submissions will run."),
+                    res.body.string.contains("Disabled: no submissions will run."),
                     "It should show the disabled queue status"
                 )
             }
@@ -827,7 +827,7 @@ struct WaybackTests {
                 // Then
                 #expect(res.status == .ok, "It should render the page")
                 #expect(
-                    res.body.string.contains("Idle — nothing queued."),
+                    res.body.string.contains("Idle: nothing queued."),
                     "It should show the idle queue status when there's nothing pending and nothing running"
                 )
             }

@@ -8,7 +8,7 @@ import Foundation
 /// documents the columns it both produces and accepts back as `folder,url,title,note,tags,created`
 /// (see help.raindrop.io/import#csv), but a full-account export may carry extra columns from
 /// Raindrop's richer API object model (`id`, `cover`, `highlights`, `favorite`, …) that this backend
-/// has no use for — so columns are matched **by header name** (case-insensitively, with a couple of
+/// has no use for, so columns are matched **by header name** (case-insensitively, with a couple of
 /// aliases), and any column this importer doesn't recognize is silently ignored rather than
 /// rejecting the file, following this codebase's existing "tolerate shape variance" convention
 /// (see `AnyboxImporter`).
@@ -17,7 +17,7 @@ import Foundation
 /// - `url`/`link`/`href` (required; row skipped if missing/invalid)
 /// - `title` (empty string if missing)
 /// - `note`/`excerpt`/`description` → `description`
-/// - `tags`: comma-separated (Raindrop's own convention — split on comma only, not whitespace, so
+/// - `tags`: comma-separated (Raindrop's own convention: split on comma only, not whitespace, so
 ///   a tag containing a space survives)
 /// - `folder`/`collection`: Raindrop already uses `/` to nest folders, the same separator Stash
 ///   uses for hierarchical tags, so the whole folder path becomes one additional tag as-is

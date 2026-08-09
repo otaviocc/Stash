@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// A single-use 2FA recovery code. See PRD §7.4 and §8.4.
+/// A single-use 2FA recovery code. See Docs/product-data-model.md §7.4 and Docs/product-auth.md §8.4.
 ///
 /// Eight codes are generated at 2FA enrollment. Only the bcrypt hash is stored.
 final class RecoveryCode: Model, @unchecked Sendable {

@@ -381,7 +381,7 @@ that existing card rather than adding an eighth, for the same
 balanced-grid reason as the offline-sync entry. Updated in two places: the
 live `Backend/Resources/Views/landing.leaf` template and the static mirror
 committed to the `gh-pages` branch (`index.html`, used for GitHub Pages
-hosting since it can't run Vapor) — the two aren't automatically kept in
+hosting since it can't run Vapor); the two aren't automatically kept in
 sync, so a shipped feature-grid change always needs a matching edit on
 `gh-pages` or the public landing page silently drifts from the one the
 backend actually serves.
@@ -389,7 +389,7 @@ backend actually serves.
 ## WebUI favicon placeholder
 
 When a favicon isn't cached for a domain, the API returns 404 and the
-bookmark list row showed nothing — just the domain text with no icon. The
+bookmark list row showed nothing, just the domain text with no icon. The
 `onerror` handler now swaps the `<img>` src to a static ribbon placeholder
 SVG (`/favicon-placeholder.svg`) instead of hiding the element. This keeps
 every bookmark row visually consistent regardless of favicon status. The
@@ -408,7 +408,7 @@ The first attempt used `oklch()` relative color syntax to derive
 ```css
 --btn-text: oklch(from var(--accent) calc(l > 0.6 ? 0.15 : 0.95) c h);
 ```
-This was silently discarded by browsers that don't support the spec yet —
+This was silently discarded by browsers that don't support the spec yet:
 the declaration vanished without error, leaving `--btn-text` at its
 inherited `#ffffff` and producing no visible change.
 
@@ -433,7 +433,7 @@ are always dark regardless of the accent theme.
 Added an Anybox JSON exporter as the inverse of the existing importer, which
 confirmed the pluggable registry claim a second time: a single
 `register(exporter:)` line, no controller/route/template change. The export is
-deliberately lossy — Anybox has no archived-bookmark or Smart View concept, so
+deliberately lossy: Anybox has no archived-bookmark or Smart View concept, so
 `isArchived` is dropped and Smart Views are omitted, and tags are written as a
 plain `[String]` (e.g. `topic/swift`) rather than reconstructing Anybox's
 `[[namespace, value]]` pairs. That plain shape is exactly the fallback the
@@ -445,7 +445,7 @@ Registering a second exporter exposed a latent bug in the format selectors: the
 default was purely positional (the first `<option>`), and the options render in
 `displayName` alphabetical order. With only "Stash JSON" registered that was
 harmless, but "Anybox JSON" sorts first, so it would have silently become the
-default for both import and export. Made the default explicit instead — the
+default for both import and export. Made the default explicit instead: the
 settings context now carries `defaultImporter`/`defaultExporter` (both
 `stash-json`) and the template marks the matching `<option selected>`, the same
 pattern the logs page already uses. Stash JSON is the sensible default: it is
@@ -475,12 +475,12 @@ param, reusing existing building blocks rather than inventing new ones:
 used for pagination) build the raw URL, and `TagPresenter.queryValue` (already
 used for sidebar tag hrefs) percent-encodes it for embedding in another query
 string. Every link/form into or within the detail page carries `returnTo` in
-its URL; every handler reads it back via `req.query` — no new hidden form
+its URL; every handler reads it back via `req.query`; no new hidden form
 fields or `Content` structs needed, since POSTs can carry their own query
 string on the `action` URL independent of the form body.
 
 Since `returnTo` is user-controlled and used as a redirect target, added a
-`safeReturnTo` guard — the first redirect-target validation in this codebase,
+`safeReturnTo` guard, the first redirect-target validation in this codebase,
 as none of the existing hardcoded `req.redirect(to:)` calls needed one. Falls
 back to `/app` on anything that doesn't look like a local `/app` path.
 
@@ -489,15 +489,15 @@ A code review of the first version turned up four real issues, all fixed:
 - `safeReturnTo` separately rejected values containing `//` or `://` on top of
   requiring the `/app` prefix. That extra check was actually redundant (a
   string starting with `/app` can never be an absolute or protocol-relative
-  URL — neither can start with a single `/`) *and* actively harmful: a bookmark
+  URL, neither can start with a single `/`) *and* actively harmful: a bookmark
   search for a URL-shaped term (`?q=https://example.com`) produces a
   perfectly safe, locally-scoped `returnTo` that still contains the substring
-  `://`, so the guard silently discarded it and fell back to `/app` — the
+  `://`, so the guard silently discarded it and fell back to `/app`, the
   exact context loss this feature exists to fix. Removed the `//`/`://` checks
   entirely; the `/app` prefix requirement alone is sufficient.
 - The guard had no defense against embedded control characters, so a crafted
   `returnTo` could inject a CR/LF into the eventual redirect `Location`
-  header. Added an explicit rejection — but the first attempt
+  header. Added an explicit rejection, but the first attempt
   (`!raw.contains("\r"), !raw.contains("\n")`) missed a *combined* CRLF
   sequence entirely: Swift merges `"\r\n"` into a single extended grapheme
   cluster, so a `Character`-based `contains("\r")` doesn't match it (neither
@@ -505,8 +505,8 @@ A code review of the first version turned up four real issues, all fixed:
   caught it; the fix scans `unicodeScalars` instead, which sees the raw CR and
   LF code points independently of grapheme clustering.
 - The "Add bookmark" page's duplicate-URL conflict link ("View the existing
-  bookmark →") was the one entry point into the detail page this diff missed
-  — carried no `returnTo`, unlike every other link/form into it. Fixed the
+  bookmark →") was the one entry point into the detail page this diff missed,
+  carrying no `returnTo`, unlike every other link/form into it. Fixed the
   same way as the rest: `AppNewBookmarkContext` now carries `returnURL`/
   `returnToParam`, threaded through both the initial GET and the POST
   re-render-on-conflict path.
@@ -523,7 +523,7 @@ with `URLComponents`/`URLQueryItem`, matching the pattern `BookmarkPresenter`/
 stop deriving the `(returnURL, returnToParam)` pair separately at each of its
 4 call sites. Also considered and declined: a Leaf partial to enforce
 `returnTo` on every future detail-page link (real gap, but needs new
-Leaf-tag infrastructure — out of scope for a cleanup pass); extracting the
+Leaf-tag infrastructure, out of scope for a cleanup pass); extracting the
 new tests' repeated Given-block setup (checked against `WaybackTests.swift`
 and confirmed it matches this repo's existing test-file convention of
 explicit, un-factored Given blocks).
@@ -534,18 +534,18 @@ explicit, un-factored Given blocks).
 
 The "Add bookmark" page's own "← Back to bookmarks" link was fixed to read
 `returnURL` in the pass above, but never actually received one: neither entry
-point into `/app/bookmarks/new` — the global nav "Add" link (`layout.leaf`,
-present on all 24 web-app pages) nor the list's empty-state "Add your first
-bookmark" link — carried `?returnTo=`. The user also wanted the active tag
+point into `/app/bookmarks/new`, the global nav "Add" link (`layout.leaf`,
+present on all 24 web-app pages), nor the list's empty-state "Add your first
+bookmark" link, carried `?returnTo=`. The user also wanted the active tag
 pre-filled into the new bookmark's tags field, since the page now knows what
 was being browsed.
 
 `layout.leaf` only receives `title`/`appUsername`/`appIsAdmin`/`chrome`/
-`adminUsername` — no page-specific state. `chrome` (`SiteChrome`) is
+`adminUsername`, no page-specific state. `chrome` (`SiteChrome`) is
 confirmed instance-wide cached config built from admin `SiteSettings` with no
 request access, so it's the wrong seam for per-request nav state. Threading a
 new field through every context struct that extends layout (~25 structs,
-~33 construction sites, only 1 of which — `app-bookmarks.leaf` — has any tag
+~33 construction sites, only 1 of which, `app-bookmarks.leaf`, has any tag
 concept) would be disproportionate to fixing one link.
 
 Instead, `safeReturnTo` now falls back to the `Referer` header when no
@@ -553,7 +553,7 @@ Instead, `safeReturnTo` now falls back to the `Referer` header when no
 `path` + `query` from `Referer` via `URLComponents`, then running through the
 same validation). The nav "Add" link is a plain same-origin `<a href>`, so
 the browser already sends the right `Referer` with zero template changes.
-Considered — and rejected — making `Referer` the *only* mechanism, dropping
+Considered, and rejected, making `Referer` the *only* mechanism, dropping
 `returnTo` entirely: `Referer` only names the immediately preceding page, so
 it works for a single hop (list → new-bookmark) but breaks the detail page's
 own actions, whose `Referer` is the detail page itself after the first hop,
@@ -567,8 +567,8 @@ fallback for browsers/extensions that strip `Referer`.
 Tag pre-fill (`tagFromReturnURL(_:)`) extracts the `tag` query item from the
 resolved return URL and normalizes it via `Bookmark.normalizeTagQuery`,
 excluding the three sentinel filters (`__untagged__`/`__today__`/
-`__this_week__` — not real tags). A Smart View return URL has no `tag` item
-at all, so nothing is pre-filled there, correctly — a Smart View doesn't
+`__this_week__`, not real tags). A Smart View return URL has no `tag` item
+at all, so nothing is pre-filled there, correctly: a Smart View doesn't
 correspond to one tag. Only wired into the initial GET (`newBookmarkForm`);
 `createBookmark`'s conflict/preview re-render already carries forward
 whatever the user submitted in the `tags` field, so the pre-filled value
@@ -585,7 +585,7 @@ browser's own bookmark export plus Raindrop's and Pinboard's "HTML" options, a
 Raindrop.io CSV importer/exporter, and a Pinboard JSON importer/exporter. All
 three are import *and* export, unlike the original plan of import-only, since
 a symmetric pair costs little extra once the registry pattern exists and gives
-every format a round-trip test — which is exactly the kind of test that
+every format a round-trip test, which is exactly the kind of test that
 already caught one real regression here (the Anybox exporter's positional
 default, above). Third-party registration proof again: six
 `register(...)` lines, no controller/route/template change beyond widening the
@@ -610,7 +610,7 @@ variance" convention `AnyboxImporter` already established. Worth a sanity check
 against a real Raindrop export before this ships, since the documented shape
 may not be the full one.
 
-The Netscape exporter is deliberately **flat** — no folders — even though the
+The Netscape exporter is deliberately **flat** (no folders) even though the
 format's whole reason for being is nested folders. Stash tags are hierarchical
 *and* multi-valued per bookmark, while a Netscape file's folders are a strict
 single-parent tree: there is no lossless way to file a bookmark carrying two
@@ -621,8 +621,8 @@ convention Pinboard/Delicious-style exporters use, confirmed against a real
 Delicious export), which `NetscapeHTMLImporter` reads back losslessly on a
 round-trip. The importer itself has to handle *real* nested folders on the way
 in, though (a browser export's whole point): it's a small hand-rolled token
-scanner over `<A>`/`<H3>`/`<DL>`/`</DL>`/`<DD>`, not a proper HTML/XML parser
-— real exports leave `<DT>`/`<p>` unclosed, so a strict parser would choke, and
+scanner over `<A>`/`<H3>`/`<DL>`/`</DL>`/`<DD>`, not a proper HTML/XML parser:
+real exports leave `<DT>`/`<p>` unclosed, so a strict parser would choke, and
 this backend already has a precedent for dependency-free, regex-based HTML
 handling (`MetadataFetcher`). No folder name is special-cased (browsers
 localize "Bookmarks Bar" as something different in every language), so a
@@ -632,11 +632,11 @@ afterward with the existing tag tools if unwanted.
 The Raindrop CSV exporter leaves the `folder` column empty for the same
 multi-tag-vs-single-folder reason, relying on `tags` (Raindrop's own
 comma-separated convention) to carry a Stash tag's full `/`-hierarchy as a
-literal string — Raindrop has no hierarchical-tag concept either way, so
+literal string; Raindrop has no hierarchical-tag concept either way, so
 nothing is lost that Raindrop would otherwise have used. The Pinboard JSON
 exporter has one known, accepted lossy edge: Pinboard's `tags` field is a
 single **space**-separated string (Pinboard tags may not contain whitespace),
-so a Stash tag with a literal space in it — rare, since nothing forbids one —
+so a Stash tag with a literal space in it (rare, since nothing forbids one)
 would not survive a round-trip through this format specifically. `shared`/
 `toread` have no Stash equivalent (no sharing, no read-later/unread state per
 §22) and are read-and-discarded on import, always `"no"` on export.
@@ -647,10 +647,10 @@ would not survive a round-trip through this format specifically. `shared`/
 
 Added the `isReadLater` flag (see `decisions-backend.md`) to the `/app`
 bookmark forms and detail page. The add and edit forms both got a plain
-"Read later" checkbox (unchecked by default on add) — decoded the same way
+"Read later" checkbox (unchecked by default on add), decoded the same way
 as every other optional form field (`form.readLater ?? false`), no special
 empty-body handling needed since neither form has it as its *only* field
-(see the earlier "unchecking a form's only checkbox 422'd" bug — doesn't
+(see the earlier "unchecking a form's only checkbox 422'd" bug, doesn't
 apply here). The detail page got a second toggle-style action row, following
 the existing Archive/Unarchive pattern exactly: two POST routes
 (`/app/bookmarks/:id/read-later`, `.../mark-read`), a shared private
@@ -663,12 +663,12 @@ identically to Untagged/Today/This Week: a new sentinel constant
 `AppSidebarLoader`/`AppBookmarksContext`, and one more `<li>` in
 `app-bookmarks.leaf`. List rows also get a small 🔖 badge next to the title
 when `isReadLater` is set, so a read-later bookmark is scannable from any
-list (not just the dedicated "To Read" view) — `isArchived` has no
+list (not just the dedicated "To Read" view); `isArchived` has no
 equivalent row badge today, since archived bookmarks only ever appear in
 their own separate, opt-in view, but read-later bookmarks live alongside
 everything else.
 
 The Smart View condition builder got a fourth boolean option ("Read later"),
-next to "Is archived" / "Has tags" / "Archived on Wayback Machine" — same
+next to "Is archived" / "Has tags" / "Archived on Wayback Machine", same
 Yes/No `<select>`, same `isBool` list in both `SmartViewPresenter.field` and
 `smart-view-form.js`.

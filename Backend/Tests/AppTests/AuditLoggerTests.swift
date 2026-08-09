@@ -13,7 +13,7 @@ struct AuditLoggerTests {
     @Test("record() saves a row with all fields populated")
     func recordSavesRow() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             await AuditLogger.record(
@@ -37,7 +37,7 @@ struct AuditLoggerTests {
     @Test("record() saves a row with nil actor and nil detail")
     func recordSavesRowWithNilFields() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             await AuditLogger.record(action: "logout", actor: nil, on: app.db)

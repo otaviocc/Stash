@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// Login and logout for the user-facing web frontend (`/app`). Public — it carries the session
+/// Login and logout for the user-facing web frontend (`/app`). Public; it carries the session
 /// cookie but no session guard; a successful sign-in writes the user ID into the session that
 /// `UserSessionMiddleware` later reads to protect the rest of `/app`.
 struct AppAuthWebController: RouteCollection {

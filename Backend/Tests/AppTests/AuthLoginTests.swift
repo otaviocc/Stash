@@ -6,7 +6,7 @@ import VaporTesting
 @testable import App
 
 /// Verifies the authentication flow: login, token refresh, and logout.
-@Suite("Auth — login, refresh, logout")
+@Suite("Auth: login, refresh, logout")
 struct AuthLoginTests {
 
     @Test("login with correct credentials (no 2FA) returns a token pair")
@@ -77,7 +77,7 @@ struct AuthLoginTests {
     @Test("unknown username is rejected with invalid_credentials")
     func loginUnknownUser() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(
@@ -241,7 +241,7 @@ struct AuthLoginTests {
     @Test("failed JSON API login (unknown username) writes a login_failure row with the attempted username")
     func jsonLoginUnknownUserAudited() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(

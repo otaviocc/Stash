@@ -7,7 +7,7 @@ import StashKit
 
 // MARK: - SmartViews
 
-/// `stash smart-views` — list Smart Views and run their saved queries. Consumption only; creating and
+/// `stash smart-views`: list Smart Views and run their saved queries. Consumption only; creating and
 /// editing Smart Views is done from the web frontend (and round-trips through `stash import`/`export`).
 /// Defaults to listing when no subcommand is given.
 struct SmartViews: AsyncParsableCommand {
@@ -25,7 +25,7 @@ struct SmartViews: AsyncParsableCommand {
 
 // MARK: - SmartViewsList
 
-/// `stash smart-views list` — list all Smart Views with their match mode and conditions.
+/// `stash smart-views list`: list all Smart Views with their match mode and conditions.
 struct SmartViewsList: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -58,7 +58,7 @@ struct SmartViewsList: AsyncParsableCommand {
 
 // MARK: - SmartViewsBookmarks
 
-/// `stash smart-views bookmarks <id>` — run a Smart View's saved query and list the matching bookmarks.
+/// `stash smart-views bookmarks <id>`: run a Smart View's saved query and list the matching bookmarks.
 struct SmartViewsBookmarks: AsyncParsableCommand {
 
     // MARK: Static Properties

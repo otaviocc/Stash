@@ -6,7 +6,7 @@ import Foundation
 
 // MARK: - Config
 
-/// `stash config` — view and edit the persisted CLI configuration.
+/// `stash config`: view and edit the persisted CLI configuration.
 struct Config: AsyncParsableCommand {
 
     static let configuration = CommandConfiguration(
@@ -22,7 +22,7 @@ struct Config: AsyncParsableCommand {
 
 // MARK: - ConfigSetURL
 
-/// `stash config set-url <url>` — save the server base URL.
+/// `stash config set-url <url>`: save the server base URL.
 struct ConfigSetURL: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -57,7 +57,7 @@ struct ConfigSetURL: AsyncParsableCommand {
 
 // MARK: - ConfigSetToken
 
-/// `stash config set-token <token>` — save an access token manually (for scripting).
+/// `stash config set-token <token>`: save an access token manually (for scripting).
 struct ConfigSetToken: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -88,7 +88,7 @@ struct ConfigSetToken: AsyncParsableCommand {
 
 // MARK: - ConfigShow
 
-/// `stash config show` — print the current config with tokens masked.
+/// `stash config show`: print the current config with tokens masked.
 struct ConfigShow: AsyncParsableCommand {
 
     // MARK: Static Properties

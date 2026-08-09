@@ -4,10 +4,10 @@
 import Foundation
 
 /// Central registry of importers and exporters. To support a new format, conform a type to
-/// `BookmarkImporter`/`BookmarkExporter` and add a `register(...)` line in `init()` below — the
+/// `BookmarkImporter`/`BookmarkExporter` and add a `register(...)` line in `init()` below: the
 /// web UI's format selectors and the import/export routes pick it up automatically. To make a
 /// format the default preselected in the web UI, update `defaultImporterIdentifier`/
-/// `defaultExporterIdentifier` below — that's the one place callers need to consult.
+/// `defaultExporterIdentifier` below; that's the one place callers need to consult.
 ///
 /// Registration happens once during `init`; the registry is immutable thereafter, so concurrent
 /// reads from request handlers are safe.

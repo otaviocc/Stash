@@ -8,7 +8,7 @@ import Vapor
 // MARK: - BookmarkImporter
 
 /// A pluggable bookmark importer. Add a new format by conforming a type and registering it in
-/// `ImportExportRegistry` — no controller changes required.
+/// `ImportExportRegistry`; no controller changes required.
 protocol BookmarkImporter: Sendable {
 
     // MARK: Static Computed Properties

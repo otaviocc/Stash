@@ -14,12 +14,12 @@ import Vapor
 /// getting its own connection pool and timeout configuration. This is deliberately **not**
 /// `app.client`: that shared client's read timeout is tuned to 5 seconds for favicon and metadata
 /// fetching, both of which run inline during a request and must fail fast, but the Internet Archive
-/// save endpoint holds the connection open — sending no bytes — for tens of seconds while it
+/// save endpoint holds the connection open, sending no bytes, for tens of seconds while it
 /// crawls the page, which trips a short read timeout long before any per-request deadline matters.
 /// Confirmed in production: submissions were failing with `HTTPClientError.readTimeout` because
 /// they were silently bound by the app-wide 5-second read timeout regardless of the per-request
 /// `ClientRequest.timeout` override, which only extends the overall deadline, not the underlying
-/// `HTTPClient`'s configured read timeout — those are two different mechanisms.
+/// `HTTPClient`'s configured read timeout; those are two different mechanisms.
 private struct WaybackHTTPClient: Client {
 
     // MARK: Properties
@@ -122,7 +122,7 @@ actor WaybackWorker {
 
     // MARK: Functions
 
-    /// Starts a drain if one isn't already running. Safe to call repeatedly — every enqueue and the
+    /// Starts a drain if one isn't already running. Safe to call repeatedly: every enqueue and the
     /// boot-time re-sweep just call this, and it's a no-op while a drain is in flight.
     func kick() {
         guard !isDraining else { return }
@@ -138,7 +138,7 @@ actor WaybackWorker {
 
     /// Drains one `pending` bookmark at a time until none remain, pacing between submissions. Each
     /// loop's own fetch doubles as the "is there more work" check, so there's no separate count query.
-    /// Re-checks the instance-wide switch on every iteration — not just at `kick()` time — so toggling
+    /// Re-checks the instance-wide switch on every iteration, not just at `kick()` time, so toggling
     /// it off mid-drain stops further submissions immediately instead of finishing whatever's already
     /// queued.
     private func drain() async {
@@ -189,7 +189,8 @@ struct WaybackWorkerKey: StorageKey {
 /// Submits a bookmark's URL to the Internet Archive's Wayback Machine, anonymously, via
 /// `https://web.archive.org/save/<url>`. Submission is queued (bookmark set to `.pending`) rather
 /// than run inline, so a bookmark save is never blocked and the rate-limited endpoint is never
-/// bursted. See the Internet Archive section of `DECISIONS.md`.
+/// bursted. See the "Internet Archive (Wayback Machine) submission" entry in
+/// `Docs/decisions-backend.md`.
 enum WaybackSubmitter {
 
     // MARK: Nested Types
@@ -208,7 +209,7 @@ enum WaybackSubmitter {
     static let savePrefix = "https://web.archive.org/save/"
 
     /// The `/save` endpoint holds the connection open, sending no bytes, while it crawls and
-    /// archives the live page — routinely for tens of seconds. Both timeouts are generous on
+    /// archives the live page, routinely for tens of seconds. Both timeouts are generous on
     /// purpose: `read` (idle-between-bytes) is what actually matters here, `connect` just guards
     /// against a hung TCP handshake.
     static let httpClientTimeout = HTTPClient.Configuration.Timeout(connect: .seconds(10), read: .seconds(90))
@@ -218,16 +219,16 @@ enum WaybackSubmitter {
     static let submitTimeout: TimeAmount = .seconds(120)
 
     /// How many consecutive `429`s a bookmark tolerates before giving up (`.failed`) instead of
-    /// staying `.pending` forever. Without this, a persistently rate-limited bookmark — its
-    /// `updatedAt` never advancing, since a plain retry doesn't save it — stays the oldest `pending`
+    /// staying `.pending` forever. Without this, a persistently rate-limited bookmark (its
+    /// `updatedAt` never advancing, since a plain retry doesn't save it) stays the oldest `pending`
     /// row forever and blocks every other bookmark queued behind it, not just itself.
     static let maxRateLimitRetries = 3
 
     // MARK: Static Functions
 
     /// Whether the admin-controlled instance-wide switch is on (`/admin/internet-archive`, default
-    /// on). Every submission path — auto-submit on create, the detail-page and API "submit" actions,
-    /// and the admin bulk actions — gates on this first.
+    /// on). Every submission path (auto-submit on create, the detail-page and API "submit" actions,
+    /// and the admin bulk actions) gates on this first.
     static func isInstanceEnabled(on app: Application) -> Bool {
         app.storage[SiteSettingsCacheKey.self]?.current.internetArchiveEnabled ?? true
     }
@@ -258,7 +259,7 @@ enum WaybackSubmitter {
     /// suppressed under `.testing`, via `kick(on:)`.
     ///
     /// Refuses silently when the instance switch is off. Callers that need to *report* the refusal
-    /// (the API's `409`, the web UI's error banner) still check `isInstanceEnabled` first — this
+    /// (the API's `409`, the web UI's error banner) still check `isInstanceEnabled` first; this
     /// guard is defense in depth, so no future call site can queue work while the feature is
     /// disabled.
     static func enqueue(_ bookmark: Bookmark, on app: Application) async {
@@ -290,7 +291,7 @@ enum WaybackSubmitter {
     /// terminal, up to `maxRateLimitRetries`: the bookmark stays `.pending` (so the next drain cycle
     /// retries it automatically) and the caller is told to back off longer before the next
     /// submission. Crucially, the bookmark is *saved* on every `429` (bumping `updatedAt`), not just
-    /// when it gives up — otherwise it stays the oldest `pending` row forever and starves every other
+    /// when it gives up, otherwise it stays the oldest `pending` row forever and starves every other
     /// bookmark queued behind it. Every non-success path logs the response status or error, since a
     /// silent `.failed` gives no way to diagnose *why*.
     @discardableResult
@@ -352,7 +353,7 @@ enum WaybackSubmitter {
 
     /// Saves the bookmark's Wayback state, logging (rather than propagating) a persistence failure.
     /// Kept separate from the network do/catch so a transient DB error can never be misattributed as
-    /// a submission failure — most importantly on the success path, where it would otherwise record
+    /// a submission failure, most importantly on the success path, where it would otherwise record
     /// an actually-captured snapshot as `.failed` and trigger a redundant re-crawl.
     private static func persist(_ bookmark: Bookmark, on db: Database) async {
         do {

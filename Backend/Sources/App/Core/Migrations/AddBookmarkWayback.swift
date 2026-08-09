@@ -5,7 +5,7 @@ import Fluent
 
 /// Migration that adds Wayback Machine submission state to `bookmarks`. The `"none"` default
 /// backfills existing rows as not-yet-submitted. Each column is added in its own `ALTER TABLE`
-/// (a separate `.update()` call), since SQLite — unlike Postgres — only supports one `ADD COLUMN`
+/// (a separate `.update()` call), since SQLite, unlike Postgres, only supports one `ADD COLUMN`
 /// per statement; batching them into a single chained `.update()` fails there with a syntax error.
 struct AddBookmarkWayback: AsyncMigration {
 

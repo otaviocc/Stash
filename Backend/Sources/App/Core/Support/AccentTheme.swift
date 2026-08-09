@@ -5,7 +5,7 @@ import Foundation
 
 // MARK: - AccentTheme
 
-/// One of the named accent colour themes the admin can pick for the instance. Each theme
+/// One of the named accent color themes the admin can pick for the instance. Each theme
 /// carries a light-mode and a dark-mode hex value; the active value is selected client-side via
 /// the `data-theme` attribute. `ocean` is the default and matches the app's original accent.
 struct AccentTheme: Equatable {

@@ -10,7 +10,7 @@ _Part of the Stash Product Requirements Document. See [`PRODUCT.md`](../PRODUCT.
 
 ```
 stash/
-├── Backend/                      # ✅ Complete — Vapor 4 REST API + Leaf web UIs
+├── Backend/                      # ✅ Complete: Vapor 4 REST API + Leaf web UIs
 │   ├── Sources/App/
 │   │   ├── API/                  # the /api/v1 JSON contract clients depend on
 │   │   │   ├── Controllers/
@@ -41,7 +41,7 @@ stash/
 │   ├── Package.swift
 │   ├── Dockerfile
 │   └── docker-compose.yml
-├── StashKit/                     # ✅ Complete (M6) — shared Swift package
+├── StashKit/                     # ✅ Complete (M6): shared Swift package
 │   ├── Sources/StashKit/
 │   │   ├── Client/
 │   │   ├── DTOs/
@@ -57,7 +57,7 @@ stash/
 ├── CLI/                          # ✅ Complete (M7)
 │   ├── Sources/stash/
 │   └── Package.swift
-├── Extension/                    # ✅ Complete — Manifest v3 WebExtension, no build step
+├── Extension/                    # ✅ Complete: Manifest v3 WebExtension, no build step
 │   ├── background.js             # single owner of token storage + silent refresh
 │   ├── popup.js / options.js
 │   └── icons/
@@ -166,7 +166,8 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 - Organization: type mode (`Nested Types → Static Properties → Properties →
   Computed Properties → Lifecycle → Functions`), public-before-private within
   sections
-- `///` doc comments on types only; no inline comments inside method bodies
+- `///` doc comments on declarations (types, properties, methods/functions);
+  no comments of any kind inside method/function bodies
 - American English throughout
 - Tests: Given/When/Then structure, `#expect` with `"It should ..."`
   descriptions
@@ -197,6 +198,11 @@ idempotent. Applied to Backend, StashKit, CLI, and iOS app.
 | M13 | Offline sync (iOS & macOS): SwiftData local store, `SyncEngine` (pull/push, last-write-wins), optimistic writes, connectivity + background refresh, sync-status UI | ✅ Complete |
 | M14 | Native tag picker (iOS & macOS): `TagPickerSheet` with always-expanded indented tag tree, single-tap toggle, search-as-create; flat-indented (web-parity) tag trees; drag-a-bookmark-onto-a-tag tagging (iPad & macOS); `swift › server` tag pills; native Share… via `ShareLink` | ✅ Complete |
 
+This table stopped being updated after M14; later features (Internet Archive
+submission, audit log, active sessions, system logs, favicon cache management,
+instance backup/restore, the update checker, editable footer links, Read
+Later) are tracked in `DECISIONS.md` instead, each under its own dated entry.
+
 ---
 
 ## 21. Known Leaf Gotchas
@@ -222,7 +228,6 @@ Deliberately not building, at least for v1:
 - Cross-user bookmark visibility or sharing
 - Page content archiving (article text for offline reading); the native apps do
   sync bookmark data for offline access; saving page contents is out of scope
-- Read-later queue or unread state
 - Annotations or highlights
 - SSO / OAuth
 - Menu bar app (macOS)

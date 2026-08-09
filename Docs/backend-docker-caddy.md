@@ -10,8 +10,12 @@ an opt-in sidecar you add to your existing `docker-compose.yml`.
 
 ## How it fits together
 
-You add a second Compose file (a *override*) that you merge with the published
-`docker-compose.yml`. The override:
+You add a second Compose file (an *override*) that you merge with the published
+`docker-compose.yml`. The override uses the `!reset` YAML tag, which needs
+Docker Compose 2.24 or later (`docker compose version`); it is not supported by
+`podman-compose`, so if you are on [Podman](backend-docker.md#running-with-podman),
+use the standalone Docker Compose CLI pointed at Podman's socket instead. The
+override:
 
 - adds a `caddy` service (the `caddy:2-alpine` image) listening on ports 80 and 443,
 - removes Stash's direct `8080` port mapping, so all incoming traffic goes through

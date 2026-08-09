@@ -18,7 +18,7 @@
             <label>URL
                 <input name="url" type="url" value="#(url)" placeholder="https://example.com" required>
             </label>
-            <label>Title <span class="muted">(optional — auto-fetched if blank)</span>
+            <label>Title <span class="muted">(optional, auto-fetched if blank)</span>
                 <input name="title" value="#(bookmarkTitle)">
             </label>
             <label>Description <span class="muted">(optional)</span>

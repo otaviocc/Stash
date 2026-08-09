@@ -8,7 +8,7 @@ reference for the `stash` command-line client.
 
 ## Installing
 
-Make the skill discoverable by placing it where Claude Code looks for skills —
+Make the skill discoverable by placing it where Claude Code looks for skills:
 copy or symlink this folder into a skills directory, naming the folder after the
 skill (`stash-cli`):
 

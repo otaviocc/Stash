@@ -8,9 +8,9 @@ import Vapor
 // MARK: - SmartView
 
 /// A saved query owned by a user. Runs live against the user's bookmarks, returning the ones
-/// that match its conditions — every condition when `matchMode` is `all`, at least one when it
-/// is `any`. The query is stored as rules, never as results. See the Smart Views section of
-/// `DECISIONS.md`.
+/// that match its conditions: every condition when `matchMode` is `all`, at least one when it
+/// is `any`. The query is stored as rules, never as results. See the "Smart Views" entry in
+/// `Docs/decisions-smart-views.md`.
 final class SmartView: Model, Content, @unchecked Sendable {
 
     // MARK: Static Properties
@@ -324,7 +324,7 @@ enum SmartViewCondition: Codable, Equatable {
 
 // MARK: - SmartViewDuration
 
-/// A relative-age offset parsed from a compact duration string — a positive integer followed by a
+/// A relative-age offset parsed from a compact duration string, a positive integer followed by a
 /// unit suffix (`d` days, `m` months, `y` years), e.g. `"30d"`, `"3m"`, `"1y"`. Backs the
 /// `olderThan` / `newerThan` conditions: the cutoff is computed from `Date()` at query time using
 /// `Calendar` arithmetic, so months and years are calendar units, not fixed-second multiples.

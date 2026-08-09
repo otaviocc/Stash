@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Otávio C.
 // SPDX-License-Identifier: MIT
 
-// Stash browser extension — service worker.
+// Stash browser extension: service worker.
 //
 // Owns all token storage and every authenticated call to the Stash REST API.
 // The popup and options page never touch chrome.storage for tokens directly;
@@ -86,7 +86,7 @@ async function postJSON(serverURL, path, body) {
 }
 
 // Calls POST /api/v1/auth/login. Returns either a token pair (stored, signed
-// in) or the { requires2FA, tempToken } challenge — both arrive as HTTP 200, so
+// in) or the { requires2FA, tempToken } challenge, both arrive as HTTP 200, so
 // the shape of the body decides, exactly as in the CLI and app.
 async function login(serverURL, username, password) {
   const normalizedURL = serverURL.replace(/\/+$/, "");

@@ -19,7 +19,7 @@ you're not sure which file, scan the entry lists below.
 
 - PRD sections are referenced as `§n` (see [`PRODUCT.md`](./PRODUCT.md)).
 - A decision later reversed is marked *Superseded* in prose with a pointer to
-  what replaced it, rather than being deleted — so a topical file may contain
+  what replaced it, rather than being deleted, so a topical file may contain
   both the original decision and its later reversal.
 - This is a decision log, not API docs; endpoint/behavior reference lives in
   [`Docs/api.md`](Docs/api.md).
@@ -57,7 +57,7 @@ Vapor backend: API, migrations, admin tools, and instance features.
 - Feature: Favicon Cache Management (admin tool)
 - Feature #6: Audit log · Feature #7: Active Sessions · Feature #8: System Logs
 - Feature: Internet Archive (Wayback Machine) submission
-- Feature: Instance management — update checker + backup/restore
+- Feature: Instance management: update checker + backup/restore
 - `Script/bump-version.sh`: one script, three version numbers
 - Editable footer links
 - Appearance audit log: record actual changes
@@ -128,6 +128,7 @@ Smart Views across all surfaces.
 - Smart View relative date conditions (`olderThan` / `newerThan`)
 - Smart View form: condition row buttons follow-up
 - Smart View condition: `isReadLater`
+- `GET /smart-views/{id}/bookmarks` silently drops query, tag, and archived
 
 ### [`Docs/decisions-clients.md`](Docs/decisions-clients.md)
 Shared package and non-Apple clients.

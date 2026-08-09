@@ -3,8 +3,8 @@
 
 import Foundation
 
-/// Extracts a favicon cache key and origin from a bookmark URL. Parses with `URLComponents` — the
-/// same parser `Bookmark.validatedURL` uses — so a URL that validates resolves a consistent host.
+/// Extracts a favicon cache key and origin from a bookmark URL. Parses with `URLComponents`, the
+/// same parser `Bookmark.validatedURL` uses, so a URL that validates resolves a consistent host.
 enum DomainExtractor {
 
     static func domain(from urlString: String) -> String? {

@@ -57,8 +57,8 @@ All paths are under `/api/v1/` except `/health`, which is unversioned.
 | `GET`  | `/admin/stats` | admin | Totals + per-user bookmark counts |
 | `GET`  | `/admin/sessions` | admin | List live sessions (admin dashboard + app frontend); `?q=` filters by username prefix |
 | `POST` | `/admin/sessions/revoke-all` | admin | Revoke every live session and refresh token (204) |
-| `POST` | `/admin/sessions/revoke-user` | admin | `{ "userName": "alice" }` — revoke a user's sessions (204); 404 if unknown |
-| `GET`  | `/instance` | none | Public instance chrome: `{ accent: { theme, light, dark } }` — the resolved accent theme |
+| `POST` | `/admin/sessions/revoke-user` | admin | `{ "userName": "alice" }`, revokes a user's sessions (204); 404 if unknown |
+| `GET`  | `/instance` | none | Public instance chrome: `{ accent: { theme, light, dark } }`, the resolved accent theme |
 
 Errors use a standard `{ error, code, message, existingID? }` envelope across
 every route, including routing 404s and validation failures.
@@ -81,7 +81,7 @@ separate from the API.
 | `GET`  | `/admin/maintenance` | Database maintenance: run VACUUM to reclaim space from hard deletes |
 | `POST` | `/admin/db/optimize` | Run `VACUUM` against the database (PRG → `?ok=db_optimized&ms=<elapsed>`) |
 | `GET`  | `/admin/favicons` | Favicon cache stats (total/cached/pending/failed, total bytes) + clear/re-scan actions |
-| `POST` | `/admin/favicons/clear` | Delete every cached favicon. Does **not** regenerate automatically — only via re-scan, a new bookmark for that domain, or that bookmark's own "Refresh favicon" button |
+| `POST` | `/admin/favicons/clear` | Delete every cached favicon. Does **not** regenerate automatically; only via re-scan, a new bookmark for that domain, or that bookmark's own "Refresh favicon" button |
 | `POST` | `/admin/favicons/rescan` | Re-fetch every known domain's favicon in the background, one domain at a time |
 | `GET`  | `/admin/internet-archive` | Internet Archive submission stats (total/archived/pending/failed/not-submitted) + enable toggle + bulk actions |
 | `POST` | `/admin/internet-archive/toggle` | Enable/disable Internet Archive submissions instance-wide (PRG → `?ok=ia_saved`) |
@@ -91,7 +91,7 @@ separate from the API.
 | `GET`  | `/admin/audit` | Audit log viewer: most recent 50 auth/admin-action rows |
 | `GET`  | `/admin/sessions` | Active sessions viewer (admin dashboard + app frontend) |
 | `POST` | `/admin/sessions/revoke-all` | Revoke every live session (PRG → `?ok=sessions-revoked-all`) |
-| `POST` | `/admin/sessions/revoke-user` | `userName=alice` — revoke that user's sessions (PRG → `?ok=sessions-revoked-user`) |
+| `POST` | `/admin/sessions/revoke-user` | `userName=alice`, revokes that user's sessions (PRG → `?ok=sessions-revoked-user`) |
 | `GET`  | `/admin/logs` | Server-rendered recent log viewer (in-memory ring buffer, up to 1000 entries, `?level=` filter) |
 
 ## Web frontend (`/app`)

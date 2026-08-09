@@ -72,7 +72,7 @@ public enum BookmarkRequestFactory {
     /// Requests bookmarks (archived included) updated after `since`, for offline sync, using keyset
     /// pagination. The first page passes `afterUpdatedAt`/`afterId` as `nil`; each subsequent page
     /// echoes the previous response's `nextAfterUpdatedAt`/`nextAfterId`. Omitting `since` returns
-    /// every bookmark — the initial full sync. `afterUpdatedAt` is the opaque token from the response,
+    /// every bookmark: the initial full sync. `afterUpdatedAt` is the opaque token from the response,
     /// passed back verbatim.
     public static func makeChangesRequest(
         since: Date?,
@@ -101,7 +101,7 @@ public enum BookmarkRequestFactory {
     }
 
     /// Requests tombstones for bookmarks hard-deleted after `since`, for offline sync.
-    /// Omitting `since` returns every tombstone — the initial full sync.
+    /// Omitting `since` returns every tombstone: the initial full sync.
     public static func makeDeletedRequest(
         since: Date?
     ) -> NetworkRequest<VoidRequest, [DeletedBookmarkDTO]> {

@@ -6,11 +6,11 @@ import VaporTesting
 @testable import App
 
 /// Covers TOTP-based two-factor enrollment, login, and recovery-code flows.
-@Suite("Auth — TOTP 2FA enrollment and login")
+@Suite("Auth: TOTP 2FA enrollment and login")
 struct TwoFactorTests {
 
     @Test("enrollment returns 8 recovery codes and enables 2FA")
-    func enrolment() async throws {
+    func enrollment() async throws {
         try await withTestApp { app in
             // Given
             try await app.makeUser(username: "otavio", password: "correct-horse-battery")
@@ -267,7 +267,7 @@ struct TwoFactorTests {
     @Test("disable requires authentication")
     func disableUnauthenticated() async throws {
         try await withTestApp { app in
-            // Given — no token
+            // Given: no token
 
             // When
             try await app.testing().test(

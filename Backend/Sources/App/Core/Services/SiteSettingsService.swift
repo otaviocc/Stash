@@ -119,7 +119,7 @@ enum SiteSettingsService {
     ///
     /// The cache is seeded by `loadAndCache` during `configure`, before the server accepts
     /// connections, so the holder always exists by the time any request can call this. Updating it in
-    /// place only touches the `NSLock`-guarded snapshot — it never mutates `Application.storage`, which
+    /// place only touches the `NSLock`-guarded snapshot; it never mutates `Application.storage`, which
     /// is an unsynchronized dictionary that must not be written while request handlers read it
     /// concurrently. If the holder is somehow absent, page renders fall back to `.default` until the
     /// next boot rather than racing a runtime `storage` write.

@@ -94,7 +94,7 @@ final class MockClient: Client, @unchecked Sendable {
 
 // MARK: - DomainExtractorTests
 
-@Suite("Favicon — domain extraction")
+@Suite("Favicon: domain extraction")
 struct DomainExtractorTests {
 
     @Test("lowercases the host")
@@ -157,7 +157,7 @@ struct DomainExtractorTests {
 
 // MARK: - FaviconFetcherTests
 
-@Suite("Favicon — fetch and cache")
+@Suite("Favicon: fetch and cache")
 struct FaviconFetcherTests {
 
     // MARK: Properties
@@ -318,7 +318,7 @@ struct FaviconFetcherTests {
         }
     }
 
-    @Test("a domain that already has a cache row is skipped — no duplicate row, no HTTP calls")
+    @Test("a domain that already has a cache row is skipped: no duplicate row, no HTTP calls")
     func alreadyCachedSkips() async throws {
         try await withTestApp { app in
             // Given
@@ -382,7 +382,7 @@ struct FaviconFetcherTests {
     @Test("refreshAll on an empty table returns 0 and does nothing")
     func refreshAllEmptyTable() async throws {
         try await withTestApp { app in
-            // Given — no rows
+            // Given: no rows
 
             // When
             let count = try await FaviconFetcher.refreshAll(on: app)
@@ -395,7 +395,7 @@ struct FaviconFetcherTests {
     @Test("refreshAll also queues domains from existing bookmarks, not just favicon_cache rows")
     func refreshAllIncludesBookmarkDomains() async throws {
         try await withTestApp { app in
-            // Given — favicon_cache is empty (e.g. after "Clear cache"), but bookmarks still
+            // Given: favicon_cache is empty (e.g. after "Clear cache"), but bookmarks still
             // reference domains
             let user = try await app.makeUser()
             try await app.makeBookmark(for: user, url: "https://github.com/a")
@@ -453,7 +453,7 @@ struct FaviconFetcherTests {
 
 // MARK: - FaviconServeTests
 
-@Suite("Favicon — serve and refresh endpoints")
+@Suite("Favicon: serve and refresh endpoints")
 struct FaviconServeTests {
 
     // MARK: Properties
@@ -508,7 +508,7 @@ struct FaviconServeTests {
     @Test("GET a favicon with no row returns 404")
     func serveMissing() async throws {
         try await withTestApp { app in
-            // Given — no row
+            // Given: no row
 
             // When
             try await app.testing().test(.GET, "api/v1/favicons/nope.com") { res async throws in
@@ -548,7 +548,7 @@ struct FaviconServeTests {
     @Test("POST refresh requires authentication")
     func refreshRequiresAuth() async throws {
         try await withTestApp { app in
-            // Given — no auth
+            // Given: no auth
 
             // When
             try await app.testing().test(.POST, "api/v1/favicons/example.com/refresh") { res async throws in

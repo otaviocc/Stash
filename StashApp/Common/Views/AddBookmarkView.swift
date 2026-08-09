@@ -11,7 +11,7 @@ import SwiftUI
 /// The form owns its own field state and surfaces metadata fetch and tag selection via the
 /// `TagPickerSheet`. Its data dependencies are the narrow `BookmarkCreating`/`TagAutocompleting`
 /// protocols, so it does not know whether it is talking to the app's repositories or the extension's
-/// lightweight ones. Saving and cancelling are reported through the `onSaved`/`onCancel` callbacks
+/// lightweight ones. Saving and canceling are reported through the `onSaved`/`onCancel` callbacks
 /// rather than handled here, so the host decides whether to dismiss (app) or advance to a
 /// confirmation screen (extension).
 ///
@@ -442,7 +442,7 @@ private struct ReadLaterSectionView: View {
 }
 
 #if DEBUG
-    #Preview("Add — editable URL") {
+    #Preview("Add: editable URL") {
         AddBookmarkView(
             isURLEditable: true,
             autoFetchOnAppear: false,
@@ -453,7 +453,7 @@ private struct ReadLaterSectionView: View {
         )
     }
 
-    #Preview("Add — locked URL (share sheet)") {
+    #Preview("Add: locked URL (share sheet)") {
         AddBookmarkView(
             initialURL: "https://swift.org",
             isURLEditable: false,

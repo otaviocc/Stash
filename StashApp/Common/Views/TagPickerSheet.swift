@@ -6,12 +6,12 @@ import SwiftUI
 // MARK: - TagPickerSheet
 
 /// A sheet for selecting and creating tags from the user's tag hierarchy. The sole tag-editing
-/// surface for the add and edit bookmark forms on both platforms — touch-first, no keyboard required
+/// surface for the add and edit bookmark forms on both platforms: touch-first, no keyboard required
 /// to pick existing tags.
 ///
 /// The search field doubles as new-tag input: when the query matches no existing tag a "Create" row
 /// appears at the top, and tapping it normalizes the query (mirroring the backend) and adds it to the
-/// selection without closing the sheet. Selection is a live binding — every tap commits immediately,
+/// selection without closing the sheet. Selection is a live binding: every tap commits immediately,
 /// so there is no Cancel; Done and swipe-down both leave the selection as edited.
 struct TagPickerSheet: View {
 
@@ -27,7 +27,7 @@ struct TagPickerSheet: View {
     var onDismiss: () -> Void
 
     /// Every slug in `tagHierarchy`, walked once at `init` rather than recomputed from a computed
-    /// property — `tagHierarchy` doesn't change for the sheet's lifetime, but a computed property
+    /// property; `tagHierarchy` doesn't change for the sheet's lifetime, but a computed property
     /// would otherwise re-walk the whole tree on every `searchText` keystroke since `showsCreateRow`
     /// reads it in `body`.
     private let allSlugs: Set<String>

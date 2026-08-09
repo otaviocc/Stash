@@ -9,7 +9,7 @@ import Vapor
 /// Both the admin dashboard (`/admin`) and the app frontend (`/app`) share this single
 /// dictionary, distinguished only by which session key their `SessionData` carries
 /// (`AdminSessionMiddleware.sessionKey` vs. `UserSessionMiddleware.sessionKey`). Pure
-/// read/write against that dictionary — no separate tracking table, no login/logout hooks.
+/// read/write against that dictionary; no separate tracking table, no login/logout hooks.
 enum ActiveSessionLoader {
 
     // MARK: Nested Types

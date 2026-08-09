@@ -63,9 +63,9 @@ enum CLIErrorReporter {
         case .accountSuspended:
             "This account is suspended."
         case .tokenExpired:
-            "Session expired — please run stash login."
+            "Session expired, please run stash login."
         case .tokenInvalid:
-            "Session invalid — please run stash login."
+            "Session invalid, please run stash login."
         case .totpRequired:
             "Two-factor authentication is required."
         case .totpInvalid:
@@ -93,7 +93,7 @@ enum CLIErrorReporter {
             "The server URL is invalid. Set it with: stash config set-url <url>"
         case let .transportError(underlying):
             "Could not reach the server. \(underlying.localizedDescription) "
-                + "(Check the URL and scheme — a plain HTTP server needs http://, not https://.)"
+                + "(Check the URL and scheme: a plain HTTP server needs http://, not https://.)"
         case let .unacceptableStatusCode(statusCode, _, _):
             "The server returned HTTP \(statusCode)."
         case .decodingError:

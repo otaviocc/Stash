@@ -1,4 +1,4 @@
-# Secrets — never commit
+# Secrets: never commit
 .env
 
 # Per-machine signing override (developer account / bundle prefix)

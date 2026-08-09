@@ -8,9 +8,9 @@ import Vapor
 import VaporTesting
 @testable import App
 
-/// Verifies the relative-age Smart View conditions — `olderThan` / `newerThan` — covering duration
+/// Verifies the relative-age Smart View conditions, `olderThan` / `newerThan`, covering duration
 /// parsing, validation, calendar (not fixed-second) arithmetic, and live query execution.
-@Suite("Smart Views — relative date conditions (olderThan / newerThan)")
+@Suite("Smart Views: relative date conditions (olderThan / newerThan)")
 struct SmartViewConditionTests {
 
     @Test("olderThan returns only bookmarks created before the cutoff")

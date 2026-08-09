@@ -7,7 +7,7 @@ import StashKit
 
 // MARK: - Tags
 
-/// `stash tags` — list, rename, and delete tags. Defaults to listing when no subcommand is given.
+/// `stash tags`: list, rename, and delete tags. Defaults to listing when no subcommand is given.
 struct Tags: AsyncParsableCommand {
 
     static let configuration = CommandConfiguration(
@@ -24,7 +24,7 @@ struct Tags: AsyncParsableCommand {
 
 // MARK: - TagsList
 
-/// `stash tags list` — list all tags with counts.
+/// `stash tags list`: list all tags with counts.
 struct TagsList: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -61,7 +61,7 @@ struct TagsList: AsyncParsableCommand {
 
 // MARK: - TagsRename
 
-/// `stash tags rename --from <tag> --to <tag>` — rename a tag and its children.
+/// `stash tags rename --from <tag> --to <tag>`: rename a tag and its children.
 struct TagsRename: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -94,7 +94,7 @@ struct TagsRename: AsyncParsableCommand {
 
 // MARK: - TagsDelete
 
-/// `stash tags delete <tag>` — delete a tag and its children.
+/// `stash tags delete <tag>`: delete a tag and its children.
 struct TagsDelete: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -117,7 +117,7 @@ struct TagsDelete: AsyncParsableCommand {
     func run() async throws {
         try await runCLI {
             guard force || Console.confirm("Delete tag \(tag) and all its children? [y/N] ") else {
-                Console.out("Cancelled.")
+                Console.out("Canceled.")
 
                 return
             }

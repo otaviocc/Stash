@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// Authenticated endpoints for the current user (PRD §9.2).
+/// Authenticated endpoints for the current user (Docs/product-api.md §9.2).
 struct UserController: RouteCollection {
 
     func boot(routes: RoutesBuilder) throws {

@@ -16,11 +16,12 @@ components plus a browser extension, all speaking to one backend contract:
   `Support/` for stateless helpers). It's a single Swift module, so the split is organizational only.
   Inside `Web/`, controllers are **one `RouteCollection` per domain** mirroring the API side
   (`BookmarkWebController`, `SmartViewWebController`, `TagWebController`, `SettingsWebController`,
-  `AppAuthWebController` for `/app`; `AdminWebController` for `/admin`), wired in `routes.swift`. Pure
-  Leaf-context shaping lives in `Web/Presenters/` (`BookmarkPresenter`, `SmartViewPresenter`,
-  `TagPresenter`: `enum` namespaces of `static` funcs, no request/DB) and cross-controller glue in
-  `Web/Support/` (`Request+RenderHTML`, `FlashMessage`, `AppSidebarLoader`, `KnownTags`). See
-  `DECISIONS.md`.
+  `AppAuthWebController` for `/app`; `AdminWebController` for `/admin`; `LandingController` for the
+  public `/` page), wired in `routes.swift`. Pure Leaf-context shaping lives in `Web/Presenters/`
+  (`BookmarkPresenter`, `SmartViewPresenter`, `TagPresenter`: `enum` namespaces of `static` funcs,
+  no request/DB), `Web/DTOs/` holds the Leaf-context structs those presenters build, and
+  cross-controller glue lives in `Web/Support/` (`Request+RenderHTML`, `FlashMessage`,
+  `AppSidebarLoader`, `KnownTags`). See `DECISIONS.md`.
 - **`StashKit/`** is a shared Swift package: `Codable` DTOs, one request-factory `enum` per API domain,
   and a thin `StashClient` over [`MicroClient`](https://github.com/otaviocc/MicroClient). swift-tools 6.2, iOS 26 / macOS 26.
 - **`CLI/`**: the `stash` command-line client (`ArgumentParser` + StashKit). swift-tools 6.2.
@@ -40,7 +41,8 @@ gets a `Docs/<topic>.md` linked from the root `README.md` table. `StashSkill/` i
 it's a committed AI coding assistant skill (`stash-cli`) that documents how to drive the `stash`
 CLI, derived from the CLI source rather than the spec. See `StashSkill/README.md` for how it's
 meant to be installed and used. `Script/` holds repo-wide maintenance scripts, e.g.
-`bump-version.sh` (see `Docs/releasing.md`).
+`bump-version.sh` (see `Docs/releasing.md`). `Backend/Scripts/` holds backend-specific
+one-offs, e.g. `generate-web-icons.py` for the favicon placeholder assets.
 
 ## Building and testing
 
@@ -54,7 +56,8 @@ Each component is its own package/project; see the matching guide under
 - Browser extension: [`Docs/browser-extension.md`](https://github.com/otaviocc/Stash/blob/main/Docs/browser-extension.md)
 
 CI (`.github/workflows/ci.yml`) runs three jobs: `backend`, `apple`, `extension`, matching
-those same components. Your change should pass whichever job(s) it touches.
+those same components, on pushes and PRs that touch non-documentation files. Your change
+should pass whichever job(s) it touches.
 
 ## Architecture notes
 
@@ -135,8 +138,9 @@ A few cross-file conventions that aren't obvious from any single file:
 
 Backend and app code is formatted with `swiftformat` and linted with `swiftlint`; both must
 report clean (`swiftformat . --lint`, `swiftlint lint`, run from within `Backend/` or
-`StashApp/`). The browser extension has no build step; `make lint` in `Extension/` is the
-CI gate there. A few conventions the linters don't fully cover:
+`StashApp/`). This is not currently enforced by CI, it's expected of every PR regardless.
+The browser extension has no build step; `make lint` in `Extension/` is the CI gate there.
+A few conventions the linters don't fully cover:
 
 - American English; `///` doc comments are allowed on declarations (types, properties, and
   methods/functions), but no comments of any kind inside a method/function body, neither `//`

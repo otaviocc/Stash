@@ -45,7 +45,7 @@ struct SiteChrome: Content {
 
 // MARK: - ThemeOption
 
-/// One selectable accent theme rendered as a coloured circle in the appearance picker.
+/// One selectable accent theme rendered as a colored circle in the appearance picker.
 struct ThemeOption: Content {
 
     let id: String
@@ -79,7 +79,7 @@ struct AppearanceContext: Content {
 
 // MARK: - AppearanceForm
 
-/// `POST /admin/appearance` form — the chosen accent theme, the optional about message, and the
+/// `POST /admin/appearance` form: the chosen accent theme, the optional about message, and the
 /// four editable footer link slots.
 struct AppearanceForm: Content {
 

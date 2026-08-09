@@ -7,15 +7,15 @@ import StashKit
 /// Provides access to the current user's Smart Views with local caching, backed by the on-disk
 /// `LocalStore` so the list survives a cold launch offline.
 ///
-/// `load()` first reads the cached definitions straight from `LocalStore` — synchronous in effect and
-/// available with no network at all — then makes a best-effort attempt to refresh from the server and
+/// `load()` first reads the cached definitions straight from `LocalStore` (synchronous in effect and
+/// available with no network at all), then makes a best-effort attempt to refresh from the server and
 /// reconcile the cache; a failed refresh is silently ignored as long as there was something cached to
 /// show, and only propagates if the cache was empty too (e.g. the very first launch, offline). `reload()`
 /// always refreshes from the server and always throws on failure (pull-to-refresh, and the Smart View
 /// management screen, which should surface a real error). `reset()` clears the in-memory cache on
 /// sign-out; the on-disk cache's own wipe policy lives in `LocalStore.wipe`/`wipeAll`. Mirrors
 /// `TagRepository`: Smart Views are a small, per-user list browsed from the sidebar, not a per-list
-/// paginated query (that is the bookmark results endpoint, which the native apps never call — Smart
+/// paginated query (that is the bookmark results endpoint, which the native apps never call; Smart
 /// View results are evaluated locally by `BookmarkFilter`).
 ///
 /// Smart Views are never authored offline: `create`/`update`/`delete` always call the server directly,

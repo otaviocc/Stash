@@ -42,13 +42,13 @@ container restart.
   has a regular bookmark collection, so App is never a dead end). Every other
   admin page (New user, Appearance, Audit log, Sessions, Health, Maintenance,
   Favicons, Internet Archive, Logs) is reached via a Dashboard card, not the
-  top nav — see the Dashboard bullet below.
+  top nav; see the Dashboard bullet below.
 - The Dashboard (`GET /admin`) is the admin hub: a KPI stat strip (total users
   with an active/suspended split, total bookmarks, live web sessions, and the
-  Internet Archive queue depth), a grid of navigation cards — one per other
+  Internet Archive queue depth), a grid of navigation cards (one per other
   admin page, each with a one-line description and a cheap live detail where
-  one exists (e.g. Favicons shows cached/pending counts, Internet Archive
-  shows queued count or "Disabled") — and a recent-activity feed (the last 8
+  one exists, e.g. Favicons shows cached/pending counts, Internet Archive
+  shows queued count or "Disabled") and a recent-activity feed (the last 8
   audit-log rows, most recent first, reusing the same row shape as the Audit
   Log page). The old per-user table was dropped from the dashboard; it lives
   only on the dedicated Users page.
@@ -122,13 +122,13 @@ container restart.
   rate-limited and retrying with an attempt count) plus a "Resume queue
   now" button that nudges the background worker (a safe no-op if it's
   already running); toggling the switch off stops the drain loop
-  immediately — mid-flight, not just for future submissions — leaving any
+  immediately, mid-flight, not just for future submissions, leaving any
   still-`pending` bookmarks untouched until re-enabled or manually resumed.
 - The Audit Log page (`GET /admin/audit`) shows the most recent 50 rows of
   the audit trail (§7.9): auth events and admin user-management actions, most
   recent first. No pagination, filtering, or export in v1.
 - The Active Sessions page (`GET /admin/sessions`) lists every live web
-  session — both the admin dashboard and the `/app` frontend — reading
+  session, both the admin dashboard and the `/app` frontend, reading
   directly from the in-memory session store (§9.7). An admin can revoke every
   session instance-wide (`POST /admin/sessions/revoke-all`) or just one
   user's (`POST /admin/sessions/revoke-user`), both of which also delete the
@@ -139,7 +139,7 @@ container restart.
   doesn't capture them.
 - The System Logs page (`GET /admin/logs`) reads from a fixed-capacity
   (1000-entry) in-memory ring buffer fed by every log call app-wide, cleared
-  on restart and never written to disk or the database — a quick-triage
+  on restart and never written to disk or the database: a quick-triage
   convenience, not a replacement for `docker logs`/`podman logs`. A `?level=`
   filter narrows to a minimum severity (`info`, `warning`, or `error`); any
   other value is treated as no filter, so the rendered dropdown selection
@@ -148,14 +148,14 @@ container restart.
   and bulk-deleted (delete all); Smart View and tag created/renamed/deleted;
   favicons cached or failed to cache; and bookmarks successfully archived to
   the Wayback Machine. Auth (login/logout) and admin user-management actions
-  are deliberately *not* duplicated here — they already live in the DB-backed
+  are deliberately *not* duplicated here; they already live in the DB-backed
   Audit Log (`/admin/audit`, §7.9).
 - The Backup & Restore page (`GET /admin/backup`) covers full-instance
   disaster recovery/migration, distinct from the per-user Stash JSON
   export/import under `/app/settings` (§11). "Download instance backup"
   (`GET /admin/backup/download`) streams one JSON file with every account
   (username, password hash, TOTP secret, recovery-code hashes, role, active
-  state, and the archive-new-bookmarks preference — so restoring keeps
+  state, and the archive-new-bookmarks preference, so restoring keeps
   everyone's logins and 2FA working), their bookmarks and Smart Views, and
   the site's appearance settings (including footer links); it deliberately
   excludes refresh tokens (everyone simply signs back in), the favicon cache
@@ -229,14 +229,14 @@ a dead end for them).
   the native apps' sectioned list (§14): a top row with only the two most
   common actions (Open URL, Edit), an "Actions" card below listing the rest
   (Refresh favicon, View/Save to Wayback Machine, Archive/Unarchive, Mark to
-  Read Later/Mark as Read) as stacked full-width rows — each conditionally
+  Read Later/Mark as Read) as stacked full-width rows, each conditionally
   shown per the same rules as before (favicon present, Internet Archive
-  enabled, etc.) — and a separate "Danger zone" card (reusing the
+  enabled, etc.), and a separate "Danger zone" card (reusing the
   `.danger-zone` styling from Settings/admin User Detail) containing only
   Delete, so the destructive action is visually set apart rather than sitting
   in the same row as everything else. The read-later toggle (`POST
   /app/bookmarks/:id/read-later` / `.../mark-read`) is independent of
-  Archive/Unarchive — toggling one never changes the other — and the button
+  Archive/Unarchive (toggling one never changes the other) and the button
   label flips the same way (`Mark to Read Later` ↔ `Mark as Read`).
 - **Return context**: the list page (tag-filtered or Smart View, including
   its search/page/archived state) is carried into the detail page as a
@@ -247,21 +247,21 @@ a dead end for them).
   (Refresh favicon, Wayback, Archive/Unarchive, read-later toggle), and
   Delete's redirect all read and re-propagate this param, so it survives
   across actions taken on
-  the detail page and the user always lands back on the list they came from
-  — not an unfiltered `/app`. Also covers the "Add bookmark" page's duplicate-URL
+  the detail page and the user always lands back on the list they came from,
+  not an unfiltered `/app`. Also covers the "Add bookmark" page's duplicate-URL
   conflict link ("View the existing bookmark →"), the one entry point into the
   detail page that carried no context otherwise. A `safeReturnTo` guard (must
   start with `/app`; no embedded CR/LF) rejects unsafe values and falls back to
   `/app`, since the param is user-controlled and used as a redirect target. The
   `/app` prefix check alone rules out absolute/protocol-relative URLs, so there's
-  no separate `//`/`://` check — an earlier version had one, but it rejected
+  no separate `//`/`://` check: an earlier version had one, but it rejected
   legitimate paths whose own search query happened to contain `://` (e.g.
   `?q=https://example.com`).
 - The global nav "Add" link and the bookmark list's empty-state "Add your
   first bookmark" link also carry the browsing context into `/app/bookmarks/new`
   (its own "← Back to bookmarks" link and, per below, tag pre-fill). The nav
   link relies on the browser's own same-origin `Referer` header instead of an
-  explicit `?returnTo=` — `layout.leaf` (which renders the nav) is shared by
+  explicit `?returnTo=`: `layout.leaf` (which renders the nav) is shared by
   all 24 web-app pages and has no page-specific state like the current tag, so
   threading a param through every page's context struct would be
   disproportionate. `returnTo` still wins whenever present (it's what makes
@@ -272,7 +272,7 @@ a dead end for them).
   tag into the new bookmark's tags field (derived from the resolved return
   URL's `tag` query item, normalized via `Bookmark.normalizeTagQuery`).
   Nothing is pre-filled from a Smart View (no single tag) or a sentinel filter
-  (Untagged/Today/This Week/To Read — not real tags).
+  (Untagged/Today/This Week/To Read, not real tags).
 
 ### Favicons
 
@@ -346,7 +346,7 @@ a dead end for them).
   per-segment prefix (a fragment matches any `/`-delimited segment that starts
   with it, so `music` finds `kind/music-gear`)
 - Both the add and edit forms carry a "Read later" checkbox (`isReadLater`),
-  false by default on add. Unlike `isArchived` (never exposed on these forms —
+  false by default on add. Unlike `isArchived` (never exposed on these forms;
   archiving is detail-page-only), read-later is settable at creation time
   since users commonly know at save time whether something is for later
   reading.
@@ -400,7 +400,7 @@ confirmation).
 Archive submissions enabled instance-wide (§12). `POST
 /app/settings/archive-pref` saves it and PRG redirects with `?ok=archive_pref`.
 Turning this off doesn't affect existing submissions or remove the per-bookmark
-"Save to Wayback Machine" button on the detail page (§13, Internet Archive) —
+"Save to Wayback Machine" button on the detail page (§13, Internet Archive);
 it only controls whether *new* bookmarks auto-submit at save time.
 
 **Import & Export:**

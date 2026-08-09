@@ -40,8 +40,8 @@ struct TagWebController: RouteCollection {
             message = nil
         }
         let error: String? = switch req.query[String.self, at: "error"] {
-        case "rename": "Couldn't rename the tag — both names must be non-empty."
-        case "delete": "Couldn't delete the tag — it must be a non-empty tag name."
+        case "rename": "Couldn't rename the tag: both names must be non-empty."
+        case "delete": "Couldn't delete the tag: it must be a non-empty tag name."
         default: nil
         }
 

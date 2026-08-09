@@ -6,13 +6,13 @@ import VaporTesting
 @testable import App
 
 /// Verifies the public `GET /api/v1/instance` endpoint.
-@Suite("Instance — public accent endpoint")
+@Suite("Instance: public accent endpoint")
 struct InstanceTests {
 
     @Test("returns the default accent theme with no authentication")
     func returnsDefaultAccent() async throws {
         try await withTestApp { app in
-            // Given — no auth, default settings
+            // Given: no auth, default settings
 
             // When
             try await app.testing().test(.GET, "api/v1/instance") { res async throws in

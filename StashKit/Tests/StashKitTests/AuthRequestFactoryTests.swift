@@ -9,7 +9,7 @@ import Testing
 // MARK: - AuthRequestFactoryTests
 
 /// Verifies the paths, methods, and body encoding produced by `AuthRequestFactory`.
-@Suite("AuthRequestFactory — paths, methods, and bodies")
+@Suite("AuthRequestFactory: paths, methods, and bodies")
 struct AuthRequestFactoryTests {
 
     @Test("builds a POST login request with the correct path and encoded body")

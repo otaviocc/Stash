@@ -528,7 +528,7 @@ form.inline {
     font-size: 0.8rem;
 }
 
-/* Subtle, label-style tags in the list — no filled capsule, just muted
+/* Subtle, label-style tags in the list, no filled capsule, just muted
    middot-separated text links, matching the native row's de-emphasised tags. */
 .list-item .tags {
     column-gap: 0.75rem;
@@ -763,7 +763,7 @@ form.inline {
     font-size: 0.85rem;
 }
 
-/* Tag count badge — mirrors the native split pill: accent always means
+/* Tag count badge: mirrors the native split pill: accent always means
    "visible", muted always means "hidden" (archived). A plain accent capsule
    shows the count when nothing is archived; a split pill surfaces the hidden
    tally on its muted right half when a tag has archived bookmarks. */
@@ -810,7 +810,7 @@ form.inline {
     }
 }
 
-/* Footer (Site Settings & Admin Customisation) */
+/* Footer (Site Settings & Admin Customization) */
 footer.site-footer {
     max-width: 880px;
     margin: 2rem auto 1rem;

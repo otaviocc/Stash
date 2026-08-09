@@ -5,7 +5,7 @@ import Vapor
 
 // MARK: - SmartViewConditionPayload
 
-/// A single Smart View condition on the wire — a `{ type, value }` pair, both strings.
+/// A single Smart View condition on the wire: a `{ type, value }` pair, both strings.
 struct SmartViewConditionPayload: Content {
 
     let type: String
@@ -14,7 +14,7 @@ struct SmartViewConditionPayload: Content {
 
 // MARK: - SmartViewRequestBody
 
-/// `POST` / `PUT /smart-views` body — the display name, the match mode (`all` / `any`), and the
+/// `POST` / `PUT /smart-views` body: the display name, the match mode (`all` / `any`), and the
 /// (unvalidated) condition list. `matchMode` is optional: omitting it defaults to `all` on create
 /// and leaves the existing value unchanged on update.
 struct SmartViewRequestBody: Content {

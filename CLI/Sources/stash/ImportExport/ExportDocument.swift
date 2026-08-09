@@ -6,7 +6,7 @@ import StashKit
 
 // MARK: - ExportDocument
 
-/// The top-level Stash JSON export envelope, matching the backend exporter (PRD §11.4).
+/// The top-level Stash JSON export envelope, matching the backend exporter (Docs/product-api.md §11.4).
 struct ExportDocument: Encodable {
 
     // MARK: Properties

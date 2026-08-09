@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// First-boot admin account seeding (PRD §16).
+/// First-boot admin account seeding (Docs/product-deployment.md §18).
 enum AdminSeeder {
 
     @discardableResult

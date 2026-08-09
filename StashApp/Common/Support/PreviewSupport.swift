@@ -11,7 +11,7 @@
         static let sample = Bookmark(
             id: UUID(),
             url: URL(string: "https://swift.org")!,
-            title: "Swift.org — Welcome to Swift",
+            title: "Swift.org: Welcome to Swift",
             description: "Swift is a general-purpose programming language built using a modern approach to safety, performance, and software design patterns.",
             faviconURL: URL(string: "https://swift.org/favicon.ico"),
             tags: ["swift", "swift/server", "ios"],
@@ -63,7 +63,7 @@
     extension PageMetadata {
 
         static let sample = PageMetadata(
-            title: "Swift.org — Welcome to Swift",
+            title: "Swift.org: Welcome to Swift",
             description: "Swift is a general-purpose programming language.",
             faviconURL: URL(string: "https://swift.org/favicon.ico")
         )

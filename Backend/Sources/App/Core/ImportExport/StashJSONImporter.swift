@@ -4,9 +4,9 @@
 import Fluent
 import Foundation
 
-/// Imports Stash's own native export format (see `StashJSONExporter` / PRD §11.3): an object with
-/// a `bookmarks` array and an optional `smartViews` array. Round-trips a Stash export, and is the
-/// natural restore-from-backup path.
+/// Imports Stash's own native export format (see `StashJSONExporter` / Docs/product-api.md §11.3):
+/// an object with a `bookmarks` array and an optional `smartViews` array. Round-trips a Stash
+/// export, and is the natural restore-from-backup path.
 ///
 /// Per-bookmark mapping:
 /// - `url` (required; record skipped if missing/invalid)
@@ -21,7 +21,7 @@ import Foundation
 ///
 /// Per-Smart-View mapping: `name`, `matchMode` (defaults to `all`), and `conditions` are used and
 /// validated; `id`/`createdAt`/`updatedAt` are ignored. A Smart View whose name already exists is
-/// updated in place; otherwise a new one is created — so re-importing is idempotent. The
+/// updated in place; otherwise a new one is created, so re-importing is idempotent. The
 /// `smartViews` node is optional, so older exports without it still import cleanly.
 struct StashJSONImporter: BookmarkImporter {
 

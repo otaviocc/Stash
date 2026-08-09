@@ -11,7 +11,7 @@ import VaporTesting
 
 /// Verifies Smart View CRUD, condition validation, live query execution (AND semantics), and
 /// per-user isolation.
-@Suite("Smart Views — CRUD, validation, query execution, isolation")
+@Suite("Smart Views: CRUD, validation, query execution, isolation")
 struct SmartViewTests {
 
     @Test("create returns 201 and the Smart View with its conditions")
@@ -834,7 +834,7 @@ struct SmartViewTests {
                 matchMode: "any"
             )
 
-            // When — a PUT body that omits matchMode entirely
+            // When: a PUT body that omits matchMode entirely
             try await app.testing().test(
                 .PUT, "api/v1/smart-views/\(view.id)",
                 headers: bearer(pair.accessToken),

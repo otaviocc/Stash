@@ -6,7 +6,9 @@ import Fluent
 import JWT
 import Vapor
 
-/// Issues access/refresh token pairs and handles refresh-token hashing & rotation. PRD §8.1.
+/// Issues access/refresh token pairs and hashes refresh tokens for storage. Rotation itself
+/// (deleting the old token and issuing a new pair) is the auth controller's job, not this
+/// enum's. Docs/product-auth.md §8.1.
 enum TokenService {
 
     // MARK: Static Properties

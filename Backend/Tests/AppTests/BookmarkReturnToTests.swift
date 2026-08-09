@@ -10,7 +10,7 @@ import VaporTesting
 /// Verifies the bookmark detail page's `returnTo` mechanism: the back link and every detail-page
 /// action (edit, archive, delete, etc.) preserve the tag/Smart View list the user came from, and
 /// the `safeReturnTo` guard rejects unsafe redirect targets while still accepting legitimate ones.
-@Suite("Bookmark detail — returnTo list-context preservation")
+@Suite("Bookmark detail: returnTo list-context preservation")
 struct BookmarkReturnToTests {
 
     @Test("the detail page's back link uses a safe, caller-supplied returnTo value")
@@ -63,7 +63,7 @@ struct BookmarkReturnToTests {
     @Test("a returnTo value containing :// in its search text is still accepted, not just paths without it")
     func detailBackLinkAcceptsSearchTextContainingScheme() async throws {
         try await withTestApp { app in
-            // Given — a returnTo built from a real search for a URL-shaped term, matching what
+            // Given: a returnTo built from a real search for a URL-shaped term, matching what
             // BookmarkPresenter.listURL/TagPresenter.queryValue actually produce for `?q=`.
             let headers = try await app.appWebSession()
             let user = try #require(try await User.query(on: app.db).filter(\.$username == "otavio").first())
@@ -157,7 +157,7 @@ struct BookmarkReturnToTests {
             // Given
             let headers = try await app.appWebSession()
 
-            // When — as the "Add bookmark" form itself submits, with returnTo on the action URL
+            // When: as the "Add bookmark" form itself submits, with returnTo on the action URL
             try await app.testing().test(
                 .POST, "app/bookmarks?returnTo=%2Fapp%3Ftag%3Dswift",
                 headers: headers,
@@ -182,8 +182,8 @@ struct BookmarkReturnToTests {
     @Test("archiving a bookmark opened from the unfiltered list ignores a self-referential Referer")
     func archiveIgnoresRefererWhenNoExplicitReturnTo() async throws {
         try await withTestApp { app in
-            // Given — no returnTo query param (as when opened from plain /app), and a Referer that
-            // (as it would in a real browser) points at the detail page's own prior URL — this must
+            // Given: no returnTo query param (as when opened from plain /app), and a Referer that
+            // (as it would in a real browser) points at the detail page's own prior URL, this must
             // never be treated as return context, or the back link would loop back on itself.
             let headers = try await app.appWebSession()
             let user = try #require(try await User.query(on: app.db).filter(\.$username == "otavio").first())
@@ -221,7 +221,7 @@ struct BookmarkReturnToTests {
                 .POST, "app/bookmarks/\(bookmarkID)/archive?returnTo=%2Fapp%3Ftag%3Dswift",
                 headers: headers
             ) { res async throws in
-                // Then — decode the Location header rather than comparing the encoded string
+                // Then: decode the Location header rather than comparing the encoded string
                 // verbatim, since the exact percent-encoding is an implementation detail.
                 let location = try #require(res.headers.first(name: .location))
                 let components = try #require(URLComponents(string: location))
@@ -241,10 +241,10 @@ struct BookmarkReturnToTests {
     @Test("the add-bookmark page falls back to the Referer header when no returnTo param is given")
     func newBookmarkFormFallsBackToReferer() async throws {
         try await withTestApp { app in
-            // Given — no explicit returnTo, only a same-origin Referer (what a plain nav link click
+            // Given: no explicit returnTo, only a same-origin Referer (what a plain nav link click
             // sends), simulating the global nav "Add" link from a tag-filtered list page. Vapor's
             // in-memory test harness doesn't synthesize a Host header, so it's set explicitly here to
-            // match Referer's host — required by the same-origin check.
+            // match Referer's host, required by the same-origin check.
             var headers = try await app.appWebSession()
             headers.add(name: "Host", value: "stash.example.com")
             headers.add(name: "Referer", value: "http://stash.example.com/app?tag=swift")
@@ -343,7 +343,7 @@ struct BookmarkReturnToTests {
             // Given
             let headers = try await app.appWebSession()
 
-            // When — a sentinel filter (Untagged/Today/This Week), not a real tag
+            // When: a sentinel filter (Untagged/Today/This Week), not a real tag
             try await app.testing().test(
                 .GET, "app/bookmarks/new?returnTo=%2Fapp%3Ftag%3D__untagged__",
                 headers: headers
@@ -355,7 +355,7 @@ struct BookmarkReturnToTests {
                 )
             }
 
-            // When — a Smart View returnTo has no `tag` query item at all
+            // When: a Smart View returnTo has no `tag` query item at all
             try await app.testing().test(
                 .GET, "app/bookmarks/new?returnTo=%2Fapp%2Fsmart-views%2F00000000-0000-0000-0000-000000000000",
                 headers: headers

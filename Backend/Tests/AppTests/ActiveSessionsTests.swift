@@ -217,7 +217,7 @@ struct ActiveSessionsTests {
                 )
             }
 
-            // Then — the admin's own dashboard session was cleared, so the next request bounces to login
+            // Then: the admin's own dashboard session was cleared, so the next request bounces to login
             try await app.testing().test(.GET, "admin/sessions", headers: cookie) { res async throws in
                 #expect(res.status == .seeOther, "It should redirect once the admin's own session is revoked")
                 #expect(
@@ -252,7 +252,7 @@ struct ActiveSessionsTests {
                 }
             )
 
-            // Then — the admin's own session is untouched, so the page renders normally without alice
+            // Then: the admin's own session is untouched, so the page renders normally without alice
             try await app.testing().test(.GET, "admin/sessions", headers: cookie) { res async throws in
                 #expect(res.status == .ok, "It should still render since only alice's session was revoked")
                 #expect(!res.body.string.contains("alice"), "It should no longer list alice's session")

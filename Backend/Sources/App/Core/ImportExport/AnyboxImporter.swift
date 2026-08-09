@@ -4,7 +4,7 @@
 import Fluent
 import Foundation
 
-/// Imports an Anybox JSON export — a flat top-level array of bookmark objects.
+/// Imports an Anybox JSON export, a flat top-level array of bookmark objects.
 ///
 /// Field handling reflects Anybox's *actual* export shape (which differs from early docs):
 /// - `url` (required; record skipped if missing/invalid)

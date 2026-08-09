@@ -220,7 +220,7 @@ struct SettingsWebController: RouteCollection {
 
         guard form.confirm.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "delete all" else {
             return try await req.renderHTML("app-settings", settingsContext(
-                req, user, error: "Type “delete all” to confirm — no bookmarks were deleted."
+                req, user, error: "Type “delete all” to confirm, no bookmarks were deleted."
             ), status: .badRequest)
         }
 

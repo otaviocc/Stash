@@ -8,7 +8,7 @@ import Vapor
 
 /// Writes audit-trail entries. Best-effort and non-throwing from the caller's
 /// perspective: a failed audit write is logged and swallowed, never propagated. An
-/// audit-log failure must NEVER cause a login, logout, or admin action to fail —
+/// audit-log failure must NEVER cause a login, logout, or admin action to fail;
 /// the real user-facing action must always complete regardless of whether this
 /// call succeeds.
 enum AuditLogger {
@@ -48,7 +48,7 @@ enum AuditLogger {
 extension AuditLogger {
 
     /// Best-effort client IP: prefers `X-Forwarded-For` (set by the Caddy reverse
-    /// proxy in production deployments — see Docs/backend-docker-caddy.md), falling
+    /// proxy in production deployments; see Docs/backend-docker-caddy.md), falling
     /// back to the raw socket address for local/direct connections.
     static func clientIP(from req: Request) -> String? {
         if let forwarded = req.headers.first(name: "X-Forwarded-For") {

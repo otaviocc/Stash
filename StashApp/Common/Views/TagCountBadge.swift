@@ -6,8 +6,8 @@ import SwiftUI
 // MARK: - TagCountBadge
 
 /// A badge showing a tag's visible bookmark count. When archived items exist under the tag
-/// (`totalCount > count`) it splits into two halves — the visible count on the accent-filled left and
-/// the hidden (archived) count on the muted right — so both read at a glance without any arithmetic.
+/// (`totalCount > count`) it splits into two halves: the visible count on the accent-filled left and
+/// the hidden (archived) count on the muted right, so both read at a glance without any arithmetic.
 /// When everything is visible a single accent capsule shows the count: accent always means "visible",
 /// dimmed always means "hidden".
 struct TagCountBadge: View {

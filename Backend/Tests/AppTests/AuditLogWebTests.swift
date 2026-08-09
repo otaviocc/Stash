@@ -8,7 +8,7 @@ import VaporTesting
 
 /// Verifies audit-log hooks on the admin web dashboard and app web frontend, plus the
 /// `/admin/audit` viewer page itself.
-@Suite("Audit log — web surfaces")
+@Suite("Audit log: web surfaces")
 struct AuditLogWebTests {
 
     // MARK: - Admin web login / logout
@@ -19,7 +19,7 @@ struct AuditLogWebTests {
             // Given
             try await app.makeUser(username: "root", password: "admin-password-123", role: .admin)
 
-            // When — failure
+            // When: failure
             try await app.testing().test(
                 .POST, "admin/login",
                 beforeRequest: { req in
@@ -33,7 +33,7 @@ struct AuditLogWebTests {
                 }
             )
 
-            // When — success
+            // When: success
             _ = try await adminWebSession(app)
 
             // Then
@@ -75,7 +75,7 @@ struct AuditLogWebTests {
             // Given
             try await app.makeUser(username: "otavio", password: "correct-horse-battery")
 
-            // When — failure
+            // When: failure
             try await app.testing().test(
                 .POST, "app/login",
                 beforeRequest: { req in
@@ -89,7 +89,7 @@ struct AuditLogWebTests {
                 }
             )
 
-            // When — success
+            // When: success
             _ = try await appWebSession(app)
 
             // Then
@@ -140,15 +140,15 @@ struct AuditLogWebTests {
                 #expect(res.status == .seeOther)
             }
 
-            // When — suspend
+            // When: suspend
             try await app.testing().test(
                 .POST, "admin/users/\(aliceID)/suspend", headers: cookie, afterResponse: expectRedirect
             )
-            // When — unsuspend
+            // When: unsuspend
             try await app.testing().test(
                 .POST, "admin/users/\(aliceID)/unsuspend", headers: cookie, afterResponse: expectRedirect
             )
-            // When — reset password
+            // When: reset password
             try await app.testing().test(
                 .POST, "admin/users/\(aliceID)/reset-password",
                 headers: cookie,
@@ -157,11 +157,11 @@ struct AuditLogWebTests {
                 },
                 afterResponse: expectRedirect
             )
-            // When — reset TOTP (2FA is enabled, so this is a genuine reset)
+            // When: reset TOTP (2FA is enabled, so this is a genuine reset)
             try await app.testing().test(
                 .POST, "admin/users/\(aliceID)/reset-totp", headers: cookie, afterResponse: expectRedirect
             )
-            // When — delete
+            // When: delete
             try await app.testing().test(
                 .POST, "admin/users/\(aliceID)/delete", headers: cookie, afterResponse: expectRedirect
             )
@@ -206,7 +206,7 @@ struct AuditLogWebTests {
             let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
             let aliceID = try alice.requireID()
 
-            // When — unsuspend a user who is already active
+            // When: unsuspend a user who is already active
             try await app.testing().test(
                 .POST, "admin/users/\(aliceID)/unsuspend", headers: cookie
             ) { res async throws in

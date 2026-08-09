@@ -8,7 +8,7 @@ import VaporTesting
 @testable import App
 
 /// Verifies bookmark CRUD, duplicate handling, search, pagination, and per-user isolation.
-@Suite("Bookmarks — CRUD, duplicates, search, isolation")
+@Suite("Bookmarks: CRUD, duplicates, search, isolation")
 struct BookmarkTests {
 
     @Test("create returns 201 and the bookmark, and increments bookmarkCount")
@@ -491,7 +491,7 @@ struct BookmarkTests {
     @Test("creating a bookmark requires authentication")
     func createRequiresAuth() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(

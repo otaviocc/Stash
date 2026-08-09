@@ -9,13 +9,13 @@ import VaporTesting
 
 /// Verifies the admin dashboard hub (`GET /admin`): the KPI stat strip, the navigation card grid
 /// linking to every other admin page, and the recent-activity feed.
-@Suite("Admin dashboard — hub")
+@Suite("Admin dashboard: hub")
 struct DashboardTests {
 
     @Test("the dashboard shows the KPI strip with correct user/bookmark counts")
     func dashboardShowsKPIStrip() async throws {
         try await withTestApp { app in
-            // Given — one active, one suspended, so a swapped split is detectable
+            // Given: one active, one suspended, so a swapped split is detectable
             let headers = try await app.adminWebSession()
             let alice = try await app.makeUser(username: "alice", password: "alice-password-123")
             try await app.makeBookmark(for: alice, url: "https://one.example.com")
@@ -153,7 +153,7 @@ struct DashboardTests {
 
             // When
             try await app.testing().test(.GET, "admin", headers: headers) { res async throws in
-                // Then — the nav itself should no longer link to the other admin pages directly;
+                // Then: the nav itself should no longer link to the other admin pages directly;
                 // they're only reachable via the dashboard's own card grid (checked above), so this
                 // guards against the trimmed nav silently growing back.
                 #expect(res.status == .ok, "It should render the dashboard")

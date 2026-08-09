@@ -6,7 +6,7 @@ import Foundation
 /// Pure presentation helpers for Smart Views in the web frontend: condition summaries/labels, the
 /// results-page URL, and the two-way mapping between stored `SmartViewCondition`s and the Leaf form's
 /// `SmartViewConditionField`s. Validation and duration parsing are delegated to the Core
-/// `SmartViewCondition` / `SmartViewDuration` types — this only shapes them for display and forms.
+/// `SmartViewCondition` / `SmartViewDuration` types; this only shapes them for display and forms.
 enum SmartViewPresenter {
 
     // MARK: Static Computed Properties

@@ -8,7 +8,7 @@ import Foundation
 ///
 /// The extension is a separate process and cannot open the app's private SwiftData store, so it can't
 /// derive tags the way `TagRepository` does. Instead the app writes its derived tag list here on every
-/// `derive()`, and the extension seeds its picker from the last snapshot — so tags are available even
+/// `derive()`, and the extension seeds its picker from the last snapshot, so tags are available even
 /// when the backend is unreachable. This mirrors how the tokens and server URL are shared across the
 /// two processes (see `AppGroup`). The snapshot is bounded by the app's last sync, exactly like the
 /// app's own offline tags.

@@ -7,7 +7,7 @@ import StashKit
 /// The Share Extension's tag store: seed from the app's shared snapshot, then best-effort refresh
 /// from the network.
 ///
-/// A smaller counterpart to the app's `TagRepository` with no cache-invalidation surface — the
+/// A smaller counterpart to the app's `TagRepository` with no cache-invalidation surface: the
 /// extension is short-lived, so the tag list is loaded once per invocation. Because the extension
 /// cannot open the app's private SwiftData store, it seeds `tags` from `SharedTagCache` (written by
 /// the app on every derive) so the tag picker works even when the backend is unreachable, then tries

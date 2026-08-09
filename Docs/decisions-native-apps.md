@@ -1010,7 +1010,7 @@ web-vs-app feature comparison.
 
 **StashKit gained one new factory** (`FaviconRequestFactory` with a single
 `makeRefreshRequest(domain:)` method). The wayback submit factory already
-existed in `BookmarkRequestFactory` — it was just never wired into the app.
+existed in `BookmarkRequestFactory`; it was just never wired into the app.
 
 **Design choices:**
 
@@ -1034,7 +1034,7 @@ existed in `BookmarkRequestFactory` — it was just never wired into the app.
 - The two new repository methods (`refreshFavicon(domain:)` and
   `submitToWayback(id:)`) make a direct authenticated API call without
   touching the local SwiftData store or the sync engine. Neither operation
-  mutates bookmark fields the client owns — favicon caching and Wayback
+  mutates bookmark fields the client owns: favicon caching and Wayback
   submissions are server-side background work that the next sync will
   reflect in `waybackURL` and favicon data.
 
@@ -1071,12 +1071,12 @@ next time the user actually picks a browser again.
 
 **Gotcha found in manual testing:** the first version applied
 `.macBrowserChooser()` to the detail column's own `NavigationStack` inside
-`NavigationSplitView`'s `detail:` closure — the exact placement the iOS
+`NavigationSplitView`'s `detail:` closure, the exact placement the iOS
 `.inAppBrowser()` modifier uses successfully on its own `NavigationSplitView`
 (the iPad layout). On macOS, that placement silently never intercepted
 anything: the button's action fired, `openURL(_:)` was called, but the
 override closure itself was never invoked, and every link opened in the
-system default browser regardless of the picker's selection —
+system default browser regardless of the picker's selection,
 indistinguishable from "the feature does nothing" without instrumenting the
 call chain, since there was no error, crash, or console output pointing at
 a cause. A `NavigationStack` hosted as a split view's `detail:` column
@@ -1106,7 +1106,7 @@ sharing one setting.
 
 ## Native apps follow the instance accent
 
-*Superseded:* reverted — see "Reverted native-app instance-accent theming,
+*Superseded:* reverted, see "Reverted native-app instance-accent theming,
 kept the backend endpoint" below. Entry kept for the reasoning that still
 applies to a future redesign.
 
@@ -1118,17 +1118,17 @@ whatever) saw it there but never in the apps. Fixed by fetching the backend's
 the app root.
 
 `InstanceAccent` (`StashApp/Common/Support/`) wraps the theme id + light/dark
-hex pair and exposes a dynamic `Color` per colour scheme, bridging through
+hex pair and exposes a dynamic `Color` per color scheme, bridging through
 `UIColor { traits in … }` / `NSColor(name:dynamicProvider:)` since SwiftUI has
 no cross-platform "light/dark pair" `Color` initializer. `InstanceRepository`
 fetches it (unauthenticated, so it works pre-login too) and `AppSettings`
 persists the last-known value to the shared App Group defaults, so the right
-accent shows immediately at next launch — no flash while the fetch is in
-flight — and the Share Extension, which has no network access of its own,
+accent shows immediately at next launch, no flash while the fetch is in
+flight, and the Share Extension, which has no network access of its own,
 reads the same persisted value.
 
 `.tint(...)` alone was not enough: `Color.accentColor` reads the static
-asset-catalog colour, not the environment tint set by `.tint(...)`, so every
+asset-catalog color, not the environment tint set by `.tint(...)`, so every
 custom component that referenced it directly (`TagPill`, `TagCountBadge`,
 `TagSuggestionView`, `TagSummarySection`, `TagPickerSheet`, `AddBookmarkView`,
 the macOS `formButtonRowStyle` row, the sidebar drop-target highlight) had to
@@ -1137,15 +1137,15 @@ alongside `.tint(...)` at the root.
 
 The bigger fix was `TagCountBadge`: its solid accent-filled count pill
 hardcoded white text, which reads poorly on a light instance theme (Sunny,
-Gold, Coral) — a light accent with white text has too little contrast. Ported
+Gold, Coral); a light accent with white text has too little contrast. Ported
 the web frontend's "Accent-aware button text contrast" rule (the WCAG
 relative-luminance formula, `0.2126R + 0.7152G + 0.0722B`, threshold `0.4`,
 `#1a1a1a` vs `#ffffff`) to `AccentContrast`, and exposed the result as a
 second environment value, `\.instanceAccentTextColor`, so it reads exactly the
 same way the CSS `--btn-text` variable does. `TagPill` and
 `TagSuggestionView`'s low-opacity capsules (accent text on a 15%-opacity
-accent wash) didn't need this — accent-on-its-own-tint is always readable —
-so only the solid-fill badge changed foreground colour.
+accent wash) didn't need this: accent-on-its-own-tint is always readable,
+so only the solid-fill badge changed foreground color.
 
 ## Fallback accent changed from Ocean blue to neutral gray
 
@@ -1155,14 +1155,14 @@ alongside it) used to be Ocean blue (`#0a84ff`/`#409cff`), matching the app's
 pre-feature accent. Once the app started tinting from the instance's actual
 theme, that blue became actively misleading: it's a real, valid theme choice
 (`ocean` is the backend's default), so a user briefly saw "their" accent
-before the fetch resolved to something else entirely — worse than a neutral
+before the fetch resolved to something else entirely, worse than a neutral
 placeholder, since it looked like a real answer rather than a loading state.
 
 Changed both the asset-catalog `AccentColor` and `InstanceAccent.default` to a
 neutral system gray pair (`#8e8e93` light / `#98989d` dark, matching
 `UIColor.systemGray`'s dynamic values) that isn't one of the backend's named
 `AccentTheme`s. `default`'s `theme` id changed from `"ocean"` to `"default"`
-to match — it was never validated against the server's theme catalog (that
+to match; it was never validated against the server's theme catalog (that
 field is write-only, round-tripped through the shared defaults, not read back
 by any UI), so the rename is cosmetic but keeps it from reading like a real
 selected theme.
@@ -1173,39 +1173,39 @@ The first pass applied `.tint(settings.accent.color)` at the app root (plus
 the macOS Settings scene and the Share Extension), on top of injecting
 `\.instanceAccent`/`\.instanceAccentTextColor` for the custom components
 (`TagPill`, `TagCountBadge`, etc.) that read them explicitly. That `.tint(...)`
-turned out to be too broad: it recolours *every* unstyled system control that
-defaults to the app's accent — `Menu` trigger icons, toolbar buttons,
-`Toggle`, `.borderedProminent` buttons — not just the handful of views this
+turned out to be too broad: it recolors *every* unstyled system control that
+defaults to the app's accent: `Menu` trigger icons, toolbar buttons,
+`Toggle`, `.borderedProminent` buttons, not just the handful of views this
 feature actually meant to brand. In practice that meant a red instance theme
 turned the bookmark list's `ellipsis.circle` options-menu button (and its
 open-state highlight) red along with everything else, which reads as a bug,
-not a feature — chrome that was never meant to carry the instance's identity
+not a feature: chrome that was never meant to carry the instance's identity
 suddenly does.
 
 Removed all three `.tint(...)` calls, keeping only the `\.instanceAccent`/
 `\.instanceAccentTextColor` environment injections. Every view this feature
 intentionally tints reads one of those two values directly (not the
 environment's `tint`/`accentColor`), so removing `.tint(...)` doesn't touch
-them — it only stops *unstyled* system chrome from inheriting the instance
-colour. Standard buttons, toggles, and menus now render with the system's own
+them; it only stops *unstyled* system chrome from inheriting the instance
+color. Standard buttons, toggles, and menus now render with the system's own
 accent again, and only the views explicitly wired to `\.instanceAccent`
 follow the instance theme.
 
 ## Retry the accent fetch on reconnect, not just at launch
 
-The initial fetch ran once, in a `.task(id: settings.serverURL)` — fine when
+The initial fetch ran once, in a `.task(id: settings.serverURL)`; fine when
 it succeeds, but a failure (offline at launch, a transient server hiccup) left
 `settings.accent` on `.default` for the rest of the session, since nothing
 ever re-ran the fetch. An already-signed-in user has no `isAuthenticated`
 transition to hang a retry on, so keying the retry off login state would only
-help someone who explicitly signs out and back in — not the common case of
+help someone who explicitly signs out and back in, not the common case of
 "was offline for a second at launch."
 
 Added a second trigger: `RootView` now also observes
 `ConnectivityMonitor.isOnline` (already `@Observable`, already driving the
 offline banner) via `.onChange(of:)`, and re-runs the same `refreshAccent()`
 whenever it flips to `true`. This mirrors how `SyncEngine` already retries
-through `ConnectivityMonitor.onReconnect` — connectivity, not auth state, is
+through `ConnectivityMonitor.onReconnect`: connectivity, not auth state, is
 the right signal for "the earlier network-dependent fetch is worth trying
 again." Both the launch-time `.task` and the reconnect handler share one
 `refreshAccent()` so there's a single fetch-and-apply path.
@@ -1218,8 +1218,8 @@ not have an associated tag` on the General tab. `GeneralSettingsView`
 (macOS browser picker, see "macOS browser picker: open links in a chosen
 browser" above) populated its `browsers` list inside `.onAppear`, so the
 Picker's very first render had an empty list while `settings
-.macBrowserBundleID` already pointed at a previously-chosen browser (Orion)
-— no `.tag()` matched yet, hence the warning for that one frame.
+.macBrowserBundleID` already pointed at a previously-chosen browser (Orion),
+no `.tag()` matched yet, hence the warning for that one frame.
 
 `InstalledBrowser.discoverAll()` is a synchronous Launch Services call, so
 there was never a reason to defer it to `.onAppear` in the first place;
@@ -1228,37 +1228,37 @@ entirely. Also added `healStaleBrowserSelection()`, called after every
 re-discovery: if the persisted bundle ID no longer matches any discovered
 browser (the chosen browser was uninstalled), it resets
 `macBrowserBundleID` to `nil` so the Picker's selection always lines up with
-an actual `.tag()` instead of silently drifting — the runtime open-link
+an actual `.tag()` instead of silently drifting; the runtime open-link
 fallback already handled this gracefully (`BrowserChooserModifier`), but the
 Picker itself never self-corrected.
 
 ## A second accent variant for text/icons on the app's own surface
 
-*Superseded:* reverted along with the rest of the native-app theming — see
+*Superseded:* reverted along with the rest of the native-app theming, see
 "Reverted native-app instance-accent theming, kept the backend endpoint"
 below.
 
 Several places used `instanceAccent` directly as a foreground/text/icon
-colour — the tag pills' label, the "Add Tags"/"Fetch"/"Create" buttons, and
+color: the tag pills' label, the "Add Tags"/"Fetch"/"Create" buttons, and
 (via `formButtonRowStyle`) every macOS action button in
 `BookmarkDetailView` (Open, Refresh Favicon, Wayback, Share, Archive). That's
 fine for most themes, but several instance themes deliberately reuse an
 *identical*, very dark hex for both light and dark mode (`tumblr` `#35465c`,
-`boeing` `#0033a1`, and other brand colours) — a hex chosen to read as dark
+`boeing` `#0033a1`, and other brand colors), a hex chosen to read as dark
 text on a white page, not as literal foreground text on the app's near-black
 dark-mode surface, where it's nearly invisible. The web never hits this: it
 only ever uses `--accent` as a *fill* (buttons, badges), with `--btn-text`
 already picking readable text for that fill; it never uses the accent as
-plain foreground colour on the page's own background.
+plain foreground color on the page's own background.
 
 Added `AccentContrast.legibleForegroundHex(_:forDarkBackground:)` and
 `InstanceAccent.foregroundColor` (backing a new `\.instanceAccentForeground`
 environment value, injected everywhere `\.instanceAccent` already is): given
 a hex, if its WCAG relative luminance falls outside a legible range, it's
-mixed toward white (dark mode) or black (light mode) — a closed-form blend
+mixed toward white (dark mode) or black (light mode), a closed-form blend
 (`t = (target - L) / (1 - L)` toward white, `t = (L - target) / L` toward
 black) that reaches the target luminance exactly while preserving the
-colour's hue/identity, rather than swapping to an unrelated neutral the way
+color's hue/identity, rather than swapping to an unrelated neutral the way
 `readableTextHex` does for the solid-fill case. Themes already inside the
 legible range (Ocean, Sunny, …) pass through unchanged.
 
@@ -1267,21 +1267,21 @@ Swapped every foreground/text/icon use of `instanceAccent` over to
 `TagSummarySection`, `TagPickerSheet`, `AddBookmarkView`,
 `FormButtonRowStyleModifier`), plus two spots that had silently stopped
 following the instance accent at all after the earlier `.tint()` removal
-(`BookmarkDetailView`'s URL link, the 2FA setup-key copy button — both used
+(`BookmarkDetailView`'s URL link, the 2FA setup-key copy button, both used
 `.foregroundStyle(.tint)`, which without a root `.tint()` just reads the
-neutral asset-catalog colour). Left every *fill*/wash use of `instanceAccent`
+neutral asset-catalog color). Left every *fill*/wash use of `instanceAccent`
 untouched (`TagPill`'s capsule background, `TagCountBadge`'s solid fill, the
-sidebar drop-target highlight) — those already get contrast-safe text via
+sidebar drop-target highlight); those already get contrast-safe text via
 `textColor`/`readableTextHex`, and don't need their own hue nudged.
 
 The dark-mode target started at `0.35` luminance, which technically fixed
 the invisibility but still looked quite dim against the review screenshots;
-raised it to `0.5` after visual review — for `tumblr`'s `#35465c` that's the
+raised it to `0.5` after visual review; for `tumblr`'s `#35465c` that's the
 difference between landing on `#4c5b6f` (still fairly muted) and `#758190`
-(clearly legible slate-blue-gray, still recognizably not just grey). No
-formatter/linter can catch this class of bug — it's a live, mode-dependent
-contrast check against admin-configurable colour, so this was found and
-tuned entirely by visual inspection of a real dark-hex theme in both colour
+(clearly legible slate-blue-gray, still recognizably not just gray). No
+formatter/linter can catch this class of bug: it's a live, mode-dependent
+contrast check against admin-configurable color, so this was found and
+tuned entirely by visual inspection of a real dark-hex theme in both color
 schemes, not by a rule.
 
 ---
@@ -1290,7 +1290,7 @@ schemes, not by a rule.
 
 Superseding both "Native apps follow the instance accent" and "A second
 accent variant for text/icons on the app's own surface" above: on review, the
-resulting look — tag pills, badges, and buttons all recoloured per-instance —
+resulting look (tag pills, badges, and buttons all recolored per-instance)
 didn't hold up as a design, independent of any of the individual contrast
 fixes. Rather than keep iterating on top of an approach that wasn't working,
 reverted every native-app-side piece: `InstanceAccent`, `AccentContrast`,
@@ -1319,13 +1319,13 @@ Added `isReadLater` (see `decisions-backend.md`) end-to-end through the
 offline-sync stack: `LocalBookmark` gets a plain stored property (mirrored
 in `init(from:)`, `apply(_:)`, the local-create initializer, and the debug
 preview initializer), `SyncEngine` threads it through `pushCreate`,
-`pushUpdate`, and `resolveDuplicate` exactly like `isArchived` — no special
+`pushUpdate`, and `resolveDuplicate` exactly like `isArchived`; no special
 conflict-resolution rule, since it's just another generic mutable field
 under the existing last-write-wins policy.
 
 `AddBookmarkView` (shared by the app's add sheet and the Share Extension)
 gained a `Toggle("Read Later", …)` row after the tags section, defaulting
-off, so both surfaces get it for free from the one shared view — unlike
+off, so both surfaces get it for free from the one shared view, unlike
 `isArchived`, which still has no add-time toggle anywhere in the app.
 `BookmarkDetailView` and the list row's context menu both gained a "Mark to
 Read Later"/"Mark as Read" button, the same flipping `Button`+`Label` idiom
@@ -1334,12 +1334,12 @@ already used for Archive/Unarchive (not a `Toggle` control), calling a new
 `setArchived` exactly (optimistic local update, `markPending`, background
 push). List rows also show a small filled-bookmark glyph next to the title
 when `isReadLater` is set, so it's scannable without opening the detail
-view — a deliberate asymmetry with `isArchived`, which has no row badge
+view: a deliberate asymmetry with `isArchived`, which has no row badge
 since archived bookmarks live only in their own opt-in view.
 
 The sidebar gained a fourth `SidebarItem`/`MacSidebarItem` case, `.readLater`,
 mapping to `BookmarkListQuery.readLaterTag` exactly like `.untagged`/`.today`/
-`.thisWeek` — hardcoded, client-side, not fetched from the backend, same as
+`.thisWeek`, hardcoded, client-side, not fetched from the backend, same as
 the other three Views entries. `BookmarkFilter` (the offline in-memory query
 evaluator) got a matching `case BookmarkListQuery.readLaterTag` branch and an
 `isReadLater` Smart View condition arm, mirroring the backend's
@@ -1349,5 +1349,5 @@ set the server would.
 
 `SmartViewConditionType` gained an `.isReadLater` case mapped to
 `.valueKind == .boolean`, so the existing Yes/No `Picker` value editor in
-`SmartViewFormView` applies to it automatically — no new UI code, the same
+`SmartViewFormView` applies to it automatically; no new UI code, the same
 free-ride every other boolean condition already gets.

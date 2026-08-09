@@ -8,13 +8,13 @@ import VaporTesting
 @testable import App
 
 /// Verifies the first-boot admin seeding behavior.
-@Suite("Admin seeding — first boot (PRD §16)")
+@Suite("Admin seeding, first boot (Docs/product-deployment.md §18)")
 struct AdminSeedingTests {
 
     @Test("seeds an admin when the database is empty")
     func seedsWhenEmpty() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             let created = try await AdminSeeder.seed(
@@ -55,7 +55,7 @@ struct AdminSeedingTests {
     @Test("throws when no user exists and credentials are missing")
     func throwsWhenMissingCredentials() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             var thrown: Error?
@@ -78,7 +78,7 @@ struct AdminSeedingTests {
     @Test("throws when the admin password is shorter than 12 characters")
     func throwsWhenPasswordTooShort() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             var thrown: Error?

@@ -9,7 +9,7 @@ import Foundation
 /// managers.
 ///
 /// Stash tags are hierarchical *and* multi-valued per bookmark, while a Netscape file's folders
-/// are a strict single-parent tree — there's no lossless way to place a multi-tagged bookmark
+/// are a strict single-parent tree; there's no lossless way to place a multi-tagged bookmark
 /// into one folder. So this export is intentionally **flat** (a single top-level list, no
 /// folders) and instead writes every tag into the bookmark's non-standard but widely-supported
 /// `TAGS="a,b,c"` attribute (the same convention Pinboard/Delicious use), which `NetscapeHTMLImporter`

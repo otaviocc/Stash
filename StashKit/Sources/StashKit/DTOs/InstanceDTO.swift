@@ -5,7 +5,7 @@ import Foundation
 
 // MARK: - InstanceDTO
 
-/// Public instance chrome returned by `GET /api/v1/instance` — currently just the accent theme.
+/// Public instance chrome returned by `GET /api/v1/instance`, currently just the accent theme.
 public struct InstanceDTO: Codable, Sendable {
 
     public let accent: AccentDTO

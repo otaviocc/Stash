@@ -8,7 +8,7 @@ import VaporTesting
 @testable import App
 
 /// Verifies the admin endpoints for user management and statistics.
-@Suite("Admin — user management & stats")
+@Suite("Admin: user management & stats")
 struct AdminTests {
 
     // MARK: - Access control
@@ -41,7 +41,7 @@ struct AdminTests {
     @Test("unauthenticated requests to /admin/* are rejected with 401")
     func unauthenticatedRejected() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(.GET, "api/v1/admin/users") { res async throws in
@@ -140,7 +140,7 @@ struct AdminTests {
         }
     }
 
-    @Test("a role field in the create body is ignored — the account is always a user")
+    @Test("a role field in the create body is ignored: the account is always a user")
     func createUserIgnoresRole() async throws {
         try await withTestApp { app in
             // Given
@@ -852,7 +852,7 @@ struct AdminTests {
                 isTOTPEnabled: true, totpSecret: "JBSWY3DPEHPK3PXP"
             )
 
-            // When — no 2FA to reset
+            // When: no 2FA to reset
             let bob = try await app.makeUser(username: "bob", password: "bob-password-1234")
             try await app.testing().test(
                 .POST, "api/v1/admin/users/\(bob.requireID())/reset-totp", headers: headers
@@ -864,7 +864,7 @@ struct AdminTests {
             let rowsAfterNoOp = try await AuditLog.query(on: app.db).filter(\.$action == "totp_reset").all()
             #expect(rowsAfterNoOp.isEmpty, "It should not record a totp_reset row when nothing was reset")
 
-            // When — a real reset
+            // When: a real reset
             try await app.testing().test(
                 .POST, "api/v1/admin/users/\(alice.requireID())/reset-totp", headers: headers
             ) { res async throws in

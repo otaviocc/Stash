@@ -8,7 +8,7 @@ import Testing
 // MARK: - BookmarkListQueryTests
 
 /// Verifies that `BookmarkListQuery` maps to the API's URL query item names and values.
-@Suite("BookmarkListQuery — URL query items")
+@Suite("BookmarkListQuery: URL query items")
 struct BookmarkListQueryTests {
 
     @Test("maps every field to its API query item name")

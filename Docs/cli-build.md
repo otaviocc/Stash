@@ -6,7 +6,7 @@ bookmarks, tags, Smart Views, import/export, and admin operations.
 
 ## Prerequisites
 
-- Swift 6.2+ (ships with Xcode 26)
+- Swift 6.2 or later (ships with Xcode 26)
 - macOS 26 or later
 
 ## Dependencies
@@ -51,28 +51,58 @@ authenticated command.
 stash list                          # List recent bookmarks
 stash list --tag swift              # Filter by tag (prefix-matches swift/*)
 stash list --search "vapor"         # Full-text search
+stash list --archived               # Show archived bookmarks
+stash list --read-later             # Show only the "To Read" view
+stash list --page 2 --per 50        # Pagination
 stash add https://example.com       # Save a bookmark
 stash add https://example.com --tag swift --tag ios
+stash add https://example.com --title "..." --description "..." --no-fetch
+stash add https://example.com --read-later
 stash get <id>                      # Get a bookmark
-stash delete <id>                   # Delete a bookmark
+stash delete <id>                   # Delete a bookmark (--force skips the prompt)
 stash archive <id>                  # Archive a bookmark
+stash read-later <id>               # Mark a bookmark to read later
+stash mark-read <id>                # Clear the read-later flag
 stash tags                          # List all tags with counts
 stash tags rename --from foo --to bar
-stash tags delete foo
+stash tags delete foo               # (--force skips the prompt)
 stash smart-views                   # List Smart Views (consumption only)
 stash smart-views bookmarks <id>    # List the bookmarks a Smart View matches
 stash export                        # Export all bookmarks (native JSON)
-stash import file.json              # Import bookmarks (Anybox or Stash JSON)
-stash admin stats                   # Admin: show stats
+stash export --output backup.json   # Choose the output path
+stash import file.json              # Import a Stash JSON file
+stash import file.json --format anybox  # Import an Anybox JSON export
+stash login                         # Sign in (prompts for credentials + TOTP)
+stash logout                        # Clear the stored session
+stash config set-url http://host:8080
+stash config set-token <token>      # Set the access token directly
+stash config show                   # Print the current configuration
 stash admin users                   # Admin: list users
+stash admin create-user --username bob
+stash admin suspend-user bob
+stash admin unsuspend-user bob
+stash admin reset-password bob
+stash admin reset-totp bob
+stash admin delete-user bob         # (--force skips the prompt)
+stash admin stats                   # Admin: show stats
 ```
 
-Top-level aliases mirror the grouped subcommands, so `stash list` and `stash
-bookmarks list` are equivalent. Run `stash --help` (or `stash <command> --help`)
-for the full list.
+`stash import` defaults to the native Stash JSON format; pass `--format anybox`
+for an Anybox export. `stash export` defaults to (and currently only supports)
+Stash JSON.
+
+Bookmark subcommands are also exposed as top-level aliases, so `stash list` and
+`stash bookmarks list` are equivalent; `stash add`, `get`, `delete`, `archive`,
+`read-later`, and `mark-read` work the same way. Tag and Smart View
+subcommands are grouped only (`stash tags list`, `stash smart-views list`).
+Run `stash --help` (or `stash <command> --help`) for the full list.
 
 ## JSON output
 
-All commands accept `--json` for machine-readable output (pretty-printed,
-ISO-8601 dates). Results go to stdout; prompts, confirmations, and errors go to
-stderr, with a non-zero exit on failure.
+`--json` is available on the list-style and stats commands (`bookmarks
+list/add/get`, `tags list`, `smart-views list/bookmarks`, `admin
+users/create-user/stats`) for machine-readable output (pretty-printed,
+ISO-8601 dates). Mutating commands without a meaningful "result object" (delete,
+archive, rename, import, login) print plain confirmation text instead. Results
+go to stdout; prompts, confirmations, and errors go to stderr, with a non-zero
+exit on failure.

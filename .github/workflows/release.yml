@@ -147,16 +147,19 @@ jobs:
             ### Quick start
 
             1. Download `docker-compose.yml` below
-            2. Create a `.env` file with your configuration (see `.env.example`)
+            2. Create a `.env` file with `DB_PASSWORD`, `JWT_SECRET`,
+               `ADMIN_USERNAME`, and `ADMIN_PASSWORD` (see
+               [Running with Docker](https://github.com/otaviocc/Stash/blob/main/Docs/backend-docker.md))
             3. Run `docker compose up -d`
-            4. Open `http://localhost:8080/admin` and sign in with your admin credentials
+            4. Open `http://localhost:8080/app` and sign in with your admin credentials
 
             The image is available at `ghcr.io/otaviocc/stash:${{ steps.version.outputs.version }}`
 
             ### Browser extension
 
-            The `stash-extension-*.zip` below is the Firefox/Chrome extension —
-            sideload it via developer mode, or see `Extension/README.md`.
+            The `stash-extension-*.zip` below is the Firefox/Chrome extension,
+            sideload it via developer mode, or see
+            [Browser extension](https://github.com/otaviocc/Stash/blob/main/Docs/browser-extension.md).
           files: |
             Backend/docker-compose.yml
             Extension/dist/*.zip

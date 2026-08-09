@@ -3,7 +3,7 @@
 Self-hosted bookmark manager: a Swift/Vapor backend plus native Apple clients,
 a CLI, and a browser extension. This is a multi-package monorepo, **not** one
 build. See `PRODUCT.md` (what it is) and `DECISIONS.md` (why it's built this
-way, and hard-won gotchas — read the relevant section before touching a
+way, and hard-won gotchas; read the relevant section before touching a
 subsystem). Both are **indexes**: the actual content lives in topical
 `Docs/product-*.md` and `Docs/decisions-*.md` files; open the one that matches
 the subsystem you're working on.
@@ -23,8 +23,8 @@ the subsystem you're working on.
 ```bash
 # Backend
 cd Backend && swift build -c release
-cd Backend && swift test                     # in-memory SQLite; NO Postgres needed
-cd Backend && swift test --filter <TestName> # single test/suite
+cd Backend && swift test --no-parallel                     # in-memory SQLite; NO Postgres needed
+cd Backend && swift test --no-parallel --filter <TestName> # single test/suite
 cd Backend && swiftlint lint && swiftformat --lint .
 
 # StashKit / CLI
@@ -40,7 +40,8 @@ cd Extension && make lint
 ```
 
 `Backend/` and `Extension/` have a `Makefile` (`make help`). `Backend` also has
-`make up/down/logs/migrate` for the Docker stack.
+`make build`/`test` as shortcuts for the two commands above, and
+`make up/down/logs/migrate`/`build-up` for the Docker stack.
 
 ## Critical gotchas
 
@@ -54,7 +55,7 @@ cd Extension && make lint
   `ALTER TABLE` (SQLite allows only one `ADD COLUMN` per statement), and
   `VACUUM`-in-transaction all pass on SQLite but fail on Postgres. Verify
   schema/migration and raw-SQL changes against real Postgres, not just the suite.
-- **App has no unit tests by design** (PRD §19.6). CI build-verifies both
+- **App has no unit tests by design** (Docs/product-technical.md §19.6). CI build-verifies both
   platforms instead. StashKit uses mocked `URLSessionProtocol` tests; CLI is
   manual-integration only.
 - **`openapi.yaml` is hand-written** (`Backend/Public/openapi.yaml`). Any change
@@ -71,7 +72,7 @@ cd Extension && make lint
 - **Tests: Given/When/Then structure, `#expect` with "It should …" descriptions**
   (swift-testing + VaporTesting, not XCTest).
 - **StashKit is deliberately logic-free**: DTOs + request factories + thin client
-  only. No token storage, no refresh, no business logic — those live in each
+  only. No token storage, no refresh, no business logic; those live in each
   client's own layer (and are intentionally duplicated across app/CLI/extension).
 - **Per-file license header is enforced via each `.swiftformat`'s `--header`**
   (`Backend` = AGPL-3.0-only, everything else = MIT). Don't hand-edit headers.
@@ -94,7 +95,7 @@ discipline:
 ## Keep the product spec and decision log current
 
 When a change alters product behavior or reflects a non-obvious design choice,
-record it in the same change — these docs are living records, not
+record it in the same change: these docs are living records, not
 after-the-fact writeups:
 
 - **Product behavior change** (a feature, an endpoint, a field, a rule, a
@@ -104,7 +105,7 @@ after-the-fact writeups:
 - **A design decision, deviation, trade-off, or reversal**: append an entry to
   the matching `Docs/decisions-*.md` file (add a `## ` heading; keep entries in
   chronological order within the file), and add a one-line pointer in the
-  `DECISIONS.md` index. Don't rewrite history — a reversed decision gets a new
+  `DECISIONS.md` index. Don't rewrite history: a reversed decision gets a new
   entry marked *Superseded* pointing to what replaced it, per the log's own
   conventions.
 - Not every change needs an entry (a pure refactor, a typo fix, a lint tweak
@@ -113,12 +114,12 @@ after-the-fact writeups:
 
 ## StashApp signing / identifiers
 
-Team ID and bundle prefix are **not** hardcoded — they come from
+Team ID and bundle prefix are **not** hardcoded; they come from
 `StashApp/Config/Stash.xcconfig` (`STASH_BUNDLE_PREFIX`, `DEVELOPMENT_TEAM`).
 `STASH_BUNDLE_PREFIX` drives every bundle-keyed identifier (bundle IDs, App
 Group, Keychain access group, background-task id, drag UTType) in lockstep. To
 build under a different account, create a gitignored
-`StashApp/Config/Stash.local.xcconfig` override — do not edit `Stash.xcconfig`.
+`StashApp/Config/Stash.local.xcconfig` override; do not edit `Stash.xcconfig`.
 
 ## Release
 

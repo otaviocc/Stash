@@ -7,7 +7,7 @@ import Vapor
 
 /// Fetches and caches a favicon image for a domain, trying the site's own icon first and falling
 /// back to a third-party favicon service. Runs detached at bookmark creation time so it never
-/// blocks the save. See the Favicon Caching section of `DECISIONS.md`.
+/// blocks the save. See the "Favicon Caching" entry in `Docs/decisions-backend.md`.
 enum FaviconFetcher {
 
     // MARK: Static Properties

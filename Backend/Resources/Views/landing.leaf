@@ -58,7 +58,7 @@
         <div class="feature">
             <div class="icon">🛠️</div>
             <h3>A real admin toolkit</h3>
-            <p>Health checks with automatic update notifications, a one-click database optimize, a favicon cache manager, an audit log, an active-sessions viewer with instant revoke, a live log tail, and full instance backup &amp; restore — everything to run, troubleshoot, and migrate your own instance from the dashboard.</p>
+            <p>Health checks with automatic update notifications, a one-click database optimize, a favicon cache manager, an audit log, an active-sessions viewer with instant revoke, a live log tail, and full instance backup &amp; restore: everything to run, troubleshoot, and migrate your own instance from the dashboard.</p>
         </div>
     </section>
 #endexport

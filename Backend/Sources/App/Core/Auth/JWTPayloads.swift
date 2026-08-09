@@ -6,7 +6,7 @@ import Vapor
 
 // MARK: - AccessTokenPayload
 
-/// Short-lived access token (15 minutes). PRD §8.1.
+/// Short-lived access token (15 minutes). Docs/product-auth.md §8.1.
 struct AccessTokenPayload: JWTPayload {
 
     // MARK: Nested Types
@@ -57,7 +57,8 @@ struct AccessTokenPayload: JWTPayload {
 
 // MARK: - TempTokenPayload
 
-/// Limited-scope temporary token issued between password login and the 2FA step (5 minutes). PRD §8.2.
+/// Limited-scope temporary token issued between password login and the 2FA step (5 minutes).
+/// Docs/product-auth.md §8.2.
 struct TempTokenPayload: JWTPayload {
 
     // MARK: Nested Types

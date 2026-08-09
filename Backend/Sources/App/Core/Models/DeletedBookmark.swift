@@ -9,7 +9,7 @@ import Foundation
 /// A deleted bookmark disappears from the `bookmarks` table and can no longer be
 /// returned by a `changes?since=` query, so a synced client would never learn it
 /// is gone. This tombstone persists the deletion, scoped to the owning user, and
-/// is kept indefinitely — no cleanup in this version.
+/// is kept indefinitely; no cleanup in this version.
 final class DeletedBookmark: Model, @unchecked Sendable {
 
     // MARK: Static Properties

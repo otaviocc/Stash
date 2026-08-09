@@ -7,7 +7,7 @@ import VaporTesting
 @testable import App
 
 /// Covers deleting a tag (and its descendants) across a user's bookmarks.
-@Suite("Tags — delete")
+@Suite("Tags: delete")
 struct TagDeleteTests {
 
     @Test("deletes the exact tag from every bookmark that had it")

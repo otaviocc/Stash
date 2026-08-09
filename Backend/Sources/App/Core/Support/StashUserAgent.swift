@@ -13,7 +13,7 @@ enum StashUserAgent {
 
 // MARK: - StashRepo
 
-/// This project's GitHub repository identity — the single source of truth for anywhere Stash
+/// This project's GitHub repository identity: the single source of truth for anywhere Stash
 /// needs to reference its own repo (the User-Agent backlink above, `UpdateChecker`'s GitHub
 /// Releases API call), so a rename or org transfer only needs one edit.
 enum StashRepo {

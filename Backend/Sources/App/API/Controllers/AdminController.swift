@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// Admin user-management API, admin role only (PRD §9.6). Mounted under `/admin`, behind
+/// Admin user-management API, admin role only (Docs/product-api.md §9.7). Mounted under `/admin`, behind
 /// `AdminMiddleware`.
 struct AdminController: RouteCollection {
 

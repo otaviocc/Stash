@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Generate the Stash extension icons.
 
-Draws the Stash bookmark-ribbon mark — a vertical ribbon with a V-notch at the
-bottom — at the four sizes the WebExtension manifest references (16, 32, 48, 128),
+Draws the Stash bookmark-ribbon mark, a vertical ribbon with a V-notch at the
+bottom, at the four sizes the WebExtension manifest references (16, 32, 48, 128),
 in two treatments matching where each size is shown:
 
 - 16 and 32 back the manifest ``default_icon`` (the toolbar action button), so
-  they render as a deep-indigo (#231468) ribbon on a transparent background —
+  they render as a deep-indigo (#231468) ribbon on a transparent background,
   legible on both light and dark browser toolbars.
 - 48 and 128 are the add-ons-manager / store display icons, so they render as the
   full app-icon look: a white ribbon on an indigo rounded square, matching the

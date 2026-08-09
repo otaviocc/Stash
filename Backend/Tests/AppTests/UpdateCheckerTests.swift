@@ -9,7 +9,7 @@ import VaporTesting
 @testable import App
 
 /// Verifies `UpdateChecker`'s pure semver comparison, its app-level cache, and the admin
-/// dashboard/health surfacing (Instance management — update checker).
+/// dashboard/health surfacing (Instance management: update checker).
 @Suite("Update checker")
 struct UpdateCheckerTests {
 
@@ -104,7 +104,7 @@ struct UpdateCheckerTests {
     @Test("the dashboard shows no update banner when the cache reports none available")
     func dashboardHidesUpdateBannerWhenUpToDate() async throws {
         try await withTestApp { app in
-            // Given — the freshly-booted cache defaults to "unknown" (no update available)
+            // Given: the freshly-booted cache defaults to "unknown" (no update available)
             let headers = try await app.adminWebSession()
 
             // When
@@ -146,7 +146,7 @@ struct UpdateCheckerTests {
     @Test("check-updates redirects with the skipped flash when suppressed under testing")
     func checkUpdatesRedirectsWhenSkipped() async throws {
         try await withTestApp { app in
-            // Given — forceCheck is always suppressed under .testing, so this never actually runs
+            // Given: forceCheck is always suppressed under .testing, so this never actually runs
             let headers = try await app.adminWebSession()
 
             // When
@@ -243,7 +243,7 @@ struct UpdateCheckerTests {
             var headers = try await app.adminWebSession()
             headers.replaceOrAdd(name: .contentType, value: "application/x-www-form-urlencoded")
 
-            // When — a real browser sends zero bytes when the form's only field is unchecked
+            // When: a real browser sends zero bytes when the form's only field is unchecked
             try await app.testing().test(
                 .POST, "admin/health/toggle-updates",
                 headers: headers
@@ -274,7 +274,7 @@ struct UpdateCheckerTests {
             // When
             UpdateChecker.refreshIfStale(on: app)
 
-            // Then — a real check would set lastCheckedAt; disabled, nothing changes
+            // Then: a real check would set lastCheckedAt; disabled, nothing changes
             #expect(
                 app.storage[UpdateStatusCacheKey.self]?.current.lastCheckedAt == before,
                 "It should not attempt a check when disabled"

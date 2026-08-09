@@ -13,8 +13,8 @@ import SwiftData
 /// Unlike `LocalBookmark`, there is no local/server id split and no `pendingSyncAt`/`isLocalOnly`
 /// pair: Smart Views are never authored offline (create/edit/delete always go straight to the
 /// server), so every row here always mirrors a real server record and `id` doubles as the server's own
-/// id. `conditionsData` stores the JSON-encoded `[SmartViewConditionDTO]` verbatim — the same
-/// `{type, value}` wire shape `SmartViewCondition` already mirrors — rather than a typed array, since
+/// id. `conditionsData` stores the JSON-encoded `[SmartViewConditionDTO]` verbatim, the same
+/// `{type, value}` wire shape `SmartViewCondition` already mirrors, rather than a typed array, since
 /// SwiftData has no native support for an array of a custom `Codable` struct as an attribute.
 @Model
 final class LocalSmartView {
@@ -26,7 +26,7 @@ final class LocalSmartView {
     /// The server ID of the user who owns this Smart View. Set at insert time and used to scope every
     /// read, so a previous user's cached Smart Views on a shared device are never visible to the next
     /// signed-in user, even though (unlike bookmarks) the on-disk rows aren't wiped on every sign-out
-    /// path — see `LocalStore.wipe(currentUserID:)`.
+    /// path; see `LocalStore.wipe(currentUserID:)`.
     var userID: String
     var name: String
     var matchMode: String

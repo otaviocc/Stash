@@ -5,10 +5,10 @@ import Testing
 @testable import App
 
 /// Verifies the exact wording of the `info`-level activity log lines surfaced on `/admin/logs`
-/// (PRD §12). Pure string tests: the ring buffer is only wired up in `entrypoint.main`, not the
-/// test harness, so this is the seam where the phrasing (and API/web parity, since both surfaces
-/// call the same helper) is actually testable.
-@Suite("ActivityLog — message wording")
+/// (Docs/product-web.md §12). Pure string tests: the ring buffer is only wired up in
+/// `entrypoint.main`, not the test harness, so this is the seam where the phrasing (and API/web
+/// parity, since both surfaces call the same helper) is actually testable.
+@Suite("ActivityLog: message wording")
 struct ActivityLogTests {
 
     @Test("bookmark saved")

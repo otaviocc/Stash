@@ -27,7 +27,7 @@
             Views, and the site's appearance settings. Unlike a per-user
             export, this includes password hashes, TOTP secrets, and
             recovery-code hashes so a restore keeps everyone's logins and 2FA
-            working — treat the downloaded file like a database dump, not a
+            working, so treat the downloaded file like a database dump, not a
             personal export, and store it somewhere private.
         </p>
         <form method="get" action="/admin/backup/download">

@@ -7,7 +7,7 @@ DerivedData/
 .git/
 .gitignore
 
-# Secrets — never copy into the image
+# Secrets: never copy into the image
 .env
 
 # Deploy/meta files not needed for the build

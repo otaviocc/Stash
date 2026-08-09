@@ -15,7 +15,7 @@ enum ExportFormat: String, CaseIterable, ExpressibleByArgument {
 
 // MARK: - ExportCommand
 
-/// `stash export` — export all bookmarks (archived included) to a Stash JSON file.
+/// `stash export`: export all bookmarks (archived included) to a Stash JSON file.
 ///
 /// Paginates through every page of both active and archived bookmarks, assembles the native export
 /// envelope locally, and writes it to disk.

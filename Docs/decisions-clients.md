@@ -277,7 +277,7 @@ with no `unarchive`): `stash add --read-later` marks a bookmark at creation,
 `stash read-later <id>` / `stash mark-read <id>` are a matched pair of
 subcommands (with top-level aliases, same convention as `archive`), and
 `stash list --read-later` filters to the "To Read" view by mapping onto the
-`__read_later__` tag sentinel — rejected as a usage error if combined with
+`__read_later__` tag sentinel; rejected as a usage error if combined with
 an explicit `--tag`, since both occupy the same underlying query slot. The
 asymmetry with `archive` is deliberate: this feature's ask was explicitly
 two-directional ("mark to read later" / "mark as read") from the start,
@@ -290,5 +290,5 @@ already carries `isArchived`.
 **Browser extension:** a "Read later" checkbox in the popup's add-bookmark
 form (next to Tags, unchecked by default), read into the `POST
 /api/v1/bookmarks` body as `isReadLater`. The extension remains add-only (no
-edit UI), so — same as `isArchived` — there's no way to toggle it on an
+edit UI), so, same as `isArchived`, there's no way to toggle it on an
 already-saved bookmark from the popup itself.

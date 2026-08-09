@@ -7,7 +7,7 @@ import StashKit
 
 // MARK: - Bookmarks
 
-/// `stash bookmarks` — manage bookmarks. Subcommands are also exposed as top-level aliases.
+/// `stash bookmarks`: manage bookmarks. Subcommands are also exposed as top-level aliases.
 struct Bookmarks: AsyncParsableCommand {
 
     static let configuration = CommandConfiguration(
@@ -28,7 +28,7 @@ struct Bookmarks: AsyncParsableCommand {
 
 // MARK: - BookmarksList
 
-/// `stash bookmarks list` (alias `stash list`) — list bookmarks as a table or JSON.
+/// `stash bookmarks list` (alias `stash list`): list bookmarks as a table or JSON.
 struct BookmarksList: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -90,7 +90,7 @@ struct BookmarksList: AsyncParsableCommand {
 
 // MARK: - BookmarksAdd
 
-/// `stash bookmarks add` (alias `stash add`) — save a new bookmark.
+/// `stash bookmarks add` (alias `stash add`): save a new bookmark.
 struct BookmarksAdd: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -141,7 +141,7 @@ struct BookmarksAdd: AsyncParsableCommand {
             if json {
                 try Console.out(OutputFormatter.json(bookmark))
             } else {
-                Console.out("Saved \(bookmark.id.uuidString) — \(bookmark.title)")
+                Console.out("Saved \(bookmark.id.uuidString): \(bookmark.title)")
             }
         }
     }
@@ -149,7 +149,7 @@ struct BookmarksAdd: AsyncParsableCommand {
 
 // MARK: - BookmarksGet
 
-/// `stash bookmarks get` (alias `stash get`) — show a single bookmark.
+/// `stash bookmarks get` (alias `stash get`): show a single bookmark.
 struct BookmarksGet: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -186,7 +186,7 @@ struct BookmarksGet: AsyncParsableCommand {
 
 // MARK: - BookmarksDelete
 
-/// `stash bookmarks delete` (alias `stash delete`) — delete a bookmark.
+/// `stash bookmarks delete` (alias `stash delete`): delete a bookmark.
 struct BookmarksDelete: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -211,7 +211,7 @@ struct BookmarksDelete: AsyncParsableCommand {
             let bookmarkID = try requireUUID(id, label: "bookmark ID")
 
             guard force || Console.confirm("Delete bookmark \(bookmarkID.uuidString)? [y/N] ") else {
-                Console.out("Cancelled.")
+                Console.out("Canceled.")
 
                 return
             }
@@ -226,7 +226,7 @@ struct BookmarksDelete: AsyncParsableCommand {
 
 // MARK: - BookmarksArchive
 
-/// `stash bookmarks archive` (alias `stash archive`) — archive a bookmark.
+/// `stash bookmarks archive` (alias `stash archive`): archive a bookmark.
 struct BookmarksArchive: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -257,7 +257,7 @@ struct BookmarksArchive: AsyncParsableCommand {
 
 // MARK: - BookmarksReadLater
 
-/// `stash bookmarks read-later` (alias `stash read-later`) — mark a bookmark to read later.
+/// `stash bookmarks read-later` (alias `stash read-later`): mark a bookmark to read later.
 struct BookmarksReadLater: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -288,7 +288,7 @@ struct BookmarksReadLater: AsyncParsableCommand {
 
 // MARK: - BookmarksMarkRead
 
-/// `stash bookmarks mark-read` (alias `stash mark-read`) — clear a bookmark's read-later flag.
+/// `stash bookmarks mark-read` (alias `stash mark-read`): clear a bookmark's read-later flag.
 struct BookmarksMarkRead: AsyncParsableCommand {
 
     // MARK: Static Properties

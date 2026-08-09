@@ -1,11 +1,11 @@
 // Copyright (C) 2026 Otávio C.
 // SPDX-License-Identifier: AGPL-3.0-only
 
-/// Message strings for the `info`-level activity log lines shown on `/admin/logs` (PRD §12).
-/// Centralized here so the API and web surfaces — which each save bookmarks, Smart Views, etc.
-/// independently, with no shared controller — log identical wording, and so the phrasing is
-/// unit-testable without needing a live `RingBufferLogHandler` (which is only wired up in
-/// `entrypoint.main`, not in the test harness).
+/// Message strings for the `info`-level activity log lines shown on `/admin/logs`
+/// (Docs/product-web.md §12). Centralized here so the API and web surfaces, which each save
+/// bookmarks, Smart Views, etc. independently, with no shared controller, log identical wording,
+/// and so the phrasing is unit-testable without needing a live `RingBufferLogHandler` (which is
+/// only wired up in `entrypoint.main`, not in the test harness).
 enum ActivityLog {
 
     // MARK: User-attributed events

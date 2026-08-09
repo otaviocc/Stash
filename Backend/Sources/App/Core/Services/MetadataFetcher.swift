@@ -4,7 +4,7 @@
 import Foundation
 import Vapor
 
-/// Fetches and parses page metadata (title, description, favicon). See PRD §10.
+/// Fetches and parses page metadata (title, description, favicon). See Docs/product-api.md §10.
 ///
 /// `fetch` never throws: on timeout / non-2xx / parse failure it returns whatever it could
 /// determine (often just the `/favicon.ico` fallback, or all-nil), so a bookmark save is never

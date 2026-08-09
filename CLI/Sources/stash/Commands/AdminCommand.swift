@@ -7,7 +7,7 @@ import StashKit
 
 // MARK: - Admin
 
-/// `stash admin` — administrative user management and statistics (admin accounts only).
+/// `stash admin`: administrative user management and statistics (admin accounts only).
 struct Admin: AsyncParsableCommand {
 
     static let configuration = CommandConfiguration(
@@ -28,7 +28,7 @@ struct Admin: AsyncParsableCommand {
 
 // MARK: - AdminUsers
 
-/// `stash admin users` — list all users.
+/// `stash admin users`: list all users.
 struct AdminUsers: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -61,7 +61,7 @@ struct AdminUsers: AsyncParsableCommand {
 
 // MARK: - AdminCreateUser
 
-/// `stash admin create-user` — create a new user account.
+/// `stash admin create-user`: create a new user account.
 struct AdminCreateUser: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -102,7 +102,7 @@ struct AdminCreateUser: AsyncParsableCommand {
 
 // MARK: - AdminSuspendUser
 
-/// `stash admin suspend-user <username>` — suspend an account.
+/// `stash admin suspend-user <username>`: suspend an account.
 struct AdminSuspendUser: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -133,7 +133,7 @@ struct AdminSuspendUser: AsyncParsableCommand {
 
 // MARK: - AdminUnsuspendUser
 
-/// `stash admin unsuspend-user <username>` — reactivate an account.
+/// `stash admin unsuspend-user <username>`: reactivate an account.
 struct AdminUnsuspendUser: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -164,7 +164,7 @@ struct AdminUnsuspendUser: AsyncParsableCommand {
 
 // MARK: - AdminResetPassword
 
-/// `stash admin reset-password <username>` — set a new password for an account.
+/// `stash admin reset-password <username>`: set a new password for an account.
 struct AdminResetPassword: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -199,7 +199,7 @@ struct AdminResetPassword: AsyncParsableCommand {
 
 // MARK: - AdminResetTOTP
 
-/// `stash admin reset-totp <username>` — clear a user's 2FA enrolment.
+/// `stash admin reset-totp <username>`: clear a user's 2FA enrollment.
 struct AdminResetTOTP: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -229,7 +229,7 @@ struct AdminResetTOTP: AsyncParsableCommand {
 
 // MARK: - AdminDeleteUser
 
-/// `stash admin delete-user <username>` — hard-delete an account.
+/// `stash admin delete-user <username>`: hard-delete an account.
 struct AdminDeleteUser: AsyncParsableCommand {
 
     // MARK: Static Properties
@@ -255,7 +255,7 @@ struct AdminDeleteUser: AsyncParsableCommand {
             let user = try await resolveUser(username, client: client)
 
             guard force || Console.confirm("Delete user \(user.username)? [y/N] ") else {
-                Console.out("Cancelled.")
+                Console.out("Canceled.")
 
                 return
             }
@@ -269,7 +269,7 @@ struct AdminDeleteUser: AsyncParsableCommand {
 
 // MARK: - AdminStats
 
-/// `stash admin stats` — show aggregate and per-user statistics.
+/// `stash admin stats`: show aggregate and per-user statistics.
 struct AdminStats: AsyncParsableCommand {
 
     // MARK: Static Properties

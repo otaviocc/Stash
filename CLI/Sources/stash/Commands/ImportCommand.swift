@@ -11,9 +11,9 @@ extension ImportFormat: ExpressibleByArgument {}
 
 // MARK: - ImportCommand
 
-/// `stash import <file>` — import bookmarks from an Anybox or Stash JSON file.
+/// `stash import <file>`: import bookmarks from an Anybox or Stash JSON file.
 ///
-/// The import endpoint is web-only (PRD §13), so the CLI re-implements it: it parses the file
+/// The import endpoint is web-only (Docs/product-web.md §13), so the CLI re-implements it: it parses the file
 /// locally and submits each record through the public API, creating new bookmarks and updating
 /// existing ones (matched by the server's duplicate-URL response). A Stash JSON file's Smart Views
 /// are also restored, matched by name. A summary is printed.
@@ -108,7 +108,7 @@ struct ImportCommand: AsyncParsableCommand {
             }
         }
 
-        Console.out("Smart Views — Imported: \(imported), Updated: \(updated), Skipped: \(skipped)")
+        Console.out("Smart Views: Imported: \(imported), Updated: \(updated), Skipped: \(skipped)")
         for line in errors {
             Console.error(line)
         }

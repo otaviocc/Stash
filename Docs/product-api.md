@@ -132,7 +132,7 @@ condition overrides the default archived filter (otherwise non-archived only).
 **Active Sessions** reads and mutates Vapor's in-memory session store directly, so it
 covers both the admin dashboard and the `/app` frontend with no new table or
 per-session tracking hooks. It can't show IP address, user-agent, or session
-creation time — the in-memory driver doesn't capture them, only who's signed in and
+creation time: the in-memory driver doesn't capture them, only who's signed in and
 where. Revoking deletes the affected refresh tokens too, so JSON API access dies
 alongside the web session.
 
@@ -157,7 +157,7 @@ alongside the web session.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/v1/instance` | Public instance chrome — currently just the accent theme |
+| `GET` | `/api/v1/instance` | Public instance chrome, currently just the accent theme |
 
 ```json
 {
@@ -169,8 +169,8 @@ alongside the web session.
 }
 ```
 
-Unauthenticated so any client — the login screen, native apps before sign-in,
-the CLI — can tint before authenticating. Reads the same app-level cache as the
+Unauthenticated so any client (the login screen, native apps before sign-in,
+the CLI) can tint before authenticating. Reads the same app-level cache as the
 web `siteChrome()` (§12), so it never hits the database. StashKit has a
 matching DTO and request factory, but no client consumes the endpoint yet: the
 native apps' first attempt at instance-accent theming was reverted (see
@@ -196,7 +196,7 @@ metadata fetch still discovers the page's declared `<link rel="icon">`, but
 favicon *caching* now happens at the domain level (§7.8): on bookmark creation
 Stash hands that declared icon (when available) to a detached `FaviconFetcher`
 keyed by domain, rather than storing a per-bookmark `faviconURL`. See §7.8 and
-the Favicon Caching section of `DECISIONS.md`.
+the "Favicon Caching" entry in `Docs/decisions-backend.md`.
 
 **Native clients fetch metadata on-device.** The iOS/macOS app and Share
 Extension don't call `POST /api/v1/metadata` for the add-bookmark preview;
@@ -339,7 +339,7 @@ Views, sorted by `name`:
 
 The inverse of the Anybox importer (§11.2): all bookmarks (including archived),
 sorted by `createdAt` ascending, written as a flat top-level JSON array. It is
-intentionally lossy — Anybox has no concept of archived or read-later
+intentionally lossy: Anybox has no concept of archived or read-later
 bookmarks, or Smart Views, so `isArchived`/`isReadLater` are dropped and Smart
 Views are omitted.
 
@@ -368,11 +368,11 @@ Views are omitted.
 
 ### 11.6 Netscape HTML Importer/Exporter (`identifier: "netscape-html"`)
 
-A Netscape Bookmark File (`<!DOCTYPE NETSCAPE-Bookmark-file-1>`) — the universal browser-export
+A Netscape Bookmark File (`<!DOCTYPE NETSCAPE-Bookmark-file-1>`), the universal browser-export
 format (Chrome, Firefox, Safari, Edge), also produced by Raindrop.io's and Pinboard's own "HTML"
 export options. The format has no strict XML structure (real exports leave `<DT>`/`<p>` unclosed),
 so the importer is a small hand-rolled token scanner over `<A>`/`<H3>`/`<DL>`/`</DL>`/`<DD>`,
-dependency-free like `MetadataFetcher`'s HTML handling — no HTML/XML parser library was added.
+dependency-free like `MetadataFetcher`'s HTML handling: no HTML/XML parser library was added.
 
 | Netscape field | Stash field | Notes |
 |---|---|------|
@@ -385,7 +385,7 @@ dependency-free like `MetadataFetcher`'s HTML handling — no HTML/XML parser li
 
 Duplicate URL: update title, description, tags in place. `createdAt` preserved.
 
-The exporter (all bookmarks including archived) is intentionally **flat** — no folders — since
+The exporter (all bookmarks including archived) is intentionally **flat** (no folders), since
 Stash tags are hierarchical *and* multi-valued per bookmark, while a Netscape file's folders are a
 strict single-parent tree; there's no lossless way to place a multi-tagged bookmark into one
 folder. Every bookmark's full tag set is instead written into the `TAGS` attribute, which the
@@ -410,7 +410,7 @@ dropped, same as the Anybox exporter (§11.5).
 Raindrop.io has no JSON export in its UI (only HTML, CSV, TXT). Raindrop documents the CSV columns
 it both produces and accepts back as `folder,url,title,note,tags,created`
 (help.raindrop.io/import#csv), but a full-account export may carry extra columns from Raindrop's
-richer API object model (`id`, `cover`, `highlights`, `favorite`, …) — so columns are matched **by
+richer API object model (`id`, `cover`, `highlights`, `favorite`, …), so columns are matched **by
 header name** (case-insensitively, with aliases), and any unrecognized column is ignored rather
 than rejecting the file, following the same "tolerate shape variance" convention as the Anybox
 importer (§11.2).

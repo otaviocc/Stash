@@ -10,8 +10,8 @@ import SwiftData
 /// A locally persisted bookmark, mirroring the server model with sync metadata.
 ///
 /// The SwiftData store holds a full copy of the user's bookmarks so the app can read offline. `id` is
-/// a local UUID used as the SwiftData primary key — stable for SwiftUI identity even before the server
-/// confirms a record — while `serverID` is the identifier used to match against the server during
+/// a local UUID used as the SwiftData primary key (stable for SwiftUI identity even before the server
+/// confirms a record), while `serverID` is the identifier used to match against the server during
 /// sync. The sync-metadata fields (`pendingSyncAt`, `locallyDeletedAt`, `isLocalOnly`) exist for the
 /// offline write queue; in this version every write reaches the server immediately, so they stay clean.
 @Model
@@ -24,8 +24,8 @@ final class LocalBookmark {
     @Attribute(.unique) var serverID: UUID
 
     /// The server ID of the user who owns this record. Set at insert time from the authenticated
-    /// session and never changed, so a pending offline write is only ever pushed by — and a wipe only
-    /// preserves it for — the user it belongs to. Prevents one user's queued writes from syncing into
+    /// session and never changed, so a pending offline write is only ever pushed by, and a wipe only
+    /// preserves it for, the user it belongs to. Prevents one user's queued writes from syncing into
     /// another user's account on a shared device.
     var userID: String
     var url: String
@@ -157,7 +157,7 @@ final class LocalBookmark {
 extension Bookmark {
 
     /// Maps a persisted record to the view-facing domain model. Fails only if the stored URL string
-    /// cannot be parsed — every URL is server-validated as http(s), so this is effectively total.
+    /// cannot be parsed; every URL is server-validated as http(s), so this is effectively total.
     init?(local: LocalBookmark) {
         guard let url = URL(string: local.url) else { return nil }
 

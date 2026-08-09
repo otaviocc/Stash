@@ -6,7 +6,7 @@ import Foundation
 /// Manages authentication tokens backed by the Keychain.
 ///
 /// Token expiry is determined by manually base64url-decoding the access token's JWT payload and
-/// reading its `exp` claim — no external dependency, mirroring the CLI's refresh logic. A token
+/// reading its `exp` claim, no external dependency, mirroring the CLI's refresh logic. A token
 /// that cannot be parsed is treated as expiring, so the caller refreshes rather than sending a
 /// request that would be rejected.
 final class TokenManager: Sendable {

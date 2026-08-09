@@ -43,7 +43,7 @@ struct AppSmartViewsContext: Content {
 /// `conditionValue[]`, its `textInputType` being `text`, `date`, or `hidden`), a Yes/No `<select>`,
 /// or the compound duration control (`durationAmount` number + `durationUnit` selector, which a script
 /// assembles into the hidden text carrier). The `hide…` flags are positive single-branch tests so the
-/// Leaf template avoids the empty-then-branch gotcha (PRD §21).
+/// Leaf template avoids the empty-then-branch gotcha (Docs/product-technical.md §21).
 struct SmartViewConditionField: Content {
 
     let type: String
@@ -77,7 +77,7 @@ struct AppSmartViewFormContext: Content {
 
 // MARK: - SmartViewForm
 
-/// `POST /app/smart-views/new` and `.../edit` form — the name and the parallel arrays of
+/// `POST /app/smart-views/new` and `.../edit` form: the name and the parallel arrays of
 /// condition types and values (the value comes from whichever input the row's type enables).
 struct SmartViewForm: Content {
 

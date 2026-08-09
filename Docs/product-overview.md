@@ -34,13 +34,16 @@ What I wanted out of it:
 - Let users enable, disable, and manage their own 2FA
 - Let users change their own password
 - Block duplicate URLs per user at save time
-- Import bookmarks from Anybox JSON, Stash JSON, Netscape Bookmark File (HTML —
+- Import bookmarks from Anybox JSON, Stash JSON, Netscape Bookmark File (HTML,
   every browser, plus Raindrop.io's and Pinboard's HTML exports), Raindrop.io
   CSV, or Pinboard JSON
 - Export bookmarks in Stash native JSON, Anybox JSON, Netscape Bookmark File
   (HTML), Raindrop.io CSV, or Pinboard JSON format
 - Export and import Smart Views as part of the Stash native JSON format
 - Dark mode support (Light / Dark / Auto)
+- Let users flag a bookmark to read later, independent of archiving
+- Submit bookmarks to the Internet Archive (Wayback Machine) for long-term
+  preservation, with an admin off-switch
 - Keep all data on infrastructure I control
 - Stay fully private: no public sharing, no public registration
 
@@ -55,7 +58,6 @@ Things I deliberately left out, at least for now:
 - Page content archiving (saving article text/HTML for offline reading), distinct
   from the native apps' offline access to their own bookmark data, which is supported
 - Public or shared collections
-- Read-later / queue functionality
 - SSO or OAuth
 - Menu bar app (macOS)
 
@@ -116,7 +118,7 @@ Here's how the pieces fit together:
 │                  PostgreSQL 16                        │
 └───────────────────────────────────────────────────────┘
 
-StashKit (Swift Package) — ✅ Complete (M6)
+StashKit (Swift Package): ✅ Complete (M6)
   └── Shared by: iOS app, macOS app, CLI
   └── DTOs, request factories, thin StashClient
 ```

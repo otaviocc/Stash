@@ -21,7 +21,7 @@ jobs:
 
       # The published image is built with swift:6.1-jammy, so test the backend
       # on the same toolchain it ships with. (Swift 6.2.1's release optimizer
-      # crashes compiling the Vapor dependency tree — see DECISIONS.md M4.1.)
+      # crashes compiling the Vapor dependency tree; see DECISIONS.md M4.1.)
       - name: Install Swift
         uses: swift-actions/setup-swift@v2
         with:
@@ -65,9 +65,9 @@ jobs:
       - name: Build CLI
         run: cd CLI && swift build -c release
 
-      # The app has no unit tests by design (PRD §19.6); building both platforms
-      # — which also compiles the embedded Share Extension — is the regression
-      # check. A generic destination avoids depending on a specific simulator.
+      # The app has no unit tests by design (Docs/product-technical.md §19.6); building both
+      # platforms (which also compiles the embedded Share Extension) is the regression check.
+      # A generic destination avoids depending on a specific simulator.
       - name: Build app (iOS)
         run: cd StashApp && xcodebuild -scheme Stash -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO
 
@@ -76,7 +76,7 @@ jobs:
 
   extension:
     name: Extension
-    # The browser extension has no compile step — it is validated, not built.
+    # The browser extension has no compile step; it is validated, not built.
     # `make lint` runs dependency-free checks (manifest is valid JSON; the JS
     # passes `node --check`) since the project deliberately ships no npm/web-ext
     # toolchain. python3 and node are both preinstalled on the ubuntu runner.

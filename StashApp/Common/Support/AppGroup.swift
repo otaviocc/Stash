@@ -12,14 +12,15 @@ enum AppGroup {
 
     // MARK: Static Properties
 
-    /// The reverse-DNS bundle base (everything before the per-identifier suffix), e.g. `com.example.otavio.stash`
-    /// or `com.otaviocc.stash`. Read from the `STBundleBase` Info.plist key, which the build injects from
-    /// the `STASH_BUNDLE_PREFIX` xcconfig setting (`$(STASH_BUNDLE_PREFIX).stash`) — so the App Group,
-    /// Keychain access group, and defaults suite stay in lockstep with the bundle IDs and entitlements
-    /// across machines. The key is absent only in SwiftUI previews (which have no real bundle), where it
-    /// falls back to the maintainer's default; a real app or extension bundle that is missing it asserts,
-    /// because silently resolving to the fallback prefix would point at an App Group the entitlement does
-    /// not grant.
+    /// The reverse-DNS bundle base (everything before the per-identifier suffix), e.g.
+    /// `com.example.otavio.stash` by default, or `com.yourname.stash` once you've set your own
+    /// `STASH_BUNDLE_PREFIX`. Read from the `STBundleBase` Info.plist key, which the build injects
+    /// from the `STASH_BUNDLE_PREFIX` xcconfig setting (`$(STASH_BUNDLE_PREFIX).stash`), so the App
+    /// Group, Keychain access group, and defaults suite stay in lockstep with the bundle IDs and
+    /// entitlements across machines. The key is absent only in SwiftUI previews (which have no real
+    /// bundle), where it falls back to the default prefix; a real app or extension bundle that is
+    /// missing it asserts, because silently resolving to the fallback prefix would point at an App
+    /// Group the entitlement does not grant.
     static let bundleBase: String = {
         guard
             let base = Bundle.main.object(forInfoDictionaryKey: "STBundleBase") as? String,
@@ -27,7 +28,7 @@ enum AppGroup {
         else {
             assert(
                 ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1",
-                "STBundleBase missing from Info.plist — the App Group would silently use the fallback prefix"
+                "STBundleBase missing from Info.plist; the App Group would silently use the fallback prefix"
             )
 
             return "com.example.otavio.stash"
@@ -53,13 +54,13 @@ enum AppGroup {
     /// `browserPreferenceKey` instead.
     static let macBrowserKey = "macBrowser"
 
-    /// The `SyncEngine` delta cursor — the start time of the last successful sync, used as `since=` on
+    /// The `SyncEngine` delta cursor: the start time of the last successful sync, used as `since=` on
     /// the next pull. Absent until the first full sync completes; reset on sign-out. App-only; the
     /// Share Extension does not read it.
     static let lastSyncedAtKey = "\(bundleBase).lastSyncedAt"
 
     /// The user's tag list, cached by the app (`TagRepository.derive()`) so the Share Extension can
-    /// offer the tag picker offline — the extension cannot open the app's private SwiftData store, so
+    /// offer the tag picker offline; the extension cannot open the app's private SwiftData store, so
     /// it seeds from this snapshot instead. Written on every derive, cleared on sign-out; read by the
     /// extension via `SharedTagCache`.
     static let knownTagsKey = "\(bundleBase).knownTags"

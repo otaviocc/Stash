@@ -8,7 +8,7 @@ import Foundation
 
 /// Instance-wide customization settings. A single-row table (never deleted): the admin's
 /// chosen accent theme, an optional "About" message, and up to four editable footer links.
-/// See the Site Settings & Admin Customisation section of `DECISIONS.md`.
+/// See the "Site Settings & Admin Customization" entry in `Docs/decisions-backend.md`.
 final class SiteSettings: Model, @unchecked Sendable {
 
     // MARK: Static Properties

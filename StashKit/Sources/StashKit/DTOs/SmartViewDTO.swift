@@ -47,7 +47,7 @@ public struct SmartViewDTO: Codable, Identifiable, Sendable {
 
 /// A single condition in a Smart View query. All values are strings. The `type` is one of `tag`,
 /// `urlContains`, `titleContains`, `descriptionContains`, `createdBefore` / `createdAfter` (absolute
-/// ISO-8601 dates), `olderThan` / `newerThan` (a relative duration string — a positive integer with a
+/// ISO-8601 dates), `olderThan` / `newerThan` (a relative duration string, a positive integer with a
 /// `d`/`m`/`y` unit suffix, e.g. `"30d"`, `"3m"`, `"1y"`), `isArchived`, or `hasTags` (`"true"` /
 /// `"false"`).
 public struct SmartViewConditionDTO: Codable, Sendable {

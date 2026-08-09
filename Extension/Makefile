@@ -1,9 +1,9 @@
-# Stash browser extension — common tasks.
+# Stash browser extension: common tasks.
 # Run from the Extension/ directory.
 #
 # The extension has no compile step (plain HTML/CSS/JS); "building" means
 # packaging the folder into a store-ready zip. These targets need only the tools
-# already used elsewhere in the repo — zip, python3, and (optionally) node —
+# already used elsewhere in the repo (zip, python3, and optionally node)
 # with no npm/bundler, matching the extension's no-build-step philosophy.
 
 # Read the version straight from the manifest so the package name tracks it.
@@ -24,12 +24,12 @@ lint: ## Lint the extension (web-ext if installed, else dependency-free checks)
 	@if command -v web-ext >/dev/null 2>&1; then \
 		web-ext lint --source-dir .; \
 	else \
-		echo "web-ext not found — running basic checks (install web-ext for full linting)."; \
+		echo "web-ext not found, running basic checks (install web-ext for full linting)."; \
 		python3 -c "import json; json.load(open('manifest.json')); print('manifest.json: valid JSON')"; \
 		if command -v node >/dev/null 2>&1; then \
 			for f in background.js popup.js options.js; do node --check $$f && echo "$$f: OK"; done; \
 		else \
-			echo "node not found — skipping JS syntax check."; \
+			echo "node not found, skipping JS syntax check."; \
 		fi; \
 	fi
 

@@ -23,7 +23,7 @@ struct LoginRequest: Content, Validatable {
 
 // MARK: - TOTPRequest
 
-/// `POST /auth/totp` body — completes a 2FA login with a TOTP code.
+/// `POST /auth/totp` body: completes a 2FA login with a TOTP code.
 struct TOTPRequest: Content {
 
     let tempToken: String
@@ -32,7 +32,7 @@ struct TOTPRequest: Content {
 
 // MARK: - RecoveryRequest
 
-/// `POST /auth/recovery` body — completes a 2FA login with a recovery code.
+/// `POST /auth/recovery` body: completes a 2FA login with a recovery code.
 struct RecoveryRequest: Content {
 
     let tempToken: String
@@ -65,7 +65,7 @@ struct VerifySetupRequest: Content {
 
 // MARK: - DisableTOTPRequest
 
-/// `POST /auth/totp/disable` body — self-service 2FA disable requires the current TOTP code.
+/// `POST /auth/totp/disable` body: self-service 2FA disable requires the current TOTP code.
 struct DisableTOTPRequest: Content {
 
     let totpCode: String
@@ -90,7 +90,7 @@ struct ChangePasswordRequest: Content, Validatable {
 
 // MARK: - TokenPair
 
-/// Successful authentication result (PRD §8.2).
+/// Successful authentication result (Docs/product-auth.md §8.2).
 struct TokenPair: Content {
 
     let accessToken: String
@@ -99,7 +99,7 @@ struct TokenPair: Content {
 
 // MARK: - TwoFactorRequired
 
-/// Login result when 2FA is enabled (PRD §8.2).
+/// Login result when 2FA is enabled (Docs/product-auth.md §8.2).
 struct TwoFactorRequired: Content {
 
     // MARK: Properties
@@ -117,7 +117,7 @@ struct TwoFactorRequired: Content {
 
 // MARK: - TOTPSetupResponse
 
-/// Response when starting 2FA setup — the secret and its `otpauth://` URI.
+/// Response when starting 2FA setup: the secret and its `otpauth://` URI.
 struct TOTPSetupResponse: Content {
 
     let secret: String
@@ -134,7 +134,7 @@ struct RecoveryCodesResponse: Content {
 
 // MARK: - UserResponse
 
-/// Public user projection (PRD §13 `User`).
+/// Public user projection (Docs/product-api.md §9.2 `User`).
 struct UserResponse: Content {
 
     let id: UUID

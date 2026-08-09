@@ -7,7 +7,7 @@ extension Request {
 
     /// Renders a Leaf template to a full `Response` with an explicit status. The web controllers need
     /// non-200 statuses (validation errors re-render the form as `422`/`400`), which `req.view.render`
-    /// alone can't express — it always implies `200`. Shared by every server-rendered web controller.
+    /// alone can't express; it always implies `200`. Shared by every server-rendered web controller.
     func renderHTML(
         _ template: String,
         _ context: some Encodable,
@@ -22,7 +22,7 @@ extension Request {
 
     /// Reads a single HTML checkbox posted under `name`, defaulting to `false`. An unchecked
     /// checkbox is omitted from the form entirely, so a form whose *only* field is that checkbox
-    /// submits a genuinely empty body — which `Content.decode` rejects outright with a `422`
+    /// submits a genuinely empty body, which `Content.decode` rejects outright with a `422`
     /// before any decoding happens, regardless of how permissive the target type is. Checking the
     /// body's byte count first sidesteps that: an empty body means "unchecked", same as a body
     /// that decodes but is missing the key.

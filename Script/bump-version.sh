@@ -8,13 +8,13 @@
 # Usage:
 #   Script/bump-version.sh --backend 1.1.0 --app 1.1
 #
-# CFBundleVersion (the build number) is intentionally left untouched — it's
+# CFBundleVersion (the build number) is intentionally left untouched; it's
 # bumped independently of the short/marketing version.
 #
 # The Info.plist files, not the Xcode build settings, are the source of
 # truth here: StashApp/Stash.xcodeproj sets GENERATE_INFOPLIST_FILE = NO for
 # every target, so Xcode never synthesizes CFBundleShortVersionString /
-# CFBundleVersion from MARKETING_VERSION / CURRENT_PROJECT_VERSION — it just
+# CFBundleVersion from MARKETING_VERSION / CURRENT_PROJECT_VERSION; it just
 # uses the committed Info.plist as-is.
 
 set -euo pipefail

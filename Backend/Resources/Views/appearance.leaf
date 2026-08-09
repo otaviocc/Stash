@@ -16,7 +16,7 @@
     <form method="post" action="/admin/appearance">
         <div class="card">
             <h2>Accent theme</h2>
-            <p class="muted">The accent colour used across the admin dashboard and the user app.</p>
+            <p class="muted">The accent color used across the admin dashboard and the user app.</p>
             <div class="theme-grid">
                 #for(theme in themes):
                 <label class="theme-option" title="#(theme.name)">

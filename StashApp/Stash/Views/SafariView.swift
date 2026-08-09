@@ -8,7 +8,7 @@
 
     // MARK: - SafariView
 
-    /// Wraps `SFSafariViewController` — Apple's recommended in-app browser — for viewing a bookmark's
+    /// Wraps `SFSafariViewController`, Apple's recommended in-app browser, for viewing a bookmark's
     /// `http`/`https` URL without leaving the app. iOS/iPadOS only; macOS always uses the default
     /// browser.
     struct SafariView: UIViewControllerRepresentable {

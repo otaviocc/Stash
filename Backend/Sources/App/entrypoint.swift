@@ -4,10 +4,10 @@
 import Vapor
 
 /// Shared in-memory log buffer backing the `/admin/logs` viewer (Feature #8). Declared as a
-/// plain module-level constant — not `Application.storage` — because it must be reachable both
+/// plain module-level constant, not `Application.storage`, because it must be reachable both
 /// here at bootstrap time (before any `Application` exists) and later from the admin route
 /// handler. `Application.storage` cannot hold this because storage doesn't exist yet when
-/// `LoggingSystem.bootstrap` runs. See DECISIONS.md, "Feature #8: System Logs".
+/// `LoggingSystem.bootstrap` runs. See the "System Logs" entry in `Docs/decisions-backend.md`.
 let sharedLogBuffer = LogRingBuffer()
 
 // MARK: - Entrypoint

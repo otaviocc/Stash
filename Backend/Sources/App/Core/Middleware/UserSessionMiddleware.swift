@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// Protects the user-facing web frontend (PRD §5/§11). Mirrors `AdminSessionMiddleware` but
+/// Protects the user-facing web frontend (Docs/product-web.md §13). Mirrors `AdminSessionMiddleware` but
 /// admits any active account regardless of role. Reads the user ID from the `stash_session`
 /// cookie, reloads the account, and requires it to still be active (suspended accounts are
 /// rejected). Any failure clears the session and redirects to the login page.

@@ -9,7 +9,7 @@ import VaporTesting
 @testable import App
 
 /// Verifies `InstanceBackupService` (export/restore) and the admin `/admin/backup` page
-/// (Instance management — full instance backup/restore).
+/// (Instance management: full instance backup/restore).
 @Suite("Instance backup & restore")
 struct InstanceBackupTests {
 
@@ -68,7 +68,7 @@ struct InstanceBackupTests {
     @Test("restoring creates a new user with bookmarks, Smart Views, and working auth material")
     func restoreCreatesNewUser() async throws {
         try await withTestApp { app in
-            // Given — export a second instance's data by building a backup document by hand
+            // Given: export a second instance's data by building a backup document by hand
             let backup = try await InstanceBackup(
                 version: "1",
                 exportedAt: "2026-01-01T00:00:00Z",
@@ -132,7 +132,6 @@ struct InstanceBackupTests {
             let settings = try await SiteSettingsService.current(on: app.db)
             #expect(settings.accentTheme == "forest", "It should restore site settings")
 
-            // Bob's restored password hash should actually authenticate.
             var pair: TokenPair?
             try await app.testing().test(
                 .POST, "api/v1/auth/login",
@@ -150,7 +149,7 @@ struct InstanceBackupTests {
     @Test("two bookmark records sharing a URL in the same backup merge instead of colliding")
     func restoreHandlesDuplicateURLWithinOneBackup() async throws {
         try await withTestApp { app in
-            // Given — restore batches per-user existing-bookmark lookups into one preloaded
+            // Given: restore batches per-user existing-bookmark lookups into one preloaded
             // dictionary rather than a query per item, so a second record for the same URL must
             // still find the first one it just created, not attempt a second insert.
             let backupBookmark = { (title: String) in
@@ -428,7 +427,7 @@ struct InstanceBackupTests {
         }
     }
 
-    @Test("the backup page requires an admin session — unauthenticated requests redirect to login")
+    @Test("the backup page requires an admin session: unauthenticated requests redirect to login")
     func backupPageRequiresAuth() async throws {
         try await withTestApp { app in
             // When

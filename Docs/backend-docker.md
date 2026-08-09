@@ -12,7 +12,7 @@ recommended way to run Stash.
 ## Quick start
 
 1. Download `docker-compose.yml` from the [latest
-   release](https://github.com/otaviocc/stash/releases/latest).
+   release](https://github.com/otaviocc/Stash/releases/latest).
 2. Create a `.env` file next to it:
 
    ```bash
@@ -98,7 +98,7 @@ same under Podman.
 The admin dashboard (`/admin`) and its Health page (`/admin/health`) check
 GitHub Releases once a day for a newer Stash version than the one currently
 running, and show a banner plus an "Updates" card with the release notes link
-when one is available. Stash can't update itself from inside the container —
+when one is available. Stash can't update itself from inside the container;
 upgrading is still the same command as above:
 
 ```bash
@@ -106,36 +106,40 @@ docker compose pull && docker compose up -d
 ```
 
 Update checking is on by default and can be turned off from the Health page
-(useful for an air-gapped or fully offline instance) — see PRODUCT.md §12.
-Only a proper `vX.Y.Z` release is ever surfaced as an update; a pre-release
-tag (`v1.0.0-beta`, see `Docs/releasing.md`) is never flagged.
+(useful for an air-gapped or fully offline instance); see
+[Docs/product-web.md](product-web.md) §12. Only a proper `vX.Y.Z` release is
+ever surfaced as an update; a pre-release tag (`v1.0.0-beta`, see
+`Docs/releasing.md`) is never flagged.
 
 ## Data persistence
 
-All data is stored in a named Docker volume (`stash_db`). It persists across
-container restarts and updates. To back it up:
+All data is stored in a named Docker volume, prefixed with your project
+directory name (e.g. `stash_stash_db` if you run Compose from a `stash/`
+folder; check with `docker volume ls`). It persists across container restarts
+and updates. To back it up:
 
 ```bash
 docker compose exec db pg_dump -U stash stash > backup.sql
 ```
 
 Stash also has its own **application-level** instance backup, independent of
-`pg_dump`: `/admin/backup` downloads a single JSON file with every account
+`pg_dump`: the `/admin/backup` page's download button
+(`/admin/backup/download`) gets a single JSON file with every account
 (including password hashes and 2FA secrets, so restoring keeps everyone's
 logins working), their bookmarks and Smart Views, and the site's appearance
-settings. Restoring merges by username into the running instance — an
+settings. Restoring merges by username into the running instance: an
 existing account's bookmarks/Smart Views are merged in, a new username is
 created with its backed-up password and 2FA intact, and nothing is ever
 deleted. This is the easiest way to migrate an instance to a new server
 without touching Postgres directly. Because the file carries password hashes
-and TOTP secrets, treat it like a database dump — store it somewhere private.
+and TOTP secrets, treat it like a database dump: store it somewhere private.
 
 ## Environment variables reference
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DB_PASSWORD` | Yes | PostgreSQL password |
-| `JWT_SECRET` | Yes | JWT signing secret (minimum 32 characters, random) |
+| `JWT_SECRET` | Yes | JWT signing secret (must be non-empty; use a random, at-least-32-character value) |
 | `ADMIN_USERNAME` | Yes (first boot) | Admin account username |
 | `ADMIN_PASSWORD` | Yes (first boot) | Admin account password (minimum 12 characters) |
 

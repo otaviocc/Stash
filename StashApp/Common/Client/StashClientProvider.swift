@@ -8,7 +8,7 @@ import StashKit
 ///
 /// The server URL is read from the injected `UserDefaults` (the same key `AppSettings`
 /// persists to), so the provider always reflects the latest configuration without holding a
-/// reference to the observable settings — and so the Share Extension, a separate process, sees the
+/// reference to the observable settings, and so the Share Extension, a separate process, sees the
 /// server the main app configured. The client is rebuilt only when the URL changes; its
 /// `tokenProvider` reads the access token from the `TokenManager` at request time, so a silent
 /// refresh that rewrites the token is picked up without rebuilding the client.

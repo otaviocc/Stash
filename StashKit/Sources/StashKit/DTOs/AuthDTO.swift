@@ -30,10 +30,10 @@ public struct TOTPSetupDTO: Codable, Sendable {
     public let otpauthURI: String
 }
 
-// MARK: - TOTPEnrolmentDTO
+// MARK: - TOTPEnrollmentDTO
 
 /// Returned after completing 2FA setup.
-public struct TOTPEnrolmentDTO: Codable, Sendable {
+public struct TOTPEnrollmentDTO: Codable, Sendable {
 
     public let recoveryCodes: [String]
 }

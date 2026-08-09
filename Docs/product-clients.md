@@ -110,7 +110,7 @@ avoid reference cycles.
 bookmarks (`LocalStore` + `LocalBookmark`, owned by `AppEnvironment`).
 `BookmarkRepository` reads entirely from this store: search, tag, recency, and
 Smart View filters run in memory, mirroring the backend's SQL semantics, so
-browsing works without the network — the server-side `GET /smart-views/:id/bookmarks`
+browsing works without the network; the server-side `GET /smart-views/:id/bookmarks`
 results endpoint is never called by the apps at all. `TagRepository` derives the tag
 list from the store. `LocalStore` also holds a `LocalSmartView` cache of each Smart
 View's definition (name, match mode, conditions), so `SmartViewRepository` shows the
@@ -293,16 +293,16 @@ building against the SDK; no explicit modifiers.
   Wayback Machine** (shared with iPad/iPhone) appears in both the detail view
   and the row context menu, after Share… and before Archive, only when the
   bookmark has a captured Internet Archive snapshot (`waybackURL` non-nil,
-  synced down from the backend's Wayback submission queue — §7.2); opens the
+  synced down from the backend's Wayback submission queue, §7.2); opens the
   real snapshot URL via the same `openURL` action as "Open in Browser".
   Read-only: the native apps don't yet expose the instance/user auto-submit
   toggles or a manual "submit now" action (web-only for now, §13). **Read
-  later** (`isReadLater`) is a separate boolean from `isArchived` — the
+  later** (`isReadLater`) is a separate boolean from `isArchived`; the
   detail view and row context menu both carry a "Mark to Read Later"/"Mark as
   Read" toggle button (same `Button`+flipping `Label` idiom as
   Archive/Unarchive), a small bookmark-glyph badge marks read-later rows in
   the list, and the add sheet carries a "Read Later" toggle (unlike
-  `isArchived`, which has no add-time toggle — archiving is detail-view-only).
+  `isArchived`, which has no add-time toggle: archiving is detail-view-only).
   Tags render as `TagPill`s showing `swift › server` (middot `›`, U+2023),
   mirroring the web; the stored tag keeps the raw slash slug. Tag editing on the
   add/edit sheets uses the shared `TagPickerSheet` (read-only `TagPill` summary +
@@ -312,9 +312,9 @@ building against the SDK; no explicit modifiers.
   picker), Account (change password, 2FA enroll / disable), Smart Views
   (create / edit / delete, the shared `SmartViewManagementView`), Appearance
   (Light / Dark / Auto, stored in `UserDefaults`, no theme cookie on native).
-  Accent colour is the system default (`Color.accentColor`); the native apps
+  Accent color is the system default (`Color.accentColor`); the native apps
   don't yet follow the instance's admin-configured accent theme, unlike the
-  web frontend (see `DECISIONS.md`).
+  web frontend (see `Docs/decisions-native-apps.md`).
   The Browser picker lists **System Default Browser** (the default) plus
   every installed app that declares `http`/`https` handling, discovered via
   `NSWorkspace.urlsForApplications(toOpen:)` (no hardcoded browser list, so
@@ -323,7 +323,7 @@ building against the SDK; no explicit modifiers.
   in the App Group `UserDefaults` suite (app-only; the Share Extension does
   not open links). Opening a bookmark link routes through a macOS-only
   `openURL` environment override (`.macBrowserChooser()`, applied above the
-  whole `NavigationSplitView`, not inside its `detail:` column — see the
+  whole `NavigationSplitView`, not inside its `detail:` column; see the
   decision log for why) that launches the chosen browser via
   `NSWorkspace.open(_:withApplicationAt:configuration:)`; if no browser is
   chosen, or the previously chosen one is no longer installed, it falls back
@@ -345,8 +345,8 @@ building against the SDK; no explicit modifiers.
 
 ## 17B. Browser Extension ✅ Complete
 
-A WebExtension that saves the current page to a Stash instance from Firefox or
-Chrome (including Zen), living in the top-level `Extension/` folder. It talks
+A WebExtension that saves the current page to a Stash instance from Firefox
+(including Zen) or Chrome, living in the top-level `Extension/` folder. It talks
 directly to the REST API (`/api/v1/`), no backend, StashKit, or native-app
 changes. Plain HTML + CSS + vanilla JS, no build step (the same philosophy as
 the web frontend).
@@ -356,14 +356,14 @@ the web frontend).
 ```
 Extension/
 ├── manifest.json     # WebExtension manifest v3 (Firefox + Chrome)
-├── background.js     # Service worker — token storage, refresh, API calls
+├── background.js     # Service worker: token storage, refresh, API calls
 ├── popup.html/.js/.css   # Toolbar button popup (add-bookmark form)
 ├── options.html/.js/.css # Settings page (server URL, sign in, 2FA)
 ├── icons/            # 16/32/48/128 PNGs + icon.svg master + generator
 └── Makefile          # lint / icons / package / clean
 ```
 
-Documented in [`Docs/browser-extension.md`](Docs/browser-extension.md).
+Documented in [`browser-extension.md`](browser-extension.md).
 
 The extension shares the Stash bookmark-ribbon identity: the 16/32 toolbar-action
 icons stay a deep-indigo ribbon on a transparent background (legible on light and

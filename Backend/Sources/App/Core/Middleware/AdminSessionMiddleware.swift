@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// Protects the web admin dashboard (PRD §11). Reads the admin's user ID from the session
+/// Protects the web admin dashboard (Docs/product-web.md §12). Reads the admin's user ID from the session
 /// cookie, loads the account, and requires it to still be an active admin. Any failure clears
 /// the session and redirects to the login page rather than returning a JSON error.
 ///

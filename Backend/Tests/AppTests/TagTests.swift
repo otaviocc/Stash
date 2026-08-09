@@ -6,7 +6,7 @@ import VaporTesting
 @testable import App
 
 /// Covers the tag aggregation endpoint and its per-user scoping.
-@Suite("Tags — aggregation")
+@Suite("Tags: aggregation")
 struct TagTests {
 
     @Test("GET /tags returns each distinct tag with its count, sorted, scoped to the user")
@@ -43,7 +43,7 @@ struct TagTests {
     @Test("GET /tags requires authentication")
     func tagsRequireAuth() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(.GET, "api/v1/tags") { res async throws in

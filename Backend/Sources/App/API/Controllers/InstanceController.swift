@@ -3,7 +3,7 @@
 
 import Vapor
 
-/// Public, unauthenticated instance chrome (PRD §9.x) — currently just the accent theme, so any
+/// Public, unauthenticated instance chrome (Docs/product-api.md §9.9), currently just the accent theme, so any
 /// client (native apps, CLI, the login screen itself) can tint before authenticating. Reads the
 /// same app-level cache as the web `siteChrome()`, so it never hits the database.
 struct InstanceController: RouteCollection {

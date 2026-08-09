@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// Serves cached favicons by domain and triggers manual re-fetches (PRD §9.8). The `serve`
+/// Serves cached favicons by domain and triggers manual re-fetches (Docs/product-api.md §9.8). The `serve`
 /// endpoint is unauthenticated so `<img>` tags can load it without attaching credentials; the
 /// `refresh` endpoint requires an active user since it triggers outbound fetches.
 struct FaviconController {

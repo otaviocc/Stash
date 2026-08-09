@@ -15,8 +15,8 @@ struct LoginForm: Content {
 
 // MARK: - CreateUserForm
 
-/// `POST /admin/users/new` form. Note there is deliberately no `role` field — accounts created
-/// from the dashboard are always regular users (same rule as the API, PRD §4).
+/// `POST /admin/users/new` form. Note there is deliberately no `role` field; accounts created
+/// from the dashboard are always regular users (same rule as the API, Docs/product-overview.md §4).
 struct CreateUserForm: Content {
 
     let username: String
@@ -68,7 +68,7 @@ struct DashboardCardContext: Content {
 // MARK: - DashboardContext
 
 /// View context for the admin dashboard page: a KPI stat strip, a grid of navigation cards to
-/// every other admin page, and a recent-activity feed. This is deliberately the "hub" — the
+/// every other admin page, and a recent-activity feed. This is deliberately the "hub": the
 /// per-user table lives only on the dedicated Users page (`UsersContext`).
 struct DashboardContext: Content {
 
@@ -91,7 +91,7 @@ struct DashboardContext: Content {
 // MARK: - HealthContext
 
 /// View context for the admin health page. Every field here is safe to show only to a signed-in
-/// admin — this is deliberately a *different* surface than the public, unversioned `GET /health`
+/// admin; this is deliberately a *different* surface than the public, unversioned `GET /health`
 /// JSON endpoint, which must keep returning only `{ "status": "ok" }` and nothing more.
 struct HealthContext: Content {
 
@@ -105,7 +105,7 @@ struct HealthContext: Content {
     let diskUsageText: String
     let totalUsers: Int
     let totalBookmarks: Int
-    /// Update-check fields, sourced from `UpdateChecker`'s cache — see the "Updates" card on
+    /// Update-check fields, sourced from `UpdateChecker`'s cache; see the "Updates" card on
     /// `health.leaf`.
     let updateCheckEnabled: Bool
     let updateAvailable: Bool

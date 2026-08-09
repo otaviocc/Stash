@@ -6,7 +6,7 @@ import MicroClient
 
 // MARK: - UserRequestFactory
 
-/// Factory for current-user API requests (PRD §9.2).
+/// Factory for current-user API requests (Docs/product-api.md §9.2).
 public enum UserRequestFactory {
 
     public static func makeMeRequest() -> NetworkRequest<VoidRequest, UserDTO> {

@@ -5,7 +5,7 @@ import Fluent
 import Foundation
 
 /// Imports a Pinboard JSON export (`Settings → Backups → JSON`, backed by
-/// `GET /v1/posts/all?format=json`) — a flat top-level array of bookmark objects using Pinboard's
+/// `GET /v1/posts/all?format=json`), a flat top-level array of bookmark objects using Pinboard's
 /// Delicious-legacy field names.
 ///
 /// Field mapping:
@@ -16,7 +16,8 @@ import Foundation
 ///   this is unambiguous)
 /// - `time`: ISO-8601 → `createdAt`
 /// - `toread` (`"yes"`/`"no"`) → `isReadLater`
-/// - `shared` is read and discarded: Stash has no public-sharing concept (see PRD §22, Out of Scope)
+/// - `shared` is read and discarded: Stash has no public-sharing concept
+///   (see Docs/product-technical.md §22, Out of Scope)
 ///
 /// A duplicate URL updates the existing bookmark in place, same convention as every other
 /// importer.

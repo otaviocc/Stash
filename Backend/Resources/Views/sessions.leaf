@@ -4,7 +4,7 @@
     <p class="muted">
         Reads live sessions directly from the in-memory session store. Sessions don't
         survive a server restart, and this store doesn't track IP address, user-agent, or
-        creation time — only who's signed in and where.
+        creation time, only who's signed in and where.
     </p>
 
     #if(message):

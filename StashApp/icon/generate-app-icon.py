@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generate the Stash app-icon glyph.
 
-Draws the Stash bookmark-ribbon mark — the same vertical ribbon with a V-notch
-at the bottom that the browser extension uses (Extension/icons/) — as a white
+Draws the Stash bookmark-ribbon mark, the same vertical ribbon with a V-notch
+at the bottom that the browser extension uses (Extension/icons/), as a white
 glyph on a transparent square canvas, sized for the Icon Composer glass layer.
 The indigo background gradient and the Liquid Glass treatment are supplied by
 AppIcon.icon/icon.json; this script only produces the foreground shape.

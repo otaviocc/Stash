@@ -5,7 +5,7 @@ import Fluent
 import JWT
 import Vapor
 
-/// Unauthenticated auth endpoints (PRD §9.1).
+/// Unauthenticated auth endpoints (Docs/product-api.md §9.1).
 struct AuthController: RouteCollection {
 
     // MARK: Static Functions

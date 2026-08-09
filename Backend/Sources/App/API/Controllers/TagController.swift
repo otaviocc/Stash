@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// Tag aggregation for the authenticated user (PRD §9.4).
+/// Tag aggregation for the authenticated user (Docs/product-api.md §9.4).
 struct TagController: RouteCollection {
 
     func boot(routes: RoutesBuilder) throws {

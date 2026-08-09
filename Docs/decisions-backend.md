@@ -357,7 +357,7 @@ pipeline at all.
 
 I added a new `GET /admin/health` page to the admin web dashboard showing
 version, database connectivity, process uptime, disk usage, and total
-users/bookmarks — all useful operational context for an admin, none of it
+users/bookmarks, all useful operational context for an admin, none of it
 appropriate to expose on the existing public, unauthenticated `GET /health`
 liveness probe. I deliberately left that endpoint and its `HealthResponse`
 DTO completely untouched: it's documented in the OpenAPI spec with a fixed
@@ -371,7 +371,7 @@ for a signed-in human who wants to see what's actually going on.
 
 The database check runs a bare `SELECT 1` through `SQLDatabase.raw(...)`
 rather than anything Fluent-model-specific, so it stays truthful even if a
-particular table migration is broken — it only asserts "can we talk to the
+particular table migration is broken; it only asserts "can we talk to the
 database at all," which is the right question for a health page. Driver name
 (Postgres vs. SQLite) is derived from `app.environment == .testing`, the same
 condition `configure.swift` already uses to choose the driver, rather than
@@ -427,7 +427,7 @@ admin-panel button take down the app for every user while it runs; plain
 VACUUM reclaims dead-tuple space without blocking reads or writes, the right
 trade-off for a click-any-time action. There's no UI option for FULL.
 
-Nothing about past runs is persisted — no "last optimized at" timestamp, no
+Nothing about past runs is persisted: no "last optimized at" timestamp, no
 history list. The page shows the elapsed time of the *most recent* run in a
 one-off flash banner, passed through the redirect's `?ms=` query parameter
 rather than baked into `FlashMessage.admin(for:)` itself, since that
@@ -499,12 +499,12 @@ gets no confirmation dialog at all, since it isn't destructive either.
 One nuance worth being precise about, since an earlier pass of this feature's
 own UI copy got it wrong: a cleared favicon does **not** silently regenerate
 just by browsing `/app` and looking at a bookmark for that domain.
-`FaviconFetcher.enqueue` — the only thing that populates `favicon_cache` outside
-an explicit refresh — only runs when a *new* bookmark is saved for that domain
+`FaviconFetcher.enqueue` (the only thing that populates `favicon_cache` outside
+an explicit refresh) only runs when a *new* bookmark is saved for that domain
 (§10 / `DECISIONS.md`'s Favicon Caching section); viewing or editing an existing
 bookmark never calls it. So after "Clear cache," a domain's favicon only comes
 back via "Re-scan all favicons," a new bookmark saved for that domain, or that
-bookmark's own per-row "Refresh favicon" button — never by merely browsing.
+bookmark's own per-row "Refresh favicon" button, never by merely browsing.
 The page copy, the confirm-dialog text, and the `favicons_cleared` flash message
 were corrected to say this rather than implying automatic regeneration on view.
 
@@ -515,13 +515,13 @@ were corrected to say this rather than implying automatic regeneration on view.
 Added a narrow, best-effort audit trail covering only auth events (login
 success, login failure, logout) and admin user-management actions (create,
 suspend, unsuspend, password reset, TOTP reset, delete, and site-appearance
-changes). Deliberately excluded bookmark, tag, and smart-view CRUD — those
+changes). Deliberately excluded bookmark, tag, and smart-view CRUD: those
 are high-volume and low audit value for a first version, and including them
 would flood the "last 50 rows" viewer with noise that pushes the
 security-relevant events off the page almost immediately. The three
 genuinely independent auth surfaces (JSON API, admin web dashboard, app web
 frontend) and the two independent admin-action surfaces (JSON admin API,
-admin web dashboard) each needed their own hooks — there's no shared login
+admin web dashboard) each needed their own hooks; there's no shared login
 or user-mutation helper in this codebase to hook once, which made this a
 wide, mechanical change rather than a deep one. Writes are best-effort and
 non-throwing from the caller's side by design: a real login or a real
@@ -529,14 +529,14 @@ user-delete must never fail because an audit row failed to save, so
 `AuditLogger.record` swallows and logs its own errors rather than
 propagating them. Client IP is read from `X-Forwarded-For` first, falling
 back to the raw socket address, because Stash's documented deployment runs
-behind a Caddy reverse proxy that sets that header — using the raw socket
+behind a Caddy reverse proxy that sets that header; using the raw socket
 address unconditionally would have recorded Caddy's own container address
 on every row in that topology, making the IP column useless. This does mean
 a Stash instance exposed directly to the internet without a reverse proxy in
 front could have its audit IPs spoofed by a malicious client; that's an
 accepted trade-off given the documented, expected deployment shape. The
 viewer itself is intentionally minimal: no pagination, no filtering, no
-export, just the most recent 50 rows — matching the same "ship the smallest
+export, just the most recent 50 rows, matching the same "ship the smallest
 useful admin tool" approach used for Feature #7's Active Sessions viewer.
 
 ---
@@ -544,13 +544,13 @@ useful admin tool" approach used for Feature #7's Active Sessions viewer.
 ## Feature #7: Active Sessions
 
 Added a read-only-turned-actionable admin tool at `/admin/sessions` (plus a matching
-JSON API under `/api/v1/admin/sessions`) that lists every live web session — both
-the admin dashboard and the app frontend — and lets an admin revoke all of them or
+JSON API under `/api/v1/admin/sessions`) that lists every live web session (both
+the admin dashboard and the app frontend) and lets an admin revoke all of them or
 just one user's. The whole feature is a thin `ActiveSessionLoader` enum that reads
 and writes `app.sessions.memory.storage.sessions` directly: Vapor's `MemorySessions.Storage`
-exposes that as a public, mutable `[SessionID: SessionData]`, and — since both
+exposes that as a public, mutable `[SessionID: SessionData]`, and, since both
 `/admin` and `/app` are configured off `app.sessions.driver` (`configure.swift`,
-`routes.swift`) — it's the *same* dictionary for both surfaces, distinguished only
+`routes.swift`), it's the *same* dictionary for both surfaces, distinguished only
 by whether a session's data carries `AdminSessionMiddleware.sessionKey` or
 `UserSessionMiddleware.sessionKey`. This meant no new table, no migration, no
 login/logout tracking hooks, and no custom `SessionStore`. An earlier draft of this
@@ -564,19 +564,19 @@ The trade-off inherited from `SessionData` being a thin `[String: String]` wrapp
 no IP address, user-agent, or creation timestamp are available, so the table can't
 show them. This is acceptable because (a) revoking a compromised session works
 correctly regardless of whether IP/UA is displayed, and (b) adding that data would
-mean persisting sessions to a DB table on every request — a much bigger change
+mean persisting sessions to a DB table on every request, a much bigger change
 better suited to a follow-up milestone. Revocation is immediate and correct without
 any of that: `revokeAll` and `revokeForUser` mutate the shared dictionary directly
 (not `req.session.destroy()`, which only ever affects the *current* request's own
 session), and both also delete the affected refresh tokens so JSON API access dies
 alongside the web session. The viewer itself, like Feature #6's audit log, stays
 intentionally minimal: no pagination beyond a username filter, no polling/live
-refresh — an admin reloads the page to see current state.
+refresh: an admin reloads the page to see current state.
 
 One subtlety the web handlers do need to account for: `SessionsMiddleware` reads
 the request's own session into a request-local cache *before* the route handler
 runs, and writes that cached copy straight back into the store when the response
-is sent — regardless of what the handler did to the store in between. So an admin
+is sent, regardless of what the handler did to the store in between. So an admin
 revoking all sessions (or revoking their own account by name) from the sessions
 page would otherwise see their own dashboard session silently resurrected right
 after the wipe, since the response phase re-inserts it. Both web handlers call
@@ -600,7 +600,7 @@ and documented once before: the M5 web admin dashboard entry (above, in
 this file) explicitly accepts that the admin session store is in-memory
 and "does not survive a restart," calling that "fine for a single
 self-hosted instance." System logs get the identical treatment for the
-identical reason — Stash targets self-hosted, typically single-instance
+identical reason: Stash targets self-hosted, typically single-instance
 deployments where losing a rolling window of recent log lines on restart
 is an acceptable cost, and where the alternative (a DB table with a
 retention/cleanup job, or a log file with rotation) is meaningfully more
@@ -623,7 +623,7 @@ remains byte-for-byte the primary and durable log surface; the in-app
 reaching for a shell, not a replacement for real log aggregation. I
 deliberately did not use `Logging.StreamLogHandler` (a tempting shortcut
 since it's the best-known "simple" handler) because it is not what this
-app's console output actually uses today — it would have silently changed
+app's console output actually uses today; it would have silently changed
 the format/coloring of stdout logs, which the console-preservation
 requirement explicitly ruled out.
 
@@ -645,7 +645,7 @@ existing yet.
 A long-requested feature: when a bookmark is saved, also submit its URL to
 the Internet Archive so there's a durable off-site snapshot, independent
 of Stash's own `isArchived` inbox flag (deliberately named `wayback*`
-everywhere — model fields, routes, buttons — to avoid colliding with that
+everywhere: model fields, routes, buttons, to avoid colliding with that
 unrelated existing flag).
 
 ### Anonymous `/save`, no credentials
@@ -653,23 +653,23 @@ unrelated existing flag).
 Submission goes through `https://web.archive.org/save/<url>` (a plain
 `GET`), not the authenticated SPN2 API. That keeps the feature
 dependency-light and config-free (no API keys to provision), at the cost
-of tighter, undocumented rate limits — which is exactly why this needed a
+of tighter, undocumented rate limits, which is exactly why this needed a
 serial, self-throttling queue rather than firing requests inline.
 
-### A persisted, serial queue — not `FaviconFetcher`'s fire-and-forget shape
+### A persisted, serial queue, not `FaviconFetcher`'s fire-and-forget shape
 
 `FaviconFetcher` (favicon caching) is a stateless `enum` that dispatches
 `Task.detached` work with no durable queue: if the process dies mid-fetch,
 that fetch is simply lost, and it's fine because a favicon reappears for
 free the next time any bookmark on that domain is saved. Wayback
-submission doesn't have that safety net — a lost submission means a
-bookmark silently never gets archived — so `WaybackSubmitter` persists
+submission doesn't have that safety net: a lost submission means a
+bookmark silently never gets archived, so `WaybackSubmitter` persists
 queue state on the bookmark itself (`waybackStatus`: `none` / `pending` /
 `archived` / `failed`) instead of relying purely on in-memory
 `Task.detached` work. Enqueuing is just: flip the status to `pending`,
 save, and wake the drain worker; the worker discovers work by querying for
 `pending` rows rather than tracking an in-memory list, so a crash mid-drain
-self-heals — `WaybackSubmitter.bootstrap(on:)` re-sweeps at every boot by
+self-heals: `WaybackSubmitter.bootstrap(on:)` re-sweeps at every boot by
 just calling `kick()`, which picks up any row still `pending` from before.
 
 The drain itself is an `actor` (`WaybackWorker`), not another stateless
@@ -696,30 +696,30 @@ queue's guess-and-check requests.
 Adding `wayback_status` / `wayback_url` / `wayback_archived_at` to
 `bookmarks` in one chained `.field(...).field(...).field(...).update()`
 (the shape `AddSmartViewMatchMode` uses for its single column) produced a
-SQLite syntax error, because — unlike Postgres — SQLite only supports one
+SQLite syntax error, because, unlike Postgres, SQLite only supports one
 `ADD COLUMN` per `ALTER TABLE` statement; FluentKit happily batches
 multiple `.field()` calls into one comma-separated `ALTER TABLE`
 statement, which is valid SQL for Postgres but not SQLite. `AddBookmarkWayback`
 now issues three separate `.update()` calls, one per column, each its own
-statement — worth remembering for any future migration that adds more than
+statement, worth remembering for any future migration that adds more than
 one column at once.
 
 ### Migration gotcha this surfaced: seeding a row via the live `Model` type at migration time
 
 Adding `internetArchiveEnabled` to `SiteSettings` broke every single test
 in the suite, not just the new ones, with a bewildering "table
-`site_settings` has no column named `internet_archive_enabled`" — from
+`site_settings` has no column named `internet_archive_enabled`", from
 `CreateSiteSettings`, the *original* migration, not the new one.
 `CreateSiteSettings.prepare()` had always eagerly seeded the one-row table
 by constructing a live `SiteSettings(accentTheme:)` and calling `.save()`
 on it; once that struct gained the new field (with a default), Fluent's
 model-based save serializes *every* current `@Field`, including
-`internetArchiveEnabled` — straight into a table whose schema, as built by
+`internetArchiveEnabled`, straight into a table whose schema, as built by
 that same historical migration, doesn't have that column yet (the `Add*`
 migration that adds it runs later in the list). Constructing a versioned
 app-level `Model` inside an old migration is a trap: the model always
 reflects *today's* shape, not the shape the migration itself built. Fixed
-by deleting the eager seed entirely — `SiteSettingsService.current(on:)`
+by deleting the eager seed entirely: `SiteSettingsService.current(on:)`
 already lazily creates the row if missing, and it's called via
 `loadAndCache` right after every migration has run during `configure()`,
 so the row still always exists by the time the app finishes booting, now
@@ -730,7 +730,7 @@ addition is safe by construction.
 
 `internetArchiveEnabled` (default on) could have been one more checkbox on
 `/admin/appearance` alongside the accent theme, but that page has no
-concept of operational state — it's pure presentation config. Internet
+concept of operational state; it's pure presentation config. Internet
 Archive submission has real operational state worth surfacing (how many
 bookmarks are queued, archived, failed, never submitted), so it got its
 own `/admin/internet-archive` page instead, modeled directly on
@@ -745,7 +745,7 @@ cosmetic site setting.
 
 A bookmark auto-submits on create only when *both* the admin's
 instance-wide switch and the user's own `archiveNewBookmarks` preference
-(default on, a genuinely new per-user settings column — the first one;
+(default on, a genuinely new per-user settings column, the first one;
 previously the only per-user "preference" was the `stash_theme` cookie,
 which isn't even a database column) are on, checked via
 `WaybackSubmitter.isInstanceEnabled(on:)` at the same call site in both
@@ -754,7 +754,7 @@ right next to the existing `FaviconFetcher.enqueue` call. The manual
 "Save to Wayback Machine" button and its API/`app` route counterparts
 bypass the user's auto-submit preference by design (that's what makes
 "send this one bookmark even though auto-submit is off" and "re-submit
-with a fresh date" both possible), but still respect the instance switch —
+with a fresh date" both possible), but still respect the instance switch:
 there's no way to submit anything when the admin has turned the feature
 off, whether through auto-submit or the manual button.
 
@@ -762,7 +762,7 @@ off, whether through auto-submit or the manual button.
 
 A review pass on the first draft caught that `retryFailedInternetArchive`
 and `queueAllInternetArchive` re-queued bookmarks and kicked the drain
-worker without ever checking `WaybackSubmitter.isInstanceEnabled(on:)` —
+worker without ever checking `WaybackSubmitter.isInstanceEnabled(on:)`;
 every other submission path (auto-submit on create, both manual-submit
 routes) checked it, but the two bulk actions were added by mirroring the
 favicon admin page's "Clear cache"/"Re-scan" handlers, which have no such
@@ -774,7 +774,7 @@ disabled state and the doc comment's own claim that "the admin bulk
 actions gate on this first." Fixed by extracting both handlers into one
 `requeueInternetArchive(matching:flashKey:req:)` helper that checks the
 switch first and PRGs with `?error=internet_archive_disabled` when it's
-off — collapsing the near-duplicate handlers and closing the gap in the
+off, collapsing the near-duplicate handlers and closing the gap in the
 same change, so there's now exactly one place that could regress instead
 of two.
 
@@ -788,10 +788,10 @@ Two smaller things surfaced alongside: the instance-switch toggle was
 logging its audit action as `"appearance_updated"` (copy-pasted from the
 accent-theme form it was modeled on), which would have made "who toggled
 Internet Archive" indistinguishable from "who changed the theme" in the
-audit log — renamed to its own `"internet_archive_toggled"` action. And the
+audit log, renamed to its own `"internet_archive_toggled"` action. And the
 web "Save to Wayback Machine" button, when clicked while the admin had
 disabled the feature, silently redirected with no flash message at all
-(unlike its API sibling, which returns a proper `409`) — now redirects with
+(unlike its API sibling, which returns a proper `409`), now redirects with
 `?error=internet_archive_disabled`, reusing the same `FlashMessage.appError`
 pattern the tag browser already uses for inline error banners on `/app`
 pages. Both are edge cases in practice (the button and admin bulk-action
@@ -804,17 +804,17 @@ been running a second `COUNT` query after every submission purely to decide
 whether to keep looping, when the very next loop iteration's own fetch
 already answers that (empty result = done). Dropped the extra query. The
 admin Internet Archive page's five separate `COUNT` queries (one per status
-plus an unfiltered total) had the same shape of redundancy — `WaybackStatus`
-has exactly four cases, so the total is always the sum of the other four —
+plus an unfiltered total) had the same shape of redundancy: `WaybackStatus`
+has exactly four cases, so the total is always the sum of the other four,
 fixed by summing instead of querying a fifth time.
 
 ### Production finding: the anonymous save endpoint rate-limits far more aggressively than planned for
 
 The first real deploy's "Queue all" run failed every single bookmark. Two
 things made this hard to diagnose and worth fixing regardless of the root
-cause: `submit(...)` logged nothing on failure — every non-2xx response and
+cause: `submit(...)` logged nothing on failure. Every non-2xx response and
 every thrown error silently became `waybackStatus = .failed` with zero
-trace of *why* — and there was no distinction between a genuine failure and
+trace of *why*, and there was no distinction between a genuine failure and
 a `429`, which is really "try again later," not "give up." Both are fixed
 now: every non-success path logs the response status or error via
 `db.logger`, and a `429` leaves the bookmark `.pending` (so the next drain
@@ -826,7 +826,7 @@ Testing the anonymous endpoint directly (`curl` against
 `https://web.archive.org/save/<url>`) confirmed the root cause: it returned
 `429` on the very first request, with no `Retry-After` header, and again on
 a second request roughly a minute later. This is consistent with widely
-reported behavior — Internet Archive's anonymous, unauthenticated `/save`
+reported behavior: Internet Archive's anonymous, unauthenticated `/save`
 capture endpoint throttles automated/non-browser traffic heavily, and
 noticeably harder for datacenter/hosting IPs than residential ones, which
 is exactly the kind of IP a self-hosted Stash instance runs from. The 30s
@@ -838,7 +838,7 @@ least means it keeps trying quietly in the background rather than needing
 a human to notice and click "Retry failed" repeatedly. If this turns out to
 be a persistent problem in practice, the documented alternative is
 Internet Archive's authenticated SPN2 API, which has much more generous
-rate limits for legitimate automated capture — a bigger change (needs
+rate limits for legitimate automated capture, a bigger change (needs
 admin-configured credentials) deliberately not built for this v1, since
 the anonymous approach was the explicit, no-config-required starting
 point.
@@ -849,7 +849,7 @@ The native apps had never picked up the Wayback fields at all:
 `StashKit.BookmarkDTO` already carried `waybackStatus`/`waybackURL`/
 `waybackArchivedAt` (added when the API surface was extended), but the app's
 SwiftData persistence entity (`LocalBookmark`) and domain `Bookmark` struct
-silently dropped all three on every sync — confirmed by reading
+silently dropped all three on every sync, confirmed by reading
 `LocalBookmark.init(from:userID:)`/`apply(_:)`, which read every other DTO
 field but not these. Since there's no `VersionedSchema`/`SchemaMigrationPlan`
 anywhere in the app (the SwiftData store is treated as a disposable cache,
@@ -864,12 +864,12 @@ adding them later if a future feature needs them is a small, isolated change
 given the pattern is already established.
 
 The button reuses the exact same `@Environment(\.openURL)` action "Open in
-Browser" already used, rather than a new mechanism — which turned out to
+Browser" already used, rather than a new mechanism, which turned out to
 matter more than expected: iOS/iPadOS has an `openURL` environment override
 (`.inAppBrowser()`) that routes `http`/`https` opens through an in-app Safari
 sheet honoring the user's Reading settings (In-App vs. Default Browser,
 Reader mode). Reusing `openURL` meant "View on Wayback Machine" picked up
-that same in-app-browser routing for free, with no extra plumbing — a
+that same in-app-browser routing for free, with no extra plumbing; a
 different mechanism (e.g. a raw `UIApplication.shared.open` or a second
 `Link`) would have silently bypassed it.
 
@@ -881,7 +881,7 @@ the equivalent ordering on the web frontend.
 ### Smart View condition: `isWaybackArchived`
 
 A new boolean condition, `isWaybackArchived`, filters bookmarks by whether
-they've been submitted to the Internet Archive — same `{type, value}`
+they've been submitted to the Internet Archive; same `{type, value}`
 discriminated-union pattern as every other Smart View condition, added
 mechanically alongside `isArchived`/`hasTags` in the one place each layer
 defines its condition set (the backend's `SmartViewCondition` enum, its web
@@ -890,14 +890,14 @@ presenter/Leaf form, and the native app's `SmartViewConditionType` enum).
 The semantics needed a decision: `true` could mean "a submission was ever
 attempted" (`waybackStatus != .none`, i.e. pending/archived/failed all count)
 or "a real snapshot exists" (`waybackStatus == .archived` only). Chose the
-latter — `false` then covers `none`, `pending`, *and* `failed`, which is the
+latter: `false` then covers `none`, `pending`, *and* `failed`, which is the
 more actionable filter in practice ("show me what still needs archiving")
 rather than a fairly useless "was this ever queued" split. This choice also
 kept the native app change smaller: it already threads `waybackURL` (non-nil
 exactly when `waybackStatus == .archived`) into its offline `Bookmark`
 model from the earlier "View on Wayback Machine" work, so
 `bookmark.waybackURL != nil` is already the correct offline-evaluation
-equivalent — no need to additionally thread the four-case `waybackStatus`
+equivalent; no need to additionally thread the four-case `waybackStatus`
 enum through `LocalBookmark`/`Bookmark` just for this one boolean.
 
 ### Production finding: a rate-limited bookmark could block the entire queue forever
@@ -909,20 +909,20 @@ the bookmark, so Fluent's `on: .update` `updatedAt` timestamp never
 advanced. `WaybackWorker.drain()` always fetches the *oldest* `pending` row
 (`sort(\.$updatedAt).first()`), so a persistently rate-limited bookmark
 stayed the oldest forever and **starved every other bookmark queued behind
-it** — the whole queue stalled, not just the one URL.
+it**: the whole queue stalled, not just the one URL.
 
 Fixed with a new `Bookmark.waybackRetryCount` column (internal bookkeeping,
-not exposed via the API/DTOs — nothing external needs it) and two changes
+not exposed via the API/DTOs, nothing external needs it) and two changes
 to `submit(...)`:
 - Save the bookmark on *every* `429`, not just when it eventually gives up.
   This alone fixes the starvation: bumping `updatedAt` moves the row behind
   other pending bookmarks, so the queue naturally round-robins between all
   of them instead of hammering the same stuck one. No changes needed to
-  `drain()`'s query or pacing — the fix is entirely in what gets persisted.
+  `drain()`'s query or pacing; the fix is entirely in what gets persisted.
 - Cap consecutive rate-limited attempts at 3 (~15 minutes at the existing
   5-minute backoff): past the cap, give up and fall back to the existing
   `.failed` state rather than retrying forever, exactly like any other
-  submission error — retryable later via the admin "Retry failed"/"Queue
+  submission error, retryable later via the admin "Retry failed"/"Queue
   all" actions or a manual per-bookmark resubmit, never automatically
   again. `waybackRetryCount` resets to `0` on every terminal transition
   (`archived`, or `failed` via either path) so a fresh manual retry always
@@ -934,10 +934,10 @@ Adding a queue-status line to `/admin/internet-archive` (idle, paused with
 a pending count, submitting a URL, running, or rate-limited-and-retrying)
 surfaced a related gap: toggling `internetArchiveEnabled` off never stopped
 a drain loop already running. `WaybackWorker.drain()`'s loop had no check
-of its own — it only relied on `enqueueIfAllowed`/the manual-submit routes
+of its own; it only relied on `enqueueIfAllowed`/the manual-submit routes
 refusing *new* work, so anything already `.pending` when the switch flipped
 kept getting submitted for real. That silently contradicted the documented
-"when off, submission is unavailable everywhere, instance-wide" — the
+"when off, submission is unavailable everywhere, instance-wide"; the
 status display would otherwise have had to describe an inconsistent state
 ("Disabled" while a submission was still in flight).
 
@@ -949,7 +949,7 @@ rows untouched. Also added a `QueueState` enum (`idle`, `submitting(url:)`,
 recorded on the actor at each phase transition, exposed via a
 `currentState()` getter, and a manual "Resume queue now" button
 (`POST /admin/internet-archive/resume`) that just calls the existing
-idempotent `kick()` — safe to press whether or not the worker is already
+idempotent `kick()`, safe to press whether or not the worker is already
 running.
 
 ### Dashboard redesign: turn `/admin` into a hub, and trim the nav bar
@@ -957,16 +957,16 @@ running.
 The admin nav bar had grown to 11 flat links (Dashboard, Users, New user,
 Appearance, Audit log, Sessions, Health, Maintenance, Favicons, Internet
 Archive, Logs) plus App and Log out, while the Dashboard itself did almost
-nothing — two stat tiles and a per-user table that just duplicated the Users
+nothing: two stat tiles and a per-user table that just duplicated the Users
 page.
 
 Rebuilt the Dashboard as the admin hub: a KPI strip (users with an
 active/suspended split, bookmarks, live sessions, Internet Archive queue
-depth — all gathered concurrently via `async let`, same pattern as
+depth, all gathered concurrently via `async let`, same pattern as
 `renderInternetArchive`), a grid of navigation cards to every other admin
 page (each with a description and a cheap live detail where one exists), and
 a recent-activity feed reusing `AuditLogRowContext` from the Audit Log page
-at a smaller limit (8 vs. 50). The old per-user table was dropped — it now
+at a smaller limit (8 vs. 50). The old per-user table was dropped; it now
 lives only on `/admin/users`.
 
 With the Dashboard now a real launcher, trimmed the shared nav in
@@ -977,7 +977,7 @@ the dashboard's card grid still links to all of them.
 
 ### Add `info`-level activity logs so `/admin/logs` is actually useful
 
-Auditing the codebase found that **nothing logged at `info`** — the only
+Auditing the codebase found that **nothing logged at `info`**: the only
 lines ever reaching `/admin/logs` were a couple of Wayback `notice` lines, the
 first-boot admin `notice`, and `error`s. In normal operation the page was
 near-empty.
@@ -985,7 +985,7 @@ near-empty.
 Added concise `info` lines for notable user/system events: bookmark saved,
 deleted, and delete-all; Smart View created/updated/deleted; tag
 renamed/deleted; favicon cached/failed; Wayback snapshot saved. `info` was
-chosen over `notice` deliberately — the logs-page `?level=` dropdown only
+chosen over `notice` deliberately: the logs-page `?level=` dropdown only
 offers `info`/`warning`/`error` (`AdminWebController.logsPage`,
 `selectableLevels`), so a `notice` line is only visible in the unfiltered
 view, which would make it easy to miss.
@@ -997,11 +997,11 @@ web surfaces each save bookmarks/Smart Views independently with no shared
 controller, so a helper is the only way to guarantee identical wording across
 both; and the ring buffer is wired up only in `entrypoint.main`, not the test
 harness, so the helper's pure strings are the actual testable seam (see
-`ActivityLogTests.swift`) — there's no way to assert on captured log lines
+`ActivityLogTests.swift`); there's no way to assert on captured log lines
 from an integration test.
 
 Deliberately left out of this pass: bookmark edit/archive-toggle (too
-frequent to be useful signal) and login/logout/startup — auth and admin
+frequent to be useful signal) and login/logout/startup: auth and admin
 actions are already captured in the DB-backed Audit Log
 (`AuditLogger`/`/admin/audit`), and duplicating them to the ops log would be
 redundant rather than additive.
@@ -1011,13 +1011,13 @@ redundant rather than additive.
 The detail page (`app-bookmark-detail.leaf`) had accumulated up to 8 buttons
 in one flat `.row-actions` flexbox (Open URL, Edit, Refresh favicon, View on
 Wayback Machine, Save to Wayback Machine, Archive/Unarchive, Delete), each a
-different width and wrapping unpredictably — noticeably more cluttered than
+different width and wrapping unpredictably, noticeably more cluttered than
 the native apps' grouped `Section`-based action list (§14).
 
 Regrouped rather than reaching for a dropdown/"more actions" menu: the top
 row keeps only the two most common actions (Open URL, Edit); a new "Actions"
 card lists the rest as stacked full-width rows (new `.action-list`/
-`.action-row` CSS — block-level, bordered dividers between rows, a
+`.action-row` CSS: block-level, bordered dividers between rows, a
 `--surface-2` hover); and Delete moved into its own "Danger zone" card,
 reusing the `.danger-zone` styling already used on the Settings and admin
 User Detail pages rather than introducing a new visual pattern. Chose this
@@ -1026,7 +1026,7 @@ over a kebab/dropdown menu because it needs no new JS interaction pattern
 keeps every action visible rather than hidden behind a click, which matters
 more on a page that isn't visited often enough to make a hidden menu
 muscle-memory. Conditional visibility (favicon present, Internet Archive
-enabled, `waybackURL` set, archived vs. not) is unchanged — only the layout
+enabled, `waybackURL` set, archived vs. not) is unchanged: only the layout
 grouping changed, not which buttons show when.
 
 ### Code-review follow-up: Wayback/dashboard hardening (8 findings fixed)
@@ -1055,7 +1055,7 @@ findings, all fixed:
   propagates) persistence failures.
 - **404-before-409 ordering:** the API's `submitToWayback` gated on the
   instance switch before `requireBookmark`, returning 409 for nonexistent or
-  foreign IDs while disabled — contradicting the OpenAPI contract and the
+  foreign IDs while disabled, contradicting the OpenAPI contract and the
   web handler's order. Reordered (ownership first) + regression test.
 - **`enqueue()` defense in depth:** it now refuses when the instance switch
   is off, so the "nothing goes `.pending` while disabled" invariant lives in
@@ -1075,7 +1075,7 @@ while the instance switch is off (documented intended behavior).
 
 ---
 
-## Feature: Instance management — update checker + full instance backup/restore
+## Feature: Instance management: update checker + full instance backup/restore
 
 Requested as the Jellyfin/Navidrome-style instance-operator conveniences
 Stash was missing: a "new version available" nudge, and a real disaster-
@@ -1093,14 +1093,14 @@ third shape for "background thing with a cached result." It checks GitHub's
 comfortably fits the app-wide 5s timeout; no dedicated `HTTPClient` needed,
 unlike Wayback's `/save` endpoint), decoding just `tag_name` and `html_url`.
 A container can't self-update, so the feature only ever surfaces "an update
-exists" — the actual upgrade is still the same `docker/podman compose pull
+exists"; the actual upgrade is still the same `docker/podman compose pull
 && up -d` documented in `Docs/backend-docker.md`; the Health page just
 repeats that command inline once an update is detected.
 
 `compareSemver` is a small pure function (parses `v1.2.3`/`1.2.3` into a
 `(major, minor, patch)` tuple and compares) deliberately kept dependency-free
 rather than pulling in a semver package for three integers. A `current`
-version of `"dev"` (no `VERSION` file — a from-source build) never reports
+version of `"dev"` (no `VERSION` file, a from-source build) never reports
 an update, since there's no real released version to compare against, and an
 unparseable tag on either side fails closed to "no update" rather than
 risking a false positive.
@@ -1112,7 +1112,7 @@ the Health page, for the fully offline/air-gapped deployment case the
 `192.168.1.x` local-network use case (§18) already anticipates elsewhere.
 Both the dashboard and the Health page call `refreshIfStale` on render
 (cheap: it's a no-op once a check is fresh, in flight, disabled, or under
-`.testing`), so there's no need for a scheduled job — the same "only refreshes
+`.testing`), so there's no need for a scheduled job: the same "only refreshes
 when an admin is actually looking" trade-off the favicon cache already
 accepted. `forceCheck` (the "Check now" button) is suppressed under
 `.testing` for the same reason every other outbound call in this codebase is:
@@ -1128,7 +1128,7 @@ reuse the per-user dedup rules verbatim (bookmark upsert by URL preserving
 `createdAt`, Smart View upsert by name, `SmartViewController`'s existing
 validators) so a restored library behaves identically to one built up
 through normal use, and a bad individual record is counted in `skipped`
-rather than aborting the whole restore — the same two-tier split
+rather than aborting the whole restore, the same two-tier split
 `StashJSONImporter` already established.
 
 The backup file is deliberately more than a "personal export": it carries
@@ -1142,18 +1142,18 @@ the favicon cache, and the audit log are deliberately excluded: the first is
 session state (everyone just signs back in), the other two are regenerable
 or purely operational.
 
-Restore is a merge keyed by `username`, never a destructive replace — nothing
+Restore is a merge keyed by `username`, never a destructive replace; nothing
 absent from the backup is ever deleted. The one property I was most careful
 to get right: an **existing** user's account fields (password hash, TOTP,
 role, active state) are never touched by a restore, only their
 bookmarks/Smart Views are merged in. That single rule is what makes the
 currently signed-in admin's own account self-lockout-proof by construction,
 with no special-cased "is this the acting admin?" branch anywhere in the
-restore loop — their account always already exists, so it can never fall
+restore loop: their account always already exists, so it can never fall
 into the "new user, write auth fields verbatim" branch. A **new** username,
 by contrast, is created with its backed-up role/active-state/password/2FA
 written as-is, which does mean a restore can introduce a second admin
-account or reactivate a suspended one — an accepted trade-off, since that's
+account or reactivate a suspended one, an accepted trade-off, since that's
 exactly what a cross-instance migration needs to actually work.
 
 The restore confirmation reuses the exact `DeleteAllBookmarksForm`-style
@@ -1179,7 +1179,7 @@ transaction commits, since it's an app-level cache update, not a DB write.
 
 Restore also had its own version of the N+1 pattern this project has
 deliberately avoided elsewhere: one dedup-lookup query per bookmark and per
-Smart View, fully synchronous inside a single HTTP request — fine for one
+Smart View, fully synchronous inside a single HTTP request: fine for one
 user's import via `/app`, but this runs across every user in the backup at
 once, and a real migration could plausibly carry thousands of records. Both
 `export` and `restore` now preload each user's existing rows into an
@@ -1194,7 +1194,7 @@ memory, the same shape the transaction-scoped restore lookups now use.
 Two smaller correctness fixes: the "Check now" button on `/admin/health`
 always flashed "Update check complete," even when `UpdateChecker.forceCheck`
 silently no-opped because checking was disabled or a check was already in
-flight — `forceCheck` now returns whether it actually ran, the button hides
+flight; `forceCheck` now returns whether it actually ran, the button hides
 itself once checking is disabled, and a genuine skip gets its own distinct
 flash rather than claiming success. And `UpdateChecker`'s semver `parse`
 took only the leading numeric prefix of the patch component
@@ -1210,7 +1210,7 @@ constant. And `InstanceBackupService` had its own private copy of the
 ISO-8601-with-fractional-seconds parsing fallback, a third copy of a pattern
 already duplicated between `StashJSONImporter` and `BookmarkController`; the
 new copy was extracted into a shared `FlexibleISO8601.date(from:)` used by
-`InstanceBackupService`. The other two pre-existing copies were left as-is —
+`InstanceBackupService`. The other two pre-existing copies were left as-is:
 both predate this feature and have no test coverage of their own, so
 consolidating them was out of scope for this pass; `InstanceBackupService`'s
 doc comment instead explicitly cross-references `StashJSONImporter` as the
@@ -1233,16 +1233,16 @@ The app version is bumped in the committed Info.plist files, **not** the
 `MARKETING_VERSION` build setting in `project.pbxproj`. `StashApp/Stash.xcodeproj`
 sets `GENERATE_INFOPLIST_FILE = NO` for every target, so Xcode never
 synthesizes `CFBundleShortVersionString` / `CFBundleVersion` from
-`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` — it just uses the checked-in
+`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`; it just uses the checked-in
 Info.plist verbatim, which makes that build setting dead weight and the
 plist the actual source of truth. This also keeps the script consistent with
 the existing rule against scripting `.pbxproj` rewrites (see the XcodeGen
 removal entry above): it never touches the project file at all. The script
-edits the version line with a targeted `sed`, not `PlistBuddy -c Set` —
+edits the version line with a targeted `sed`, not `PlistBuddy -c Set`:
 PlistBuddy rewrites and alphabetizes the *entire* plist on save, turning a
 one-line version bump into a large, unreviewable diff.
 
-It deliberately does **not** touch `CFBundleVersion` (the build number) —
+It deliberately does **not** touch `CFBundleVersion` (the build number);
 that increments independently of the short version, so bumping it is a
 separate, manual step. It also doesn't tag or commit anything; see
 `Docs/releasing.md` for the tagging step that follows.
@@ -1256,8 +1256,8 @@ plus one optional custom link (`footerCustomLabel` + `footerCustomURL`). The
 hardcoded approach was originally chosen so the Stash identity couldn't be
 accidentally omitted or overridden by an admin (see the "Site Settings &
 Admin Customization" entry above), but in practice every instance that isn't
-the original developer's wants its own links — a different GitHub repo, a
-different support link, no Ko-fi at all — and the only way to change them was
+the original developer's wants its own links, a different GitHub repo, a
+different support link, no Ko-fi at all, and the only way to change them was
 editing the Leaf template directly.
 
 All footer links are now fully editable by the admin through four label+URL
@@ -1265,7 +1265,7 @@ slots, stored as a JSON array in a new `footerLinks` column on `SiteSettings`.
 The migration (`AddSiteSettingsFooterLinks`) provides backward-compatible
 defaults: GitHub, Mastodon, Ko-fi, and one empty custom slot. The
 `FooterLink` struct (`label: String`, `url: String`) is a simple Codable
-value type, not a new model — it lives entirely inside `SiteSettings` as a
+value type, not a new model; it lives entirely inside `SiteSettings` as a
 JSON column, same pattern as Smart View conditions. URLs are validated for
 `https://` on save; empty slots (both label and URL empty) are hidden from the
 rendered footer.
@@ -1293,12 +1293,12 @@ before/after state.
 ## Public `GET /api/v1/instance` endpoint
 
 The accent theme was resolvable only inside a web request, via
-`Request.siteChrome()` reading the `SiteSettingsCache` — fine for Leaf
+`Request.siteChrome()` reading the `SiteSettingsCache`; fine for Leaf
 templates, useless for the native apps, which never render Leaf and have no
 concept of `Request`. Rather than build a client-side theme picker duplicating
 the backend's `AccentTheme` catalog, I added one small public endpoint,
 `InstanceController` at `GET /api/v1/instance`, returning the same resolved
-`{ theme, light, dark }` the web chrome already computes — reusing
+`{ theme, light, dark }` the web chrome already computes, reusing
 `AccentTheme.theme(for:)` against the same `SiteSettingsCacheKey` snapshot, so
 it costs no extra database hit and stays in lockstep with whatever the admin
 last saved.
@@ -1315,32 +1315,32 @@ chrome later (about text, footer links) without a breaking shape change.
 
 Turning Internet Archive submissions off from `/admin/internet-archive`
 (and, it turned out, the update-check toggle and the per-user archive
-preference — the same pattern, three places) failed with a JSON
+preference, the same pattern, three places) failed with a JSON
 `validation_failed` / `422 Unprocessable Entity` instead of saving. The
 handlers themselves were fine: `req.content.decode(...)` into a
 `Bool?`-only form and coalescing a missing key to `false` correctly
 handles an unchecked checkbox that simply isn't present in the submitted
-fields. The bug was one level down — when a checkbox is a form's *only*
+fields. The bug was one level down: when a checkbox is a form's *only*
 field, unchecking it means the browser POSTs a **completely empty** body
 (zero bytes), not a body missing just that key. Vapor's `Request.content.decode`
 guards on `request.body.data` before invoking any decoder and throws
 `Abort(.unprocessableEntity)` with no reason when the body is empty, which
 `StashErrorMiddleware` (applied globally, including `/admin` and `/app`
 HTML routes, not just the JSON API) serializes as
-`{"code":"validation_failed","message":"Unprocessable Entity"}` — a
+`{"code":"validation_failed","message":"Unprocessable Entity"}`, a
 generic, unhelpful message that gave no hint the real cause was an empty
 body, not a validation rule.
 
 The existing test for the toggle (`adminToggleDisables`) never caught this
 because it encoded a dummy `_unused` field to avoid sending a truly empty
-body — accidentally testing a request shape a real browser never sends.
+body, accidentally testing a request shape a real browser never sends.
 Reproducing the bug required posting with no body at all (but the real
 `Content-Type` header a browser always sets even on an empty POST).
 
 Fixed at the request layer, not the template: a new `Request.decodedCheckbox(named:)`
 helper (`Request+RenderHTML.swift`) checks `body.data`'s byte count before
 decoding, treating a zero-byte body the same as a body that decodes but is
-missing the key — both mean "unchecked". This is more robust than the
+missing the key, both mean "unchecked". This is more robust than the
 alternative (adding a hidden dummy field to each Leaf form so the body is
 never empty): it fixes the three existing single-checkbox forms in one
 place and any future one, without depending on every form remembering to
@@ -1359,13 +1359,13 @@ A second boolean flag on `Bookmark`, `isReadLater`, alongside `isArchived`:
 "save this for later" is a different intent from "I'm done with this and
 filing it away," and users kept wanting both at once (an archived RFC you
 still haven't gotten around to reading). The two flags are deliberately
-**independent** — setting one never clears the other, unlike some read-later
+**independent**: setting one never clears the other, unlike some read-later
 services that fold "read" into "archived." Same shape as `isArchived`
 end-to-end: a plain migration adding `is_read_later BOOLEAN NOT NULL DEFAULT
 false`, a model field, and optional fields on the create/update DTOs.
 
-Unlike `isArchived` — which the web frontend only ever sets after creation,
-via a dedicated detail-page action — `isReadLater` gets an add-time toggle on
+Unlike `isArchived`, which the web frontend only ever sets after creation,
+via a dedicated detail-page action, `isReadLater` gets an add-time toggle on
 every client's add form (a checkbox on the web form, a `Toggle` in the native
 `AddBookmarkView`, `--read-later` on `stash add`, a checkbox in the browser
 extension popup), since a user typically already knows at save time whether
@@ -1376,7 +1376,7 @@ mark-read` on the CLI), for the common case of marking something read after
 the fact.
 
 Added as a Smart View condition (`case isReadLater(Bool)`) for parity with
-`isArchived`/`hasTags`/`isWaybackArchived` — same `validated`/`apply` arms,
+`isArchived`/`hasTags`/`isWaybackArchived`: same `validated`/`apply` arms,
 same Yes/No value editor everywhere. Unlike `isArchived`, it does **not**
 get an implicit default filter (`applyConditions`'s `overridesArchived`
 check has no read-later equivalent): every other Smart View condition is
@@ -1390,7 +1390,7 @@ Today / This Week), I reused the existing sentinel-tag mechanism
 parameter the way `archived` works. This keeps the "Views" section entirely
 riding the same `?tag=` query slot across every client with almost no new
 surface area (no new `BookmarkListQuery` field, no new StashKit request
-field) — the trade-off is that, in the plain list endpoint, `__read_later__`
+field); the trade-off is that, in the plain list endpoint, `__read_later__`
 can't be combined with a real tag filter in the same request the way
 `archived` can. Power users who want "tag X AND read later" reach for a
 Smart View instead, which already supports arbitrary condition combinations.
@@ -1399,11 +1399,11 @@ One free win discovered while updating the import/export formats for the
 new field: Pinboard's own JSON format has a `toread` field that is exactly
 this concept. **Supersedes** the "Import: Netscape HTML, Raindrop CSV, and
 Pinboard JSON" entry above, which said `shared`/`toread` were "read and
-discarded: Stash has no public-sharing or read-later/unread concept" —
+discarded: Stash has no public-sharing or read-later/unread concept",
 `toread` now round-trips losslessly to/from `isReadLater` in both the
 Pinboard importer and exporter; only `shared` (no Stash equivalent) is still
 dropped. Every other format (Anybox, Netscape HTML, Raindrop CSV, and the
 lossless Stash JSON round-trip / instance backup) got the new field added
-alongside `isArchived` in whatever way that format already handled it —
+alongside `isArchived` in whatever way that format already handled it:
 included and round-tripped for Stash JSON and the instance backup, dropped
 (with an updated doc comment) for the formats with no equivalent concept.

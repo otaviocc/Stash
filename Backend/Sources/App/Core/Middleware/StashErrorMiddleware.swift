@@ -5,7 +5,7 @@ import Vapor
 
 // MARK: - ErrorResponse
 
-/// The single error envelope returned for every API error (PRD §17.4).
+/// The single error envelope returned for every API error (Docs/product-technical.md §19.4).
 struct ErrorResponse: Content {
 
     let error: Bool
@@ -15,7 +15,7 @@ struct ErrorResponse: Content {
 
 // MARK: - DuplicateURLErrorResponse
 
-/// The duplicate-URL envelope, which additionally carries the existing bookmark's ID (PRD §17.4).
+/// The duplicate-URL envelope, which additionally carries the existing bookmark's ID (Docs/product-technical.md §19.4).
 struct DuplicateURLErrorResponse: Content {
 
     let error: Bool
@@ -26,8 +26,8 @@ struct DuplicateURLErrorResponse: Content {
 
 // MARK: - StashErrorMiddleware
 
-/// Replaces Vapor's default error middleware so *all* errors — including 404s from
-/// unmatched routes and validation failures — serialize to the standard envelope.
+/// Replaces Vapor's default error middleware so *all* errors, including 404s from
+/// unmatched routes and validation failures, serialize to the standard envelope.
 struct StashErrorMiddleware: AsyncMiddleware {
 
     // MARK: Static Functions

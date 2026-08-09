@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// Smart View CRUD and live query execution, scoped to the authenticated user (PRD §9.7).
+/// Smart View CRUD and live query execution, scoped to the authenticated user (Docs/product-api.md §9.5).
 struct SmartViewController: RouteCollection {
 
     // MARK: Static Functions

@@ -10,7 +10,7 @@ import VaporTesting
 
 /// Verifies the offline-sync endpoints: `GET /bookmarks/changes`,
 /// `GET /bookmarks/deleted`, and the deletion tombstones that back them.
-@Suite("Bookmark sync — changes, deletions, isolation")
+@Suite("Bookmark sync: changes, deletions, isolation")
 struct BookmarkSyncTests {
 
     // MARK: Static Properties
@@ -182,7 +182,7 @@ struct BookmarkSyncTests {
                 bookmarkID: UUID(), userID: owner.requireID(), at: Date(), on: app.db
             )
 
-            // When / Then — changes
+            // When / Then: changes
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/changes",
                 headers: bearer(otherPair.accessToken)
@@ -191,7 +191,7 @@ struct BookmarkSyncTests {
                 #expect(page.items.isEmpty, "It should not surface another user's changed bookmarks")
             }
 
-            // When / Then — tombstones
+            // When / Then: tombstones
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/deleted",
                 headers: bearer(otherPair.accessToken)
@@ -315,7 +315,7 @@ struct BookmarkSyncTests {
             try await app.makeBookmark(for: user, url: "https://a.com")
             try await app.makeBookmark(for: user, url: "https://b.com")
 
-            // When / Then — above the ceiling: no error, both returned, no further pages
+            // When / Then: above the ceiling; no error, both returned, no further pages
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/changes?per=1000",
                 headers: bearer(pair.accessToken)
@@ -326,7 +326,7 @@ struct BookmarkSyncTests {
                 #expect(page.hasMore == false, "It should report no further pages")
             }
 
-            // When / Then — below the floor: per clamps to 1, so only one item and more remain
+            // When / Then: below the floor; per clamps to 1, so only one item and more remain
             try await app.testing().test(
                 .GET, "api/v1/bookmarks/changes?per=0",
                 headers: bearer(pair.accessToken)
@@ -362,7 +362,7 @@ struct BookmarkSyncTests {
     @Test("changes keyset pagination is stable under a concurrent edit")
     func changesKeysetStable() async throws {
         try await withTestApp { app in
-            // Given — three bookmarks at t1 < t2 < t3
+            // Given: three bookmarks at t1 < t2 < t3
             let user = try await app.makeUser()
             let pair = try await app.login(username: "otavio", password: "correct-horse-battery")
 
@@ -374,7 +374,7 @@ struct BookmarkSyncTests {
             try await setUpdatedAt(reference.addingTimeInterval(-20), id: second.requireID(), on: app.db)
             try await setUpdatedAt(reference.addingTimeInterval(-10), id: third.requireID(), on: app.db)
 
-            // When — page 1 (per=2) returns the two oldest and a keyset cursor
+            // When: page 1 (per=2) returns the two oldest and a keyset cursor
             var nextAfterUpdatedAt: String?
             var nextAfterId: UUID?
             try await app.testing().test(
@@ -391,10 +391,10 @@ struct BookmarkSyncTests {
                 nextAfterId = page.nextAfterId
             }
 
-            // A concurrent edit bumps the already-paged t1 to t4 (now the newest)
+            // When (a concurrent edit bumps the already-paged t1 to t4, now the newest)
             try await setUpdatedAt(reference.addingTimeInterval(60), id: first.requireID(), on: app.db)
 
-            // Then — page 2, continuing from the page-1 cursor, contains t3 AND the bumped t1; nothing skipped
+            // Then: page 2, continuing from the page-1 cursor, contains t3 AND the bumped t1; nothing skipped
             let afterUpdatedAt = try #require(nextAfterUpdatedAt)
             let afterId = try #require(nextAfterId)
             try await app.testing().test(
@@ -404,7 +404,7 @@ struct BookmarkSyncTests {
                 let page = try res.content.decode(ChangesPage<BookmarkResponse>.self)
                 #expect(
                     Set(page.items.map(\.url)) == ["https://t3.com", "https://t1.com"],
-                    "Page 2 should contain the untouched t3 and the bumped t1 — the keyset skips nothing"
+                    "Page 2 should contain the untouched t3 and the bumped t1; the keyset skips nothing"
                 )
             }
         }

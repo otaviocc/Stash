@@ -6,7 +6,7 @@ import SwiftUI
 // MARK: - SyncStatusSection
 
 /// The Settings "Sync" section for the iOS settings screen (a grouped `Form` section). A thin wrapper
-/// around `SyncStatusRows`; the macOS General tab — which is a `ScrollView`/`VStack`, not a `Form` —
+/// around `SyncStatusRows`; the macOS General tab (which is a `ScrollView`/`VStack`, not a `Form`)
 /// renders `SyncStatusRows` directly under its own header, so the two platforms share the row content
 /// while keeping their native containers.
 struct SyncStatusSection: View {
@@ -25,7 +25,7 @@ struct SyncStatusSection: View {
 /// The "Sync" rows shared by the iOS `Form` section and the macOS General tab's `VStack`.
 ///
 /// Shows when the last sync completed, how many changes are queued (only when any are), a manual
-/// "Sync Now" control, and — if the last attempt failed — a dismissible inline notice. Sync is a
+/// "Sync Now" control, and, if the last attempt failed, a dismissible inline notice. Sync is a
 /// background concern, so errors are surfaced here rather than as a blocking modal. The rows are a
 /// flat `Group` so a `Form` renders them as separate cells while a `VStack` stacks them.
 struct SyncStatusRows: View {
@@ -113,7 +113,7 @@ struct SyncStatusRows: View {
 
     private func makeErrorNotice() -> some View {
         HStack(spacing: 8) {
-            Label("Sync failed — tap Sync Now to retry", systemImage: "exclamationmark.triangle")
+            Label("Sync failed, tap Sync Now to retry", systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.secondary)
                 .font(.footnote)
             Spacer()

@@ -7,7 +7,7 @@ import VaporTesting
 @testable import App
 
 /// Verifies HTML metadata parsing and the authenticated metadata endpoint.
-@Suite("Metadata — HTML parsing")
+@Suite("Metadata: HTML parsing")
 struct MetadataTests {
 
     // MARK: Properties
@@ -87,7 +87,7 @@ struct MetadataTests {
 
     @Test("returns nil title/description for empty HTML but still a default favicon")
     func emptyHTML() {
-        // Given — no setup required
+        // Given: no setup required
 
         // When
         let meta = MetadataFetcher.parse(html: "", baseURL: base)
@@ -101,7 +101,7 @@ struct MetadataTests {
     @Test("POST /metadata requires authentication")
     func metadataRequiresAuth() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(

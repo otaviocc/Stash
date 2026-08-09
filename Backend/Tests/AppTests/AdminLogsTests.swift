@@ -72,7 +72,7 @@ struct AdminLogsTests {
     @Test("GET /admin/logs is rejected for unauthenticated requests")
     func requiresAdminSession() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(.GET, "admin/logs") { res async throws in

@@ -5,7 +5,7 @@ import Vapor
 
 // MARK: - CreateBookmarkInput
 
-/// `POST /bookmarks` body (PRD §9.3). `title`/`description` auto-fetched when omitted
+/// `POST /bookmarks` body (Docs/product-api.md §9.3). `title`/`description` auto-fetched when omitted
 /// and `fetchMetadata` is true (default).
 struct CreateBookmarkInput: Content {
 
@@ -33,7 +33,7 @@ struct ChangesPage<T: Content>: Content {
 
 // MARK: - UpdateBookmarkInput
 
-/// `PUT /bookmarks/:id` body — all fields optional; omitted fields are left unchanged.
+/// `PUT /bookmarks/:id` body: all fields optional; omitted fields are left unchanged.
 struct UpdateBookmarkInput: Content {
 
     let url: String?
@@ -46,7 +46,7 @@ struct UpdateBookmarkInput: Content {
 
 // MARK: - BookmarkListQuery
 
-/// `GET /bookmarks` query parameters (PRD §9.3).
+/// `GET /bookmarks` query parameters (Docs/product-api.md §9.3).
 struct BookmarkListQuery: Content {
 
     let q: String?
@@ -58,7 +58,7 @@ struct BookmarkListQuery: Content {
 
 // MARK: - MetadataRequest
 
-/// `POST /metadata` body (PRD §9.5).
+/// `POST /metadata` body (Docs/product-api.md §9.6).
 struct MetadataRequest: Content {
 
     let url: String
@@ -97,7 +97,7 @@ struct DeletedBookmarkResponse: Content {
 
 // MARK: - TagCount
 
-/// A tag with its bookmark count (PRD §9.4).
+/// A tag with its bookmark count (Docs/product-api.md §9.4).
 struct TagCount: Content {
 
     let name: String
@@ -134,7 +134,7 @@ struct TagDeleteResponse: Content {
 
 // MARK: - MetadataResponse
 
-/// `POST /metadata` response (PRD §9.5).
+/// `POST /metadata` response (Docs/product-api.md §9.6).
 struct MetadataResponse: Content {
 
     let title: String?

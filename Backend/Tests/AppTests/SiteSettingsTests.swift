@@ -10,7 +10,7 @@ import VaporTesting
 
 /// Verifies the site settings model, the admin appearance page, footer rendering, and the
 /// version file (Site Settings & Admin Customization).
-@Suite("SiteSettings — site settings & admin customization")
+@Suite("SiteSettings: site settings & admin customization")
 struct SiteSettingsTests {
 
     // MARK: - Site settings row
@@ -18,7 +18,7 @@ struct SiteSettingsTests {
     @Test("the default site settings row is created on first boot")
     func defaultRowSeeded() async throws {
         try await withTestApp { app in
-            // Given — a freshly booted app
+            // Given: a freshly booted app
 
             // When
             let all = try await SiteSettings.query(on: app.db).all()
@@ -256,7 +256,7 @@ struct SiteSettingsTests {
     @Test("the footer custom link is hidden when its label is empty")
     func footerLinkHidden() async throws {
         try await withTestApp { app in
-            // Given — the 4th slot has an empty label
+            // Given: the 4th slot has an empty label
             let settings = try await SiteSettingsService.current(on: app.db)
             settings.footerLinks = [
                 .init(label: "GitHub", url: "https://github.com/otaviocc/Stash"),
@@ -299,7 +299,7 @@ struct SiteSettingsTests {
         }
     }
 
-    @Test("the health page requires an admin session — unauthenticated requests redirect to login")
+    @Test("the health page requires an admin session: unauthenticated requests redirect to login")
     func healthPageRequiresAuth() async throws {
         try await withTestApp { app in
             // When
@@ -452,7 +452,7 @@ struct SiteSettingsTests {
         }
     }
 
-    @Test("the favicons page requires an admin session — unauthenticated requests redirect to login")
+    @Test("the favicons page requires an admin session: unauthenticated requests redirect to login")
     func faviconsPageRequiresAuth() async throws {
         try await withTestApp { app in
             // When
@@ -476,10 +476,10 @@ struct SiteSettingsTests {
         try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: directory) }
 
-        // When — no file present
+        // When: no file present
         #expect(AppVersion.read(directory: directory) == "dev", "It should fall back to dev when missing")
 
-        // When — a file is present
+        // When: a file is present
         try "2.3.4\n".write(toFile: directory + "/VERSION", atomically: true, encoding: .utf8)
         #expect(AppVersion.read(directory: directory) == "2.3.4", "It should read and trim the version string")
     }

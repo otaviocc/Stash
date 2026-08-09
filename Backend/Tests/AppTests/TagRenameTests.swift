@@ -7,7 +7,7 @@ import VaporTesting
 @testable import App
 
 /// Covers renaming a tag (and its descendants), including merge and no-op cases.
-@Suite("Tags — rename")
+@Suite("Tags: rename")
 struct TagRenameTests {
 
     @Test("renames the exact tag and its children, leaving others alone")

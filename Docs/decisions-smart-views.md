@@ -180,7 +180,7 @@ never calls the server-side `/smart-views/:id/bookmarks` results endpoint at all
 only for the CLI). What wasn't offline-capable was the list of Smart View *definitions* itself:
 `SmartViewRepository` cached the `GET /smart-views` response only in an in-process array, fetched once
 per launch. Offline on a cold launch, that fetch failed silently and the cache stayed empty, so the
-sidebars' Smart Views section — gated on having at least one — simply never appeared. There was nothing
+sidebars' Smart Views section (gated on having at least one) simply never appeared. There was nothing
 to tap, even though every Smart View's *results* were fully answerable from data already on disk.
 
 The fix adds a `LocalSmartView` SwiftData model alongside `LocalBookmark`, so `SmartViewRepository.load()`
@@ -189,21 +189,21 @@ a best-effort attempt to refresh from the server; a failed refresh is swallowed 
 already cached, and only propagates if the cache was genuinely empty too (the very first launch,
 offline). `reload()` (pull-to-refresh, and the management screen) keeps throwing on failure unconditionally,
 so a deliberate refresh still surfaces a real error. Since `GET /smart-views` returns the complete,
-unpaginated list every time — no delta cursor, no tombstones, the same "small enough not to bother"
-reasoning already applied to the deletions endpoint — reconciling the cache on each successful refresh is
+unpaginated list every time (no delta cursor, no tombstones, the same "small enough not to bother"
+reasoning already applied to the deletions endpoint), reconciling the cache on each successful refresh is
 a straightforward full replace: update rows present in the response, insert new ones, delete local rows
 absent from it.
 
 Two deliberate simplifications versus `LocalBookmark`: no local/server id split (a Smart View is never
 authored offline, so every cached row always mirrors a real server record, and `id` doubles as the
-server id), and no pending-write bookkeeping at all — authoring stays online-only, unchanged, and still
+server id), and no pending-write bookkeeping at all: authoring stays online-only, unchanged, and still
 fails outright with a visible error when offline (evaluated and explicitly deferred, not an oversight;
 building a Smart View offline-write queue akin to the bookmark one felt like meaningfully more risk for
 a rarely-used, low-frequency write path). Every read is scoped by `userID` from the very first line of
 code, rather than repeating the bookmark store's own documented residual gap of shipping without one.
 The two sign-out paths also diverge on purpose: an explicit "Sign Out" wipes the cached Smart Views
 entirely (the next person on the device must never inherit them), while an involuntary session clear
-leaves them untouched — there's no pending state to lose, and the `userID` scoping already makes it safe
+leaves them untouched: there's no pending state to lose, and the `userID` scoping already makes it safe
 for a different user to sign in afterward, so preserving the cache just means the *same* user's Smart
 Views come back instantly, offline, the moment they sign back in.
 
@@ -217,11 +217,25 @@ too, instead of only refreshing on each sidebar's own first appearance per sessi
 A fourth boolean condition, alongside `isArchived`/`hasTags`/
 `isWaybackArchived`, added as part of the "Read Later" feature (see
 `decisions-backend.md`). Same mechanical shape as the other three: a new
-`SmartViewCondition` case, one `validated`/`apply` arm each, and — unlike
-`isArchived` — no interaction with `applyConditions`'s default-archived-
+`SmartViewCondition` case, one `validated`/`apply` arm each, and, unlike
+`isArchived`, no interaction with `applyConditions`'s default-archived-
 filter override, since read-later has no implicit default to override.
 Every surface that already special-cases the three existing boolean
 conditions (the web presenter/JS's `isBool` lists, the native
 `SmartViewConditionType.valueKind` switch and its Yes/No `Picker`, the
 offline `BookmarkFilter` evaluator) picked up the fourth for free by
 extension rather than needing new code paths.
+
+## `GET /smart-views/{id}/bookmarks` silently drops query, tag, and archived
+
+Noticed during the OpenAPI accuracy pass ahead of the open-source release:
+`runSmartView` decodes the full `BookmarkListQuery` off the request, the same
+struct `GET /bookmarks` uses, but only reads `page`/`per` from it. `q`, `tag`,
+and `archived` are accepted on the wire and silently ignored; a caller who
+expects to narrow a Smart View's results with a search term gets the
+unfiltered results back instead. Left as-is rather than fixed, since a Smart
+View's whole point is that its own conditions define the query; a caller who
+wants an additional filter should add a condition instead of stacking a raw
+query param on top. The OpenAPI spec was already right to document only
+`page`/`per` here; this is a note for the next person confused by the extra
+fields the decoded struct exposes.

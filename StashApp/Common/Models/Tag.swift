@@ -127,7 +127,7 @@ extension String {
 
 extension [Tag] {
 
-    /// Returns tags whose name — or any `/`-delimited segment of it — begins with the given prefix,
+    /// Returns tags whose name, or any `/`-delimited segment of it, begins with the given prefix,
     /// case-insensitively. Mirrors the web frontend's per-segment autocomplete, so typing `music`
     /// surfaces `music`, `kind/music-gear`, and `learning/music-theory`.
     func autocomplete(prefix: String) -> [Tag] {

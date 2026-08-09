@@ -1,7 +1,8 @@
 # Browser extension
 
-Save the current page to your Stash instance from Firefox or Chrome (including
-Zen) with one click. It lives in the top-level `Extension/` folder and talks
+Save the current page to your Stash instance from Firefox (including Zen, a
+Firefox fork) or Chrome with one click. It lives in the top-level `Extension/`
+folder and talks
 directly to the backend over the public REST API ([`/api/v1/`](api.md)); there
 are no backend, [StashKit](stashkit.md), or native-app changes behind it.
 
@@ -11,7 +12,7 @@ later" checkbox, and a "Save" button.
 
 ## Prerequisites
 
-- Firefox, or a Chromium browser (Chrome, Zen, …)
+- Firefox (or a Firefox fork such as Zen), or Chrome
 - A running Stash instance you can sign in to, see
   [Running with Docker](backend-docker.md)
 - Only for packaging the extension yourself: `zip`, `python3` (Pillow, for icons),
@@ -39,9 +40,9 @@ Chrome) **and** `scripts` (used by Firefox/Zen, which do not enable
 
 ## Installation (development)
 
-- **Firefox:** open `about:debugging` → **This Firefox** → **Load Temporary
-  Add-on…** → select `Extension/manifest.json`.
-- **Chrome / Zen:** open `chrome://extensions` → enable **Developer mode** →
+- **Firefox / Zen:** open `about:debugging` → **This Firefox** (or **This
+  Zen**) → **Load Temporary Add-on…** → select `Extension/manifest.json`.
+- **Chrome:** open `chrome://extensions` → enable **Developer mode** →
   **Load unpacked** → select the `Extension/` folder.
 
 ## First-time setup
@@ -102,9 +103,10 @@ The core targets need only `zip`, `python3`, and (optionally) `node`, no npm or
 bundler. `make package` zips just the runtime files (the dev tooling and Makefile
 are excluded).
 
-CI mirrors this: `ci.yml` runs `make lint` on every push/PR, and `release.yml`
-runs `make package` on a `v*.*.*` tag and attaches the zip to the GitHub Release
-(see [Releasing a new version](releasing.md)).
+CI mirrors this: `ci.yml` runs `make lint` on pushes and PRs that touch
+non-documentation files, and `release.yml` runs `make package` on a `v*.*.*`
+tag and attaches the zip to the GitHub Release (see
+[Releasing a new version](releasing.md)).
 
 ## Icons
 

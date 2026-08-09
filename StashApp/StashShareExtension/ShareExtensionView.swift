@@ -9,7 +9,7 @@ import SwiftUI
 ///
 /// Drives a small state machine: it bootstraps (reads the shared tokens, resolves the shared URL),
 /// then shows either a "sign in first" message (no server or no tokens), the shared add-bookmark
-/// form, or — after a save — a confirmation with an undo option that auto-dismisses. All exits go
+/// form, or, after a save, a confirmation with an undo option that auto-dismisses. All exits go
 /// back to the host through the `NSExtensionContext`.
 struct ShareExtensionView: View {
 
@@ -173,7 +173,7 @@ struct ShareExtensionView: View {
     }
 
     private func cancel() {
-        extensionContext.cancelRequest(withError: ExtensionCancellation.userCancelled)
+        extensionContext.cancelRequest(withError: ExtensionCancellation.userCanceled)
     }
 }
 
@@ -286,5 +286,5 @@ struct MissingExtensionContextView: View {
 /// The error passed to `cancelRequest(withError:)` when the user dismisses the extension.
 enum ExtensionCancellation: Error {
 
-    case userCancelled
+    case userCanceled
 }

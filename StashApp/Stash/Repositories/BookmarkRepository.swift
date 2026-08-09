@@ -6,13 +6,14 @@ import StashKit
 
 /// Provides access to the current user's bookmarks, reading from the local SwiftData store.
 ///
-/// Reads come entirely from `LocalStore` — the query, search, tag, recency, and Smart View filters all
+/// Reads come entirely from `LocalStore`: the query, search, tag, recency, and Smart View filters all
 /// run in memory against the local copy, so browsing works offline. Writes are optimistic: each
 /// create/update/delete applies to the local store and returns immediately (so the UI updates
 /// instantly, online or off), then triggers a background `SyncEngine` cycle that pushes the queued
 /// change and reconciles this list with the server's authoritative result. The local store is
-/// populated by the sync engine's first full pull; this repository never fetches the list itself.
-/// Each visible list owns its own instance so their pagination windows stay independent.
+/// populated by the sync engine's first full pull; this repository never fetches the bookmark list
+/// itself, though it does call out to `session.authorizedClient()` directly for on-demand metadata
+/// fetches. Each visible list owns its own instance so their pagination windows stay independent.
 @MainActor
 @Observable
 final class BookmarkRepository: BookmarkCreating {
@@ -188,7 +189,7 @@ final class BookmarkRepository: BookmarkCreating {
 
     /// Pushes the queued change in the background and refreshes this list when it finishes, so the
     /// optimistic local row is reconciled with the server's authoritative result (real ID, normalized
-    /// tags, fetched metadata) without blocking the caller on the network. Uses the push-only path —
+    /// tags, fetched metadata) without blocking the caller on the network. Uses the push-only path:
     /// a write has nothing to pull, so a full sync here would be a wasted round-trip.
     private func scheduleSync() {
         Task {

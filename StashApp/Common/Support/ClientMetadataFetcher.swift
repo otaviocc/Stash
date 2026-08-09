@@ -7,8 +7,8 @@ import Foundation
 
 /// Fetches and parses page metadata (title, description, favicon) directly on-device.
 ///
-/// A verbatim port of the backend's `MetadataFetcher` (PRD §10) so the native app and Share
-/// Extension can retrieve metadata even when the Stash backend is out of reach — the browser
+/// A verbatim port of the backend's `MetadataFetcher` (Docs/product-api.md §10) so the native app and Share
+/// Extension can retrieve metadata even when the Stash backend is out of reach; the browser
 /// still has to reach the target site, but no round-trip through the backend is needed. `fetch`
 /// never throws: on timeout / non-2xx / parse failure it returns whatever it could determine (often
 /// just the `/favicon.ico` fallback, or all-nil), so an add never blocks. The 5-second timeout with

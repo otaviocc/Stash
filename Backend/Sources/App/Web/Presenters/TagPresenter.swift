@@ -4,7 +4,7 @@
 import Foundation
 
 /// Pure presentation helpers for tags in the user-facing web frontend: hierarchical display,
-/// sidebar-tree building, and tag-filter URL building. No request or database access — the web
+/// sidebar-tree building, and tag-filter URL building. No request or database access; the web
 /// controllers load the data and call these to shape it for Leaf.
 enum TagPresenter {
 

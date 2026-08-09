@@ -9,7 +9,7 @@ import Testing
 // MARK: - SmartViewRequestFactoryTests
 
 /// Verifies the paths, methods, and query items produced by `SmartViewRequestFactory`.
-@Suite("SmartViewRequestFactory — paths and query items")
+@Suite("SmartViewRequestFactory: paths and query items")
 struct SmartViewRequestFactoryTests {
 
     // MARK: Properties

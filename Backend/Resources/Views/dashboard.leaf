@@ -8,7 +8,7 @@
         #if(updateReleaseURL):
         <a href="#(updateReleaseURL)" target="_blank" rel="noopener noreferrer">Release notes</a>
         #endif
-        — see <a href="/admin/health">Health</a> for upgrade instructions.
+        See <a href="/admin/health">Health</a> for upgrade instructions.
     </p>
     #endif
 

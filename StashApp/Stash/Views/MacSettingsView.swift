@@ -10,8 +10,8 @@
     ///
     /// The signed-in/out switch lives here, above the `TabView`, not inside the tabs: `TabView`
     /// caches its tab content, so a guard inside a tab would not re-render when `isAuthenticated`
-    /// flips (e.g. on sign-out). Swapping the whole `TabView` for the signed-out view — the way
-    /// `RootView` swaps its top-level content — re-evaluates reliably.
+    /// flips (e.g. on sign-out). Swapping the whole `TabView` for the signed-out view, the way
+    /// `RootView` swaps its top-level content, re-evaluates reliably.
     struct MacSettingsView: View {
 
         // MARK: SwiftUI Properties
@@ -73,7 +73,7 @@
 
         /// Discovered eagerly, not in `.onAppear`: `discoverAll()` is a synchronous Launch Services
         /// query, so populating this lazily left the Picker's first render with an empty list and a
-        /// persisted selection that matched no `.tag()` yet — SwiftUI logs "selection … is invalid"
+        /// persisted selection that matched no `.tag()` yet; SwiftUI logs "selection … is invalid"
         /// for that one frame. An eager initial value removes the gap entirely.
         @State private var browsers = InstalledBrowser.discoverAll()
 

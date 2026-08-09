@@ -6,10 +6,10 @@ import StashKit
 
 /// Provides access to the current user's tags, derived from the local bookmark store.
 ///
-/// Tags are computed by counting each tag across the locally stored bookmarks — the same aggregation
-/// the backend's `/tags` endpoint performs — and cached for synchronous, local autocomplete. `load()`
+/// Tags are computed by counting each tag across the locally stored bookmarks (the same aggregation
+/// the backend's `/tags` endpoint performs) and cached for synchronous, local autocomplete. `load()`
 /// derives once; `reload()` recomputes (pull-to-refresh); `refresh()` recomputes after a bookmark
-/// mutation, leaving the current tags visible until the new set is ready — so observing views (notably
+/// mutation, leaving the current tags visible until the new set is ready, so observing views (notably
 /// the always-mounted macOS sidebar) never flash empty. `reset()` clears the cache on sign-out so the
 /// next user never sees the previous user's tags.
 @MainActor
@@ -25,7 +25,7 @@ final class TagRepository: TagAutocompleting {
     private(set) var tagHierarchy: [TagNode] = []
 
     /// The depth-tagged, flattened form of `tagHierarchy` consumed by the always-visible sidebars.
-    /// Cached for the same reason as `tagHierarchy` — so a sidebar body re-evaluation (e.g. every
+    /// Cached for the same reason as `tagHierarchy`: so a sidebar body re-evaluation (e.g. every
     /// selection tap) reads it instead of re-walking the tree.
     private(set) var flattenedTagHierarchy: [FlatTagNode] = []
 
@@ -65,7 +65,7 @@ final class TagRepository: TagAutocompleting {
     }
 
     /// Returns cached tags matching the given prefix (case-insensitive, per-segment). Synchronous
-    /// and local — it never performs a request.
+    /// and local; it never performs a request.
     func autocompleteTags(prefix: String) -> [Tag] {
         tags.autocomplete(prefix: prefix)
     }

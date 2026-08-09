@@ -8,7 +8,7 @@ import Vapor
 
 // MARK: - AdminWebController
 
-/// Server-rendered web admin dashboard (PRD §11). Session-cookie auth, mounted at `/admin`,
+/// Server-rendered web admin dashboard (Docs/product-web.md §12). Session-cookie auth, mounted at `/admin`,
 /// entirely separate from the JSON `/api/v1/*` endpoints. Enforces the same business rules as
 /// the admin API: accounts are always created as `user`, self-deletion is blocked, and a
 /// password reset (or suspension) invalidates the target's refresh tokens.
@@ -19,19 +19,19 @@ struct AdminWebController: RouteCollection {
     /// Formats the drain worker's current phase into a short admin-facing sentence. `internal`, not
     /// `private`, so it's directly unit-testable without needing a live worker/database.
     static func queueStatusText(enabled: Bool, pendingCount: Int, state: WaybackWorker.QueueState) -> String {
-        guard enabled else { return "Disabled — no submissions will run." }
+        guard enabled else { return "Disabled: no submissions will run." }
 
         switch state {
         case .idle:
             return pendingCount > 0
-                ? "Paused — \(pendingCount) bookmark\(pendingCount == 1 ? "" : "s") queued, waiting to start."
-                : "Idle — nothing queued."
+                ? "Paused: \(pendingCount) bookmark\(pendingCount == 1 ? "" : "s") queued, waiting to start."
+                : "Idle: nothing queued."
         case let .submitting(url):
             return "Submitting now: \(url)"
         case .waitingNormalPace:
-            return "Running — next submission in about 30 seconds."
+            return "Running: next submission in about 30 seconds."
         case let .waitingAfterRateLimit(url, attempt, maxAttempts):
-            return "Rate-limited — retrying \(url) in about 5 minutes (attempt \(attempt + 1) of \(maxAttempts))."
+            return "Rate-limited: retrying \(url) in about 5 minutes (attempt \(attempt + 1) of \(maxAttempts))."
         }
     }
 
@@ -301,7 +301,7 @@ struct AdminWebController: RouteCollection {
     }
 
     /// Forces an immediate update check (the "Check now" button), ignoring the normal 24h
-    /// staleness window — still a no-op if the admin has disabled update checking or a check is
+    /// staleness window; still a no-op if the admin has disabled update checking or a check is
     /// already in flight, in which case the flash reflects that nothing actually ran rather than
     /// always claiming success.
     func checkUpdates(req: Request) async throws -> Response {
@@ -659,6 +659,10 @@ struct AdminWebController: RouteCollection {
         return try await renderSessions(req, message: message, error: nil)
     }
 
+    /// Destroys the current request's own session explicitly, on top of clearing the store: it was
+    /// cached before the store was cleared above, and `SessionsMiddleware` writes that cached copy
+    /// back to the store when the response is sent, so without this "revoke all" would not actually
+    /// include the admin's own session, contradicting the flash copy.
     func revokeAllSessionsPage(req: Request) async throws -> Response {
         let admin = try req.auth.require(User.self)
 
@@ -673,14 +677,13 @@ struct AdminWebController: RouteCollection {
             on: req.db
         )
 
-        // The current request's own session was cached before the store was cleared above,
-        // and SessionsMiddleware writes that cached copy back to the store when the response
-        // is sent — destroying it here (rather than leaving it to naturally expire) makes
-        // "revoke all" actually include the admin's own session, matching the flash copy.
         req.session.destroy()
         return req.redirect(to: "/admin/sessions?ok=sessions-revoked-all")
     }
 
+    /// Has the same self-revocation subtlety as `revokeAllSessionsPage`: if the admin targeted their
+    /// own account, the current request's cached session also has to be destroyed explicitly, or
+    /// `SessionsMiddleware` will write it straight back into the store when the response is sent.
     func revokeUserSessionsPage(req: Request) async throws -> Response {
         let admin = try req.auth.require(User.self)
         let form = try req.content.decode(RevokeUserSessionsForm.self)
@@ -705,9 +708,6 @@ struct AdminWebController: RouteCollection {
             on: req.db
         )
 
-        // Same self-revocation subtlety as revokeAllSessionsPage: if the admin targeted their
-        // own account, destroy the current request's cached session too, or SessionsMiddleware
-        // will write it straight back into the store when the response is sent.
         if targetID == (try? admin.requireID()) {
             req.session.destroy()
         }
@@ -809,7 +809,7 @@ struct AdminWebController: RouteCollection {
         try await requeueInternetArchive(matching: [.none, .failed], flashKey: "ia_queued", req: req)
     }
 
-    /// Manually nudges the drain worker — a safe no-op if it's already draining (`kick()` is
+    /// Manually nudges the drain worker, a safe no-op if it's already draining (`kick()` is
     /// idempotent), useful if the queue ever looks paused/stuck without an obvious trigger to resume
     /// it (a new bookmark, a bulk action, or a restart).
     func resumeInternetArchive(req: Request) async throws -> Response {
@@ -823,12 +823,12 @@ struct AdminWebController: RouteCollection {
 
     // MARK: - Logs
 
+    /// The dropdown in `logs.leaf` only offers `.info`/`.warning`/`.error`; anything else (a
+    /// hand-crafted `?level=critical`, say) is treated as no filter, so the rendered selection
+    /// never silently diverges from what's actually being filtered.
     func logsPage(req: Request) async throws -> View {
         let admin = try req.auth.require(User.self)
 
-        // The dropdown in logs.leaf only offers these three; anything else (a hand-crafted
-        // ?level=critical, say) is treated as no filter, so the rendered selection never
-        // silently diverges from what's actually being filtered.
         let selectableLevels: Set<Logger.Level> = [.info, .warning, .error]
         let rawLevel = req.query[String.self, at: "level"]?.nonEmpty
         let selectedLevel = rawLevel
@@ -940,7 +940,7 @@ struct AdminWebController: RouteCollection {
     // MARK: - Health helpers
 
     /// Pings the database with a trivial `SELECT 1` to confirm connectivity, and reports which
-    /// driver is active. Never throws — a failed connection is reported as an `"error"` status
+    /// driver is active. Never throws: a failed connection is reported as an `"error"` status
     /// string rather than surfacing an exception to the page.
     private func checkDatabase(_ req: Request) async -> (statusText: String, isOK: Bool, driver: String) {
         let driver = req.application.environment == .testing ? "SQLite" : "Postgres"
@@ -985,7 +985,7 @@ struct AdminWebController: RouteCollection {
     }
 
     /// Reads filesystem free/total space for the working directory. Returns `"unavailable"` on any
-    /// failure rather than crashing the page — disk introspection is a nice-to-have, not essential.
+    /// failure rather than crashing the page; disk introspection is a nice-to-have, not essential.
     private func diskUsageSummary(req: Request) -> String {
         let path = req.application.directory.workingDirectory
 

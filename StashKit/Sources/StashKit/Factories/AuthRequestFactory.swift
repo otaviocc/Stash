@@ -71,7 +71,7 @@ public enum AuthRequestFactory {
 
     public static func makeTOTPVerifyRequest(
         code: String
-    ) -> NetworkRequest<TOTPVerifyRequest, TOTPEnrolmentDTO> {
+    ) -> NetworkRequest<TOTPVerifyRequest, TOTPEnrollmentDTO> {
         .init(
             path: "/api/v1/auth/totp/verify-setup",
             method: .post,

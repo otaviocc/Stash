@@ -12,7 +12,7 @@ struct MiddlewareErrorTests {
     @Test("health check is reachable and unversioned")
     func health() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(.GET, "health") { res async throws in
@@ -27,7 +27,7 @@ struct MiddlewareErrorTests {
     @Test("unauthenticated request to a protected route is rejected with 401")
     func unauthenticatedRejected() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(.GET, "api/v1/me") { res async throws in
@@ -43,7 +43,7 @@ struct MiddlewareErrorTests {
     @Test("a garbage bearer token is rejected with token_invalid")
     func garbageToken() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(
@@ -61,7 +61,7 @@ struct MiddlewareErrorTests {
     @Test("unmatched route returns a 404 in the standard envelope")
     func notFoundEnvelope() async throws {
         try await withTestApp { app in
-            // Given — no setup required
+            // Given: no setup required
 
             // When
             try await app.testing().test(.GET, "api/v1/does-not-exist") { res async throws in

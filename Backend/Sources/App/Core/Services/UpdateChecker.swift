@@ -93,7 +93,7 @@ struct UpdateStatusCacheKey: StorageKey {
 
 // MARK: - GitHubRelease
 
-/// Decoded shape of GitHub's `GET /repos/:owner/:repo/releases/latest` response — only the two
+/// Decoded shape of GitHub's `GET /repos/:owner/:repo/releases/latest` response: only the two
 /// fields this feature actually needs.
 private struct GitHubRelease: Decodable {
 
@@ -117,7 +117,7 @@ private struct GitHubRelease: Decodable {
 /// (`AppVersionKey` / the `VERSION` file), and caches the result so admin page renders never block
 /// on network. Modeled on `SiteSettingsService`'s app-level-cache pattern and
 /// `WaybackSubmitter`'s detached-refresh pattern. A container can't self-update, so this only ever
-/// surfaces "a newer version exists" — the actual upgrade is a `docker/podman compose pull && up
+/// surfaces "a newer version exists"; the actual upgrade is a `docker/podman compose pull && up
 /// -d` the admin runs by hand; see `/admin/health`.
 enum UpdateChecker {
 
@@ -185,7 +185,7 @@ enum UpdateChecker {
     }
 
     /// Parses `v1.2.3` / `1.2.3`-style versions into `(major, minor, patch)` and returns whether
-    /// `latest` is strictly newer than `current`. A `current` of `"dev"` (no `VERSION` file — a
+    /// `latest` is strictly newer than `current`. A `current` of `"dev"` (no `VERSION` file, a
     /// from-source dev build) never reports an update available, since there's no meaningful released
     /// version to compare against. An unparseable `current` or `latest` also never reports an update,
     /// rather than risking a false positive from a malformed tag. Pure and unit-tested independent of
@@ -200,7 +200,7 @@ enum UpdateChecker {
 
     /// Performs the actual GitHub API call and writes the result into the cache. Never throws: any
     /// failure (network, non-2xx, decode) is recorded as `checkFailed` rather than propagated, since a
-    /// failed update check must never affect anything else on the page — matching the same
+    /// failed update check must never affect anything else on the page, matching the same
     /// never-throws contract `MetadataFetcher.fetch` and `FaviconFetcher` already follow for their own
     /// outbound calls.
     private static func check(on app: Application) async {

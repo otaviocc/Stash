@@ -6,7 +6,7 @@ import Vapor
 // MARK: - LandingPageContext
 
 /// View context for the public landing page at `/` (unauthenticated). `aboutText` is surfaced
-/// directly here — in addition to the footer copy carried by `chrome` — so the page can show an
+/// directly here, in addition to the footer copy carried by `chrome`, so the page can show an
 /// "About this instance" card between the hero and the features when the admin has set one.
 struct LandingPageContext: Content {
 
@@ -68,7 +68,7 @@ struct AppDisableTOTPForm: Content {
 
 // MARK: - ImportForm
 
-/// `POST /app/import` multipart form — the selected format and the uploaded file.
+/// `POST /app/import` multipart form: the selected format and the uploaded file.
 struct ImportForm: Content {
 
     let format: String
@@ -77,7 +77,7 @@ struct ImportForm: Content {
 
 // MARK: - DeleteAllBookmarksForm
 
-/// `POST /app/settings/delete-all-bookmarks` form — the typed confirmation phrase.
+/// `POST /app/settings/delete-all-bookmarks` form: the typed confirmation phrase.
 struct DeleteAllBookmarksForm: Content {
 
     let confirm: String
@@ -85,7 +85,7 @@ struct DeleteAllBookmarksForm: Content {
 
 // MARK: - ThemeForm
 
-/// `POST /app/settings/theme` form — the selected theme (`light` / `dark` / `auto`).
+/// `POST /app/settings/theme` form: the selected theme (`light` / `dark` / `auto`).
 struct ThemeForm: Content {
 
     let theme: String
@@ -104,7 +104,7 @@ struct TagLink: Content {
 
 /// One row of the flattened, pre-ordered tag tree shown in the bookmark-list sidebar.
 /// `count` is the visible (non-archived) tally; `totalCount` includes archived bookmarks, and
-/// `hiddenCount` is their difference — so the sidebar can render the same split count badge as the
+/// `hiddenCount` is their difference, so the sidebar can render the same split count badge as the
 /// native apps (accent "visible" half, muted "hidden" half) without arithmetic in the template.
 struct SidebarTag: Content {
 
@@ -256,7 +256,7 @@ struct AppTagsContext: Content {
 
 // MARK: - TagRenameForm
 
-/// `POST /app/tags/rename` form — `from` (hidden, the current tag) and `to` (the new name).
+/// `POST /app/tags/rename` form: `from` (hidden, the current tag) and `to` (the new name).
 struct TagRenameForm: Content {
 
     let from: String
@@ -265,7 +265,7 @@ struct TagRenameForm: Content {
 
 // MARK: - TagDeleteForm
 
-/// `POST /app/tags/delete` form — `tag` (hidden, the tag to delete with its children).
+/// `POST /app/tags/delete` form: `tag` (hidden, the tag to delete with its children).
 struct TagDeleteForm: Content {
 
     let tag: String

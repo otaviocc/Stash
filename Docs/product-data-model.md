@@ -35,7 +35,7 @@ _Part of the Stash Product Requirements Document. See [`PRODUCT.md`](../PRODUCT.
 | `tags` | [String] | Flat or hierarchical (e.g. `swift/vapor`). JSON column. |
 | `tagsSearch` | String | Derived: `\|swift\|swift/vapor\|` for portable LIKE queries |
 | `isArchived` | Bool | Default false. Stash's own archive/inbox flag, unrelated to `waybackStatus` below. |
-| `isReadLater` | Bool | Default false. Marked to read later. Independent of `isArchived` — neither flag clears the other. |
+| `isReadLater` | Bool | Default false. Marked to read later. Independent of `isArchived`; neither flag clears the other. |
 | `waybackStatus` | Enum | `none` (default), `pending`, `archived`, or `failed`. Internet Archive (Wayback Machine) submission state. |
 | `waybackURL` | String? | The captured snapshot's URL, set once `waybackStatus` is `archived` |
 | `waybackArchivedAt` | Date? | When the snapshot was last captured |
@@ -53,7 +53,7 @@ pace), setting `archived` + `waybackURL` on success or `failed` on a genuine
 error. A `429` (the anonymous endpoint's rate limit; observed in practice to
 be common from server/datacenter IPs) is treated as transient rather than
 terminal: the bookmark stays `pending` and is retried automatically after a
-longer backoff, rather than requiring a manual "Retry failed" — up to 3
+longer backoff, rather than requiring a manual "Retry failed", up to 3
 consecutive rate-limited attempts, after which the bookmark gives up and
 falls back to `failed` like any other error, so one persistently
 rate-limited bookmark can't block every other bookmark queued behind it
@@ -156,8 +156,8 @@ accent.
 The selected theme's values are injected into `layout.leaf`'s `<head>` as a CSS
 block overriding `--accent`, from the app-level cache (no per-request query).
 The resolved light/dark hex is also exposed to non-web clients via `GET
-/api/v1/instance` (§9.9). No client consumes it yet — the native apps tried
-and reverted it (see `DECISIONS.md`) — but the endpoint stays for a future
+/api/v1/instance` (§9.9). No client consumes it yet: the native apps tried
+and reverted it (see `Docs/decisions-native-apps.md`), but the endpoint stays for a future
 redesign.
 
 ### 7.7 Smart View
@@ -193,7 +193,7 @@ Each condition is a `{ type, value }` object (all values strings; dates ISO-8601
 | `newerThan` | `createdAt` is within the last N days/months/years (relative to now) |
 | `isArchived` | `isArchived` equals `true`/`false` |
 | `hasTags` | `tagsSearch` is non-empty (`true`) or empty (`false`); i.e. the bookmark has any tags |
-| `isWaybackArchived` | `waybackStatus` equals `archived` (`true`), or anything else — `none`/`pending`/`failed` (`false`); i.e. whether the bookmark has a captured Internet Archive snapshot |
+| `isWaybackArchived` | `waybackStatus` equals `archived` (`true`), or anything else, `none`/`pending`/`failed` (`false`); i.e. whether the bookmark has a captured Internet Archive snapshot |
 | `isReadLater` | `isReadLater` equals `true`/`false` |
 
 Text conditions use the same portable `lower(column) LIKE lower('%value%')` helper
@@ -264,7 +264,7 @@ it) but the column is retained.
 A narrow, best-effort admin audit trail: auth events (login success, login failure,
 logout) and admin user-management actions (create, suspend, unsuspend, password
 reset, TOTP reset, delete, site-appearance changes). Deliberately excludes bookmark,
-tag, and Smart View CRUD — too high-volume and low audit value to be worth crowding
+tag, and Smart View CRUD: too high-volume and low audit value to be worth crowding
 the viewer.
 
 | Field | Type | Notes |
@@ -279,7 +279,7 @@ the viewer.
 Writes are best-effort and non-throwing from the caller's side: a login or admin
 action must never fail because the audit write did. An action that always runs but
 doesn't actually change anything (e.g. suspending an already-suspended user, or
-resetting TOTP for a user with no 2FA configured) does not write a row — only real
+resetting TOTP for a user with no 2FA configured) does not write a row; only real
 state transitions are logged. Viewed at `/admin/audit`, most recent 50 rows, no
 pagination or filtering.
 

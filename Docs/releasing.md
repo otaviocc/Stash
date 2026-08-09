@@ -21,7 +21,7 @@ you never repeat this step.
 
 ## Cutting a release
 
-First, bump the version numbers and commit them — `Backend/VERSION` is what
+First, bump the version numbers and commit them. `Backend/VERSION` is what
 ends up baked into the Docker image (`AppVersion.read`), so it has to match
 the tag you're about to push:
 
@@ -36,9 +36,12 @@ git push
 ```
 
 This also bumps `CFBundleShortVersionString` in the four iOS/macOS
-`Info.plist` files and the browser extension's `manifest.json`, so the three
-components stay in lockstep. It does **not** touch the build number
-(`CFBundleVersion`) — bump that separately if needed.
+`Info.plist` files, using the `--app` value, and the browser extension's
+`manifest.json`, using `<app version>.0` (so `--app 1.1` produces manifest
+version `1.1.0`). The backend, app, and extension versions are bumped together
+by this one command, but they are not required to match each other; `--backend`
+and `--app` are independent arguments. It does **not** touch the build number
+(`CFBundleVersion`); bump that separately if needed.
 
 Then tag and push:
 
@@ -76,7 +79,7 @@ login, the push, and the release.
   dashboard's update checker (`/admin/health`, see `Docs/backend-docker.md`)
   requires a clean `major.minor.patch` on both sides of the comparison and
   treats anything else, including a `-beta`/`-rc` qualified tag, as
-  unparseable — deliberately, so a qualified tag can't be silently truncated
+  unparseable, deliberately, so a qualified tag can't be silently truncated
   and misread as equal to a real release. This is intentional: a pre-release
   is meant for the people who already know to go looking for it, not to be
   pushed as a notification to every self-hosted instance.

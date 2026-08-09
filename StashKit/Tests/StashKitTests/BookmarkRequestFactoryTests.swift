@@ -9,7 +9,7 @@ import Testing
 // MARK: - BookmarkRequestFactoryTests
 
 /// Verifies the paths, methods, and query items produced by `BookmarkRequestFactory`.
-@Suite("BookmarkRequestFactory — paths and query items")
+@Suite("BookmarkRequestFactory: paths and query items")
 struct BookmarkRequestFactoryTests {
 
     // MARK: Properties

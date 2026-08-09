@@ -1,4 +1,4 @@
-# Stash backend — common tasks (PRD §16).
+# Stash backend: common tasks (Docs/product-deployment.md §18).
 # Run from the Backend/ directory.
 
 # The app service name in docker-compose.yml.

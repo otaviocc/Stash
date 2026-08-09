@@ -26,7 +26,7 @@
 
         // MARK: Static Functions
 
-        /// Discovers every installed app that declares `http`/`https` handling, via Launch Services —
+        /// Discovers every installed app that declares `http`/`https` handling, via Launch Services,
         /// no hardcoded browser list, so Firefox, Chrome, Safari, Orion, Brave, and anything else the
         /// user has installed all show up the same way. Sorted by display name.
         static func discoverAll() -> [InstalledBrowser] {

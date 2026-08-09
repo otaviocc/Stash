@@ -10,10 +10,10 @@ import Vapor
 /// The full-instance backup envelope: every account (with its auth material so logins and 2FA
 /// survive a restore), everyone's bookmarks and Smart Views, and the instance-wide site settings.
 ///
-/// Deliberately excludes refresh tokens (session state — everyone simply signs back in), the
+/// Deliberately excludes refresh tokens (session state, everyone simply signs back in), the
 /// favicon cache (regenerable), and the audit log (operational history, not user data). Because it
 /// carries password hashes, TOTP secrets, and recovery-code hashes verbatim, the exported file is
-/// sensitive — treat it like a database dump, not a per-user export.
+/// sensitive; treat it like a database dump, not a per-user export.
 struct InstanceBackup: Codable, Sendable {
 
     let version: String
@@ -127,7 +127,7 @@ enum InstanceBackupError: Error, CustomStringConvertible {
 
 // MARK: - InstanceBackupService
 
-/// Admin-only, instance-wide backup/restore — deliberately separate from the per-user
+/// Admin-only, instance-wide backup/restore, deliberately separate from the per-user
 /// `ImportExportRegistry` (`StashJSONExporter`/`StashJSONImporter`), which is scoped to one
 /// `userID` and surfaced under `/app`. This follows the same dedup-by-URL / dedup-by-name upsert
 /// rules those use (see `StashJSONImporter`, the sibling implementation this restore path
@@ -143,14 +143,15 @@ enum InstanceBackupService {
 
     // MARK: - Export
 
+    /// Bookmarks, Smart Views, and recovery codes are each fetched in one query batched across
+    /// every user, rather than one query per user: this is a single-shot, admin-triggered read, but
+    /// a self-hosted instance can still have enough users/bookmarks that 3N+1 sequential
+    /// round-trips would be noticeably slower than 4 total.
     static func export(on db: any Database) async throws -> Data {
         let settings = try await SiteSettingsService.current(on: db)
         let users = try await User.query(on: db).sort(\.$username).all()
         let userIDs = try users.map { try $0.requireID() }
 
-        // Batched once across every user rather than 3 queries per user: this is a single-shot,
-        // admin-triggered read, but a self-hosted instance can still have enough users/bookmarks
-        // that 3N+1 sequential round-trips would be noticeably slower than 4 total.
         let allBookmarks = try await Bookmark.query(on: db)
             .filter(\.$user.$id ~~ userIDs)
             .sort(\.$createdAt, .ascending)
@@ -239,7 +240,7 @@ enum InstanceBackupService {
 
     /// Merges a backup into the running instance, keyed by `username`. Never deletes a user absent
     /// from the backup. An **existing** user's account fields (password hash, TOTP, role, active
-    /// state) are left untouched — only their bookmarks/Smart Views are merged — which is what makes
+    /// state) are left untouched; only their bookmarks/Smart Views are merged, which is what makes
     /// the currently signed-in admin's own account self-lockout-proof by construction: it always
     /// already exists, so its own auth/role/active fields are never among the ones this restore can
     /// change. A **new** user is created with its backed-up account fields written verbatim
@@ -249,6 +250,12 @@ enum InstanceBackupService {
     /// The whole merge runs inside one database transaction: an error partway through (a bad DB
     /// connection, a constraint violation) rolls back every write this call made rather than
     /// leaving the instance in a half-restored state with no record of what happened.
+    ///
+    /// Every username the backup could match, plus their existing bookmarks and Smart Views, is
+    /// preloaded and keyed for O(1) lookup, so the per-record loop never issues its own
+    /// per-item existence-check query; the dictionaries are then kept up to date as new records
+    /// are created, so a duplicate URL/name within the same backup file still merges correctly
+    /// instead of hitting a unique-constraint violation.
     static func restore(from data: Data, on app: Application) async throws -> RestoreResult {
         let backup: InstanceBackup
         do {
@@ -280,11 +287,6 @@ enum InstanceBackupService {
             settings.updateCheckEnabled = backup.siteSettings.updateCheckEnabled
             try await settings.save(on: db)
 
-            // Preload every username the backup could match, plus their existing bookmarks/Smart
-            // Views keyed for O(1) lookup, so the per-record loop below never issues its own
-            // per-item existence-check query — the dictionaries are then kept up to date as new
-            // records are created, so a duplicate URL/name within the same backup file still
-            // merges correctly instead of hitting a unique-constraint violation.
             let candidateUsernames = backup.users.map {
                 $0.username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             }

@@ -9,7 +9,7 @@ import SwiftUI
 /// The main bookmark list: searchable, paginated, with a tag filter and an archived toggle.
 ///
 /// Each instance owns its own `BookmarkRepository` so the Bookmarks tab, a Tags-tab drill-in, and the
-/// iPad detail column keep independent contents — browsing a tag in one does not change the others.
+/// iPad detail column keep independent contents; browsing a tag in one does not change the others.
 struct BookmarkListView: View {
 
     // MARK: SwiftUI Properties
@@ -29,7 +29,7 @@ struct BookmarkListView: View {
     }
 
     /// A list backed by a Smart View's saved query, run live locally against `LocalStore` (see
-    /// `BookmarkRepository`'s class doc comment) — never a request to the server.
+    /// `BookmarkRepository`'s class doc comment); never a request to the server.
     init(smartView: SmartView) {
         source = .smartView(smartView)
     }

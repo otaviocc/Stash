@@ -13,7 +13,7 @@ import Foundation
 ///
 /// iOS-only by design: `BGAppRefreshTask` and SwiftUI's `.appRefresh` background task live in
 /// `BackgroundTasks.framework`, which does not exist on macOS. macOS instead syncs on launch,
-/// reconnect, and foreground — no background mechanism is needed or planned there. `taskIdentifier`
+/// reconnect, and foreground; no background mechanism is needed or planned there. `taskIdentifier`
 /// is declared in both `Info.plist`s under `BGTaskSchedulerPermittedIdentifiers`.
 enum BackgroundSyncScheduler {
 

@@ -4,7 +4,7 @@
 import Fluent
 import Vapor
 
-/// An opaque, rotating refresh token. See PRD §7.3 and §8.1.
+/// An opaque, rotating refresh token. See Docs/product-data-model.md §7.3 and Docs/product-auth.md §8.1.
 ///
 /// Only the SHA-256 hash of the raw token is persisted. The raw token is shown
 /// to the client exactly once, at issuance.

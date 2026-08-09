@@ -23,7 +23,7 @@ final class ExtensionSession {
 
     // MARK: Computed Properties
 
-    /// Whether a server is configured and a refresh token is present — the minimum needed to make
+    /// Whether a server is configured and a refresh token is present: the minimum needed to make
     /// authenticated requests without an in-extension login.
     var isSignedIn: Bool {
         clientProvider.client() != nil && tokenManager.refreshToken != nil

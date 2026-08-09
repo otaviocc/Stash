@@ -10,7 +10,7 @@ import Testing
 
 /// Verifies that `StashClient.run` decodes successful responses and maps failed responses
 /// to the correct `StashAPIError` cases.
-@Suite("StashClient — run and error mapping")
+@Suite("StashClient: run and error mapping")
 struct StashClientTests {
 
     // MARK: Static Properties

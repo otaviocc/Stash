@@ -4,7 +4,7 @@ info:
   title: Stash API
   version: "1"
   description: |
-    REST API for Stash — a self-hosted, multi-user bookmark manager.
+    REST API for Stash, a self-hosted, multi-user bookmark manager.
 
     All API routes are prefixed `/api/v1/`. Authentication uses JWT Bearer
     tokens obtained via the `/api/v1/auth/login` endpoint. Access tokens
@@ -30,6 +30,8 @@ servers:
     description: Self-hosted instance
 
 tags:
+  - name: Instance
+    description: Public, unauthenticated instance info
   - name: Auth
     description: Authentication, token management, and 2FA
   - name: User
@@ -69,6 +71,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
 
+  /api/v1/instance:
+    get:
+      operationId: getInstanceInfo
+      summary: Get public instance info
+      description: |
+        Unauthenticated instance chrome: currently just the configured accent
+        theme, so any client (native apps, CLI, the login screen itself) can
+        tint before authenticating.
+      tags: [Instance]
+      security: []
+      responses:
+        "200":
+          description: The instance's accent theme
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InstanceResponse"
+
   /api/v1/auth/login:
     post:
       operationId: loginUser
@@ -83,7 +103,7 @@ paths:
           token. Complete the login by calling `/api/v1/auth/totp` or
           `/api/v1/auth/recovery` with the temp token.
 
-        The response is modelled as `LoginResponse` — a single object whose
+        The response is modeled as `LoginResponse`: a single object whose
         fields are all optional, covering both shapes.
       tags: [Auth]
       security: []
@@ -129,6 +149,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TokenPair"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           description: Invalid temp token (`token_invalid`) or wrong code (`totp_invalid`)
           content:
@@ -158,6 +180,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TokenPair"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           description: Invalid temp token (`token_invalid`) or wrong/used code (`totp_invalid`)
           content:
@@ -187,6 +211,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TokenPair"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           description: Unknown, expired, or revoked refresh token (`token_invalid` / `token_expired`)
           content:
@@ -210,6 +236,8 @@ paths:
       responses:
         "204":
           description: Logged out
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /api/v1/me:
     get:
@@ -256,10 +284,10 @@ paths:
   /api/v1/auth/totp/setup:
     get:
       operationId: beginTOTPSetup
-      summary: Begin 2FA enrolment
+      summary: Begin 2FA enrollment
       description: |
         Returns a fresh Base32 secret and its `otpauth://` provisioning URI.
-        Enrolment is not complete until the first code is confirmed via
+        Enrollment is not complete until the first code is confirmed via
         `/api/v1/auth/totp/verify-setup`.
       tags: [Auth]
       responses:
@@ -275,11 +303,13 @@ paths:
   /api/v1/auth/totp/verify-setup:
     post:
       operationId: verifyTOTPSetup
-      summary: Confirm 2FA enrolment
+      summary: Confirm 2FA enrollment
       description: |
-        Confirms enrolment by submitting the first valid TOTP code. On success,
-        2FA is enabled and eight single-use recovery codes are returned **once**
-        — they are never retrievable again.
+        Confirms enrollment by submitting the first valid TOTP code. On success,
+        2FA is enabled and eight single-use recovery codes are returned **once**,
+        they are never retrievable again. Re-enrolling (calling `/auth/totp/setup`
+        again after 2FA is already enabled, then confirming here) is allowed and
+        simply rotates the recovery codes.
       tags: [Auth]
       requestBody:
         required: true
@@ -295,13 +325,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/RecoveryCodesResponse"
         "400":
-          description: Wrong code or 2FA already enabled
+          description: >-
+            `/auth/totp/setup` was never called (`totp_setup_required`), or the
+            request body is malformed (`bad_request`)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "401":
-          $ref: "#/components/responses/Unauthorized"
+          description: Wrong TOTP code (`totp_invalid`), or no/invalid access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/auth/totp/disable:
     post:
@@ -311,7 +347,7 @@ paths:
         Self-service 2FA disable. Requires a current TOTP code. On success it
         clears the TOTP secret, deletes the recovery codes, and revokes all of
         the user's refresh tokens (so other sessions are signed out). A wrong
-        code — or a request when 2FA is not enabled — returns `401 totp_invalid`.
+        code, or a request when 2FA is not enabled, returns `401 totp_invalid`.
       tags: [Auth]
       requestBody:
         required: true
@@ -322,6 +358,8 @@ paths:
       responses:
         "204":
           description: 2FA disabled
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           description: Wrong code, 2FA not enabled (`totp_invalid`), or no/invalid token
           content:
@@ -396,7 +434,7 @@ paths:
       description: |
         Creates a bookmark for the current user. When `fetchMetadata` is true
         (the default), the title, description, and favicon are fetched from the
-        page if not supplied. URLs are unique per user — saving a URL that
+        page if not supplied. URLs are unique per user: saving a URL that
         already exists returns `409 duplicate_url` with the existing bookmark's
         `existingID`.
       tags: [Bookmarks]
@@ -413,6 +451,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Bookmark"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "409":
@@ -433,7 +473,7 @@ paths:
         `updatedAt` greater than `since`, sorted ascending by `(updatedAt, id)`.
         Omit `since` for an initial full sync. To page, echo the response's
         `nextAfterUpdatedAt` and `nextAfterId` back verbatim as `afterUpdatedAt`
-        and `afterId` — they are opaque cursor values, never interpreted
+        and `afterId`; they are opaque cursor values, never interpreted
         client-side. Continue while `hasMore` is true.
       tags: [Bookmarks]
       parameters:
@@ -448,13 +488,13 @@ paths:
         - name: afterUpdatedAt
           in: query
           required: false
-          description: Keyset cursor — the previous page's `nextAfterUpdatedAt`. Must be sent together with `afterId`.
+          description: Keyset cursor, the previous page's `nextAfterUpdatedAt`. Must be sent together with `afterId`.
           schema:
             type: string
         - name: afterId
           in: query
           required: false
-          description: Keyset cursor — the previous page's `nextAfterId`. Must be sent together with `afterUpdatedAt`.
+          description: Keyset cursor, the previous page's `nextAfterId`. Must be sent together with `afterUpdatedAt`.
           schema:
             type: string
             format: uuid
@@ -486,14 +526,15 @@ paths:
       description: |
         Returns a flat array of tombstones for bookmarks hard-deleted after
         `since`, sorted ascending by `deletedAt` (no pagination). Omit `since`
-        for every tombstone. Every hard delete — API or web, single or bulk —
-        records a tombstone so an offline client learns what to remove locally.
+        for every tombstone. Every hard delete, whether from the API or the web,
+        single or bulk, records a tombstone so an offline client learns what to
+        remove locally.
       tags: [Bookmarks]
       parameters:
         - name: since
           in: query
           required: false
-          description: ISO-8601 timestamp. Omit to return all tombstones.
+          description: ISO-8601 timestamp. Omit to return all tombstones. A malformed value is a 422.
           schema:
             type: string
             format: date-time
@@ -509,6 +550,8 @@ paths:
                   $ref: "#/components/schemas/DeletedBookmark"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /api/v1/bookmarks/{id}:
     parameters:
@@ -552,6 +595,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Bookmark"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -593,7 +638,7 @@ paths:
         Sets the bookmark's `waybackStatus` to `pending` and wakes the background
         submission queue; returns immediately without waiting for the submission to
         complete. Works regardless of the user's `archiveNewBookmarks` auto-submit
-        preference — this is also how a re-submit ("save with the current date")
+        preference; this is also how a re-submit ("save with the current date")
         happens. Refused with `409` when the admin has disabled Internet Archive
         submissions instance-wide.
       tags: [Bookmarks]
@@ -605,7 +650,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
-          description: Internet Archive submissions are disabled on this instance
+          description: Internet Archive submissions are disabled on this instance (`internet_archive_disabled`)
           content:
             application/json:
               schema:
@@ -653,6 +698,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RenameTagResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "422":
@@ -708,8 +755,8 @@ paths:
       summary: Create a Smart View
       description: |
         Validates a non-empty `name` (≤ 100 chars), an optional `matchMode`
-        (`all`/`any`, defaulting to `all`), and at least one valid condition —
-        otherwise `422 validation_failed`.
+        (`all`/`any`, defaulting to `all`), and at least one valid condition.
+        Otherwise `422 validation_failed`.
       tags: [Smart Views]
       requestBody:
         required: true
@@ -724,6 +771,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SmartView"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "422":
@@ -752,7 +801,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
-          $ref: "#/components/responses/NotFound"
+          $ref: "#/components/responses/SmartViewNotFound"
     put:
       operationId: updateSmartView
       summary: Update a Smart View
@@ -771,10 +820,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SmartView"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
-          $ref: "#/components/responses/NotFound"
+          $ref: "#/components/responses/SmartViewNotFound"
         "422":
           $ref: "#/components/responses/ValidationFailed"
     delete:
@@ -787,7 +838,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
-          $ref: "#/components/responses/NotFound"
+          $ref: "#/components/responses/SmartViewNotFound"
 
   /api/v1/smart-views/{id}/bookmarks:
     get:
@@ -831,7 +882,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
-          $ref: "#/components/responses/NotFound"
+          $ref: "#/components/responses/SmartViewNotFound"
 
   /api/v1/metadata:
     post:
@@ -852,8 +903,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MetadataResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: The URL is not a valid http(s) URL (`validation_failed`)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1/favicons/{domain}:
     get:
@@ -1023,7 +1082,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/AdminUser"
         "400":
-          description: Admin attempting to suspend their own account (`cannot_suspend_self`)
+          description: >-
+            Admin attempting to suspend their own account
+            (`cannot_suspend_self`), or the request body is malformed
+            (`bad_request`)
           content:
             application/json:
               schema:
@@ -1064,11 +1126,11 @@ paths:
       operationId: adminResetUserTOTP
       summary: Reset a user's 2FA
       description: |
-        Admin 2FA reset — no confirmation code required. Clears the target's
+        Admin 2FA reset, no confirmation code required. Clears the target's
         TOTP secret, deletes their recovery codes, and revokes all of their
         refresh tokens (signing the user out). Self-reset is allowed. Idempotent:
-        a user with no 2FA footprint is left untouched — sessions are not revoked
-        — and the call still returns 204.
+        a user with no 2FA footprint is left untouched, sessions are not revoked,
+        and the call still returns 204.
       tags: [Admin]
       parameters:
         - name: id
@@ -1114,7 +1176,7 @@ paths:
         Reads live sessions directly from Vapor's in-memory session store, covering
         both the admin dashboard (`/admin`) and app frontend (`/app`), resolved to
         their owning user. Cannot show IP address, user-agent, or session creation
-        time — the in-memory driver doesn't capture them.
+        time: the in-memory driver doesn't capture them.
       tags: [Admin]
       parameters:
         - name: q
@@ -1192,6 +1254,14 @@ components:
         Lifetime: 15 minutes. Rotate using POST /api/v1/auth/refresh.
 
   responses:
+    BadRequest:
+      description: >-
+        Malformed request body, e.g. a required field is missing or the wrong
+        JSON type (`bad_request`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
     Unauthorized:
       description: Missing or invalid access token (`token_invalid` / `token_expired`)
       content:
@@ -1210,6 +1280,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+    SmartViewNotFound:
+      description: Smart View not found (`smart_view_not_found`)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
     ValidationFailed:
       description: Validation error (`validation_failed`)
       content:
@@ -1218,6 +1294,52 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
 
   schemas:
+    # ---- Instance ----
+    InstanceResponse:
+      type: object
+      required: [accent]
+      properties:
+        accent:
+          type: object
+          required: [theme, light, dark]
+          properties:
+            theme:
+              type: string
+              description: The instance's configured accent theme id.
+              enum:
+                - ocean
+                - sunny
+                - forest
+                - ember
+                - aurora
+                - arctic
+                - rose
+                - dusk
+                - slate
+                - teal
+                - coral
+                - lavender
+                - gold
+                - apple-music
+                - spotify
+                - obsidian
+                - discord
+                - starbucks
+                - t-mobile
+                - tumblr
+                - whatsapp
+                - android
+                - boeing
+              example: ocean
+            light:
+              type: string
+              description: Light-mode hex color for the theme.
+              example: "#0a84ff"
+            dark:
+              type: string
+              description: Dark-mode hex color for the theme.
+              example: "#409cff"
+
     # ---- Auth ----
     LoginRequest:
       type: object
@@ -1405,7 +1527,7 @@ components:
         isReadLater:
           type: boolean
           description: >-
-            Marked to read later. Independent of `isArchived` — neither flag clears the other.
+            Marked to read later. Independent of `isArchived`; neither flag clears the other.
         waybackStatus:
           type: string
           enum: [none, pending, archived, failed]
@@ -1430,7 +1552,7 @@ components:
       example:
         id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
         url: https://vapor.codes
-        title: Vapor — Server-side Swift web framework
+        title: "Vapor: Server-side Swift web framework"
         description: A web framework for Swift.
         faviconURL: http://localhost:8080/api/v1/favicons/vapor.codes
         tags: ["swift", "swift/vapor"]
@@ -1512,12 +1634,12 @@ components:
         nextAfterUpdatedAt:
           type: string
           nullable: true
-          description: Opaque keyset cursor — echo back as `afterUpdatedAt` for the next page.
+          description: Opaque keyset cursor, echo back as `afterUpdatedAt` for the next page.
         nextAfterId:
           type: string
           format: uuid
           nullable: true
-          description: Opaque keyset cursor — echo back as `afterId` for the next page.
+          description: Opaque keyset cursor, echo back as `afterId` for the next page.
 
     DeletedBookmark:
       type: object
@@ -1582,18 +1704,18 @@ components:
         A single condition. All values are strings. Valid `type` values and
         their expected `value` format:
 
-        - `tag` — tag slug, prefix match (e.g. `swift/vapor`)
-        - `urlContains` — substring (case-insensitive)
-        - `titleContains` — substring (case-insensitive)
-        - `descriptionContains` — substring (case-insensitive)
-        - `createdBefore` — ISO-8601 date string
-        - `createdAfter` — ISO-8601 date string
-        - `olderThan` — duration string: positive integer + `d`/`m`/`y` (e.g. `30d`, `3m`, `1y`)
-        - `newerThan` — duration string, same format
-        - `isArchived` — `"true"` or `"false"`
-        - `hasTags` — `"true"` (has any tags) or `"false"` (untagged)
-        - `isWaybackArchived` — `"true"` (has a captured Internet Archive snapshot) or `"false"` (does not)
-        - `isReadLater` — `"true"` or `"false"`
+        - `tag`: tag slug, prefix match (e.g. `swift/vapor`)
+        - `urlContains`: substring (case-insensitive)
+        - `titleContains`: substring (case-insensitive)
+        - `descriptionContains`: substring (case-insensitive)
+        - `createdBefore`: ISO-8601 date string
+        - `createdAfter`: ISO-8601 date string
+        - `olderThan`: duration string, positive integer + `d`/`m`/`y` (e.g. `30d`, `3m`, `1y`)
+        - `newerThan`: duration string, same format
+        - `isArchived`: `"true"` or `"false"`
+        - `hasTags`: `"true"` (has any tags) or `"false"` (untagged)
+        - `isWaybackArchived`: `"true"` (has a captured Internet Archive snapshot) or `"false"` (does not)
+        - `isReadLater`: `"true"` or `"false"`
       properties:
         type:
           type: string
@@ -1765,7 +1887,10 @@ components:
       properties:
         id:
           type: string
-          description: Masked session identifier (first 8 + last 4 characters).
+          description: >-
+            Masked session identifier: the first 8 and last 4 characters joined
+            by an ellipsis. Returned unmasked if the id is 12 characters or
+            shorter.
         userID:
           type: string
           format: uuid
@@ -1829,18 +1954,21 @@ components:
 
         | code | status | meaning |
         |------|--------|---------|
+        | `bad_request` | 400 | Malformed request body (e.g. a missing required field) |
+        | `cannot_delete_self` | 400 | Admin deleting own account |
+        | `cannot_suspend_self` | 400 | Admin suspending own account |
+        | `totp_setup_required` | 400 | TOTP verify-setup called before `/auth/totp/setup` |
         | `invalid_credentials` | 401 | Wrong username or password |
         | `account_suspended` | 401 | Account is inactive |
         | `token_expired` | 401 | Access token expired |
-        | `token_invalid` | 401 | Malformed or unrecognised token |
-        | `totp_required` | 401 | Login requires TOTP |
+        | `token_invalid` | 401 | Malformed or unrecognized token |
         | `totp_invalid` | 401 | Wrong TOTP or recovery code |
         | `forbidden` | 403 | Insufficient role |
         | `not_found` | 404 | Resource not found |
+        | `smart_view_not_found` | 404 | Smart View not found |
         | `duplicate_url` | 409 | URL already saved (adds `existingID`) |
         | `username_taken` | 409 | Username already exists |
-        | `cannot_delete_self` | 400 | Admin deleting own account |
-        | `cannot_suspend_self` | 400 | Admin suspending own account |
+        | `internet_archive_disabled` | 409 | Internet Archive submissions are disabled instance-wide |
         | `validation_failed` | 422 | Validation error |
         | `internal_error` | 500 | Unexpected server error |
       properties:

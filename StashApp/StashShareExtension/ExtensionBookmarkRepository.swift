@@ -6,7 +6,7 @@ import StashKit
 
 /// The Share Extension's bookmark store: create, fetch metadata, delete.
 ///
-/// A deliberately smaller counterpart to the app's `BookmarkRepository` — it carries no list or
+/// A deliberately smaller counterpart to the app's `BookmarkRepository`; it carries no list or
 /// pagination state because the extension only ever saves one bookmark (and may undo it). It
 /// conforms to `BookmarkCreating` so the shared `AddBookmarkView` can drive it.
 @MainActor

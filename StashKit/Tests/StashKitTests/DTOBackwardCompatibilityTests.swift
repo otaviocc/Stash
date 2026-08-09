@@ -6,9 +6,9 @@ import Testing
 @testable import StashKit
 
 /// Verifies DTOs still decode responses from an older backend that predates later-added fields.
-/// Stash is self-hosted, so the apps/CLI and a user's server update independently — a missing new
+/// Stash is self-hosted, so the apps/CLI and a user's server update independently: a missing new
 /// key must decode to its documented default, never fail the whole payload.
-@Suite("DTO backward compatibility — old-server JSON")
+@Suite("DTO backward compatibility: old-server JSON")
 struct DTOBackwardCompatibilityTests {
 
     // MARK: Computed Properties

@@ -23,7 +23,7 @@ protocol KeychainStoreProtocol: AnyObject, Sendable {
 /// An optional `accessGroup` adds `kSecAttrAccessGroup` to every query so the item can be shared
 /// with an app extension over an App Group (used by the Share Extension in M9). Every query also
 /// sets `kSecUseDataProtectionKeychain` so macOS uses the data-protection keychain (iOS's only
-/// keychain) rather than the legacy file-based one — without it, App-Group access-group sharing
+/// keychain) rather than the legacy file-based one; without it, App-Group access-group sharing
 /// silently fails on macOS and the extension cannot read the tokens the app wrote.
 final class KeychainStore: KeychainStoreProtocol, @unchecked Sendable {
 

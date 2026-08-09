@@ -82,7 +82,7 @@ public typealias BookmarkPageDTO = PageDTO<BookmarkDTO>
 
 /// A keyset-paginated page of bookmark changes (`GET /bookmarks/changes`). `nextAfterUpdatedAt` is an
 /// opaque continuation token (a server-formatted timestamp) the client echoes back verbatim alongside
-/// `nextAfterId` to fetch the next page — it is never interpreted client-side, so no date-precision is
+/// `nextAfterId` to fetch the next page; it is never interpreted client-side, so no date-precision is
 /// lost across the round-trip.
 public struct ChangesPageDTO: Codable, Sendable {
 

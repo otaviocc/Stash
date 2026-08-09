@@ -3,8 +3,8 @@
 ## Supported versions
 
 Only the latest published release (and the `main` branch) are supported. There is a single
-rolling Docker image tag scheme — see
-[Releasing a new version](https://github.com/otaviocc/Stash/blob/main/Docs/releasing.md) — so
+rolling Docker image tag scheme (see
+[Releasing a new version](https://github.com/otaviocc/Stash/blob/main/Docs/releasing.md)), so
 older tags do not receive backported fixes.
 
 ## Reporting a vulnerability

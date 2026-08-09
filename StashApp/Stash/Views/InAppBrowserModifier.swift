@@ -11,7 +11,7 @@
     /// `BrowserPreference` is `.inApp`.
     ///
     /// It overrides the `openURL` environment action so that both imperative `openURL(_:)` calls and
-    /// SwiftUI `Link`s below it are intercepted from one place — leaving the shared bookmark views
+    /// SwiftUI `Link`s below it are intercepted from one place, leaving the shared bookmark views
     /// untouched. Only `http`/`https` URLs are captured; every other scheme (and the
     /// `.defaultBrowser` preference) falls through to the system, so `mailto:`, `tel:`, and share
     /// actions behave normally.
