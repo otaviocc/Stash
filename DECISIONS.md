@@ -145,3 +145,4 @@ Docker, CI/CD, HTTPS, and licensing.
 - Documentation: Podman runtime & local-dev compose override
 - Open-sourcing prep (footer link, scrubbed identifiers, OSS scaffolding)
 - License: split MIT into AGPLv3 (Backend) and MIT (everything else)
+- Docker compose: explicit project name and container names

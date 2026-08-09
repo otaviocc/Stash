@@ -171,3 +171,21 @@ root MIT `LICENSE`, and `StashSkill` got a copy of the MIT `LICENSE` too,
 since it's meant to be copied standalone into someone's `.claude/skills`
 directory and shouldn't rely on the rest of the repo being present to stay
 license-compliant.
+
+---
+
+## Docker compose: explicit project name and container names
+
+Added `name: stash` at the top level of `docker-compose.yml` and explicit
+`container_name` fields on both services (`stash_server`, `stash_db`).
+Without these, Docker derives the project name from the directory the compose
+file is run from, which means the container names vary per host: a NAS panel
+or `docker ps` might show `stash_app_1`, `compose_app_1`, or something else
+entirely depending on where the operator placed the file. Pinning the names
+makes every deployment look the same — `stash_server` and `stash_db` — so
+they're instantly identifiable in any container panel without guessing. The
+pattern follows what Immich does with its `immich_server`, `immich_redis`,
+`immich_postgres` names. The database hostname in `DATABASE_URL` was updated
+from `db` to `stash_db` to match, since Docker uses the service name (not
+the container name) for DNS inside the compose network, and the service was
+renamed from `db` to `stash_db`.
