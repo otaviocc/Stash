@@ -9,7 +9,7 @@ Read this before running any `stash` command so you call it correctly on the
 first attempt. Everything here is derived from the CLI source, not the product
 spec; where the two differ, this document follows the source.
 
-## 1. Overview
+## Overview
 
 Stash is a self-hosted, multi-user bookmark manager. The `stash` CLI is its
 command-line client: it talks to a Stash backend over the public REST API
@@ -21,7 +21,7 @@ or migrate their bookmarks, or administer their Stash instance, from the shell.
 
 ---
 
-## 2. Prerequisites
+## Prerequisites
 
 Three things must be true before any authenticated command works. Verify them in
 order.
@@ -43,8 +43,8 @@ stash config show
 ```
 
 Look at the `Server URL:` line. If it reads `(not set)`, run `stash config
-set-url <url>` (see §3). Commands that need the server but find no URL fail on
-stderr with:
+set-url <url>` (see [Configuration](#configuration)). Commands that need the
+server but find no URL fail on stderr with:
 
 ```
 Error: No server URL configured. Run: stash config set-url <url>
@@ -54,7 +54,8 @@ Error: No server URL configured. Run: stash config set-url <url>
 
 `stash config show` also prints `Access token:` and `Refresh token:` lines
 (masked to the first 8 characters). If either reads `(not set)`, run `stash
-login` (see §3). Authenticated commands with no access token fail with:
+login` (see [Configuration](#configuration)). Authenticated commands with no
+access token fail with:
 
 ```
 Error: Not logged in. Run: stash login
@@ -67,7 +68,7 @@ missing or expired.
 
 ---
 
-## 3. Configuration
+## Configuration
 
 Config and tokens live in a single JSON file at `~/.config/stash/config.json`.
 It holds three optional fields: `baseURL`, `accessToken`, and `refreshToken`. A
@@ -102,7 +103,7 @@ prints `Access token saved.`
 
 ---
 
-## 4. Command reference
+## Command reference
 
 Global conventions, true for every command:
 
@@ -122,7 +123,7 @@ Global conventions, true for every command:
 |---|---|---|
 | set URL | `stash config set-url <url>` | `Server URL set to <url>.` |
 | set token | `stash config set-token <token>` | `Access token saved.` |
-| show | `stash config show` | three lines (URL + masked tokens), see §3 |
+| show | `stash config show` | three lines (URL + masked tokens), see [Configuration](#configuration) |
 
 `set-url` validates the URL must have a scheme and host, else `Error: Invalid
 URL: <url>`.
@@ -151,7 +152,7 @@ stash add <url> [--title <t>] [--description <d>] [--tag <name> ...] [--no-fetch
 - `--read-later` marks the bookmark to read later at creation time.
 
 Default output: `Saved <full-uuid>: <title>`. With `--json`: the created
-bookmark object (see §5). Saving a URL that already exists for this user fails
+bookmark object (see [Output formats](#output-formats)). Saving a URL that already exists for this user fails
 with `Error: This URL is already saved (existing bookmark <uuid>).`
 
 ### `list` (`bookmarks list`)
@@ -172,7 +173,7 @@ stash list [--tag <name>] [--search <query>] [--archived] [--read-later] [--page
   exclusive with `--tag`.
 - `--page` defaults to `1`, `--per` defaults to `20` (server clamps `per` to
   1–100).
-- Default output: an aligned text table (see §5). With `--json`: the full
+- Default output: an aligned text table (see [Output formats](#output-formats)). With `--json`: the full
   paginated page object (`items` + `metadata`).
 
 Note: `--tag` and `--archived` are independent filters; there is no single
@@ -187,7 +188,7 @@ stash get <id> [--json]
 
 `<id>` must be a full UUID (the CLI validates it locally; a bad value fails with
 `Error: Invalid bookmark ID: <value>` before any network call). Default output:
-a labeled detail block (see §5). With `--json`: the bookmark object.
+a labeled detail block (see [Output formats](#output-formats)). With `--json`: the bookmark object.
 
 ### `delete` (`bookmarks delete`)
 
@@ -317,7 +318,7 @@ admin command syntax, output formats, and caveats.
 
 ---
 
-## 5. Output formats
+## Output formats
 
 Default output is a human-readable, aligned text table (or a labeled detail
 block for `stash get`). With `--json`, keys are sorted alphabetically and dates
@@ -328,7 +329,7 @@ exact table columns, truncation rules, and full JSON examples for every command.
 
 ---
 
-## 6. Workflow examples
+## Workflow examples
 
 **Save a bookmark with tags:**
 
@@ -360,7 +361,7 @@ stash import ~/Desktop/stash-backup.json --format stash-json
 
 ---
 
-## 7. Error handling
+## Error handling
 
 Every failure prints a single `Error: <message>` line to **stderr** and exits
 non-zero. The most common ones: a session error (`Session expired, please run
@@ -372,7 +373,7 @@ table of error messages and their remedies.
 
 ---
 
-## 8. Tips
+## Tips
 
 - **Always use `--json` when you need to parse output programmatically.** The
   text tables truncate titles/URLs and show only the first 8 characters of the
@@ -405,7 +406,7 @@ table of error messages and their remedies.
 
 ---
 
-## 9. Intelligent tag suggestion
+## Intelligent tag suggestion
 
 One of the most useful things you can do is suggest good tags when saving a
 bookmark, drawn from the user's *existing* taxonomy rather than inventing new

@@ -31,7 +31,7 @@ stash admin stats [--json]                              # aggregate + per-user s
   `Reset 2FA for <username>.`
 - `delete-user` prompts `Delete user <username>? [y/N] ` unless `--force`; on
   success `Deleted <username>.` Admins cannot delete their own account.
-- `users` and `stats` default to text tables (see §5); add `--json` for
+- `users` and `stats` default to text tables (see Admin output formats below); add `--json` for
   structured output.
 
 > Known gap: `stash admin reset-totp` calls a JSON-API route that may not yet be exposed by the

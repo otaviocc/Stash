@@ -2,7 +2,7 @@
 
 Reference companion to the `stash-cli` skill; read on demand for the full table of error messages and their remedies.
 
-## 7. Error handling
+## Error handling
 
 Every failure prints a single `Error: <message>` line to **stderr** and exits
 non-zero. These are the **actual** messages emitted by the CLI (note they are

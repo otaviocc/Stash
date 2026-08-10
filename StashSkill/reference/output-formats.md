@@ -2,7 +2,7 @@
 
 Reference companion to the `stash-cli` skill; read on demand when you need the exact shape of a command's output.
 
-## 5. Output formats
+## Output formats
 
 ### Human-readable (default)
 
