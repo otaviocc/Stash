@@ -1,13 +1,6 @@
 ---
 name: stash-cli
-description: Drive the `stash` command-line client for the
-self-hosted Stash bookmark manager. Use when the user wants to save, search,
-list, get, delete, or archive bookmarks; list, rename, or delete tags; browse
-Smart Views and the bookmarks they match; import or export their bookmark
-collection; or (as an admin) manage users and view stats from the shell. Also
-use for intelligent tag suggestion when saving a bookmark.
-Covers exact command syntax, flags, default/JSON output shapes, and error
-messages.
+description: Drive the `stash` command-line client for the self-hosted Stash bookmark manager. Use when the user wants to save, search, list, get, delete, or archive bookmarks; list, rename, or delete tags; browse Smart Views and the bookmarks they match; import or export their bookmark collection; or (as an admin) manage users and view stats from the shell. Also use for intelligent tag suggestion when saving a bookmark.
 ---
 
 # Using the `stash` CLI
@@ -119,11 +112,9 @@ Global conventions, true for every command:
 - **`--json`** (where supported) prints pretty-printed JSON with
   **alphabetically sorted keys**, unescaped slashes, and ISO-8601 dates (no
   fractional seconds).
-- **Bookmark subcommands have top-level aliases.** `stash list` ≡ `stash
+- **Bookmark/tag subcommands have top-level aliases.** `stash list` ≡ `stash
   bookmarks list`, and likewise for `add`, `get`, `delete`, `archive`,
-  `read-later`, `mark-read`. Tag and Smart View subcommands are grouped only
-  (`stash tags list`, not `stash tags-list`). Use the short forms where they
-  exist.
+  `read-later`, `mark-read`. Use the short forms.
 
 ### `config`
 
@@ -177,7 +168,8 @@ stash list [--tag <name>] [--search <query>] [--archived] [--read-later] [--page
 - `--archived` is a boolean flag (default off); when set, returns archived
   bookmarks instead.
 - `--read-later` is a boolean flag (default off); when set, returns only
-  bookmarks marked to read later (the "To Read" view).
+  bookmarks marked to read later (the "To Read" view). It is mutually
+  exclusive with `--tag`.
 - `--page` defaults to `1`, `--per` defaults to `20` (server clamps `per` to
   1–100).
 - Default output: an aligned text table (see §5). With `--json`: the full
@@ -298,223 +290,41 @@ name). `smart-views` with no subcommand lists (the default subcommand).
   missing/foreign Smart View surfaces `Error: Not found.` Results are non-archived
   unless the Smart View carries an `isArchived` condition.
 
-### `import`
+### `import` / `export`
 
 ```bash
 stash import <file> [--format anybox|stash-json]
-```
-
-- `<file>` is a path to the import file.
-- `--format` defaults to **`stash-json`**. The other accepted value is `anybox`.
-- The import is performed client-side over the public API (there is no server
-  import endpoint for the CLI): each record is created, and on a duplicate-URL
-  response it is updated in place.
-- Output: `Imported: <i>, Updated: <u>, Skipped: <s>`. Records with a
-  missing/invalid URL, or that error on submit, are counted as skipped. When a
-  `stash-json` file carries Smart Views, a second line follows: `Smart Views:
-  Imported: <i>, Updated: <u>, Skipped: <s>` (a Smart View missing a name or
-  valid conditions is skipped).
-
-Format differences:
-- **`anybox`** expects a top-level JSON **array** of bookmark objects. Anybox
-  stores `tags` as arrays of `[namespace, value]` pairs, which are joined with
-  `/` into hierarchical tags (`[["topic","swift"]]` → `topic/swift`); plain
-  `[String]` tags are also accepted. All Anybox records import as **not
-  archived**. Wrong shape → `Error: This doesn't look like an Anybox JSON export
-  (expected a JSON array of bookmarks).`
-- **`stash-json`** expects an **object** with a `bookmarks` array (the shape
-  `stash export` produces); it honors each record's `isArchived`. Wrong shape →
-  `Error: This doesn't look like a Stash JSON export (expected an object with a
-  "bookmarks" array).` If the file carries an optional `smartViews` array, those
-  Smart Views are restored too (matched by name; an existing name is updated, a
-  new one is created), so re-import is idempotent for Smart Views as well.
-
-Limitation: importing over the REST API cannot preserve original `createdAt` on
-*new* records (they get a fresh timestamp), but re-importing a Stash export of
-bookmarks that already exist takes the duplicate-update path, where the server
-preserves `createdAt`, so re-import is idempotent. (The same `createdAt`
-limitation applies to newly created Smart Views.)
-
-### `export`
-
-```bash
 stash export [--format stash-json] [--output <path>]
 ```
 
-- `--format` defaults to (and only accepts) `stash-json`.
-- `--output` is the destination path; if omitted, writes to
-  `stash-export-YYYY-MM-DD.json` in the current directory.
-- Fetches **all** bookmarks, paginating through every page of both active *and*
-  archived (100 per page), assembles the native `{ version, exportedAt,
-  bookmarks[], smartViews[] }` envelope (bookmarks sorted by `createdAt`
-  ascending, Smart Views by name), and writes it. The user's Smart Views ride
-  along in the same file, at parity with the web frontend's export.
-- Output: `Exported <n> bookmarks and <m> Smart Views to <path>.`
+`export` writes every bookmark (active *and* archived) plus the user's Smart
+Views into a `stash-json` envelope. `import` reads that format back (or an
+`anybox` export), creating records and updating any whose URL already exists,
+which makes a `stash-json` re-import idempotent.
+
+Read `reference/import-export.md` (relative to this skill's directory) for the
+full flag list, the two file-format shapes, output strings, and the `createdAt`
+caveat.
 
 ### `admin` (admin accounts only)
 
-All admin commands require the logged-in account to be an admin; a non-admin
-gets `Error: You don't have permission to perform that action.` The admin API is
-keyed by UUID, but every CLI admin command that targets a user takes a
-**username** and resolves it to a UUID internally by listing users and matching
-case-insensitively. An unknown name fails with `Error: No user named
-'<username>'.`
+`stash admin` provides admin-only user management (`users`, `create-user`,
+`suspend-user`, `unsuspend-user`, `reset-password`, `reset-totp`,
+`delete-user`) and instance `stats`.
 
-```bash
-stash admin users [--json]                              # list all users
-stash admin create-user --username <u> [--password <p>] [--json]
-stash admin suspend-user <username>                     # set isActive=false
-stash admin unsuspend-user <username>                   # set isActive=true
-stash admin reset-password <username> [--password <p>]
-stash admin reset-totp <username>                       # clear the user's 2FA
-stash admin delete-user <username> [--force]            # hard-delete (irreversible)
-stash admin stats [--json]                              # aggregate + per-user stats
-```
-
-- `create-user` and `reset-password` prompt for a hidden password if
-  `--password` is omitted. `create-user` prints `Created user <username>.`;
-  accounts are always created with the `user` role.
-- `suspend-user`/`unsuspend-user` print `Suspended <username>.` / `Unsuspended
-  <username>.`
-- `reset-password` prints `Reset password for <username>.`; `reset-totp` prints
-  `Reset 2FA for <username>.`
-- `delete-user` prompts `Delete user <username>? [y/N] ` unless `--force`; on
-  success `Deleted <username>.` Admins cannot delete their own account.
-- `users` and `stats` default to text tables (see §5); add `--json` for
-  structured output.
+Read `reference/admin.md` (relative to this skill's directory) for the full
+admin command syntax, output formats, and caveats.
 
 ---
 
 ## 5. Output formats
 
-### Human-readable (default)
+Default output is a human-readable, aligned text table (or a labeled detail
+block for `stash get`). With `--json`, keys are sorted alphabetically and dates
+are ISO-8601 without fractional seconds.
 
-**`stash list`**: a table with columns ID (8), TITLE (40), URL (50), TAGS,
-separated by two spaces. ID is the first 8 characters of the UUID. TITLE and URL
-are truncated to their width (last character replaced with `…` when over). TAGS
-is comma-separated and not truncated. Empty result prints `No bookmarks found.`
-
-```
-ID        TITLE                                     URL                                                 TAGS
-a1b2c3d4  The Swift Programming Language             https://docs.swift.org/swift-book/                 swift, docs
-9f8e7d6c  Vapor: Server-side Swift web framework     https://vapor.codes/                               swift, swift/vapor
-```
-
-**`stash get <id>`**: a labeled block:
-
-```
-ID:          a1b2c3d4-5e6f-7890-abcd-ef0123456789
-URL:         https://docs.swift.org/swift-book/
-Title:       The Swift Programming Language
-Description: The official Swift book.
-Tags:        swift, docs
-Archived:    no
-Created:     2026-01-15T09:30:00Z
-```
-
-(The `Description:` line is omitted when there is no description; `Tags:` shows
-`—` when empty.)
-
-**`stash tags`**: `name (count)` per line:
-
-```
-swift (42)
-swift/vapor (12)
-docs (7)
-```
-
-**`stash admin users`**: columns USERNAME (20), ROLE (6), ACTIVE (7), 2FA (4),
-BOOKMARKS (10), ID (full UUID). ACTIVE is `yes`/`no`; 2FA is `on`/`off`.
-
-**`stash admin stats`**: two summary lines then a table:
-
-```
-Total users:     3
-Total bookmarks: 214
-
-USERNAME              ACTIVE   BOOKMARKS
-alice                 yes      120
-bob                   no       94
-```
-
-### JSON (`--json`)
-
-Keys are sorted alphabetically. Dates are ISO-8601 without fractional seconds.
-
-**`stash list --json`**: the full paginated page (a `BookmarkDTO` list +
-metadata):
-
-```json
-{
-  "items" : [
-    {
-      "createdAt" : "2026-01-15T09:30:00Z",
-      "description" : "The official Swift book.",
-      "faviconURL" : "https://docs.swift.org/favicon.ico",
-      "id" : "A1B2C3D4-5E6F-7890-ABCD-EF0123456789",
-      "isArchived" : false,
-      "tags" : [ "swift", "docs" ],
-      "title" : "The Swift Programming Language",
-      "updatedAt" : "2026-01-15T09:30:00Z",
-      "url" : "https://docs.swift.org/swift-book/"
-    }
-  ],
-  "metadata" : {
-    "page" : 1,
-    "per" : 20,
-    "total" : 1
-  }
-}
-```
-
-`description` and `faviconURL` may be absent/`null`. `id` is a full UUID.
-
-**`stash get <id> --json`**: a single bookmark object (the same shape as one
-`items` element above).
-
-**`stash add --json`**: the created bookmark object (same shape).
-
-**`stash tags --json`**: an array of tag objects:
-
-```json
-[
-  { "count" : 42, "name" : "swift" },
-  { "count" : 12, "name" : "swift/vapor" }
-]
-```
-
-**`stash admin users --json`**: an array of user objects:
-
-```json
-[
-  {
-    "bookmarkCount" : 120,
-    "createdAt" : "2026-01-01T00:00:00Z",
-    "id" : "11111111-2222-3333-4444-555555555555",
-    "isActive" : true,
-    "isTOTPEnabled" : false,
-    "role" : "user",
-    "username" : "alice"
-  }
-]
-```
-
-**`stash admin stats --json`**:
-
-```json
-{
-  "totalBookmarks" : 214,
-  "totalUsers" : 3,
-  "users" : [
-    {
-      "bookmarkCount" : 120,
-      "id" : "11111111-2222-3333-4444-555555555555",
-      "isActive" : true,
-      "username" : "alice"
-    }
-  ]
-}
-```
+Read `reference/output-formats.md` (relative to this skill's directory) for the
+exact table columns, truncation rules, and full JSON examples for every command.
 
 ---
 
@@ -548,51 +358,21 @@ stash export --output ~/Desktop/stash-backup.json
 stash import ~/Desktop/stash-backup.json --format stash-json
 ```
 
-**Admin: create and manage a user:**
-
-```bash
-stash admin create-user --username alice --password "securepassword123"
-stash admin users --json
-stash admin suspend-user alice
-stash admin unsuspend-user alice
-stash admin reset-password alice --password "newpassword123"
-stash admin delete-user alice --force
-```
-
 ---
 
 ## 7. Error handling
 
 Every failure prints a single `Error: <message>` line to **stderr** and exits
-non-zero. These are the **actual** messages emitted by the CLI (note they are
-human-readable sentences, not the API's snake_case codes). When you see one,
-take the matching action.
+non-zero. The most common ones: a session error (`Session expired, please run
+stash login`) means the user must run `stash login`; `This URL is already saved
+(existing bookmark <uuid>).` means `add` hit a duplicate URL.
 
-| stderr message | Meaning | Remedy |
-|---|---|---|
-| `No server URL configured. Run: stash config set-url <url>` | No `baseURL` in config | Run `stash config set-url <url>` |
-| `Not logged in. Run: stash login` | No access token in config | Run `stash login` |
-| `Session expired, please run stash login` | Refresh token expired/revoked (local refresh failed); tokens cleared | Run `stash login` again |
-| `Session expired, please run stash login.` | Server rejected the access token as expired (note the trailing period, this is the API-mapped variant) | Run `stash login` again |
-| `Session invalid, please run stash login.` | Server rejected the access token as malformed/invalid (not merely expired) | Run `stash login` again |
-| `Two-factor authentication is required.` | A 2FA-gated action hit the API without a completed 2FA login | Complete `stash login` (it prompts for the 2FA code) |
-| `Could not reach the server. <detail> (Check the URL and scheme: a plain HTTP server needs http://, not https://.)` | Network/TLS/URL issue (e.g. `https://` against a plain-HTTP server); `<detail>` is the underlying transport error | Check the URL scheme and that the server is up |
-| `The server URL is invalid. Set it with: stash config set-url <url>` | Malformed base URL | Re-set with `stash config set-url <url>` |
-| `This URL is already saved (existing bookmark <uuid>).` | Duplicate URL on `add` | Use `stash list --search` to find the existing one; or `get`/update it |
-| `Not found.` | ID/resource doesn't exist | Verify the UUID with `stash list --json` |
-| `You don't have permission to perform that action.` | Not an admin | The command requires an admin account |
-| `Invalid username or password.` | Bad credentials at login | Re-check credentials |
-| `This account is suspended.` | Account inactive | Have an admin unsuspend it |
-| `Invalid two-factor code.` | Wrong TOTP code (the CLI's `login` only prompts for a TOTP code, not a recovery code) | Re-enter the current code from your authenticator app |
-| `That username is already taken.` | `admin create-user` conflict | Choose a different username |
-| `The request was invalid.` | Validation failed (e.g. password too short) | Fix the input (passwords need ≥12 chars) |
-| `The server returned HTTP <code>.` / `The server encountered an error.` | Unexpected server status / 5xx | Retry; check server logs |
-| `Could not decode the server's response.` / `Could not encode the request.` / `Request preparation failed. <detail>` / `Response handling failed. <detail>` | Rare client-side encode/decode or interceptor failure (usually a version/contract mismatch) | Verify the CLI and backend are on compatible versions; report if it persists |
-| `Invalid bookmark ID: <value>` / `Invalid Smart View ID: <value>` | A non-UUID was passed to `get`/`delete`/`archive` or `smart-views bookmarks` | Pass a full UUID from `stash list --json` / `smart-views list --json` |
+Read `reference/errors.md` (relative to this skill's directory) for the full
+table of error messages and their remedies.
 
 ---
 
-## 8. Tips for Claude
+## 8. Tips
 
 - **Always use `--json` when you need to parse output programmatically.** The
   text tables truncate titles/URLs and show only the first 8 characters of the
@@ -607,7 +387,7 @@ take the matching action.
   to paginate, or `--json` and read `metadata.total` to know when you've seen
   everything.
 - **`--force` skips `[y/N]` confirmations** on `delete`, `tags delete`, and
-  `admin delete-user`; use it in automated workflows, otherwise the prompt
+  `admin delete-user`; use it in automated workflows; otherwise the prompt
   blocks on stdin.
 - **`stash import --format stash-json` is idempotent**: re-importing the same
   file updates existing bookmarks (matched by URL) instead of creating
@@ -667,7 +447,7 @@ ones.
 ```
 User: Save https://pointfree.co/episodes/ep-42-the-many-faces-of-map to Stash.
 
-Claude:
+Assistant:
 1. stash tags --json          → existing tags include: swift, swift/fp, video, pointfree
 2. Analyzes the URL: a Point-Free episode on functional programming in Swift
 3. Suggests: swift, swift/fp, pointfree, video
