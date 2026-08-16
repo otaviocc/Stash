@@ -33,12 +33,31 @@ jobs:
       - name: Test backend
         run: cd Backend && swift test --no-parallel
 
+  linux-cli:
+    name: StashKit & CLI (Linux)
+    # MicroClient 0.0.28+ ships the FoundationNetworking shim, so StashKit and the CLI
+    # build and test natively here instead of only on the macOS runner below.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.2"
+
+      - name: Test StashKit
+        run: cd StashKit && swift test
+
+      - name: Build CLI
+        run: cd CLI && swift build -c release
+
   apple:
     name: StashKit, CLI & App
-    # Everything Apple-platform runs on one macOS runner: StashKit and CLI depend
-    # on MicroClient (Apple Foundation networking, no FoundationNetworking shim)
-    # and the app/extension are Xcode-only. All target iOS 26 / macOS 26, so they
-    # need Xcode 26. One runner keeps macOS minutes (billed ~10x) down.
+    # The Apple-only pieces run on one macOS runner: the app/extension are Xcode-only
+    # and target iOS 26 / macOS 26, so they need Xcode 26. StashKit and the CLI build
+    # here too, as a regression check for the Apple platforms specifically, alongside
+    # the Linux build above. One runner keeps macOS minutes (billed ~10x) down.
     #
     # Pinned to macos-26 (not macos-latest, which still maps to macOS 15): the
     # Icon Composer AppIcon.icon is compiled by actool via the AssetCatalogAgent

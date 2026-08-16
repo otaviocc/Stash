@@ -6,12 +6,14 @@ bookmarks, tags, Smart Views, import/export, and admin operations.
 
 ## Prerequisites
 
-- Swift 6.2 or later (ships with Xcode 26)
-- macOS 26 or later
+- Swift 6.2 or later (ships with Xcode 26 on macOS; install from
+  [swift.org](https://www.swift.org/install/) on Linux)
+- macOS 26 or later, or Linux (tested on Ubuntu via the official `swift`
+  container images)
 
 ## Dependencies
 
-All fetched automatically by SwiftPM (`swift-tools-version:6.2`, macOS 26+):
+All fetched automatically by SwiftPM (`swift-tools-version:6.2`):
 
 | Package | Purpose |
 |---------|---------|

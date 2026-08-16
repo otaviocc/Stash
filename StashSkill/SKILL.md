@@ -33,7 +33,7 @@ stash --help
 ```
 
 If this prints the command list, the binary is available. If the shell reports
-`command not found: stash`, it is not installed; build it (`cd CLI && swift
+the command as not found, it is not installed; build it (`cd CLI && swift
 build -c release`, then copy `.build/release/stash` onto `$PATH`).
 
 **2. A server URL is configured.**
@@ -355,8 +355,8 @@ stash tags                              # verify
 **Export and re-import (backup / migrate):**
 
 ```bash
-stash export --output ~/Desktop/stash-backup.json
-stash import ~/Desktop/stash-backup.json --format stash-json
+stash export --output ~/stash-backup.json
+stash import ~/stash-backup.json --format stash-json
 ```
 
 ---
