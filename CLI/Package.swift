@@ -17,7 +17,7 @@ let package = Package(
         .package(path: "../StashKit"),
         // Re-declared (StashKit's transitive dependency) so the CLI can build a custom
         // login NetworkRequest whose response covers the 2FA-challenge branch.
-        .package(url: "https://github.com/otaviocc/MicroClient", from: "0.0.27")
+        .package(url: "https://github.com/otaviocc/MicroClient", from: "0.0.28")
     ],
     targets: [
         .executableTarget(

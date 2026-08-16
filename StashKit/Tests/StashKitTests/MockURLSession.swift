@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 import Foundation
+#if canImport(FoundationNetworking)
+    import FoundationNetworking
+#endif
 import MicroClient
 
 // MARK: - MockURLSession

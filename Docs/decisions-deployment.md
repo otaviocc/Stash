@@ -83,17 +83,22 @@ The release itself attaches the canonical `docker-compose.yml` to a GitHub
 Release, so someone can grab just that file and run `docker compose up -d`
 against the published image with no clone and no build.
 
-`ci.yml` ended up split into a Linux `backend` job and a macOS `apple` job,
-because the components genuinely don't share a platform or a toolchain.
-StashKit and the CLI depend on `MicroClient`, which uses Apple Foundation's
-networking types without the shim Linux needs, so they simply don't compile
-there: the `apple` job has to run on macOS, covering StashKit, the CLI, and
-the app plus Share Extension for both iOS and macOS, all on one runner
-(macOS runner minutes bill at roughly 10× on a private repo, so I didn't
-want to fan this out further). The app itself has no test target by design,
-so CI build-verifies it on both platforms rather than unit-testing it:
-enough to catch compile-level regressions across the cross-platform `#if`
-shells, which is the actual risk for a target with no tests.
+`ci.yml` is split into a Linux `backend` job, a Linux `linux-cli` job, and a
+macOS `apple` job. StashKit and the CLI depend on `MicroClient`, which through
+0.0.27 used Apple Foundation's networking types with no shim for Linux, so
+they didn't compile there; MicroClient 0.0.28 added the
+`#if canImport(FoundationNetworking)` shim, and StashKit picked up the same
+shim in `StashClient.swift` and its test double, so both now build and test
+natively on `ubuntu-latest`. The `apple` job still has to run on macOS,
+covering the app plus Share Extension for both iOS and macOS on one runner
+(macOS runner minutes bill at roughly 10× on a private repo, so I didn't want
+to fan this out further); it also rebuilds StashKit and the CLI there as an
+Apple-platform regression check alongside the Linux build. The app itself has
+no test target by design, so CI build-verifies it on both platforms rather
+than unit-testing it: enough to catch compile-level regressions across the
+cross-platform `#if` shells, which is the actual risk for a target with no
+tests. The CLI is still not shipped as a Linux binary — only compiled and
+tested — since `release.yml` doesn't publish a CLI artifact for any platform.
 
 ---
 

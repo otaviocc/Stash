@@ -15,7 +15,7 @@ let package = Package(
     ],
     dependencies: [
         // Typed networking layer (NetworkRequest / NetworkClient / interceptors).
-        .package(url: "https://github.com/otaviocc/MicroClient", from: "0.0.27")
+        .package(url: "https://github.com/otaviocc/MicroClient", from: "0.0.28")
     ],
     targets: [
         .target(
